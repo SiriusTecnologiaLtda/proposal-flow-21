@@ -149,14 +149,19 @@ export default function SalesTeamPage() {
                 const unitName = (member as any).unit_info?.name;
                 return (
                   <div key={member.id} className="rounded-lg border border-border bg-card p-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${roleColors[role]}`}>
-                        <UserCog className="h-4 w-4" />
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${roleColors[role]}`}>
+                          <UserCog className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{member.name}</p>
+                          <p className="text-xs text-muted-foreground">{member.code}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.code}</p>
-                      </div>
+                      <button className="rounded p-1 text-muted-foreground hover:text-foreground">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {member.email && <p>📧 {member.email}</p>}

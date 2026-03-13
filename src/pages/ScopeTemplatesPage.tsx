@@ -55,7 +55,12 @@ export default function ScopeTemplatesPage() {
                           <p className="text-xs text-muted-foreground">{items.length} itens · {template.category}</p>
                         </div>
                       </div>
-                      {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      <div className="flex items-center gap-2">
+                        <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      </div>
                     </button>
                     {isOpen && (
                       <div className="border-t border-border px-4 py-3">

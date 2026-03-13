@@ -22,10 +22,13 @@ export type Database = {
           contact: string | null
           created_at: string
           email: string | null
+          esn_id: string | null
+          gsn_id: string | null
           id: string
           name: string
           phone: string | null
           state_registration: string | null
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -35,10 +38,13 @@ export type Database = {
           contact?: string | null
           created_at?: string
           email?: string | null
+          esn_id?: string | null
+          gsn_id?: string | null
           id?: string
           name: string
           phone?: string | null
           state_registration?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -48,13 +54,38 @@ export type Database = {
           contact?: string | null
           created_at?: string
           email?: string | null
+          esn_id?: string | null
+          gsn_id?: string | null
           id?: string
           name?: string
           phone?: string | null
           state_registration?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_esn_id_fkey"
+            columns: ["esn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_gsn_id_fkey"
+            columns: ["gsn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_conditions: {
         Row: {
@@ -355,6 +386,7 @@ export type Database = {
           linked_gsn_id: string | null
           name: string
           role: Database["public"]["Enums"]["sales_role"]
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -365,6 +397,7 @@ export type Database = {
           linked_gsn_id?: string | null
           name: string
           role: Database["public"]["Enums"]["sales_role"]
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -375,6 +408,7 @@ export type Database = {
           linked_gsn_id?: string | null
           name?: string
           role?: Database["public"]["Enums"]["sales_role"]
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -383,6 +417,13 @@ export type Database = {
             columns: ["linked_gsn_id"]
             isOneToOne: false
             referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_team_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
             referencedColumns: ["id"]
           },
         ]
@@ -459,6 +500,7 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          tax_factor: number
           updated_at: string
         }
         Insert: {
@@ -470,6 +512,7 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          tax_factor?: number
           updated_at?: string
         }
         Update: {
@@ -481,6 +524,7 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          tax_factor?: number
           updated_at?: string
         }
         Relationships: []

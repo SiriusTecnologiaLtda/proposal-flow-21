@@ -12,6 +12,7 @@ import ClientsList from "@/pages/ClientsList";
 import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";
+import UnitsPage from "@/pages/UnitsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -42,8 +43,9 @@ function ProtectedRoutes() {
         <Route path="/propostas/:id" element={<ProposalCreate />} />
         <Route path="/clientes" element={<ClientsList />} />
         <Route path="/templates" element={<ScopeTemplatesPage />} />
-        <Route path="/time" element={<SalesTeamPage />} />
-        <Route path="/configuracoes" element={<SettingsPage />} />
+            <Route path="/time" element={<SalesTeamPage />} />
+            <Route path="/unidades" element={<UnitsPage />} />
+            <Route path="/configuracoes" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

@@ -1,4 +1,4 @@
-import { useSalesTeam } from "@/hooks/useSupabaseData";
+import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { UserCog } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
@@ -15,6 +15,7 @@ const roleColors: Record<string, string> = {
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
+  const { data: units = [] } = useUnits();
 
   const grouped = salesTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
     (acc[m.role] = acc[m.role] || []).push(m);
@@ -40,6 +41,7 @@ export default function SalesTeamPage() {
                 const linkedGsn = member.linked_gsn_id
                   ? salesTeam.find((m) => m.id === member.linked_gsn_id)
                   : null;
+                const unitName = (member as any).unit_info?.name;
                 return (
                   <div key={member.id} className="rounded-lg border border-border bg-card p-4">
                     <div className="flex items-start gap-3">
@@ -54,6 +56,7 @@ export default function SalesTeamPage() {
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {member.email && <p>📧 {member.email}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
+                      {unitName && <p>🏢 {unitName}</p>}
                     </div>
                   </div>
                 );

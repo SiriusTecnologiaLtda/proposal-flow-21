@@ -390,6 +390,7 @@ export default function ProposalCreate() {
     };
     setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
+    setExpandedTemplateIds((prev) => new Set([...prev, "_avulso"]));
   }
 
   // Add child to process

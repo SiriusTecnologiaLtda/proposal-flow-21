@@ -26,6 +26,7 @@ export default function ScopeTemplatesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data: templates = [] } = useScopeTemplates();
   const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
   const { toast } = useToast();
   const qc = useQueryClient();
 

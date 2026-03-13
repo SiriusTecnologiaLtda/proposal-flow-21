@@ -12,6 +12,7 @@ import ClientsList from "@/pages/ClientsList";
 import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";
+import UnitsPage from "@/pages/UnitsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound.tsx";

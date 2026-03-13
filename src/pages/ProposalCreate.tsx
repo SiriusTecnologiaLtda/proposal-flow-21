@@ -251,6 +251,10 @@ export default function ProposalCreate() {
               </Select>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Descrição do Projeto</Label>
+            <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
 
           {/* Client */}
           <div className="space-y-3">

@@ -170,6 +170,7 @@ export default function ProposalCreate() {
         hourly_rate: hourlyRate,
         gp_percentage: gpPercentage,
         negotiation,
+        description,
         scopeItems: allScopeItems,
         payments: paymentRows,
       });

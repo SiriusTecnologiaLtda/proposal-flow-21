@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Building2, List, LayoutGrid } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2 } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -218,14 +218,19 @@ export default function ClientsList() {
               onClick={() => openEditDialog(client)}
               className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
             >
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Building2 className="h-4 w-4" />
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
+                    <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
-                  <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
-                </div>
+                <button onClick={(e) => { e.stopPropagation(); openEditDialog(client); }} className="rounded p-1 text-muted-foreground hover:text-foreground">
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
               </div>
               <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                 {client.email && <p>📧 {client.email}</p>}

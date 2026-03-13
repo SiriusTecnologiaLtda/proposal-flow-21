@@ -464,6 +464,7 @@ export default function ProposalCreate() {
                   <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{proposalType === "projeto" ? "Projeto" : proposalType === "banco_de_horas" ? "Banco de Horas" : "—"}</span></p>
                   <p><span className="text-muted-foreground">Produto:</span> <span className="font-medium">{product || "—"}</span></p>
                   <p><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{selectedClient?.name || "—"}</span></p>
+                  <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>
                   <p><span className="text-muted-foreground">ESN:</span> <span className="font-medium">{selectedEsn?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">GSN:</span> <span className="font-medium">{autoGsn?.name || "—"}</span></p>
                 </div>

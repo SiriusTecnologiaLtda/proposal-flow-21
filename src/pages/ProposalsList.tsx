@@ -50,33 +50,41 @@ export default function ProposalsList() {
       </div>
 
       <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-5 md:gap-4">
-          <span className="text-xs font-medium text-muted-foreground col-span-2">Proposta / Cliente</span>
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-7 md:gap-4">
+          <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
+          <span className="text-xs font-medium text-muted-foreground">Descrição</span>
           <span className="text-xs font-medium text-muted-foreground">Tipo</span>
           <span className="text-xs font-medium text-muted-foreground">Produto</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Valor Total</span>
           <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
         </div>
         <div className="divide-y divide-border">
           {filtered.map((p) => {
             const status = statusMap[p.status] || statusMap.rascunho;
             const clientName = (p as any).clients?.name || "—";
+            const description = (p as any).description || "";
+            const totalValue = typeof (p as any).total_value === "number" ? (p as any).total_value : null;
             return (
               <Link
                 key={p.id}
                 to={`/propostas/${p.id}`}
-                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-5 md:items-center md:gap-4"
+                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-7 md:items-center md:gap-4"
               >
                 <div className="col-span-2 flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <FileText className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{p.number}</p>
-                    <p className="text-xs text-muted-foreground truncate">{clientName}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{clientName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.number}</p>
                   </div>
                 </div>
+                <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
                 <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
                 <p className="text-sm text-foreground">{p.product}</p>
+                <p className="text-sm font-medium text-foreground text-right">
+                  {totalValue != null ? `R$ ${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                </p>
                 <div className="text-right">
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
                     {status.label}

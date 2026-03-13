@@ -23,9 +23,11 @@ export default function ProposalsList() {
 
   const filtered = proposals.filter((p) => {
     const clientName = (p as any).clients?.name || "";
+    const desc = (p as any).description || "";
     return (
       p.number.toLowerCase().includes(search.toLowerCase()) ||
-      clientName.toLowerCase().includes(search.toLowerCase())
+      clientName.toLowerCase().includes(search.toLowerCase()) ||
+      desc.toLowerCase().includes(search.toLowerCase())
     );
   });
 

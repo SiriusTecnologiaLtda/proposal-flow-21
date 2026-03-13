@@ -238,6 +238,7 @@ export type Database = {
           id: string
           included: boolean
           notes: string | null
+          parent_id: string | null
           phase: number
           proposal_id: string
           sort_order: number
@@ -249,6 +250,7 @@ export type Database = {
           id?: string
           included?: boolean
           notes?: string | null
+          parent_id?: string | null
           phase?: number
           proposal_id: string
           sort_order?: number
@@ -260,12 +262,20 @@ export type Database = {
           id?: string
           included?: boolean
           notes?: string | null
+          parent_id?: string | null
           phase?: number
           proposal_id?: string
           sort_order?: number
           template_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "proposal_scope_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_scope_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proposal_scope_items_proposal_id_fkey"
             columns: ["proposal_id"]

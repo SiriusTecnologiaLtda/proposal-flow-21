@@ -157,7 +157,7 @@ export default function ProposalCreate() {
           description: item.description,
           included: false,
           hours: item.default_hours || 0,
-          phase: item.phase || 1,
+          phase: 1,
           notes: "",
           template_id: templateId,
         }));

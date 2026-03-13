@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
+import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2, Plus, Trash2, FolderPlus } from "lucide-react";
 import { useScopeTemplates, useProducts } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,15 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const emptyForm = { name: "", product: "", category: "" };
 
+interface ScopeItemForm {
+  id?: string;
+  description: string;
+  default_hours: number;
+  sort_order: number;
+  parent_id?: string | null;
+  children?: ScopeItemForm[];
+}
+
 export default function ScopeTemplatesPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -23,41 +32,104 @@ export default function ScopeTemplatesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [items, setItems] = useState<{ id?: string; description: string; default_hours: number; phase: number; sort_order: number }[]>([]);
+  const [parentItems, setParentItems] = useState<ScopeItemForm[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Build hierarchical structure from flat items
+  function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
+    const parents = flatItems
+      .filter((it: any) => !it.parent_id)
+      .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+    return parents.map((p: any) => ({
+      id: p.id,
+      description: p.description,
+      default_hours: p.default_hours,
+      sort_order: p.sort_order,
+      parent_id: null,
+      children: flatItems
+        .filter((c: any) => c.parent_id === p.id)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((c: any) => ({
+          id: c.id,
+          description: c.description,
+          default_hours: c.default_hours,
+          sort_order: c.sort_order,
+          parent_id: p.id,
+        })),
+    }));
+  }
 
   const openNew = () => {
     setEditingId(null);
     setForm(emptyForm);
-    setItems([]);
+    setParentItems([]);
     setDialogOpen(true);
   };
 
   const openEdit = (template: any) => {
     setEditingId(template.id);
     setForm({ name: template.name, product: template.product, category: template.category });
-    const templateItems = (template.scope_template_items || []).map((it: any) => ({
-      id: it.id,
-      description: it.description,
-      default_hours: it.default_hours,
-      phase: it.phase,
-      sort_order: it.sort_order,
-    }));
-    setItems(templateItems.sort((a: any, b: any) => a.sort_order - b.sort_order));
+    const flatItems = template.scope_template_items || [];
+    setParentItems(buildHierarchy(flatItems));
     setDialogOpen(true);
   };
 
-  const addItem = () => {
-    setItems((prev) => [...prev, { description: "", default_hours: 0, phase: 1, sort_order: prev.length }]);
+  const addParent = () => {
+    setParentItems((prev) => [
+      ...prev,
+      { description: "", default_hours: 0, sort_order: prev.length, parent_id: null, children: [] },
+    ]);
   };
 
-  const removeItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const removeParent = (index: number) => {
+    setParentItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
-    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+  const updateParent = (index: number, field: string, value: any) => {
+    setParentItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
   };
+
+  const addChild = (parentIndex: number) => {
+    setParentItems((prev) =>
+      prev.map((p, i) =>
+        i === parentIndex
+          ? { ...p, children: [...(p.children || []), { description: "", default_hours: 0, sort_order: (p.children || []).length }] }
+          : p
+      )
+    );
+  };
+
+  const removeChild = (parentIndex: number, childIndex: number) => {
+    setParentItems((prev) =>
+      prev.map((p, i) =>
+        i === parentIndex
+          ? { ...p, children: (p.children || []).filter((_, ci) => ci !== childIndex) }
+          : p
+      )
+    );
+  };
+
+  const updateChild = (parentIndex: number, childIndex: number, field: string, value: any) => {
+    setParentItems((prev) =>
+      prev.map((p, i) =>
+        i === parentIndex
+          ? {
+              ...p,
+              children: (p.children || []).map((c, ci) =>
+                ci === childIndex ? { ...c, [field]: value } : c
+              ),
+            }
+          : p
+      )
+    );
+  };
+
+  // Calculate parent hours as sum of children
+  function parentHours(parent: ScopeItemForm): number {
+    if (!parent.children || parent.children.length === 0) return parent.default_hours;
+    return parent.children.reduce((sum, c) => sum + (c.default_hours || 0), 0);
+  }
 
   const handleSave = async () => {
     if (!form.name || !form.product || !form.category) {
@@ -70,24 +142,49 @@ export default function ScopeTemplatesPage() {
       if (editingId) {
         const { error } = await supabase.from("scope_templates").update({ name: form.name, product: form.product, category: form.category }).eq("id", editingId);
         if (error) throw error;
-        // Delete old items and re-insert
-        await supabase.from("scope_template_items").delete().eq("template_id", editingId);
+        // Delete old items (children first due to FK)
+        const { data: existingItems } = await supabase.from("scope_template_items").select("id, parent_id").eq("template_id", editingId);
+        if (existingItems) {
+          const childIds = existingItems.filter(i => i.parent_id).map(i => i.id);
+          if (childIds.length > 0) await supabase.from("scope_template_items").delete().in("id", childIds);
+          const parentIds = existingItems.filter(i => !i.parent_id).map(i => i.id);
+          if (parentIds.length > 0) await supabase.from("scope_template_items").delete().in("id", parentIds);
+        }
       } else {
         const { data, error } = await supabase.from("scope_templates").insert({ name: form.name, product: form.product, category: form.category }).select().single();
         if (error) throw error;
         templateId = data.id;
       }
 
-      if (items.length > 0 && templateId) {
-        const rows = items.map((it, i) => ({
-          template_id: templateId!,
-          description: it.description,
-          default_hours: it.default_hours,
-          phase: it.phase,
-          sort_order: i,
-        }));
-        const { error: itemsError } = await supabase.from("scope_template_items").insert(rows);
-        if (itemsError) throw itemsError;
+      if (parentItems.length > 0 && templateId) {
+        for (let pi = 0; pi < parentItems.length; pi++) {
+          const p = parentItems[pi];
+          const hours = parentHours(p);
+          const { data: parentData, error: parentError } = await supabase
+            .from("scope_template_items")
+            .insert({
+              template_id: templateId!,
+              description: p.description,
+              default_hours: hours,
+              sort_order: pi,
+              parent_id: null,
+            })
+            .select()
+            .single();
+          if (parentError) throw parentError;
+
+          if (p.children && p.children.length > 0) {
+            const childRows = p.children.map((c, ci) => ({
+              template_id: templateId!,
+              description: c.description,
+              default_hours: c.default_hours,
+              sort_order: ci,
+              parent_id: parentData.id,
+            }));
+            const { error: childError } = await supabase.from("scope_template_items").insert(childRows);
+            if (childError) throw childError;
+          }
+        }
       }
 
       toast({ title: editingId ? "Template atualizado!" : "Template criado!" });
@@ -156,52 +253,63 @@ export default function ScopeTemplatesPage() {
               </div>
             </div>
 
-            {/* Items */}
+            {/* Hierarchical Items */}
             <div className="mt-2">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold">Itens do Escopo</Label>
-                <Button variant="outline" size="sm" onClick={addItem}>
-                  <Plus className="mr-1 h-3 w-3" />Adicionar Item
+                <Button variant="outline" size="sm" onClick={addParent}>
+                  <FolderPlus className="mr-1 h-3 w-3" />Adicionar Processo
                 </Button>
               </div>
-              <div className="space-y-2">
-                {items.map((item, i) => (
-                  <div key={i} className="flex items-start gap-2 rounded-md border border-border p-2">
-                    <span className="mt-2 text-xs text-muted-foreground w-5 shrink-0 text-right">{i + 1}.</span>
-                    <div className="flex-1 grid gap-1">
+              <div className="space-y-3">
+                {parentItems.map((parent, pi) => (
+                  <div key={pi} className="rounded-md border border-border overflow-hidden">
+                    {/* Parent row */}
+                    <div className="flex items-center gap-2 bg-muted/50 px-3 py-2">
+                      <span className="text-xs font-semibold text-muted-foreground w-5 shrink-0 text-right">{pi + 1}.</span>
                       <Input
-                        placeholder="Descrição do item"
-                        value={item.description}
-                        onChange={(e) => updateItem(i, "description", e.target.value)}
-                        className="text-sm"
+                        placeholder="Nome do processo (ex: CONTAS A PAGAR)"
+                        value={parent.description}
+                        onChange={(e) => updateParent(pi, "description", e.target.value)}
+                        className="text-sm font-semibold flex-1"
                       />
-                      <div className="flex gap-2">
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-muted-foreground">Horas:</Label>
-                          <Input
-                            type="number"
-                            value={item.default_hours}
-                            onChange={(e) => updateItem(i, "default_hours", Number(e.target.value))}
-                            className="w-16 h-7 text-xs"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Label className="text-[10px] text-muted-foreground">Fase:</Label>
-                          <Input
-                            type="number"
-                            value={item.phase}
-                            onChange={(e) => updateItem(i, "phase", Number(e.target.value))}
-                            className="w-14 h-7 text-xs"
-                          />
-                        </div>
-                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{parentHours(parent)}h</span>
+                      <button onClick={() => removeParent(pi)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <button onClick={() => removeItem(i)} className="mt-2 rounded p-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {/* Children */}
+                    <div className="px-3 py-2 space-y-1.5">
+                      {(parent.children || []).map((child, ci) => (
+                        <div key={ci} className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-8 shrink-0 text-right">{pi + 1}.{ci + 1}</span>
+                          <Input
+                            placeholder="Descrição do item"
+                            value={child.description}
+                            onChange={(e) => updateChild(pi, ci, "description", e.target.value)}
+                            className="text-sm flex-1"
+                          />
+                          <div className="flex items-center gap-1">
+                            <Label className="text-[10px] text-muted-foreground">Horas:</Label>
+                            <Input
+                              type="number"
+                              value={child.default_hours}
+                              onChange={(e) => updateChild(pi, ci, "default_hours", Number(e.target.value))}
+                              className="w-16 h-7 text-xs"
+                            />
+                          </div>
+                          <button onClick={() => removeChild(pi, ci)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => addChild(pi)}>
+                        <Plus className="mr-1 h-3 w-3" />Adicionar Item
+                      </Button>
+                    </div>
                   </div>
                 ))}
-                {items.length === 0 && <p className="text-xs text-muted-foreground">Nenhum item adicionado.</p>}
+                {parentItems.length === 0 && <p className="text-xs text-muted-foreground">Nenhum processo adicionado.</p>}
               </div>
             </div>
 
@@ -212,6 +320,7 @@ export default function ScopeTemplatesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Template List */}
       <div className="space-y-4">
         {Object.entries(grouped).map(([product, templates]) => (
           <div key={product}>
@@ -219,7 +328,9 @@ export default function ScopeTemplatesPage() {
             <div className="space-y-2">
               {templates.map((template) => {
                 const isOpen = expandedId === template.id;
-                const templateItems = (template as any).scope_template_items || [];
+                const flatItems = (template as any).scope_template_items || [];
+                const hierarchy = buildHierarchy(flatItems);
+                const totalItems = flatItems.length;
                 return (
                   <div key={template.id} className="rounded-lg border border-border bg-card overflow-hidden">
                     <button
@@ -232,7 +343,7 @@ export default function ScopeTemplatesPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">{template.name}</p>
-                          <p className="text-xs text-muted-foreground">{templateItems.length} itens · {template.category}</p>
+                          <p className="text-xs text-muted-foreground">{totalItems} itens · {template.category}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -248,14 +359,28 @@ export default function ScopeTemplatesPage() {
                     </button>
                     {isOpen && (
                       <div className="border-t border-border px-4 py-3">
-                        <div className="space-y-1.5">
-                          {templateItems.map((item: any, i: number) => (
-                            <div key={item.id} className="flex items-center gap-2 text-sm text-foreground">
-                              <span className="shrink-0 text-xs text-muted-foreground w-5 text-right">{i + 1}.</span>
-                              <span>{item.description}</span>
+                        <div className="space-y-2">
+                          {hierarchy.map((parent, pi) => (
+                            <div key={parent.id || pi}>
+                              <div className="flex items-center gap-2 text-sm font-semibold text-foreground bg-muted/40 rounded px-2 py-1">
+                                <span className="text-xs text-muted-foreground w-5 text-right">{pi + 1}.</span>
+                                <span className="flex-1">{parent.description}</span>
+                                <span className="text-xs text-muted-foreground">{parentHours(parent)}h</span>
+                              </div>
+                              {(parent.children || []).length > 0 && (
+                                <div className="ml-7 mt-1 space-y-0.5">
+                                  {(parent.children || []).map((child, ci) => (
+                                    <div key={child.id || ci} className="flex items-center gap-2 text-sm text-foreground">
+                                      <span className="text-[10px] text-muted-foreground w-8 text-right">{pi + 1}.{ci + 1}</span>
+                                      <span className="flex-1">{child.description}</span>
+                                      <span className="text-xs text-muted-foreground">{child.default_hours}h</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
-                          {templateItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item neste template.</p>}
+                          {hierarchy.length === 0 && <p className="text-sm text-muted-foreground">Nenhum item neste template.</p>}
                         </div>
                       </div>
                     )}

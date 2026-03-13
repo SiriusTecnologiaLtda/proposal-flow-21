@@ -12,6 +12,7 @@ const navItems = [
   { path: "/clientes", label: "Clientes", icon: Users },
   { path: "/unidades", label: "Unidades", icon: Building },
   { path: "/templates", label: "Templates de Escopo", icon: LayoutTemplate },
+  { path: "/produtos-categorias", label: "Produtos & Categorias", icon: Package },
   { path: "/time", label: "Time de Vendas", icon: UserCog },
   { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];

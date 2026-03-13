@@ -250,7 +250,12 @@ export default function ScopeTemplatesPage() {
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs">Categoria *</Label>
-                <Input placeholder="Ex: Fiscal, Compras" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (<SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, LayoutTemplate, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
 import { useScopeTemplates } from "@/hooks/useSupabaseData";
 import { Input } from "@/components/ui/input";
 

@@ -215,6 +215,47 @@ export default function ProposalCreate() {
     return total;
   }, [scopeProcesses]);
 
+  // Group scope processes by template for grouped display
+  const groupedScope = useMemo(() => {
+    const groups: { templateId: string | undefined; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const templateGroups = new Map<string, ScopeProcess[]>();
+    const noTemplate: ScopeProcess[] = [];
+
+    for (const proc of scopeProcesses) {
+      if (proc.templateId) {
+        if (!templateGroups.has(proc.templateId)) templateGroups.set(proc.templateId, []);
+        templateGroups.get(proc.templateId)!.push(proc);
+      } else {
+        noTemplate.push(proc);
+      }
+    }
+
+    for (const [tid, procs] of templateGroups) {
+      const tmpl = scopeTemplates.find((t) => t.id === tid);
+      groups.push({
+        templateId: tid,
+        templateName: tmpl?.name || "Template",
+        category: tmpl?.category || "",
+        processes: procs,
+      });
+    }
+
+    if (noTemplate.length > 0) {
+      groups.push({ templateId: undefined, templateName: "Itens Avulsos", category: "", processes: noTemplate });
+    }
+
+    return groups;
+  }, [scopeProcesses, scopeTemplates]);
+
+  function toggleTemplateExpand(templateId: string) {
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      return next;
+    });
+  }
+
   const gpHours = Math.ceil(totalHours * (gpPercentage / 100));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 

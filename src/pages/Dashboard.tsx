@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { FileText, Users, TrendingUp, Clock, Plus } from "lucide-react";
-import { mockProposals, mockClients } from "@/data/mockData";
+import { useProposals, useClients } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 
 const statusMap: Record<string, { label: string; className: string }> = {
@@ -11,14 +11,15 @@ const statusMap: Record<string, { label: string; className: string }> = {
 };
 
 export default function Dashboard() {
-  const totalValue = mockProposals.reduce((s, p) => s + p.totalValue, 0);
-  const totalHours = mockProposals.reduce((s, p) => s + p.totalHours, 0);
+  const { data: proposals = [] } = useProposals();
+  const { data: clients = [] } = useClients();
 
+  const totalValue = proposals.reduce((s, p) => s + Number(p.hourly_rate), 0);
   const stats = [
-    { label: "Propostas", value: mockProposals.length, icon: FileText, color: "text-primary" },
-    { label: "Clientes", value: mockClients.length, icon: Users, color: "text-success" },
+    { label: "Propostas", value: proposals.length, icon: FileText, color: "text-primary" },
+    { label: "Clientes", value: clients.length, icon: Users, color: "text-success" },
     { label: "Valor Total", value: `R$ ${(totalValue / 1000).toFixed(0)}k`, icon: TrendingUp, color: "text-warning" },
-    { label: "Horas Estimadas", value: totalHours.toLocaleString("pt-BR"), icon: Clock, color: "text-primary" },
+    { label: "Total", value: proposals.length, icon: Clock, color: "text-primary" },
   ];
 
   return (
@@ -36,7 +37,6 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
@@ -53,14 +53,14 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent proposals */}
       <div className="rounded-lg border border-border bg-card">
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold text-foreground">Propostas Recentes</h2>
         </div>
         <div className="divide-y divide-border">
-          {mockProposals.map((proposal) => {
-            const status = statusMap[proposal.status];
+          {proposals.slice(0, 10).map((proposal) => {
+            const status = statusMap[proposal.status] || statusMap.rascunho;
+            const clientName = (proposal as any).clients?.name || "—";
             return (
               <Link
                 key={proposal.id}
@@ -73,23 +73,20 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{proposal.number}</p>
-                    <p className="text-xs text-muted-foreground">{proposal.clientName}</p>
+                    <p className="text-xs text-muted-foreground">{clientName}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="hidden text-right md:block">
-                    <p className="text-sm font-medium text-foreground">
-                      R$ {proposal.totalValue.toLocaleString("pt-BR")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{proposal.totalHours}h</p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                    {status.label}
-                  </span>
-                </div>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                  {status.label}
+                </span>
               </Link>
             );
           })}
+          {proposals.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              Nenhuma proposta ainda. Crie sua primeira proposta!
+            </div>
+          )}
         </div>
       </div>
     </div>

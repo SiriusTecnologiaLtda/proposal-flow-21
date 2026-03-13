@@ -1,0 +1,4 @@
+project_id = "vpyniuyqmseusowjreth"
+
+[functions.generate-proposal-pdf]
+verify_jwt = false

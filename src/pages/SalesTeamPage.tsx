@@ -1,4 +1,4 @@
-import { mockSalesTeam } from "@/data/mockData";
+import { useSalesTeam } from "@/hooks/useSupabaseData";
 import { UserCog } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
@@ -14,7 +14,9 @@ const roleColors: Record<string, string> = {
 };
 
 export default function SalesTeamPage() {
-  const grouped = mockSalesTeam.reduce<Record<string, typeof mockSalesTeam>>((acc, m) => {
+  const { data: salesTeam = [] } = useSalesTeam();
+
+  const grouped = salesTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
     (acc[m.role] = acc[m.role] || []).push(m);
     return acc;
   }, {});
@@ -23,9 +25,7 @@ export default function SalesTeamPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Time de Vendas</h1>
-        <p className="text-sm text-muted-foreground">
-          {mockSalesTeam.length} membros cadastrados
-        </p>
+        <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados</p>
       </div>
 
       {(["gsn", "esn", "arquiteto"] as const).map((role) => {
@@ -37,14 +37,11 @@ export default function SalesTeamPage() {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {members.map((member) => {
-                const linkedGsn = member.linkedGsnId
-                  ? mockSalesTeam.find((m) => m.id === member.linkedGsnId)
+                const linkedGsn = member.linked_gsn_id
+                  ? salesTeam.find((m) => m.id === member.linked_gsn_id)
                   : null;
                 return (
-                  <div
-                    key={member.id}
-                    className="rounded-lg border border-border bg-card p-4"
-                  >
+                  <div key={member.id} className="rounded-lg border border-border bg-card p-4">
                     <div className="flex items-start gap-3">
                       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${roleColors[role]}`}>
                         <UserCog className="h-4 w-4" />
@@ -55,14 +52,15 @@ export default function SalesTeamPage() {
                       </div>
                     </div>
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                      <p>📧 {member.email}</p>
-                      {linkedGsn && (
-                        <p>🔗 GSN: {linkedGsn.name}</p>
-                      )}
+                      {member.email && <p>📧 {member.email}</p>}
+                      {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                     </div>
                   </div>
                 );
               })}
+              {members.length === 0 && (
+                <p className="text-sm text-muted-foreground col-span-full">Nenhum membro neste grupo.</p>
+              )}
             </div>
           </div>
         );

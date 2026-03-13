@@ -60,6 +60,11 @@ export default function LoginPage() {
   };
 
   return (
+  if (!authLoading && user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">

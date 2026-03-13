@@ -32,8 +32,28 @@ export default function SalesTeamPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
+
+  const openNew = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (member: any) => {
+    setEditingId(member.id);
+    setForm({
+      name: member.name || "",
+      code: member.code || "",
+      email: member.email || "",
+      role: member.role || "",
+      unit_id: member.unit_id || "",
+      linked_gsn_id: member.linked_gsn_id || "",
+    });
+    setDialogOpen(true);
+  };
 
   const handleSave = async () => {
     if (!form.name || !form.code || !form.role) {
@@ -41,22 +61,26 @@ export default function SalesTeamPage() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("sales_team").insert({
+    const payload = {
       name: form.name,
       code: form.code,
       email: form.email || null,
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
-    });
+    };
+    const { error } = editingId
+      ? await supabase.from("sales_team").update(payload).eq("id", editingId)
+      : await supabase.from("sales_team").insert(payload);
     setSaving(false);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Membro adicionado!" });
+      toast({ title: editingId ? "Membro atualizado!" : "Membro adicionado!" });
       qc.invalidateQueries({ queryKey: ["sales_team"] });
       setDialogOpen(false);
       setForm(emptyForm);
+      setEditingId(null);
     }
   };
 

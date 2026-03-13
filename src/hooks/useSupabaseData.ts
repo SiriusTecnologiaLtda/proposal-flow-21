@@ -133,6 +133,22 @@ export function useProposals() {
   });
 }
 
+export function useProposal(id: string | undefined) {
+  return useQuery({
+    queryKey: ["proposal", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proposals")
+        .select("*, clients(name), proposal_scope_items(*), payment_conditions(*)")
+        .eq("id", id!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
@@ -153,6 +169,63 @@ export function useCreateProposal() {
         if (payError) throw payError;
       }
 
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["proposals"] }),
+  });
+}
+
+export function useUpdateProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, scopeItems, payments, ...proposalData }: any) => {
+      const { data, error } = await supabase.from("proposals").update(proposalData).eq("id", id).select().single();
+      if (error) throw error;
+
+      // Replace scope items
+      await supabase.from("proposal_scope_items").delete().eq("proposal_id", id);
+      if (scopeItems && scopeItems.length > 0) {
+        const items = scopeItems.map((item: any) => ({ ...item, proposal_id: id }));
+        const { error: scopeError } = await supabase.from("proposal_scope_items").insert(items);
+        if (scopeError) throw scopeError;
+      }
+
+      // Replace payments
+      await supabase.from("payment_conditions").delete().eq("proposal_id", id);
+      if (payments && payments.length > 0) {
+        const paymentRows = payments.map((p: any) => ({ ...p, proposal_id: id }));
+        const { error: payError } = await supabase.from("payment_conditions").insert(paymentRows);
+        if (payError) throw payError;
+      }
+
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["proposals"] });
+      qc.invalidateQueries({ queryKey: ["proposal", vars.id] });
+    },
+  });
+}
+
+export function useDeleteProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("proposal_scope_items").delete().eq("proposal_id", id);
+      await supabase.from("payment_conditions").delete().eq("proposal_id", id);
+      const { error } = await supabase.from("proposals").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["proposals"] }),
+  });
+}
+
+export function useUpdateProposalStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { data, error } = await supabase.from("proposals").update({ status } as any).eq("id", id).select().single();
+      if (error) throw error;
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["proposals"] }),

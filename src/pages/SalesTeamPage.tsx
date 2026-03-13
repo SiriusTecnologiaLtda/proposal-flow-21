@@ -32,8 +32,28 @@ export default function SalesTeamPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
+
+  const openNew = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (member: any) => {
+    setEditingId(member.id);
+    setForm({
+      name: member.name || "",
+      code: member.code || "",
+      email: member.email || "",
+      role: member.role || "",
+      unit_id: member.unit_id || "",
+      linked_gsn_id: member.linked_gsn_id || "",
+    });
+    setDialogOpen(true);
+  };
 
   const handleSave = async () => {
     if (!form.name || !form.code || !form.role) {
@@ -41,22 +61,26 @@ export default function SalesTeamPage() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("sales_team").insert({
+    const payload = {
       name: form.name,
       code: form.code,
       email: form.email || null,
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
-    });
+    };
+    const { error } = editingId
+      ? await supabase.from("sales_team").update(payload).eq("id", editingId)
+      : await supabase.from("sales_team").insert(payload);
     setSaving(false);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Membro adicionado!" });
+      toast({ title: editingId ? "Membro atualizado!" : "Membro adicionado!" });
       qc.invalidateQueries({ queryKey: ["sales_team"] });
       setDialogOpen(false);
       setForm(emptyForm);
+      setEditingId(null);
     }
   };
 
@@ -72,7 +96,7 @@ export default function SalesTeamPage() {
           <h1 className="text-2xl font-semibold text-foreground">Time de Vendas</h1>
           <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+        <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" />Novo Membro
         </Button>
       </div>
@@ -80,7 +104,7 @@ export default function SalesTeamPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Membro</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Membro" : "Novo Membro"}</DialogTitle>
             <DialogDescription>Preencha os dados do membro do time de vendas.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
@@ -159,7 +183,7 @@ export default function SalesTeamPage() {
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>
-                      <button className="rounded p-1 text-muted-foreground hover:text-foreground">
+                      <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

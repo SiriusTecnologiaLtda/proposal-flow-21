@@ -10,6 +10,7 @@ import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";
 import ClientsList from "@/pages/ClientsList";
 import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
+import ProductsCategoriesPage from "@/pages/ProductsCategoriesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";
 import UnitsPage from "@/pages/UnitsPage";
@@ -43,6 +44,7 @@ function ProtectedRoutes() {
         <Route path="/propostas/:id" element={<ProposalCreate />} />
         <Route path="/clientes" element={<ClientsList />} />
         <Route path="/templates" element={<ScopeTemplatesPage />} />
+        <Route path="/produtos-categorias" element={<ProductsCategoriesPage />} />
             <Route path="/time" element={<SalesTeamPage />} />
             <Route path="/unidades" element={<UnitsPage />} />
             <Route path="/configuracoes" element={<SettingsPage />} />

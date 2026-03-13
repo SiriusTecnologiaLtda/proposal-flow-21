@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building,
+  FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building, Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/clientes", label: "Clientes", icon: Users },
   { path: "/unidades", label: "Unidades", icon: Building },
   { path: "/templates", label: "Templates de Escopo", icon: LayoutTemplate },
+  { path: "/produtos-categorias", label: "Produtos & Categorias", icon: Package },
   { path: "/time", label: "Time de Vendas", icon: UserCog },
   { path: "/configuracoes", label: "Configurações", icon: Settings },
 ];

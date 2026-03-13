@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2, Plus, Trash2, FolderPlus } from "lucide-react";
-import { useScopeTemplates, useProducts } from "@/hooks/useSupabaseData";
+import { useScopeTemplates, useProducts, useCategories } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export default function ScopeTemplatesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data: templates = [] } = useScopeTemplates();
   const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -249,7 +250,12 @@ export default function ScopeTemplatesPage() {
               </div>
               <div className="grid gap-1">
                 <Label className="text-xs">Categoria *</Label>
-                <Input placeholder="Ex: Fiscal, Compras" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+                <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (<SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

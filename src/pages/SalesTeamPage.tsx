@@ -183,7 +183,7 @@ export default function SalesTeamPage() {
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>
-                      <button className="rounded p-1 text-muted-foreground hover:text-foreground">
+                      <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

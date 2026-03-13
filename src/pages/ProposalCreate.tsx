@@ -271,6 +271,7 @@ export default function ProposalCreate() {
       newProcesses.forEach((p) => next.add(p.id));
       return next;
     });
+  }
 
   // Remove a template's processes from scope
   function removeTemplateFromScope(templateId: string) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserCog, Plus } from "lucide-react";
+import { UserCog, Plus, Edit2 } from "lucide-react";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";

@@ -436,7 +436,7 @@ export type Database = {
           default_hours: number
           description: string
           id: string
-          phase: number
+          parent_id: string | null
           sort_order: number
           template_id: string
         }
@@ -444,7 +444,7 @@ export type Database = {
           default_hours?: number
           description: string
           id?: string
-          phase?: number
+          parent_id?: string | null
           sort_order?: number
           template_id: string
         }
@@ -452,11 +452,18 @@ export type Database = {
           default_hours?: number
           description?: string
           id?: string
-          phase?: number
+          parent_id?: string | null
           sort_order?: number
           template_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scope_template_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "scope_template_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scope_template_items_template_id_fkey"
             columns: ["template_id"]

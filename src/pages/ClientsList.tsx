@@ -3,7 +3,7 @@ import { Search, Plus, Building2, List, LayoutGrid } from "lucide-react";
 import { useClients, useCreateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ export default function ClientsList() {
   const { data: salesTeam = [] } = useSalesTeam();
   const createClient = useCreateClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", state_registration: "", unit_id: "", esn_id: "", gsn_id: "" };
@@ -28,21 +29,32 @@ export default function ClientsList() {
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
-  const handleSave = async () => {
-    if (!form.name || !form.code || !form.cnpj) { toast({ title: "Preencha campos obrigatórios", variant: "destructive" }); return; }
-    try {
-      await createClient.mutateAsync({
+  const handleSave = () => {
+    if (!form.name || !form.code || !form.cnpj) {
+      toast({ title: "Preencha campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    createClient.mutate(
+      {
         ...form,
         unit_id: form.unit_id || null,
         esn_id: form.esn_id || null,
         gsn_id: form.gsn_id || null,
-      });
-      toast({ title: "Cliente criado!" });
-      setDialogOpen(false);
-      setForm(emptyForm);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Cliente criado!" });
+          setDialogOpen(false);
+          setForm(emptyForm);
+          setSaving(false);
+        },
+        onError: (err: any) => {
+          toast({ title: "Erro", description: err.message, variant: "destructive" });
+          setSaving(false);
+        },
+      }
+    );
   };
 
   const getUnitName = (c: any) => c.unit_info?.name || "—";
@@ -65,74 +77,77 @@ export default function ClientsList() {
               <List className="h-4 w-4" />
             </button>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Novo Cliente</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo Cliente</DialogTitle></DialogHeader>
-              <div className="grid gap-3 py-2">
-                {[
-                  { id: "name", label: "Razão Social *" },
-                  { id: "code", label: "Código *" },
-                  { id: "cnpj", label: "CNPJ *" },
-                  { id: "contact", label: "Contato" },
-                  { id: "email", label: "E-mail" },
-                  { id: "phone", label: "Telefone" },
-                  { id: "address", label: "Endereço" },
-                  { id: "state_registration", label: "Inscrição Estadual" },
-                ].map((field) => (
-                  <div key={field.id} className="grid gap-1">
-                    <Label htmlFor={field.id} className="text-xs">{field.label}</Label>
-                    <Input id={field.id} placeholder={field.label.replace(" *", "")} value={(form as any)[field.id]} onChange={(e) => setForm((f) => ({ ...f, [field.id]: e.target.value }))} />
-                  </div>
-                ))}
-
-                <div className="grid gap-1">
-                  <Label className="text-xs">Unidade</Label>
-                  <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                    <SelectContent>
-                      {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-1">
-                  <Label className="text-xs">Executivo de Vendas (ESN)</Label>
-                  <Select value={form.esn_id} onValueChange={(v) => setForm((f) => ({ ...f, esn_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o ESN" /></SelectTrigger>
-                    <SelectContent>
-                      {esnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-1">
-                  <Label className="text-xs">Gerente de Vendas (GSN)</Label>
-                  <Select value={form.gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, gsn_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                    <SelectContent>
-                      {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button className="mt-2" onClick={handleSave} disabled={createClient.isPending}>
-                  {createClient.isPending ? "Salvando..." : "Salvar Cliente"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />Novo Cliente
+          </Button>
         </div>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>Preencha os dados do novo cliente.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {[
+              { id: "name", label: "Razão Social *" },
+              { id: "code", label: "Código *" },
+              { id: "cnpj", label: "CNPJ *" },
+              { id: "contact", label: "Contato" },
+              { id: "email", label: "E-mail" },
+              { id: "phone", label: "Telefone" },
+              { id: "address", label: "Endereço" },
+              { id: "state_registration", label: "Inscrição Estadual" },
+            ].map((field) => (
+              <div key={field.id} className="grid gap-1">
+                <Label htmlFor={field.id} className="text-xs">{field.label}</Label>
+                <Input id={field.id} placeholder={field.label.replace(" *", "")} value={(form as any)[field.id]} onChange={(e) => setForm((f) => ({ ...f, [field.id]: e.target.value }))} />
+              </div>
+            ))}
+
+            <div className="grid gap-1">
+              <Label className="text-xs">Unidade</Label>
+              <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+                <SelectContent>
+                  {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1">
+              <Label className="text-xs">Executivo de Vendas (ESN)</Label>
+              <Select value={form.esn_id} onValueChange={(v) => setForm((f) => ({ ...f, esn_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione o ESN" /></SelectTrigger>
+                <SelectContent>
+                  {esnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1">
+              <Label className="text-xs">Gerente de Vendas (GSN)</Label>
+              <Select value={form.gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, gsn_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
+                <SelectContent>
+                  {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button className="mt-2" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : "Salvar Cliente"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input placeholder="Buscar por nome, código ou CNPJ..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Card View */}
       {viewMode === "card" && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((client) => (
@@ -158,7 +173,6 @@ export default function ClientsList() {
         </div>
       )}
 
-      {/* List View */}
       {viewMode === "list" && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-6 md:gap-4">

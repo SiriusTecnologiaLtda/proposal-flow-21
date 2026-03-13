@@ -59,7 +59,6 @@ export default function LoginPage() {
     }
   };
 
-  return (
   if (!authLoading && user) {
     return <Navigate to="/" replace />;
   }

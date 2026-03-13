@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2, Plus, Trash2, FolderPlus } from "lucide-react";
-import { useScopeTemplates, useProducts } from "@/hooks/useSupabaseData";
+import { useScopeTemplates, useProducts, useCategories } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

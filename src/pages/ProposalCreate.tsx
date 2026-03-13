@@ -11,14 +11,20 @@ import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProp
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-interface LocalScopeItem {
+// Two-level scope item for proposal
+interface ScopeChild {
+  id: string;
+  description: string;
+  hours: number;
+  included: boolean;
+}
+
+interface ScopeProcess {
   id: string;
   description: string;
   included: boolean;
-  hours: number;
-  phase: number;
-  notes: string;
-  template_id: string;
+  children: ScopeChild[];
+  templateId?: string; // track origin template for reference only
 }
 
 interface PaymentCondition {
@@ -33,6 +39,11 @@ const steps = [
   { id: 3, label: "Financeiro" },
   { id: 4, label: "Revisão" },
 ];
+
+let idCounter = 0;
+function localId() {
+  return `local_${Date.now()}_${++idCounter}`;
+}
 
 export default function ProposalCreate() {
   const navigate = useNavigate();
@@ -62,14 +73,19 @@ export default function ProposalCreate() {
   const [esnId, setEsnId] = useState<string>("");
   const [arquitetoId, setArquitetoId] = useState<string>("");
   const [scopeType, setScopeType] = useState<string>("detalhado");
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-  const [scopeItems, setScopeItems] = useState<Record<string, LocalScopeItem[]>>({});
-  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
+
+  // Scope state: flat list of processes with children
+  const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
+  const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
+
+  // Template search/selection
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
@@ -86,28 +102,74 @@ export default function ProposalCreate() {
       setNegotiation(existingProposal.negotiation || "");
       setDescription(existingProposal.description || "");
 
-      // Load scope items grouped by template_id
+      // Rebuild two-level hierarchy from flat proposal_scope_items
       const items = (existingProposal as any).proposal_scope_items || [];
-      const grouped: Record<string, LocalScopeItem[]> = {};
-      const templateIds: string[] = [];
-      items.forEach((item: any) => {
-        const tid = item.template_id || "custom";
-        if (!grouped[tid]) {
-          grouped[tid] = [];
-          templateIds.push(tid);
+      // Items with parent_id=null are processes, others are children
+      // But currently proposal_scope_items doesn't have parent_id...
+      // We stored them flat with template_id. Let's rebuild from sort_order grouping.
+      // For backward compat: treat items with hours=0 that have children after them as parents.
+      // Better approach: we'll need to store parent/child in proposal_scope_items too.
+      // For now, load them as flat processes (each item = process with no children)
+      // After migration, this will work properly.
+      
+      const processes: ScopeProcess[] = [];
+      const parentMap = new Map<string, ScopeProcess>();
+      
+      // Group by: items without parent are L1, items with parent are L2
+      // We need parent_id column on proposal_scope_items - let's handle both cases
+      const parentItems = items.filter((i: any) => !i.parent_id);
+      const childItems = items.filter((i: any) => i.parent_id);
+      
+      if (parentItems.length === 0 && childItems.length === 0) {
+        // No items
+      } else if (childItems.length === 0) {
+        // Old flat data - each item becomes a process
+        for (const item of items) {
+          processes.push({
+            id: item.id,
+            description: item.description,
+            included: item.included,
+            templateId: item.template_id || undefined,
+            children: [{
+              id: localId(),
+              description: item.description,
+              hours: item.hours,
+              included: item.included,
+            }],
+          });
         }
-        grouped[tid].push({
-          id: item.id,
-          description: item.description,
-          included: item.included,
-          hours: item.hours,
-          phase: item.phase,
-          notes: item.notes || "",
-          template_id: tid,
-        });
-      });
-      setSelectedTemplateIds(templateIds.filter((t) => t !== "custom"));
-      setScopeItems(grouped);
+      } else {
+        // New hierarchical data
+        for (const item of parentItems) {
+          const proc: ScopeProcess = {
+            id: item.id,
+            description: item.description,
+            included: item.included,
+            templateId: item.template_id || undefined,
+            children: [],
+          };
+          parentMap.set(item.id, proc);
+          processes.push(proc);
+        }
+        for (const child of childItems) {
+          const parent = parentMap.get(child.parent_id);
+          if (parent) {
+            parent.children.push({
+              id: child.id,
+              description: child.description,
+              hours: child.hours,
+              included: child.included,
+            });
+          }
+        }
+      }
+      
+      setScopeProcesses(processes);
+
+      // Track which templates were already added
+      const tids = new Set<string>();
+      items.forEach((i: any) => { if (i.template_id) tids.add(i.template_id); });
+      setAddedTemplateIds(tids);
 
       // Load payments
       const pays = (existingProposal as any).payment_conditions || [];
@@ -128,59 +190,197 @@ export default function ProposalCreate() {
   );
 
   const availableTemplates = useMemo(() => {
-    if (!product) return scopeTemplates;
-    return scopeTemplates.filter((t) => t.product.toLowerCase() === product.toLowerCase() || t.product === "TOTVS");
-  }, [product, scopeTemplates]);
+    let templates = scopeTemplates;
+    if (product) {
+      templates = templates.filter((t) => t.product.toLowerCase() === product.toLowerCase() || t.product === "TOTVS");
+    }
+    if (templateSearch) {
+      const q = templateSearch.toLowerCase();
+      templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+    }
+    return templates;
+  }, [product, scopeTemplates, templateSearch]);
 
+  // Calculate total hours from included children only
   const totalHours = useMemo(() => {
     let total = 0;
-    for (const items of Object.values(scopeItems)) {
-      for (const item of items) {
-        if (item.included) total += item.hours;
+    for (const proc of scopeProcesses) {
+      if (proc.included) {
+        for (const child of proc.children) {
+          if (child.included) total += child.hours;
+        }
       }
     }
     return total;
-  }, [scopeItems]);
+  }, [scopeProcesses]);
 
   const gpHours = Math.ceil(totalHours * (gpPercentage / 100));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
-  function toggleTemplate(templateId: string) {
-    if (selectedTemplateIds.includes(templateId)) {
-      setSelectedTemplateIds((prev) => prev.filter((id) => id !== templateId));
-      setScopeItems((prev) => { const next = { ...prev }; delete next[templateId]; return next; });
-    } else {
-      const template = scopeTemplates.find((t) => t.id === templateId);
-      if (template) {
-        const items = ((template as any).scope_template_items || []).map((item: any) => ({
-          id: item.id,
+  // Add template to proposal scope (copy its items)
+  function addTemplateToScope(templateId: string) {
+    if (addedTemplateIds.has(templateId)) return;
+    const template = scopeTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    const allItems = (template as any).scope_template_items || [];
+    // Build hierarchy: parents (no parent_id) and children
+    const parents = allItems.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const childrenMap = new Map<string, any[]>();
+    allItems.filter((i: any) => i.parent_id).forEach((i: any) => {
+      if (!childrenMap.has(i.parent_id)) childrenMap.set(i.parent_id, []);
+      childrenMap.get(i.parent_id)!.push(i);
+    });
+
+    const newProcesses: ScopeProcess[] = parents.map((parent: any) => {
+      const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      return {
+        id: localId(),
+        description: parent.description,
+        included: true,
+        templateId,
+        children: kids.map((kid: any) => ({
+          id: localId(),
+          description: kid.description,
+          hours: kid.default_hours || 0,
+          included: true,
+        })),
+      };
+    });
+
+    // If template has no hierarchy (flat items), treat each as a process
+    if (parents.length === 0 && allItems.length > 0) {
+      for (const item of allItems.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
+        newProcesses.push({
+          id: localId(),
           description: item.description,
-          included: false,
-          hours: item.default_hours || 0,
-          phase: 1,
-          notes: "",
-          template_id: templateId,
-        }));
-        setSelectedTemplateIds((prev) => [...prev, templateId]);
-        setScopeItems((prev) => ({ ...prev, [templateId]: items }));
+          included: true,
+          templateId,
+          children: [],
+        });
       }
     }
+
+    setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setAddedTemplateIds((prev) => new Set([...prev, templateId]));
   }
 
-  function toggleScopeItem(templateId: string, itemId: string) {
-    setScopeItems((prev) => ({
-      ...prev,
-      [templateId]: prev[templateId].map((item) =>
-        item.id === itemId ? { ...item, included: !item.included, hours: !item.included ? 8 : 0 } : item
-      ),
-    }));
+  // Remove a template's processes from scope
+  function removeTemplateFromScope(templateId: string) {
+    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== templateId));
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      next.delete(templateId);
+      return next;
+    });
   }
 
-  function updateScopeItemHours(templateId: string, itemId: string, hours: number) {
-    setScopeItems((prev) => ({
-      ...prev,
-      [templateId]: prev[templateId].map((item) => (item.id === itemId ? { ...item, hours } : item)),
-    }));
+  // Toggle process included (cascade to children)
+  function toggleProcess(processId: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        const newIncluded = !p.included;
+        return {
+          ...p,
+          included: newIncluded,
+          children: newIncluded ? p.children : p.children.map((c) => ({ ...c, included: false })),
+        };
+      })
+    );
+  }
+
+  // Toggle child included
+  function toggleChild(processId: string, childId: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        const newChildren = p.children.map((c) =>
+          c.id === childId ? { ...c, included: !c.included } : c
+        );
+        return { ...p, children: newChildren };
+      })
+    );
+  }
+
+  // Update child hours
+  function updateChildHours(processId: string, childId: string, hours: number) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return {
+          ...p,
+          children: p.children.map((c) => (c.id === childId ? { ...c, hours } : c)),
+        };
+      })
+    );
+  }
+
+  // Update process description
+  function updateProcessDescription(processId: string, desc: string) {
+    setScopeProcesses((prev) => prev.map((p) => p.id === processId ? { ...p, description: desc } : p));
+  }
+
+  // Update child description
+  function updateChildDescription(processId: string, childId: string, desc: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return { ...p, children: p.children.map((c) => c.id === childId ? { ...c, description: desc } : c) };
+      })
+    );
+  }
+
+  // Add new process
+  function addProcess() {
+    const newProc: ScopeProcess = {
+      id: localId(),
+      description: "",
+      included: true,
+      children: [{ id: localId(), description: "", hours: 0, included: true }],
+    };
+    setScopeProcesses((prev) => [...prev, newProc]);
+    setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
+  }
+
+  // Add child to process
+  function addChild(processId: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return { ...p, children: [...p.children, { id: localId(), description: "", hours: 0, included: true }] };
+      })
+    );
+  }
+
+  // Remove process
+  function removeProcess(processId: string) {
+    setScopeProcesses((prev) => prev.filter((p) => p.id !== processId));
+  }
+
+  // Remove child
+  function removeChild(processId: string, childId: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return { ...p, children: p.children.filter((c) => c.id !== childId) };
+      })
+    );
+  }
+
+  // Toggle expand
+  function toggleExpand(processId: string) {
+    setExpandedProcessIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(processId)) next.delete(processId);
+      else next.add(processId);
+      return next;
+    });
+  }
+
+  // Process hours = sum of included children
+  function processHours(proc: ScopeProcess) {
+    return proc.children.filter((c) => c.included).reduce((s, c) => s + c.hours, 0);
   }
 
   function addPayment() {
@@ -197,15 +397,39 @@ export default function ProposalCreate() {
       return;
     }
 
-    const allScopeItems = Object.values(scopeItems).flat().map((item, i) => ({
-      template_id: item.template_id === "custom" ? null : item.template_id,
-      description: item.description,
-      included: item.included,
-      hours: item.hours,
-      phase: item.phase,
-      notes: item.notes,
-      sort_order: i,
-    }));
+    // Flatten scope to save: parents + children with parent_id reference
+    const allScopeItems: any[] = [];
+    let sortOrder = 0;
+    for (const proc of scopeProcesses) {
+      const parentSortOrder = sortOrder++;
+      // Save parent as a scope item with hours = sum
+      allScopeItems.push({
+        description: proc.description,
+        included: proc.included,
+        hours: processHours(proc),
+        phase: 1,
+        notes: "",
+        sort_order: parentSortOrder,
+        template_id: proc.templateId || null,
+        parent_id: null,
+        _local_id: proc.id, // for linking children
+      });
+
+      for (const child of proc.children) {
+        allScopeItems.push({
+          description: child.description,
+          included: child.included,
+          hours: child.hours,
+          phase: 1,
+          notes: "",
+          sort_order: sortOrder++,
+          template_id: proc.templateId || null,
+          parent_id: proc.id, // will be resolved server-side
+          _local_id: child.id,
+          _parent_local_id: proc.id,
+        });
+      }
+    }
 
     const paymentRows = payments.filter((p) => p.amount > 0).map((p) => ({
       installment: p.installment,
@@ -404,73 +628,136 @@ export default function ProposalCreate() {
       {/* Step 2: Escopo */}
       {currentStep === 2 && (
         <div className="space-y-4">
+          {/* Template search and selection */}
           <div className="rounded-lg border border-border bg-card p-4 md:p-6">
-            <h2 className="mb-3 text-base font-semibold text-foreground">Selecione os Templates de Escopo</h2>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <h2 className="mb-3 text-base font-semibold text-foreground">Adicionar Templates de Escopo</h2>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar templates por nome ou categoria..."
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-52 overflow-auto space-y-1">
               {availableTemplates.map((template) => {
-                const isSelected = selectedTemplateIds.includes(template.id);
+                const isAdded = addedTemplateIds.has(template.id);
+                const itemCount = ((template as any).scope_template_items || []).length;
                 return (
-                  <button key={template.id} onClick={() => toggleTemplate(template.id)} className={`flex items-center gap-3 rounded-md border p-3 text-left transition-all ${isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
-                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
-                      {isSelected && <Check className="h-3 w-3" />}
-                    </div>
+                  <div
+                    key={template.id}
+                    className={`flex items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                      isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
+                    }`}
+                  >
                     <div>
                       <p className="text-sm font-medium text-foreground">{template.name}</p>
-                      <p className="text-xs text-muted-foreground">{((template as any).scope_template_items || []).length} itens</p>
+                      <p className="text-xs text-muted-foreground">{template.product} · {template.category} · {itemCount} itens</p>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {selectedTemplateIds.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-base font-semibold text-foreground">Detalhamento do Escopo</h2>
-              {selectedTemplateIds.map((templateId) => {
-                const template = scopeTemplates.find((t) => t.id === templateId);
-                const items = scopeItems[templateId] || [];
-                const isOpen = expandedTemplateId === templateId;
-                const includedCount = items.filter((i) => i.included).length;
-                const templateHours = items.filter((i) => i.included).reduce((s, i) => s + i.hours, 0);
-
-                return (
-                  <div key={templateId} className="rounded-lg border border-border bg-card overflow-hidden">
-                    <button onClick={() => setExpandedTemplateId(isOpen ? null : templateId)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/50">
-                      <div className="flex items-center gap-3">
-                        {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{template?.name}</p>
-                          <p className="text-xs text-muted-foreground">{includedCount}/{items.length} selecionados · {templateHours}h</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); toggleTemplate(templateId); }} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
+                    {isAdded ? (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeTemplateFromScope(template.id)}>
+                        <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover
                       </Button>
-                    </button>
-                    {isOpen && (
-                      <div className="border-t border-border">
-                        <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2">
-                          <span className="text-xs font-medium text-muted-foreground">Item do Escopo</span>
-                          <div className="flex items-center gap-4">
-                            <span className="text-xs font-medium text-muted-foreground w-16 text-center">Horas</span>
-                            <span className="text-xs font-medium text-muted-foreground w-12 text-center">Sim/Não</span>
-                          </div>
-                        </div>
-                        {items.map((item) => (
-                          <div key={item.id} className={`flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0 transition-colors ${item.included ? "bg-success/5" : ""}`}>
-                            <p className={`text-sm flex-1 pr-4 ${item.included ? "text-foreground" : "text-muted-foreground"}`}>{item.description}</p>
-                            <div className="flex items-center gap-4">
-                              <Input type="number" min={0} value={item.hours} onChange={(e) => updateScopeItemHours(templateId, item.id, Number(e.target.value))} className="h-7 w-16 text-center text-xs" disabled={!item.included} />
-                              <Switch checked={item.included} onCheckedChange={() => toggleScopeItem(templateId, item.id)} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => addTemplateToScope(template.id)}>
+                        <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar
+                      </Button>
                     )}
                   </div>
                 );
               })}
+              {availableTemplates.length === 0 && (
+                <p className="py-4 text-center text-sm text-muted-foreground">Nenhum template encontrado.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Scope items - two-level hierarchy */}
+          {scopeProcesses.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-foreground">Itens do Escopo</h2>
+                <Button variant="outline" size="sm" onClick={addProcess}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
+                </Button>
+              </div>
+
+              <div className="space-y-1">
+                {scopeProcesses.map((proc) => {
+                  const isExpanded = expandedProcessIds.has(proc.id);
+                  const hours = processHours(proc);
+                  const includedChildren = proc.children.filter((c) => c.included).length;
+
+                  return (
+                    <div key={proc.id} className="rounded-md border border-border overflow-hidden">
+                      {/* Process row (Level 1) */}
+                      <div className={`flex items-center gap-2 px-3 py-2 transition-colors ${proc.included ? "bg-card" : "bg-muted/50"}`}>
+                        <button onClick={() => toggleExpand(proc.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        <Input
+                          value={proc.description}
+                          onChange={(e) => updateProcessDescription(proc.id, e.target.value)}
+                          placeholder="Nome do processo"
+                          className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
+                        />
+                        <span className="shrink-0 text-xs text-muted-foreground w-20 text-right">
+                          {includedChildren}/{proc.children.length} · {hours}h
+                        </span>
+                        <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
+                        <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Children (Level 2) */}
+                      {isExpanded && (
+                        <div className="border-t border-border bg-muted/30">
+                          {proc.children.map((child) => (
+                            <div key={child.id} className={`flex items-center gap-2 border-b border-border last:border-0 px-3 py-1.5 pl-10 transition-colors ${child.included && proc.included ? "bg-success/5" : ""}`}>
+                              <Input
+                                value={child.description}
+                                onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
+                                placeholder="Descrição do item"
+                                className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                              />
+                              <Input
+                                type="number"
+                                min={0}
+                                value={child.hours}
+                                onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
+                                className="h-7 w-16 text-center text-xs"
+                                disabled={!child.included || !proc.included}
+                              />
+                              <Switch
+                                checked={child.included}
+                                onCheckedChange={() => toggleChild(proc.id, child.id)}
+                                disabled={!proc.included}
+                              />
+                              <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => addChild(proc.id)}
+                            className="flex w-full items-center gap-1 px-3 py-2 pl-10 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          >
+                            <Plus className="h-3 w-3" /> Adicionar item
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Summary */}
+              <div className="mt-3 flex items-center justify-end gap-4 text-sm">
+                <span className="text-muted-foreground">Total de Horas:</span>
+                <span className="font-semibold text-foreground">{totalHours}h</span>
+              </div>
             </div>
           )}
         </div>
@@ -551,19 +838,13 @@ export default function ProposalCreate() {
               <div className="rounded-md border border-border p-4">
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Escopo</h3>
                 <div className="space-y-1 text-sm">
-                  {selectedTemplateIds.map((tid) => {
-                    const template = scopeTemplates.find((t) => t.id === tid);
-                    const items = scopeItems[tid] || [];
-                    const included = items.filter((i) => i.included);
-                    const hours = included.reduce((s, i) => s + i.hours, 0);
-                    return (
-                      <div key={tid} className="flex justify-between">
-                        <span className="text-muted-foreground">{template?.name}</span>
-                        <span className="font-medium">{included.length} itens · {hours}h</span>
-                      </div>
-                    );
-                  })}
-                  {selectedTemplateIds.length === 0 && <p className="text-muted-foreground">Nenhum template selecionado</p>}
+                  {scopeProcesses.filter((p) => p.included).map((proc) => (
+                    <div key={proc.id} className="flex justify-between">
+                      <span className="text-muted-foreground">{proc.description || "(sem nome)"}</span>
+                      <span className="font-medium">{proc.children.filter((c) => c.included).length} itens · {processHours(proc)}h</span>
+                    </div>
+                  ))}
+                  {scopeProcesses.filter((p) => p.included).length === 0 && <p className="text-muted-foreground">Nenhum item de escopo incluído</p>}
                 </div>
               </div>
 

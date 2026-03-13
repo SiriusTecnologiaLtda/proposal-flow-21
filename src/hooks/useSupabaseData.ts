@@ -231,6 +231,60 @@ export function useProposal(id: string | undefined) {
   });
 }
 
+async function insertHierarchicalScopeItems(scopeItems: any[], proposalId: string) {
+  if (!scopeItems || scopeItems.length === 0) return;
+
+  // First insert parents (parent_id === null)
+  const parents = scopeItems.filter((i: any) => !i.parent_id && !i._parent_local_id);
+  const children = scopeItems.filter((i: any) => i._parent_local_id);
+
+  // Insert parents and get their real IDs
+  const parentRows = parents.map((item: any) => ({
+    proposal_id: proposalId,
+    description: item.description,
+    included: item.included,
+    hours: item.hours,
+    phase: item.phase || 1,
+    notes: item.notes || "",
+    sort_order: item.sort_order,
+    template_id: item.template_id || null,
+    parent_id: null,
+  }));
+
+  if (parentRows.length > 0) {
+    const { data: insertedParents, error: parentError } = await supabase
+      .from("proposal_scope_items")
+      .insert(parentRows)
+      .select();
+    if (parentError) throw parentError;
+
+    // Map local IDs to real IDs for children
+    const localIdToRealId = new Map<string, string>();
+    parents.forEach((p: any, i: number) => {
+      if (insertedParents && insertedParents[i]) {
+        localIdToRealId.set(p._local_id, insertedParents[i].id);
+      }
+    });
+
+    // Insert children with real parent IDs
+    if (children.length > 0) {
+      const childRows = children.map((item: any) => ({
+        proposal_id: proposalId,
+        description: item.description,
+        included: item.included,
+        hours: item.hours,
+        phase: item.phase || 1,
+        notes: item.notes || "",
+        sort_order: item.sort_order,
+        template_id: item.template_id || null,
+        parent_id: localIdToRealId.get(item._parent_local_id) || null,
+      }));
+      const { error: childError } = await supabase.from("proposal_scope_items").insert(childRows);
+      if (childError) throw childError;
+    }
+  }
+}
+
 export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
@@ -239,11 +293,7 @@ export function useCreateProposal() {
       const { data, error } = await supabase.from("proposals").insert(proposalData).select().single();
       if (error) throw error;
 
-      if (scopeItems && scopeItems.length > 0) {
-        const items = scopeItems.map((item: any) => ({ ...item, proposal_id: data.id }));
-        const { error: scopeError } = await supabase.from("proposal_scope_items").insert(items);
-        if (scopeError) throw scopeError;
-      }
+      await insertHierarchicalScopeItems(scopeItems, data.id);
 
       if (payments && payments.length > 0) {
         const paymentRows = payments.map((p: any) => ({ ...p, proposal_id: data.id }));

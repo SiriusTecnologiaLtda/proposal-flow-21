@@ -800,6 +800,39 @@ export default function ProposalCreate() {
                     {/* Processes inside this template */}
                     {isTemplateExpanded && (
                       <div className="border-t border-border">
+                        {/* Expand/Collapse all processes in this group */}
+                        <div className="flex items-center justify-end gap-1 px-3 py-1.5 bg-muted/30 border-b border-border">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-muted-foreground"
+                            onClick={() => {
+                              const ids = group.processes.map((p) => p.id);
+                              setExpandedProcessIds((prev) => {
+                                const next = new Set(prev);
+                                ids.forEach((id) => next.add(id));
+                                return next;
+                              });
+                            }}
+                          >
+                            <ChevronsUpDown className="mr-1 h-3 w-3" /> Expandir todos
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-muted-foreground"
+                            onClick={() => {
+                              const ids = group.processes.map((p) => p.id);
+                              setExpandedProcessIds((prev) => {
+                                const next = new Set(prev);
+                                ids.forEach((id) => next.delete(id));
+                                return next;
+                              });
+                            }}
+                          >
+                            <ChevronsDownUp className="mr-1 h-3 w-3" /> Recolher todos
+                          </Button>
+                        </div>
                         {group.processes.map((proc, procIdx) => {
                           const isExpanded = expandedProcessIds.has(proc.id);
                           const hours = processHours(proc);

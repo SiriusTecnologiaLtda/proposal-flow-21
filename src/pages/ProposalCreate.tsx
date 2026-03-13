@@ -60,7 +60,7 @@ export default function ProposalCreate() {
   const [gpPercentage, setGpPercentage] = useState(20);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [negotiation, setNegotiation] = useState("");
-
+  const [description, setDescription] = useState("");
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);

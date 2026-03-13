@@ -764,21 +764,36 @@ export default function ProposalCreate() {
                         <Layers className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
+                        {!group.templateId ? (
+                          <Input
+                            value={avulsoGroupName}
+                            onChange={(e) => setAvulsoGroupName(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                            placeholder="Nome do grupo"
+                          />
+                        ) : (
+                          <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
                         </p>
                       </div>
-                      {group.templateId && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive shrink-0"
-                          onClick={(e) => { e.stopPropagation(); removeTemplateFromScope(group.templateId!); }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (group.templateId) {
+                            removeTemplateFromScope(group.templateId);
+                          } else {
+                            setScopeProcesses((prev) => prev.filter((p) => p.templateId));
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
 

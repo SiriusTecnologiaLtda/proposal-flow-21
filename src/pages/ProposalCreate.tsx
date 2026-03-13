@@ -862,6 +862,12 @@ export default function ProposalCreate() {
                 <span className="font-semibold text-foreground">{totalHours}h</span>
               </div>
             </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+              <Layers className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-sm text-muted-foreground">Nenhum escopo adicionado ainda.</p>
+              <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar Template" para começar.</p>
+            </div>
           )}
         </div>
       )}

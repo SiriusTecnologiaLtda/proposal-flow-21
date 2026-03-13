@@ -314,13 +314,18 @@ export function useUpdateProposal() {
       const { data, error } = await supabase.from("proposals").update(proposalData).eq("id", id).select().single();
       if (error) throw error;
 
-      // Replace scope items
-      await supabase.from("proposal_scope_items").delete().eq("proposal_id", id);
-      if (scopeItems && scopeItems.length > 0) {
-        const items = scopeItems.map((item: any) => ({ ...item, proposal_id: id }));
-        const { error: scopeError } = await supabase.from("proposal_scope_items").insert(items);
-        if (scopeError) throw scopeError;
+      // Replace scope items (delete children first due to FK, then parents)
+      const { data: existingItems } = await supabase.from("proposal_scope_items").select("id, parent_id").eq("proposal_id", id);
+      if (existingItems && existingItems.length > 0) {
+        // Delete children first
+        const childIds = existingItems.filter((i) => i.parent_id).map((i) => i.id);
+        if (childIds.length > 0) await supabase.from("proposal_scope_items").delete().in("id", childIds);
+        // Then delete parents
+        const parentIds = existingItems.filter((i) => !i.parent_id).map((i) => i.id);
+        if (parentIds.length > 0) await supabase.from("proposal_scope_items").delete().in("id", parentIds);
       }
+
+      await insertHierarchicalScopeItems(scopeItems, id);
 
       // Replace payments
       await supabase.from("payment_conditions").delete().eq("proposal_id", id);

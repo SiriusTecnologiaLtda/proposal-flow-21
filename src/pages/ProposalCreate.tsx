@@ -60,7 +60,7 @@ export default function ProposalCreate() {
   const [gpPercentage, setGpPercentage] = useState(20);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [negotiation, setNegotiation] = useState("");
-
+  const [description, setDescription] = useState("");
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);
@@ -170,6 +170,7 @@ export default function ProposalCreate() {
         hourly_rate: hourlyRate,
         gp_percentage: gpPercentage,
         negotiation,
+        description,
         scopeItems: allScopeItems,
         payments: paymentRows,
       });
@@ -250,6 +251,10 @@ export default function ProposalCreate() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Descrição do Projeto</Label>
+            <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
           {/* Client */}
@@ -459,6 +464,7 @@ export default function ProposalCreate() {
                   <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{proposalType === "projeto" ? "Projeto" : proposalType === "banco_de_horas" ? "Banco de Horas" : "—"}</span></p>
                   <p><span className="text-muted-foreground">Produto:</span> <span className="font-medium">{product || "—"}</span></p>
                   <p><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{selectedClient?.name || "—"}</span></p>
+                  <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>
                   <p><span className="text-muted-foreground">ESN:</span> <span className="font-medium">{selectedEsn?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">GSN:</span> <span className="font-medium">{autoGsn?.name || "—"}</span></p>
                 </div>

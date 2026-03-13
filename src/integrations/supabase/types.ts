@@ -275,6 +275,7 @@ export type Database = {
           created_at: string
           created_by: string
           date_validity: string | null
+          description: string | null
           esn_id: string | null
           gp_percentage: number
           gsn_id: string | null
@@ -302,6 +303,7 @@ export type Database = {
           created_at?: string
           created_by: string
           date_validity?: string | null
+          description?: string | null
           esn_id?: string | null
           gp_percentage?: number
           gsn_id?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           date_validity?: string | null
+          description?: string | null
           esn_id?: string | null
           gp_percentage?: number
           gsn_id?: string | null

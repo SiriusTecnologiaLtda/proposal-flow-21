@@ -1,0 +1,1 @@
+ALTER TABLE public.proposal_scope_items ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES public.proposal_scope_items(id) ON DELETE CASCADE;

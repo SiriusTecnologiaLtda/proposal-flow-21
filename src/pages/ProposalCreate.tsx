@@ -244,7 +244,7 @@ export default function ProposalCreate() {
     }
 
     if (noTemplate.length > 0) {
-      groups.push({ templateId: undefined, templateName: "Itens Avulsos", category: "", processes: noTemplate });
+      groups.push({ templateId: undefined, templateName: avulsoGroupName, category: "", processes: noTemplate });
     }
 
     return groups;

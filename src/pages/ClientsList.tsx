@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, Plus, Building2, List, LayoutGrid } from "lucide-react";
-import { useClients, useCreateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,11 +15,25 @@ export default function ClientsList() {
   const { data: units = [] } = useUnits();
   const { data: salesTeam = [] } = useSalesTeam();
   const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", state_registration: "", unit_id: "", esn_id: "", gsn_id: "" };
+  const emptyForm = {
+    name: "",
+    code: "",
+    cnpj: "",
+    contact: "",
+    email: "",
+    phone: "",
+    address: "",
+    state_registration: "",
+    unit_id: "",
+    esn_id: "",
+    gsn_id: "",
+  };
   const [form, setForm] = useState(emptyForm);
 
   const filtered = clients.filter(
@@ -29,32 +43,78 @@ export default function ClientsList() {
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
+  const openNewDialog = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (client: any) => {
+    setEditingId(client.id);
+    setForm({
+      name: client.name || "",
+      code: client.code || "",
+      cnpj: client.cnpj || "",
+      contact: client.contact || "",
+      email: client.email || "",
+      phone: client.phone || "",
+      address: client.address || "",
+      state_registration: client.state_registration || "",
+      unit_id: client.unit_id || "",
+      esn_id: client.esn_id || "",
+      gsn_id: client.gsn_id || "",
+    });
+    setDialogOpen(true);
+  };
+
   const handleSave = () => {
     if (!form.name || !form.code || !form.cnpj) {
       toast({ title: "Preencha campos obrigatórios", variant: "destructive" });
       return;
     }
+
     setSaving(true);
-    createClient.mutate(
-      {
-        ...form,
-        unit_id: form.unit_id || null,
-        esn_id: form.esn_id || null,
-        gsn_id: form.gsn_id || null,
+    const payload = {
+      ...form,
+      unit_id: form.unit_id || null,
+      esn_id: form.esn_id || null,
+      gsn_id: form.gsn_id || null,
+    };
+
+    const done = () => setSaving(false);
+
+    if (editingId) {
+      updateClient.mutate(
+        { id: editingId, ...payload },
+        {
+          onSuccess: () => {
+            toast({ title: "Cliente atualizado!" });
+            setDialogOpen(false);
+            setForm(emptyForm);
+            setEditingId(null);
+            done();
+          },
+          onError: (err: any) => {
+            toast({ title: "Erro", description: err.message, variant: "destructive" });
+            done();
+          },
+        }
+      );
+      return;
+    }
+
+    createClient.mutate(payload, {
+      onSuccess: () => {
+        toast({ title: "Cliente criado!" });
+        setDialogOpen(false);
+        setForm(emptyForm);
+        done();
       },
-      {
-        onSuccess: () => {
-          toast({ title: "Cliente criado!" });
-          setDialogOpen(false);
-          setForm(emptyForm);
-          setSaving(false);
-        },
-        onError: (err: any) => {
-          toast({ title: "Erro", description: err.message, variant: "destructive" });
-          setSaving(false);
-        },
-      }
-    );
+      onError: (err: any) => {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+        done();
+      },
+    });
   };
 
   const getUnitName = (c: any) => c.unit_info?.name || "—";
@@ -77,7 +137,7 @@ export default function ClientsList() {
               <List className="h-4 w-4" />
             </button>
           </div>
-          <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+          <Button onClick={openNewDialog}>
             <Plus className="mr-2 h-4 w-4" />Novo Cliente
           </Button>
         </div>
@@ -86,8 +146,10 @@ export default function ClientsList() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Cliente</DialogTitle>
-            <DialogDescription>Preencha os dados do novo cliente.</DialogDescription>
+            <DialogTitle>{editingId ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
+            <DialogDescription>
+              {editingId ? "Atualize os dados do cliente." : "Preencha os dados do novo cliente."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             {[
@@ -137,7 +199,7 @@ export default function ClientsList() {
             </div>
 
             <Button className="mt-2" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar Cliente"}
+              {saving ? "Salvando..." : editingId ? "Salvar alterações" : "Salvar Cliente"}
             </Button>
           </div>
         </DialogContent>
@@ -151,7 +213,11 @@ export default function ClientsList() {
       {viewMode === "card" && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((client) => (
-            <div key={client.id} className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30">
+            <div
+              key={client.id}
+              onClick={() => openEditDialog(client)}
+              className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
+            >
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Building2 className="h-4 w-4" />
@@ -184,7 +250,11 @@ export default function ClientsList() {
           </div>
           <div className="divide-y divide-border">
             {filtered.map((client) => (
-              <div key={client.id} className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4">
+              <div
+                key={client.id}
+                onClick={() => openEditDialog(client)}
+                className="cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4"
+              >
                 <div className="col-span-2 flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Building2 className="h-3.5 w-3.5" />

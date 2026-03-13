@@ -86,6 +86,7 @@ export default function ProposalCreate() {
   // Template search/selection
   const [templateSearch, setTemplateSearch] = useState("");
   const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
+  const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {

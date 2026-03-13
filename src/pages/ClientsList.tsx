@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Building2, List, LayoutGrid } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2 } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

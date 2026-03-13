@@ -722,88 +722,128 @@ export default function ProposalCreate() {
             </div>
           </div>
 
-          {/* Scope items - two-level hierarchy */}
+          {/* Scope items - grouped by template */}
           {scopeProcesses.length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-4 md:p-6">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-foreground">Itens do Escopo</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
                 <Button variant="outline" size="sm" onClick={addProcess}>
                   <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
                 </Button>
               </div>
 
-              <div className="space-y-1">
-                {scopeProcesses.map((proc) => {
-                  const isExpanded = expandedProcessIds.has(proc.id);
-                  const hours = processHours(proc);
-                  const includedChildren = proc.children.filter((c) => c.included).length;
+              {groupedScope.map((group) => {
+                const groupKey = group.templateId || "_avulso";
+                const isTemplateExpanded = expandedTemplateIds.has(groupKey);
+                const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
+                const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.length, 0);
 
-                  return (
-                    <div key={proc.id} className="rounded-md border border-border overflow-hidden">
-                      {/* Process row (Level 1) */}
-                      <div className={`flex items-center gap-2 px-3 py-2 transition-colors ${proc.included ? "bg-card" : "bg-muted/50"}`}>
-                        <button onClick={() => toggleExpand(proc.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        <Input
-                          value={proc.description}
-                          onChange={(e) => updateProcessDescription(proc.id, e.target.value)}
-                          placeholder="Nome do processo"
-                          className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
-                        />
-                        <span className="shrink-0 text-xs text-muted-foreground w-20 text-right">
-                          {includedChildren}/{proc.children.length} · {hours}h
-                        </span>
-                        <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
-                        <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                return (
+                  <div key={groupKey} className="rounded-lg border border-border bg-card overflow-hidden">
+                    {/* Template header */}
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
+                      onClick={() => toggleTemplateExpand(groupKey)}
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Layers className="h-4 w-4" />
                       </div>
-
-                      {/* Children (Level 2) */}
-                      {isExpanded && (
-                        <div className="border-t border-border bg-muted/30">
-                          {proc.children.map((child) => (
-                            <div key={child.id} className={`flex items-center gap-2 border-b border-border last:border-0 px-3 py-1.5 pl-10 transition-colors ${child.included && proc.included ? "bg-success/5" : ""}`}>
-                              <Input
-                                value={child.description}
-                                onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
-                                placeholder="Descrição do item"
-                                className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
-                              />
-                              <Input
-                                type="number"
-                                min={0}
-                                value={child.hours}
-                                onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
-                                className="h-7 w-16 text-center text-xs"
-                                disabled={!child.included || !proc.included}
-                              />
-                              <Switch
-                                checked={child.included}
-                                onCheckedChange={() => toggleChild(proc.id, child.id)}
-                                disabled={!proc.included}
-                              />
-                              <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            onClick={() => addChild(proc.id)}
-                            className="flex w-full items-center gap-1 px-3 py-2 pl-10 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                          >
-                            <Plus className="h-3 w-3" /> Adicionar item
-                          </button>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
+                        </p>
+                      </div>
+                      {group.templateId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive shrink-0"
+                          onClick={(e) => { e.stopPropagation(); removeTemplateFromScope(group.templateId!); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       )}
+                      {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Processes inside this template */}
+                    {isTemplateExpanded && (
+                      <div className="border-t border-border">
+                        {group.processes.map((proc, procIdx) => {
+                          const isExpanded = expandedProcessIds.has(proc.id);
+                          const hours = processHours(proc);
+
+                          return (
+                            <div key={proc.id} className={`${procIdx > 0 ? "border-t border-border" : ""}`}>
+                              {/* Process row (Level 1) */}
+                              <div className={`flex items-center gap-2 px-3 py-2 pl-6 transition-colors ${proc.included ? "bg-card" : "bg-muted/50"}`}>
+                                <button onClick={() => toggleExpand(proc.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                </button>
+                                <span className="shrink-0 text-xs font-medium text-muted-foreground w-6">{procIdx + 1}.</span>
+                                <Input
+                                  value={proc.description}
+                                  onChange={(e) => updateProcessDescription(proc.id, e.target.value)}
+                                  placeholder="Nome do processo"
+                                  className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                                />
+                                <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
+                                <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
+                                <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Children (Level 2) */}
+                              {isExpanded && (
+                                <div className="bg-muted/20">
+                                  {proc.children.map((child, childIdx) => (
+                                    <div key={child.id} className={`flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 transition-colors ${child.included && proc.included ? "" : "opacity-60"}`}>
+                                      <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
+                                      <Input
+                                        value={child.description}
+                                        onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
+                                        placeholder="Descrição do item"
+                                        className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                                      />
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        value={child.hours}
+                                        onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
+                                        className="h-7 w-16 text-center text-xs"
+                                        disabled={!child.included || !proc.included}
+                                      />
+                                      <Switch
+                                        checked={child.included}
+                                        onCheckedChange={() => toggleChild(proc.id, child.id)}
+                                        disabled={!proc.included}
+                                      />
+                                      <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    onClick={() => addChild(proc.id)}
+                                    className="flex w-full items-center gap-1 border-t border-border/50 px-3 py-2 pl-14 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                  >
+                                    <Plus className="h-3 w-3" /> Adicionar item
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* Summary */}
-              <div className="mt-3 flex items-center justify-end gap-4 text-sm">
+              <div className="flex items-center justify-end gap-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
                 <span className="text-muted-foreground">Total de Horas:</span>
                 <span className="font-semibold text-foreground">{totalHours}h</span>
               </div>

@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal } from "@/hooks/useSupabaseData";
+import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,6 +36,12 @@ const steps = [
 
 export default function ProposalCreate() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const duplicateId = searchParams.get("duplicar");
+  const isEditing = !!id;
+  const isDuplicating = !!duplicateId;
+
   const { user } = useAuth();
   const { toast } = useToast();
   const { data: clients = [] } = useClients();
@@ -43,7 +49,10 @@ export default function ProposalCreate() {
   const { data: scopeTemplates = [] } = useScopeTemplates();
   const { data: productsList = [] } = useProducts();
   const createProposal = useCreateProposal();
+  const updateProposal = useUpdateProposal();
+  const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);
 
+  const [loaded, setLoaded] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
@@ -61,6 +70,55 @@ export default function ProposalCreate() {
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
+
+  // Load existing proposal data for editing or duplicating
+  useEffect(() => {
+    if (existingProposal && !loaded) {
+      setProposalNumber(isDuplicating ? "" : existingProposal.number);
+      setProposalType(existingProposal.type);
+      setProduct(existingProposal.product);
+      setClientId(existingProposal.client_id);
+      setEsnId(existingProposal.esn_id || "");
+      setArquitetoId(existingProposal.arquiteto_id || "");
+      setScopeType(existingProposal.scope_type);
+      setHourlyRate(existingProposal.hourly_rate);
+      setGpPercentage(existingProposal.gp_percentage);
+      setNegotiation(existingProposal.negotiation || "");
+      setDescription(existingProposal.description || "");
+
+      // Load scope items grouped by template_id
+      const items = (existingProposal as any).proposal_scope_items || [];
+      const grouped: Record<string, LocalScopeItem[]> = {};
+      const templateIds: string[] = [];
+      items.forEach((item: any) => {
+        const tid = item.template_id || "custom";
+        if (!grouped[tid]) {
+          grouped[tid] = [];
+          templateIds.push(tid);
+        }
+        grouped[tid].push({
+          id: item.id,
+          description: item.description,
+          included: item.included,
+          hours: item.hours,
+          phase: item.phase,
+          notes: item.notes || "",
+          template_id: tid,
+        });
+      });
+      setSelectedTemplateIds(templateIds.filter((t) => t !== "custom"));
+      setScopeItems(grouped);
+
+      // Load payments
+      const pays = (existingProposal as any).payment_conditions || [];
+      if (pays.length > 0) {
+        setPayments(pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount })));
+      }
+
+      setLoaded(true);
+    }
+  }, [existingProposal, loaded, isDuplicating]);
+
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);
@@ -140,7 +198,7 @@ export default function ProposalCreate() {
     }
 
     const allScopeItems = Object.values(scopeItems).flat().map((item, i) => ({
-      template_id: item.template_id,
+      template_id: item.template_id === "custom" ? null : item.template_id,
       description: item.description,
       included: item.included,
       hours: item.hours,
@@ -155,30 +213,46 @@ export default function ProposalCreate() {
       amount: p.amount,
     }));
 
+    const proposalData = {
+      number: proposalNumber,
+      type: proposalType as any,
+      product,
+      status,
+      scope_type: scopeType as any,
+      client_id: clientId,
+      esn_id: esnId || null,
+      gsn_id: autoGsn?.id || null,
+      arquiteto_id: arquitetoId || null,
+      hourly_rate: hourlyRate,
+      gp_percentage: gpPercentage,
+      negotiation,
+      description,
+      scopeItems: allScopeItems,
+      payments: paymentRows,
+    };
+
     try {
-      await createProposal.mutateAsync({
-        number: proposalNumber,
-        type: proposalType as any,
-        product,
-        status,
-        scope_type: scopeType as any,
-        client_id: clientId,
-        esn_id: esnId || null,
-        gsn_id: autoGsn?.id || null,
-        arquiteto_id: arquitetoId || null,
-        created_by: user!.id,
-        hourly_rate: hourlyRate,
-        gp_percentage: gpPercentage,
-        negotiation,
-        description,
-        scopeItems: allScopeItems,
-        payments: paymentRows,
-      });
-      toast({ title: status === "rascunho" ? "Rascunho salvo!" : "Proposta gerada!" });
+      if (isEditing) {
+        await updateProposal.mutateAsync({ id, ...proposalData });
+        toast({ title: "Proposta atualizada!" });
+      } else {
+        await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
+        toast({ title: status === "rascunho" ? "Rascunho salvo!" : "Proposta gerada!" });
+      }
       navigate("/propostas");
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     }
+  }
+
+  const isSaving = createProposal.isPending || updateProposal.isPending;
+
+  if ((isEditing || isDuplicating) && loadingProposal) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Carregando proposta...</p>
+      </div>
+    );
   }
 
   return (
@@ -188,8 +262,12 @@ export default function ProposalCreate() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Nova Proposta</h1>
-          <p className="text-sm text-muted-foreground">Preencha as informações da proposta comercial</p>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {isEditing ? "Editar Proposta" : isDuplicating ? "Duplicar Proposta" : "Nova Proposta"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isEditing ? "Altere as informações da proposta" : "Preencha as informações da proposta comercial"}
+          </p>
         </div>
       </div>
 
@@ -511,11 +589,11 @@ export default function ProposalCreate() {
         <div className="flex gap-2">
           {currentStep === 4 ? (
             <>
-              <Button variant="outline" onClick={() => handleSave("rascunho")} disabled={createProposal.isPending}>
+              <Button variant="outline" onClick={() => handleSave("rascunho")} disabled={isSaving}>
                 Salvar Rascunho
               </Button>
-              <Button onClick={() => handleSave("enviada")} disabled={createProposal.isPending}>
-                <Check className="mr-2 h-4 w-4" />Gerar Proposta
+              <Button onClick={() => handleSave("enviada")} disabled={isSaving}>
+                <Check className="mr-2 h-4 w-4" />{isEditing ? "Salvar Proposta" : "Gerar Proposta"}
               </Button>
             </>
           ) : (

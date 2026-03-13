@@ -104,7 +104,7 @@ export default function SalesTeamPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Membro</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Membro" : "Novo Membro"}</DialogTitle>
             <DialogDescription>Preencha os dados do membro do time de vendas.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">

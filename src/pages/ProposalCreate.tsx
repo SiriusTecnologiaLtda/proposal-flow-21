@@ -333,7 +333,7 @@ export default function ProposalCreate() {
         return {
           ...p,
           included: newIncluded,
-          children: newIncluded ? p.children : p.children.map((c) => ({ ...c, included: false })),
+          children: p.children.map((c) => ({ ...c, included: newIncluded })),
         };
       })
     );

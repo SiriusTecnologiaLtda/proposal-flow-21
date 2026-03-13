@@ -4,7 +4,7 @@ import { useUnits, useCreateUnit, useUpdateUnit } from "@/hooks/useSupabaseData"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const emptyForm = { name: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
@@ -17,6 +17,7 @@ export default function UnitsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: any) => {
@@ -25,20 +26,22 @@ export default function UnitsPage() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!form.name) { toast({ title: "Nome é obrigatório", variant: "destructive" }); return; }
-    try {
-      if (editId) {
-        await updateUnit.mutateAsync({ id: editId, ...form });
-        toast({ title: "Unidade atualizada!" });
-      } else {
-        await createUnit.mutateAsync(form);
-        toast({ title: "Unidade criada!" });
-      }
-      setDialogOpen(false);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
+    setSaving(true);
+    const mutation = editId ? updateUnit : createUnit;
+    const payload = editId ? { id: editId, ...form } : form;
+    mutation.mutate(payload as any, {
+      onSuccess: () => {
+        toast({ title: editId ? "Unidade atualizada!" : "Unidade criada!" });
+        setDialogOpen(false);
+        setSaving(false);
+      },
+      onError: (err: any) => {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+        setSaving(false);
+      },
+    });
   };
 
   const fields = [
@@ -59,32 +62,34 @@ export default function UnitsPage() {
           <h1 className="text-2xl font-semibold text-foreground">Unidades</h1>
           <p className="text-sm text-muted-foreground">{units.length} unidades cadastradas</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova Unidade</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader><DialogTitle>{editId ? "Editar Unidade" : "Nova Unidade"}</DialogTitle></DialogHeader>
-            <div className="grid gap-3 py-2">
-              {fields.map((f) => (
-                <div key={f.id} className="grid gap-1">
-                  <Label htmlFor={f.id} className="text-xs">{f.label}</Label>
-                  <Input
-                    id={f.id}
-                    type={f.type}
-                    placeholder={f.label.replace(" *", "")}
-                    value={(form as any)[f.id]}
-                    onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
-                  />
-                </div>
-              ))}
-              <Button className="mt-2" onClick={handleSave} disabled={createUnit.isPending || updateUnit.isPending}>
-                {(createUnit.isPending || updateUnit.isPending) ? "Salvando..." : editId ? "Atualizar" : "Salvar"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" />Nova Unidade</Button>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editId ? "Editar Unidade" : "Nova Unidade"}</DialogTitle>
+            <DialogDescription>Preencha os dados da unidade TOTVS.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {fields.map((f) => (
+              <div key={f.id} className="grid gap-1">
+                <Label htmlFor={f.id} className="text-xs">{f.label}</Label>
+                <Input
+                  id={f.id}
+                  type={f.type}
+                  placeholder={f.label.replace(" *", "")}
+                  value={(form as any)[f.id]}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
+                />
+              </div>
+            ))}
+            <Button className="mt-2" onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : editId ? "Atualizar" : "Salvar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {units.map((unit) => (

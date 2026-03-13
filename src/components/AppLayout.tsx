@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building,
+  FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building, Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 

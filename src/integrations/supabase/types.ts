@@ -565,7 +565,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "vendedor" | "arquiteto" | "gsn"
-      proposal_status: "rascunho" | "em_revisao" | "aprovada" | "enviada"
+      proposal_status:
+        | "rascunho"
+        | "em_revisao"
+        | "aprovada"
+        | "enviada"
+        | "cancelada"
+        | "ganha"
       proposal_type: "projeto" | "banco_de_horas"
       sales_role: "esn" | "gsn" | "arquiteto"
       scope_type: "detalhado" | "macro"
@@ -697,7 +703,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor", "arquiteto", "gsn"],
-      proposal_status: ["rascunho", "em_revisao", "aprovada", "enviada"],
+      proposal_status: [
+        "rascunho",
+        "em_revisao",
+        "aprovada",
+        "enviada",
+        "cancelada",
+        "ganha",
+      ],
       proposal_type: ["projeto", "banco_de_horas"],
       sales_role: ["esn", "gsn", "arquiteto"],
       scope_type: ["detalhado", "macro"],

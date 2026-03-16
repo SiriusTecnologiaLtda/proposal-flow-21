@@ -1086,52 +1086,6 @@ export default function ProposalCreate() {
             )}
           </div>
 
-          {/* Outros Parâmetros */}
-          <div className="rounded-md border border-border bg-muted/50 p-4">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Outros Parâmetros</h3>
-            <div className="overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Local</td>
-                    <td className="py-1 px-3 text-right">
-                      <Input type="number" min={0} value={travelLocalHours} onChange={(e) => setTravelLocalHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Viagem</td>
-                    <td className="py-1 px-3 text-right">
-                      <Input type="number" min={0} value={travelTripHours} onChange={(e) => setTravelTripHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Valor Hora Traslado (R$)</td>
-                    <td className="py-1 px-3 text-right">
-                      <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso Analista (R$)</td>
-                    <td className="py-1 px-3 text-right">
-                      <Input type="number" min={0} value={additionalAnalystRate} onChange={(e) => setAdditionalAnalystRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso GP (R$)</td>
-                    <td className="py-1 px-3 text-right">
-                      <Input type="number" min={0} value={additionalGpRate} onChange={(e) => setAdditionalGpRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
 
           <div>
             <div className="mb-3 flex items-center justify-between">

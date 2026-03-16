@@ -15,6 +15,8 @@ export default function ProposalDefaultsPage() {
 
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
+  const [accompAnalystPercentage, setAccompAnalystPercentage] = useState(15);
+  const [accompGpPercentage, setAccompGpPercentage] = useState(10);
   const [travelLocalHours, setTravelLocalHours] = useState(1);
   const [travelTripHours, setTravelTripHours] = useState(4);
   const [travelHourlyRate, setTravelHourlyRate] = useState(250);
@@ -25,6 +27,8 @@ export default function ProposalDefaultsPage() {
     if (defaults) {
       setHourlyRate(defaults.hourly_rate);
       setGpPercentage(defaults.gp_percentage);
+      setAccompAnalystPercentage((defaults as any).accomp_analyst_percentage ?? 15);
+      setAccompGpPercentage((defaults as any).accomp_gp_percentage ?? 10);
       setTravelLocalHours(defaults.travel_local_hours);
       setTravelTripHours(defaults.travel_trip_hours);
       setTravelHourlyRate(defaults.travel_hourly_rate);
@@ -40,6 +44,8 @@ export default function ProposalDefaultsPage() {
         id: defaults.id,
         hourly_rate: hourlyRate,
         gp_percentage: gpPercentage,
+        accomp_analyst_percentage: accompAnalystPercentage,
+        accomp_gp_percentage: accompGpPercentage,
         travel_local_hours: travelLocalHours,
         travel_trip_hours: travelTripHours,
         travel_hourly_rate: travelHourlyRate,
@@ -81,8 +87,16 @@ export default function ProposalDefaultsPage() {
                 <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">% Horas GP</Label>
+                <Label className="text-xs">% Hrs Projeto GP</Label>
                 <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Acomp. Analista</Label>
+                <Input type="number" value={accompAnalystPercentage} onChange={(e) => setAccompAnalystPercentage(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Acomp. GP</Label>
+                <Input type="number" value={accompGpPercentage} onChange={(e) => setAccompGpPercentage(Number(e.target.value))} />
               </div>
             </div>
 

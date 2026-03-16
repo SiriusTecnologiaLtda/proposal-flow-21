@@ -192,6 +192,8 @@ export type Database = {
       }
       proposal_defaults: {
         Row: {
+          accomp_analyst_percentage: number
+          accomp_gp_percentage: number
           additional_analyst_rate: number
           additional_gp_rate: number
           gp_percentage: number
@@ -203,6 +205,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accomp_analyst_percentage?: number
+          accomp_gp_percentage?: number
           additional_analyst_rate?: number
           additional_gp_rate?: number
           gp_percentage?: number
@@ -214,6 +218,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accomp_analyst_percentage?: number
+          accomp_gp_percentage?: number
           additional_analyst_rate?: number
           additional_gp_rate?: number
           gp_percentage?: number

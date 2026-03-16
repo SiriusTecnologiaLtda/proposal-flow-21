@@ -79,6 +79,8 @@ export default function ProposalCreate() {
   const [scopeType, setScopeType] = useState<string>("detalhado");
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
+  const [accompAnalyst, setAccompAnalyst] = useState(15);
+  const [accompGP, setAccompGP] = useState(10);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [paymentMode, setPaymentMode] = useState<"linear" | "custom">("linear");
   const [numInstallments, setNumInstallments] = useState(1);
@@ -115,6 +117,8 @@ export default function ProposalCreate() {
       setScopeType(existingProposal.scope_type);
       setHourlyRate(existingProposal.hourly_rate);
       setGpPercentage(existingProposal.gp_percentage);
+      setAccompAnalyst(existingProposal.accomp_analyst);
+      setAccompGP(existingProposal.accomp_gp);
       setNegotiation(existingProposal.negotiation || "");
       setDescription(existingProposal.description || "");
       setTravelLocalHours(existingProposal.travel_local_hours);
@@ -215,6 +219,8 @@ export default function ProposalCreate() {
     if (!isEditing && !isDuplicating && proposalDefaults && !defaultsLoaded) {
       setHourlyRate(proposalDefaults.hourly_rate);
       setGpPercentage(proposalDefaults.gp_percentage);
+      setAccompAnalyst((proposalDefaults as any).accomp_analyst_percentage ?? 15);
+      setAccompGP((proposalDefaults as any).accomp_gp_percentage ?? 10);
       setTravelLocalHours(proposalDefaults.travel_local_hours);
       setTravelTripHours(proposalDefaults.travel_trip_hours);
       setTravelHourlyRate(proposalDefaults.travel_hourly_rate);
@@ -595,6 +601,8 @@ export default function ProposalCreate() {
       arquiteto_id: arquitetoId || null,
       hourly_rate: hourlyRate,
       gp_percentage: gpPercentage,
+      accomp_analyst: accompAnalyst,
+      accomp_gp: accompGP,
       travel_local_hours: travelLocalHours,
       travel_trip_hours: travelTripHours,
       travel_hourly_rate: travelHourlyRate,
@@ -1029,8 +1037,16 @@ export default function ProposalCreate() {
               <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% Horas GP</Label>
+              <Label className="text-xs">% Hrs Projeto GP</Label>
               <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% Acomp. Analista</Label>
+              <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% Acomp. GP</Label>
+              <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} />
             </div>
           </div>
 

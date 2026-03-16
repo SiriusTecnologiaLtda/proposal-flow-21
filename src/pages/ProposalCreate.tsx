@@ -1022,7 +1022,7 @@ export default function ProposalCreate() {
       {currentStep === 3 && (
         <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-foreground">Informações Financeiras</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Valor Hora (R$)</Label>
               <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
@@ -1030,10 +1030,6 @@ export default function ProposalCreate() {
             <div className="space-y-1.5">
               <Label className="text-xs">% Horas GP</Label>
               <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Qtde Empresas</Label>
-              <Input type="number" defaultValue={1} />
             </div>
           </div>
 

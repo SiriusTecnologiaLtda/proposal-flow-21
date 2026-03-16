@@ -447,6 +447,52 @@ export default function ProposalCreate() {
     setPayments((prev) => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, installment: i + 1 })));
   }
 
+  function generateLinearPayments(count: number, total: number, startDate: string) {
+    if (count <= 0) return;
+    const perInstallment = Math.round((total / count) * 100) / 100;
+    const remainder = Math.round((total - perInstallment * (count - 1)) * 100) / 100;
+    const newPayments: PaymentCondition[] = [];
+    for (let i = 0; i < count; i++) {
+      let dueDate = "";
+      if (startDate) {
+        const d = new Date(startDate + "T00:00:00");
+        d.setMonth(d.getMonth() + i);
+        dueDate = d.toISOString().split("T")[0];
+      }
+      newPayments.push({
+        installment: i + 1,
+        dueDate,
+        amount: i === count - 1 ? remainder : perInstallment,
+      });
+    }
+    setPayments(newPayments);
+  }
+
+  function handleNumInstallmentsChange(val: number) {
+    setNumInstallments(val);
+    if (paymentMode === "linear") generateLinearPayments(val, totalValue, firstDueDate);
+  }
+
+  function handleFirstDueDateChange(val: string) {
+    setFirstDueDate(val);
+    if (paymentMode === "linear") generateLinearPayments(numInstallments, totalValue, val);
+  }
+
+  function handlePaymentModeChange(mode: "linear" | "custom") {
+    setPaymentMode(mode);
+    if (mode === "linear") {
+      generateLinearPayments(numInstallments, totalValue, firstDueDate);
+    }
+  }
+
+  // Recalculate linear payments when totalValue changes
+  const prevTotalValueRef = useMemo(() => totalValue, [totalValue]);
+  useEffect(() => {
+    if (paymentMode === "linear" && numInstallments > 0) {
+      generateLinearPayments(numInstallments, totalValue, firstDueDate);
+    }
+  }, [totalValue]);
+
   async function handleSave(status: "rascunho" | "enviada") {
     if (!proposalNumber || !clientId || !product || !proposalType) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });

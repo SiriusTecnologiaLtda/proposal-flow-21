@@ -181,7 +181,14 @@ export default function ProposalCreate() {
       // Load payments
       const pays = (existingProposal as any).payment_conditions || [];
       if (pays.length > 0) {
-        setPayments(pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount })));
+        const loadedPayments = pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount }));
+        setPayments(loadedPayments);
+        setNumInstallments(loadedPayments.length);
+        if (loadedPayments[0]?.dueDate) setFirstDueDate(loadedPayments[0].dueDate);
+        // Detect if amounts are equal (linear) or not (custom)
+        const amounts = loadedPayments.map((p: any) => p.amount);
+        const allEqual = amounts.every((a: number) => Math.abs(a - amounts[0]) < 0.02);
+        setPaymentMode(allEqual ? "linear" : "custom");
       }
 
       setLoaded(true);

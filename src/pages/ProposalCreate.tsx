@@ -1151,6 +1151,60 @@ export default function ProposalCreate() {
             <Label className="text-xs">Negociação Específica (opcional)</Label>
             <Textarea placeholder="Descreva condições especiais..." rows={3} value={negotiation} onChange={(e) => setNegotiation(e.target.value)} />
           </div>
+
+          {/* Outros Parâmetros - Collapsible */}
+          <Collapsible defaultOpen={false}>
+            <div className="rounded-md border border-border bg-muted/50">
+              <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-md">
+                <h3 className="text-sm font-semibold text-foreground">Outros Parâmetros</h3>
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="overflow-auto px-4 pb-4">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Local</td>
+                        <td className="py-1 px-3 text-right">
+                          <Input type="number" min={0} value={travelLocalHours} onChange={(e) => setTravelLocalHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Viagem</td>
+                        <td className="py-1 px-3 text-right">
+                          <Input type="number" min={0} value={travelTripHours} onChange={(e) => setTravelTripHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-foreground">Valor Hora Traslado (R$)</td>
+                        <td className="py-1 px-3 text-right">
+                          <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso Analista (R$)</td>
+                        <td className="py-1 px-3 text-right">
+                          <Input type="number" min={0} value={additionalAnalystRate} onChange={(e) => setAdditionalAnalystRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso GP (R$)</td>
+                        <td className="py-1 px-3 text-right">
+                          <Input type="number" min={0} value={additionalGpRate} onChange={(e) => setAdditionalGpRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </div>
       )}
 

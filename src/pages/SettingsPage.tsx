@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Settings, Save } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Settings, Save, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +8,7 @@ import { useProposalDefaults, useUpdateProposalDefaults } from "@/hooks/useSupab
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const { data: defaults, isLoading } = useProposalDefaults();
   const updateDefaults = useUpdateProposalDefaults();
   const { toast } = useToast();
@@ -59,19 +61,20 @@ export default function SettingsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {[
-          { title: "Usuários e Acessos", desc: "Gerenciar usuários e permissões da plataforma" },
-          { title: "Integrações / APIs", desc: "Configurar APIs externas para sincronizar Clientes e Time de Vendas" },
-          { title: "Dados da Unidade", desc: "Informações da unidade TOTVS Leste (CNPJ, endereço, etc.)" },
+          { title: "Usuários e Acessos", desc: "Gerenciar usuários e permissões da plataforma", action: () => toast({ title: "Em breve", description: "Módulo de gestão de usuários será implementado em breve." }) },
+          { title: "Integrações / APIs", desc: "Configurar APIs externas para sincronizar Clientes e Time de Vendas", action: () => toast({ title: "Em breve", description: "Módulo de integrações será implementado em breve." }) },
+          { title: "Dados da Unidade", desc: "Informações da unidade TOTVS Leste (CNPJ, endereço, etc.)", action: () => navigate("/unidades") },
         ].map((item) => (
-          <div key={item.title} className="rounded-lg border border-border bg-card p-4">
+          <div key={item.title} onClick={item.action} className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/50">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-muted-foreground">
                 <Settings className="h-4 w-4" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{item.title}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         ))}

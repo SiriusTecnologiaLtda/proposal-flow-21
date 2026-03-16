@@ -116,6 +116,12 @@ export default function ProposalCreate() {
       setGpPercentage(existingProposal.gp_percentage);
       setNegotiation(existingProposal.negotiation || "");
       setDescription(existingProposal.description || "");
+      setTravelLocalHours(existingProposal.travel_local_hours);
+      setTravelTripHours(existingProposal.travel_trip_hours);
+      setTravelHourlyRate(existingProposal.travel_hourly_rate);
+      setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
+      setAdditionalGpRate(existingProposal.additional_gp_rate);
+      setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
       const items = (existingProposal as any).proposal_scope_items || [];

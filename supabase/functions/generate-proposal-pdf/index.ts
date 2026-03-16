@@ -203,9 +203,6 @@ Deno.serve(async (req) => {
     }
 
     // ─── Fetch proposal data from Supabase ────────────────────────
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: proposal, error: propError } = await supabase
       .from("proposals")

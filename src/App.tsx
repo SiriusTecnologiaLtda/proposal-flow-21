@@ -13,6 +13,7 @@ import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
 import ProductsCategoriesPage from "@/pages/ProductsCategoriesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";
+import ProposalDefaultsPage from "@/pages/ProposalDefaultsPage";
 import UnitsPage from "@/pages/UnitsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -48,6 +49,7 @@ function ProtectedRoutes() {
             <Route path="/time" element={<SalesTeamPage />} />
             <Route path="/unidades" element={<UnitsPage />} />
             <Route path="/configuracoes" element={<SettingsPage />} />
+            <Route path="/configuracoes/parametros" element={<ProposalDefaultsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

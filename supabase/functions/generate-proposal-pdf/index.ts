@@ -184,7 +184,7 @@ async function copyFile(accessToken: string, fileId: string, name: string, paren
 async function listTemplates(accessToken: string, folderId: string): Promise<any[]> {
   const query = `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`;
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) throw new Error(`Drive list failed: ${await resp.text()}`);

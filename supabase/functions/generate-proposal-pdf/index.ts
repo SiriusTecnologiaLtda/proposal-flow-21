@@ -113,7 +113,7 @@ async function getDriveQuota(accessToken: string): Promise<{ limit: string; usag
 
 async function getFileInfo(accessToken: string, fileId: string): Promise<{ size: string; name: string; mimeType: string; rawSize: number }> {
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,size,mimeType,quotaBytesUsed`,
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,size,mimeType,quotaBytesUsed&supportsAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const data = await resp.json();

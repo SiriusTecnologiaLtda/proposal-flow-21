@@ -44,6 +44,8 @@ export default function ProposalDefaultsPage() {
         id: defaults.id,
         hourly_rate: hourlyRate,
         gp_percentage: gpPercentage,
+        accomp_analyst_percentage: accompAnalystPercentage,
+        accomp_gp_percentage: accompGpPercentage,
         travel_local_hours: travelLocalHours,
         travel_trip_hours: travelTripHours,
         travel_hourly_rate: travelHourlyRate,

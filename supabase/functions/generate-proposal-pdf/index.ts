@@ -148,7 +148,7 @@ function baseStyles() {
     :root {
       --totvs-dark: #0f1923;
       --totvs-dark2: #162330;
-      --totvs-teal: #2a7a8a;
+      --totvs-teal: #00c9eb;
       --totvs-teal-light: #4fc3d8;
       --totvs-cyan: #5ce0f0;
       --totvs-purple: #8b5cf6;

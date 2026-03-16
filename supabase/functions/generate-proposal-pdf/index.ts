@@ -93,7 +93,7 @@ function fmtBytes(bytes: number): string {
 
 async function getDriveQuota(accessToken: string): Promise<{ limit: string; usage: string; usageInDrive: string; usageInTrash: string; free: string; raw: any }> {
   const resp = await fetch(
-    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user",
+    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user&supportsAllDrives=true",
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const data = await resp.json();
@@ -113,7 +113,7 @@ async function getDriveQuota(accessToken: string): Promise<{ limit: string; usag
 
 async function getFileInfo(accessToken: string, fileId: string): Promise<{ size: string; name: string; mimeType: string; rawSize: number }> {
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,size,mimeType,quotaBytesUsed`,
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,size,mimeType,quotaBytesUsed&supportsAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const data = await resp.json();
@@ -122,41 +122,69 @@ async function getFileInfo(accessToken: string, fileId: string): Promise<{ size:
 }
 
 async function copyFile(accessToken: string, fileId: string, name: string, parentFolderId: string, logs: LogEntry[]): Promise<string> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/copy`;
-  const bodyObj = { name, parents: [parentFolderId] };
-  const body = JSON.stringify(bodyObj);
+  // Step 1: Copy WITHOUT parents (stays in SA root, avoids quota issue)
+  const copyUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/copy?supportsAllDrives=true`;
+  const copyBody = JSON.stringify({ name });
 
-  // Log the curl equivalent
-  log(logs, "CURL - Copiar", "info",
-    `curl -X POST '${url}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '${body}'`
+  log(logs, "CURL - Copiar (sem parents)", "info",
+    `curl -X POST '${copyUrl}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '${copyBody}'`
   );
 
-  const resp = await fetch(url, {
+  const copyResp = await fetch(copyUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body,
+    body: copyBody,
   });
 
-  const responseText = await resp.text();
-  log(logs, "Resposta Drive API", resp.ok ? "ok" : "error",
-    `Status: ${resp.status} ${resp.statusText}\nBody: ${responseText}`
+  const copyText = await copyResp.text();
+  log(logs, "Resposta Copy", copyResp.ok ? "ok" : "error",
+    `Status: ${copyResp.status} ${copyResp.statusText}\nBody: ${copyText}`
   );
 
-  if (!resp.ok) {
-    throw new Error(`Drive copy failed (${resp.status}): ${responseText}`);
+  if (!copyResp.ok) {
+    throw new Error(`Drive copy failed (${copyResp.status}): ${copyText}`);
   }
 
-  const data = JSON.parse(responseText);
-  return data.id;
+  const copyData = JSON.parse(copyText);
+  const newFileId = copyData.id;
+  const currentParents = (copyData.parents || []).join(",");
+
+  // Step 2: Move to target folder using PATCH
+  const moveUrl = `https://www.googleapis.com/drive/v3/files/${newFileId}?addParents=${parentFolderId}&removeParents=${currentParents}&supportsAllDrives=true`;
+
+  log(logs, "CURL - Mover para pasta", "info",
+    `curl -X PATCH '${moveUrl}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{}'`
+  );
+
+  const moveResp = await fetch(moveUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+
+  const moveText = await moveResp.text();
+  log(logs, "Resposta Move", moveResp.ok ? "ok" : "error",
+    `Status: ${moveResp.status} ${moveResp.statusText}\nBody: ${moveText}`
+  );
+
+  if (!moveResp.ok) {
+    log(logs, "Move falhou", "error", `Arquivo ${newFileId} criado mas não movido. Erro: ${moveText}`);
+    // Return the file ID anyway - it was created successfully, just not moved
+  }
+
+  return newFileId;
 }
 
 async function listTemplates(accessToken: string, folderId: string): Promise<any[]> {
   const query = `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`;
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) throw new Error(`Drive list failed: ${await resp.text()}`);
@@ -167,7 +195,7 @@ async function listTemplates(accessToken: string, folderId: string): Promise<any
 async function listFilesInFolder(accessToken: string, folderId: string, namePrefix: string): Promise<any[]> {
   const query = `'${folderId}' in parents and name contains '${namePrefix.replace(/'/g, "\\'")}' and trashed=false`;
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) return [];

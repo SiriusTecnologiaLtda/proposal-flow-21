@@ -117,6 +117,8 @@ export default function ProposalCreate() {
       setScopeType(existingProposal.scope_type);
       setHourlyRate(existingProposal.hourly_rate);
       setGpPercentage(existingProposal.gp_percentage);
+      setAccompAnalyst(existingProposal.accomp_analyst);
+      setAccompGP(existingProposal.accomp_gp);
       setNegotiation(existingProposal.negotiation || "");
       setDescription(existingProposal.description || "");
       setTravelLocalHours(existingProposal.travel_local_hours);

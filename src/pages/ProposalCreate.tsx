@@ -84,6 +84,12 @@ export default function ProposalCreate() {
   const [firstDueDate, setFirstDueDate] = useState("");
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
+  const [travelLocalHours, setTravelLocalHours] = useState(1);
+  const [travelTripHours, setTravelTripHours] = useState(4);
+  const [travelHourlyRate, setTravelHourlyRate] = useState(250);
+  const [additionalAnalystRate, setAdditionalAnalystRate] = useState(280);
+  const [additionalGpRate, setAdditionalGpRate] = useState(300);
+  const [defaultsLoaded, setDefaultsLoaded] = useState(false);
 
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);

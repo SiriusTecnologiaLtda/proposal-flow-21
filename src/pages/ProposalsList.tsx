@@ -1,13 +1,22 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+
+interface LogEntry {
+  step: string;
+  status: "ok" | "error" | "info";
+  message: string;
+  timestamp: string;
+}
 
 const statusMap: Record<string, { label: string; className: string }> = {
   rascunho: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
@@ -23,6 +32,12 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
+function StatusIcon({ status }: { status: LogEntry["status"] }) {
+  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
+  if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
+  return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
+}
+
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const { data: proposals = [] } = useProposals();
@@ -33,25 +48,48 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
-  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
+  // Console dialog state
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [consoleLogs, setConsoleLogs] = useState<LogEntry[]>([]);
+  const [consoleLoading, setConsoleLoading] = useState(false);
+  const [consoleDocUrl, setConsoleDocUrl] = useState<string | null>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [consoleLogs]);
 
   async function handleGenerateDoc(proposalId: string) {
-    setGeneratingPdfId(proposalId);
+    setConsoleLogs([]);
+    setConsoleDocUrl(null);
+    setConsoleLoading(true);
+    setConsoleOpen(true);
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-proposal-pdf", {
         body: { proposalId },
       });
-      if (error) throw error;
-      if (data?.docUrl) {
-        window.open(data.docUrl, "_blank");
-        toast({ title: "Proposta gerada!", description: `Documento "${data.fileName}" criado no Google Drive.` });
+
+      if (data?.logs) {
+        setConsoleLogs(data.logs);
+      }
+
+      if (error) {
+        if (!data?.logs) {
+          setConsoleLogs([{ step: "Erro", status: "error", message: error.message, timestamp: new Date().toISOString() }]);
+        }
+      } else if (data?.docUrl) {
+        setConsoleDocUrl(data.docUrl);
       } else if (data?.error) {
-        throw new Error(data.error);
+        if (!data?.logs) {
+          setConsoleLogs([{ step: "Erro", status: "error", message: data.error, timestamp: new Date().toISOString() }]);
+        }
       }
     } catch (err: any) {
-      toast({ title: "Erro ao gerar proposta", description: err.message, variant: "destructive" });
+      setConsoleLogs(prev => [...prev, { step: "Erro de rede", status: "error", message: err.message, timestamp: new Date().toISOString() }]);
     }
-    setGeneratingPdfId(null);
+    setConsoleLoading(false);
   }
 
   const filtered = proposals.filter((p) => {
@@ -173,8 +211,8 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)} disabled={generatingPdfId === p.id}>
-                        {generatingPdfId === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Eye className="mr-2 h-3.5 w-3.5" />}
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)}>
+                        <Eye className="mr-2 h-3.5 w-3.5" />
                         Gerar Proposta
                       </DropdownMenuItem>
                       {!cancelled && (
@@ -210,6 +248,63 @@ export default function ProposalsList() {
           )}
         </div>
       </div>
+
+      {/* Generation console dialog */}
+      <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Gerar Proposta — Console de Execução
+            </DialogTitle>
+          </DialogHeader>
+          <div className="bg-zinc-950 mx-4 mb-4 rounded-lg border border-zinc-800 overflow-hidden">
+            <ScrollArea className="h-80">
+              <div className="p-4 font-mono text-sm space-y-2">
+                {consoleLogs.map((entry, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <StatusIcon status={entry.status} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-zinc-400 text-xs mr-2">
+                        {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
+                      </span>
+                      <span className="text-zinc-200 font-semibold">{entry.step}</span>
+                      <span className="text-zinc-400 mx-1">—</span>
+                      <span className={
+                        entry.status === "error" ? "text-red-400" :
+                        entry.status === "ok" ? "text-green-400" :
+                        "text-blue-400"
+                      }>
+                        {entry.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {consoleLoading && (
+                  <div className="flex items-center gap-2 text-zinc-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processando...</span>
+                  </div>
+                )}
+                <div ref={consoleEndRef} />
+              </div>
+            </ScrollArea>
+          </div>
+          {!consoleLoading && consoleLogs.length > 0 && (
+            <div className="px-6 pb-4 flex gap-2 justify-end">
+              {consoleDocUrl && (
+                <Button onClick={() => window.open(consoleDocUrl, "_blank")}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Abrir Documento
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setConsoleOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

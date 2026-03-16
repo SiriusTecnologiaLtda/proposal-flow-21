@@ -6,6 +6,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Logging ────────────────────────────────────────────────────────
+
+interface LogEntry {
+  step: string;
+  status: "ok" | "error" | "info";
+  message: string;
+  timestamp: string;
+}
+
+function log(logs: LogEntry[], step: string, status: LogEntry["status"], message: string) {
+  logs.push({ step, status, message, timestamp: new Date().toISOString() });
+}
+
+function respondWithLogs(logs: LogEntry[], extra: Record<string, any> = {}, status = 200) {
+  return new Response(JSON.stringify({ logs, ...extra }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 // ─── Google Auth ────────────────────────────────────────────────────
 
 async function getAccessToken(serviceAccountKey: any): Promise<string> {
@@ -20,8 +40,6 @@ async function getAccessToken(serviceAccountKey: any): Promise<string> {
   }));
 
   const signInput = `${header}.${payload}`;
-
-  // Import the private key
   const pem = serviceAccountKey.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -139,26 +157,28 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const logs: LogEntry[] = [];
+
   try {
+    // ─── Parse request ──────────────────────────────────────────
     const bodyText = await req.text();
-    console.log("Request body (first 200 chars):", bodyText.substring(0, 200));
     let parsedBody: any;
     try {
       parsedBody = JSON.parse(bodyText);
+      log(logs, "Receber requisição", "ok", `proposalId: ${parsedBody?.proposalId || "não informado"}`);
     } catch (e) {
-      console.error("Body parse error. Body hex:", Array.from(new TextEncoder().encode(bodyText.substring(0, 20))).map(b => b.toString(16)).join(' '));
-      throw e;
+      log(logs, "Receber requisição", "error", "Corpo da requisição inválido");
+      return respondWithLogs(logs, { error: "Invalid request body" }, 400);
     }
     const { proposalId } = parsedBody;
 
     if (!proposalId) {
-      return new Response(JSON.stringify({ error: "proposalId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      log(logs, "Validação", "error", "proposalId é obrigatório");
+      return respondWithLogs(logs, { error: "proposalId is required" }, 400);
     }
 
-    // ─── Load credentials (DB first, env fallback) ─────────────
+    // ─── Load credentials ───────────────────────────────────────
+    log(logs, "Carregar credenciais", "info", "Buscando credenciais do Google...");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -166,7 +186,6 @@ Deno.serve(async (req) => {
     let serviceAccountKey: any;
     let driveFolderId: string;
 
-    // Try loading from google_integrations table
     const { data: integration } = await supabase
       .from("google_integrations")
       .select("service_account_key, drive_folder_id")
@@ -177,18 +196,24 @@ Deno.serve(async (req) => {
       try {
         serviceAccountKey = JSON.parse(integration.service_account_key);
         driveFolderId = integration.drive_folder_id;
-        console.log("Using credentials from google_integrations table");
+        log(logs, "Carregar credenciais", "ok", `Usando integração do banco (email: ${serviceAccountKey.client_email})`);
       } catch (e) {
-        throw new Error(`Failed to parse service account key from DB: ${e.message}`);
+        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave da conta de serviço: ${e.message}`);
+        return respondWithLogs(logs, { error: e.message }, 500);
       }
     } else {
-      // Fallback to env secrets
-      console.log("No DB integration found, falling back to env secrets");
+      log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
       const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
       driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
 
-      if (!serviceAccountKeyRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
-      if (!driveFolderId) throw new Error("GOOGLE_DRIVE_FOLDER_ID not configured");
+      if (!serviceAccountKeyRaw) {
+        log(logs, "Carregar credenciais", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");
+        return respondWithLogs(logs, { error: "GOOGLE_SERVICE_ACCOUNT_KEY not configured" }, 500);
+      }
+      if (!driveFolderId) {
+        log(logs, "Carregar credenciais", "error", "GOOGLE_DRIVE_FOLDER_ID não configurado");
+        return respondWithLogs(logs, { error: "GOOGLE_DRIVE_FOLDER_ID not configured" }, 500);
+      }
 
       try {
         let raw = serviceAccountKeyRaw.trim();
@@ -196,13 +221,15 @@ Deno.serve(async (req) => {
           try { raw = JSON.parse(raw); } catch { /* use as-is */ }
         }
         serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        log(logs, "Carregar credenciais", "ok", `Usando env (email: ${serviceAccountKey.client_email})`);
       } catch (e) {
-        console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 100 chars:", serviceAccountKeyRaw.substring(0, 100));
-        throw new Error(`Failed to parse service account key: ${e.message}`);
+        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave: ${e.message}`);
+        return respondWithLogs(logs, { error: e.message }, 500);
       }
     }
 
-    // ─── Fetch proposal data from Supabase ────────────────────────
+    // ─── Fetch proposal data ────────────────────────────────────
+    log(logs, "Buscar proposta", "info", `Buscando proposta ${proposalId}...`);
 
     const { data: proposal, error: propError } = await supabase
       .from("proposals")
@@ -220,13 +247,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (propError || !proposal) {
-      return new Response(JSON.stringify({ error: "Proposal not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      log(logs, "Buscar proposta", "error", `Proposta não encontrada: ${propError?.message || "sem dados"}`);
+      return respondWithLogs(logs, { error: "Proposal not found" }, 404);
     }
 
-    // ─── Unit info ────────────────────────────────────────────────
+    log(logs, "Buscar proposta", "ok", `Proposta ${proposal.number} — Cliente: ${proposal.clients?.name || "—"}`);
+
+    // ─── Unit info ──────────────────────────────────────────────
     let unitInfo: any = null;
     if (proposal.clients?.unit_id) {
       const { data } = await supabase.from("unit_info").select("*").eq("id", proposal.clients.unit_id).single();
@@ -236,12 +263,14 @@ Deno.serve(async (req) => {
       const { data } = await supabase.from("unit_info").select("*").limit(1).maybeSingle();
       unitInfo = data;
     }
+    log(logs, "Buscar unidade", "ok", `Unidade: ${unitInfo?.name || "padrão"} — Fator: ${unitInfo?.tax_factor || 0}%`);
 
-    // ─── Calculate values ─────────────────────────────────────────
+    // ─── Calculate values ───────────────────────────────────────
+    log(logs, "Calcular valores", "info", "Processando escopo e valores...");
+
     const scopeItems = proposal.proposal_scope_items || [];
     const includedItems = scopeItems.filter((i: any) => i.included);
     const parentItems = includedItems.filter((i: any) => !i.parent_id);
-    const childItems = includedItems.filter((i: any) => i.parent_id);
 
     const templateIds = [...new Set(includedItems.map((i: any) => i.template_id).filter(Boolean))];
     let templateNames: Record<string, string> = {};
@@ -273,31 +302,57 @@ Deno.serve(async (req) => {
     const firstPayment = payments[0];
     const desc = proposal.description || (isProjeto ? "Projeto de Implantação" : "Banco de Horas");
 
-    // ─── Google Auth ──────────────────────────────────────────────
-    const accessToken = await getAccessToken(serviceAccountKey);
+    log(logs, "Calcular valores", "ok", `${totalHours}h total (${totalAnalystHours}h analista + ${gpHours}h GP) — Líquido: R$ ${fmt(totalValueNet)} — Bruto: R$ ${fmt(totalValueGross)}`);
 
-    // ─── Find template in Drive ───────────────────────────────────
-    const templates = await listTemplates(accessToken, driveFolderId);
+    // ─── Google Auth ────────────────────────────────────────────
+    log(logs, "Autenticação Google", "info", "Obtendo token de acesso...");
+    let accessToken: string;
+    try {
+      accessToken = await getAccessToken(serviceAccountKey);
+      log(logs, "Autenticação Google", "ok", "Token obtido com sucesso");
+    } catch (e: any) {
+      log(logs, "Autenticação Google", "error", `Falha na autenticação: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
+    // ─── Find template in Drive ─────────────────────────────────
+    log(logs, "Buscar template", "info", `Buscando template "${isProjeto ? "projeto" : "banco"}" na pasta...`);
+    let templates: any[];
+    try {
+      templates = await listTemplates(accessToken, driveFolderId);
+    } catch (e: any) {
+      log(logs, "Buscar template", "error", `Falha ao listar templates: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
     const templateKeyword = isProjeto ? "projeto" : "banco";
     const template = templates.find((t: any) => t.name.toLowerCase().includes(templateKeyword));
 
     if (!template) {
-      return new Response(JSON.stringify({ error: `Template "${templateKeyword}" not found in Drive folder` }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      log(logs, "Buscar template", "error", `Template "${templateKeyword}" não encontrado. Arquivos na pasta: ${templates.map((t: any) => t.name).join(", ") || "nenhum"}`);
+      return respondWithLogs(logs, { error: `Template "${templateKeyword}" not found in Drive folder` }, 404);
     }
+    log(logs, "Buscar template", "ok", `Template encontrado: "${template.name}"`);
 
-    // ─── Check for existing versions to determine version number ──
+    // ─── Check existing versions ────────────────────────────────
     const proposalBaseName = `${proposal.number} - ${client?.name || "Cliente"}`;
     const existingFiles = await listFilesInFolder(accessToken, driveFolderId, proposalBaseName);
     const version = existingFiles.length + 1;
     const newFileName = `${proposalBaseName} v${version}`;
+    log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
 
-    // ─── Copy template ────────────────────────────────────────────
-    const newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId);
+    // ─── Copy template ──────────────────────────────────────────
+    log(logs, "Copiar template", "info", "Criando cópia do template no Drive...");
+    let newDocId: string;
+    try {
+      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId);
+      log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
+    } catch (e: any) {
+      log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
 
-    // ─── Build placeholders map ───────────────────────────────────
+    // ─── Build placeholders map ─────────────────────────────────
     const macroEscopoText = macroScopeNames.join("\n");
     const paymentText = payments.map((p: any) =>
       `${p.installment}ª parcela - Venc.: ${fmtDate(p.due_date)} - R$ ${fmt(Number(p.amount))}`
@@ -350,25 +405,29 @@ Deno.serve(async (req) => {
       "{{NEGOCIACAO}}": proposal.negotiation || "",
     };
 
-    // ─── Replace placeholders in the document ─────────────────────
-    await batchReplace(accessToken, newDocId, placeholders);
+    // ─── Replace placeholders ───────────────────────────────────
+    log(logs, "Substituir placeholders", "info", `Substituindo ${Object.keys(placeholders).length} placeholders...`);
+    try {
+      await batchReplace(accessToken, newDocId, placeholders);
+      log(logs, "Substituir placeholders", "ok", "Todos os placeholders substituídos com sucesso");
+    } catch (e: any) {
+      log(logs, "Substituir placeholders", "error", `Falha: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
 
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
+    log(logs, "Concluído", "ok", `Documento gerado com sucesso: ${newFileName}`);
 
-    return new Response(JSON.stringify({
+    return respondWithLogs(logs, {
       docUrl,
       docId: newDocId,
       fileName: newFileName,
       proposal: { number: proposal.number, totalValue: totalValueNet, totalHours },
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
     console.error("Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    log(logs, "Erro inesperado", "error", error.message);
+    return respondWithLogs(logs, { error: error.message }, 500);
   }
 });
 

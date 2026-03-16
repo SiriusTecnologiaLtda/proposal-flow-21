@@ -219,6 +219,8 @@ export default function ProposalCreate() {
     if (!isEditing && !isDuplicating && proposalDefaults && !defaultsLoaded) {
       setHourlyRate(proposalDefaults.hourly_rate);
       setGpPercentage(proposalDefaults.gp_percentage);
+      setAccompAnalyst((proposalDefaults as any).accomp_analyst_percentage ?? 15);
+      setAccompGP((proposalDefaults as any).accomp_gp_percentage ?? 10);
       setTravelLocalHours(proposalDefaults.travel_local_hours);
       setTravelTripHours(proposalDefaults.travel_trip_hours);
       setTravelHourlyRate(proposalDefaults.travel_hourly_rate);

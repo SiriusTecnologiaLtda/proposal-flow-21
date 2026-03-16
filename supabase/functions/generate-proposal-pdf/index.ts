@@ -93,7 +93,7 @@ function fmtBytes(bytes: number): string {
 
 async function getDriveQuota(accessToken: string): Promise<{ limit: string; usage: string; usageInDrive: string; usageInTrash: string; free: string; raw: any }> {
   const resp = await fetch(
-    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user",
+    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user&supportsAllDrives=true",
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const data = await resp.json();

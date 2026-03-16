@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -32,6 +33,29 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
+  async function handleViewPdf(proposalId: string) {
+    setGeneratingPdfId(proposalId);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-proposal-pdf", {
+        body: { proposalId },
+      });
+      if (error) throw error;
+      if (data?.html) {
+        const win = window.open("", "_blank");
+        if (win) {
+          win.document.write(data.html);
+          win.document.close();
+        } else {
+          toast({ title: "Pop-up bloqueado", description: "Permita pop-ups para visualizar a proposta.", variant: "destructive" });
+        }
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar proposta", description: err.message, variant: "destructive" });
+    }
+    setGeneratingPdfId(null);
+  }
 
   const filtered = proposals.filter((p) => {
     const clientName = (p as any).clients?.name || "";
@@ -152,6 +176,10 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewPdf(p.id)} disabled={generatingPdfId === p.id}>
+                        {generatingPdfId === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Eye className="mr-2 h-3.5 w-3.5" />}
+                        Visualizar Proposta
+                      </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
                           <Edit2 className="mr-2 h-3.5 w-3.5" />Editar

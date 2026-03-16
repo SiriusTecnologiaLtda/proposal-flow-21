@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits } from "@/hooks/useSupabaseData";
+import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits, useProposalDefaults } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,6 +61,7 @@ export default function ProposalCreate() {
   const { data: scopeTemplates = [] } = useScopeTemplates();
   const { data: productsList = [] } = useProducts();
   const { data: units = [] } = useUnits();
+  const { data: proposalDefaults } = useProposalDefaults();
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);
@@ -83,6 +84,12 @@ export default function ProposalCreate() {
   const [firstDueDate, setFirstDueDate] = useState("");
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
+  const [travelLocalHours, setTravelLocalHours] = useState(1);
+  const [travelTripHours, setTravelTripHours] = useState(4);
+  const [travelHourlyRate, setTravelHourlyRate] = useState(250);
+  const [additionalAnalystRate, setAdditionalAnalystRate] = useState(280);
+  const [additionalGpRate, setAdditionalGpRate] = useState(300);
+  const [defaultsLoaded, setDefaultsLoaded] = useState(false);
 
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
@@ -109,6 +116,12 @@ export default function ProposalCreate() {
       setGpPercentage(existingProposal.gp_percentage);
       setNegotiation(existingProposal.negotiation || "");
       setDescription(existingProposal.description || "");
+      setTravelLocalHours(existingProposal.travel_local_hours);
+      setTravelTripHours(existingProposal.travel_trip_hours);
+      setTravelHourlyRate(existingProposal.travel_hourly_rate);
+      setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
+      setAdditionalGpRate(existingProposal.additional_gp_rate);
+      setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
       const items = (existingProposal as any).proposal_scope_items || [];
@@ -195,6 +208,20 @@ export default function ProposalCreate() {
       setLoaded(true);
     }
   }, [existingProposal, loaded, isDuplicating]);
+
+  // Load defaults for new proposals
+  useEffect(() => {
+    if (!isEditing && !isDuplicating && proposalDefaults && !defaultsLoaded) {
+      setHourlyRate(proposalDefaults.hourly_rate);
+      setGpPercentage(proposalDefaults.gp_percentage);
+      setTravelLocalHours(proposalDefaults.travel_local_hours);
+      setTravelTripHours(proposalDefaults.travel_trip_hours);
+      setTravelHourlyRate(proposalDefaults.travel_hourly_rate);
+      setAdditionalAnalystRate(proposalDefaults.additional_analyst_rate);
+      setAdditionalGpRate(proposalDefaults.additional_gp_rate);
+      setDefaultsLoaded(true);
+    }
+  }, [proposalDefaults, isEditing, isDuplicating, defaultsLoaded]);
 
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
@@ -567,6 +594,11 @@ export default function ProposalCreate() {
       arquiteto_id: arquitetoId || null,
       hourly_rate: hourlyRate,
       gp_percentage: gpPercentage,
+      travel_local_hours: travelLocalHours,
+      travel_trip_hours: travelTripHours,
+      travel_hourly_rate: travelHourlyRate,
+      additional_analyst_rate: additionalAnalystRate,
+      additional_gp_rate: additionalGpRate,
       negotiation,
       description,
       scopeItems: allScopeItems,
@@ -990,7 +1022,7 @@ export default function ProposalCreate() {
       {currentStep === 3 && (
         <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-foreground">Informações Financeiras</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Valor Hora (R$)</Label>
               <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
@@ -998,10 +1030,6 @@ export default function ProposalCreate() {
             <div className="space-y-1.5">
               <Label className="text-xs">% Horas GP</Label>
               <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Qtde Empresas</Label>
-              <Input type="number" defaultValue={1} />
             </div>
           </div>
 
@@ -1055,6 +1083,53 @@ export default function ProposalCreate() {
                 Cliente sem unidade vinculada — fator imposto não aplicado.
               </p>
             )}
+          </div>
+
+          {/* Outros Parâmetros */}
+          <div className="rounded-md border border-border bg-muted/50 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Outros Parâmetros</h3>
+            <div className="overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Local</td>
+                    <td className="py-1 px-3 text-right">
+                      <Input type="number" min={0} value={travelLocalHours} onChange={(e) => setTravelLocalHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Qtde Horas Traslado Viagem</td>
+                    <td className="py-1 px-3 text-right">
+                      <Input type="number" min={0} value={travelTripHours} onChange={(e) => setTravelTripHours(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Valor Hora Traslado (R$)</td>
+                    <td className="py-1 px-3 text-right">
+                      <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso Analista (R$)</td>
+                    <td className="py-1 px-3 text-right">
+                      <Input type="number" min={0} value={additionalAnalystRate} onChange={(e) => setAdditionalAnalystRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso GP (R$)</td>
+                    <td className="py-1 px-3 text-right">
+                      <Input type="number" min={0} value={additionalGpRate} onChange={(e) => setAdditionalGpRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div>

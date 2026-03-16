@@ -190,6 +190,42 @@ export type Database = {
           },
         ]
       }
+      proposal_defaults: {
+        Row: {
+          additional_analyst_rate: number
+          additional_gp_rate: number
+          gp_percentage: number
+          hourly_rate: number
+          id: string
+          travel_hourly_rate: number
+          travel_local_hours: number
+          travel_trip_hours: number
+          updated_at: string
+        }
+        Insert: {
+          additional_analyst_rate?: number
+          additional_gp_rate?: number
+          gp_percentage?: number
+          hourly_rate?: number
+          id?: string
+          travel_hourly_rate?: number
+          travel_local_hours?: number
+          travel_trip_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          additional_analyst_rate?: number
+          additional_gp_rate?: number
+          gp_percentage?: number
+          hourly_rate?: number
+          id?: string
+          travel_hourly_rate?: number
+          travel_local_hours?: number
+          travel_trip_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proposal_macro_scope: {
         Row: {
           analyst_hours: number

@@ -380,3 +380,27 @@ export function useUnitInfo() {
     },
   });
 }
+
+// ============ PROPOSAL DEFAULTS ============
+export function useProposalDefaults() {
+  return useQuery({
+    queryKey: ["proposal_defaults"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_defaults").select("*").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdateProposalDefaults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+      const { data, error } = await supabase.from("proposal_defaults").update(updates).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["proposal_defaults"] }),
+  });
+}

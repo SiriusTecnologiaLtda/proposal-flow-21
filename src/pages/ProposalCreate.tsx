@@ -1229,15 +1229,67 @@ export default function ProposalCreate() {
 
               <div className="rounded-md border border-border p-4">
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Escopo</h3>
-                <div className="space-y-1 text-sm">
-                  {scopeProcesses.filter((p) => p.included).map((proc) => (
-                    <div key={proc.id} className="flex justify-between">
-                      <span className="text-muted-foreground">{proc.description || "(sem nome)"}</span>
-                      <span className="font-medium">{proc.children.filter((c) => c.included).length} itens · {processHours(proc)}h</span>
-                    </div>
-                  ))}
-                  {scopeProcesses.filter((p) => p.included).length === 0 && <p className="text-muted-foreground">Nenhum item de escopo incluído</p>}
-                </div>
+                {groupedScope.filter(g => g.processes.some(p => p.included)).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item de escopo incluído</p>
+                ) : (
+                  <div className="space-y-2">
+                    {groupedScope.filter(g => g.processes.some(p => p.included)).map((group) => {
+                      const groupKey = group.templateId || "_avulso";
+                      const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
+                      const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.filter(c => c.included).length, 0);
+
+                      return (
+                        <Collapsible key={groupKey} defaultOpen={false}>
+                          <div className="rounded-lg border border-border bg-card overflow-hidden">
+                            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Layers className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="text-sm font-semibold text-foreground">{group.templateId ? group.templateName : avulsoGroupName || "Itens Avulsos"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
+                                </p>
+                              </div>
+                              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180 shrink-0" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="border-t border-border">
+                                {group.processes.filter(p => p.included).map((proc, procIdx) => {
+                                  const hours = processHours(proc);
+                                  const includedChildren = proc.children.filter(c => c.included);
+                                  return (
+                                    <Collapsible key={proc.id} defaultOpen={false}>
+                                      <div className={`${procIdx > 0 ? "border-t border-border" : ""}`}>
+                                        <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 pl-6 hover:bg-accent/20 transition-colors">
+                                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180 shrink-0" />
+                                          <span className="shrink-0 text-xs font-medium text-muted-foreground w-6">{procIdx + 1}.</span>
+                                          <span className="flex-1 text-sm font-semibold text-foreground text-left">{proc.description || "(sem nome)"}</span>
+                                          <span className="shrink-0 text-xs text-muted-foreground">{hours}h</span>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="bg-muted/20">
+                                            {includedChildren.map((child, childIdx) => (
+                                              <div key={child.id} className="flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 text-sm">
+                                                <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
+                                                <span className="flex-1 text-foreground">{child.description}</span>
+                                                <span className="shrink-0 text-xs text-muted-foreground">{child.hours}h</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </div>
+                                    </Collapsible>
+                                  );
+                                })}
+                              </div>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-md border border-border bg-primary/5 p-4">

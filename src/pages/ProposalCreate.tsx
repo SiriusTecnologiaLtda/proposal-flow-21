@@ -60,6 +60,7 @@ export default function ProposalCreate() {
   const { data: salesTeam = [] } = useSalesTeam();
   const { data: scopeTemplates = [] } = useScopeTemplates();
   const { data: productsList = [] } = useProducts();
+  const { data: units = [] } = useUnits();
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);

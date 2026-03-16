@@ -77,6 +77,9 @@ export default function ProposalCreate() {
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
+  const [paymentMode, setPaymentMode] = useState<"linear" | "custom">("linear");
+  const [numInstallments, setNumInstallments] = useState(1);
+  const [firstDueDate, setFirstDueDate] = useState("");
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
 

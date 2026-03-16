@@ -10,7 +10,8 @@ export default function SettingsPage() {
     { title: "Usuários e Acessos", desc: "Gerenciar usuários e permissões da plataforma", action: () => toast({ title: "Em breve", description: "Módulo de gestão de usuários será implementado em breve." }) },
     { title: "Integrações / APIs", desc: "Configurar APIs externas para sincronizar Clientes e Time de Vendas", action: () => toast({ title: "Em breve", description: "Módulo de integrações será implementado em breve." }) },
     { title: "Dados da Unidade", desc: "Informações da unidade TOTVS Leste (CNPJ, endereço, etc.)", action: () => navigate("/unidades") },
-    { title: "Parâmetros Padrão de Proposta", desc: "Valores padrão de hora, GP, traslado e taxas carregados em novas propostas", action: () => navigate("/configuracoes/parametros") },
+    { title: "Parâmetros Padrão de Proposta", desc: "Valores padrão de hora, GP, traslado e taxas carregados em novas propostas", action: () => navigate("/configuracoes/parametros"), icon: Settings },
+    { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de propostas", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
   ];
 
   return (

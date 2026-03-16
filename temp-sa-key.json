@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "helical-yeti-410913",
+  "private_key_id": "7b2ec9a68d994bcd3bbf1cca7e683a176c067abb",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDR5dVrs2MU0MBR\n3M/ciEdqrh7PnJp3SprkwxZUUqafk33ofxd7vCdd+ox1VIqcyRZsYSAw/aIzoDpQ\nasi5SrDLE0ZGthJvDEesbogVmZo+gazDOTUcB2dK0riSJVo1HX/3i8/yfP/7hq4M\n2/Qpyj5KTI2RefMD+owUwKetcbu9DrRc837tVdYQjIVzZ2Z29dRP8brXQcR5//Ry\nOVKlEddOKNUPbMqQd2YLvWd/5Epyeh/stmeqSw2yqZmDq4bXitp6dBuwhTCmMPIR\nW/7VzGiPtE2KV01+PCixOzItjW5RkMXCETPPR+YTRS8H56RstJpvhoaUyEP1LcrB\nEhVRc4t7AgMBAAECggEAI5Pd/4HqDvqtRpLzhrFwzYPTBCTKx+KU66anr8ZMqOrC\nojh8ngQP9i2ERlT8o8Ov8dHqt3MeXbrQd5YKDOI8okdTl6O/7yO5OGCJ34NoMiUf\nx/1345bbqsKZ92euaSdla+u+ZR9L8nHrKZHUyoqV0Vk1e82cY/XBbbkUEuGezVYU\nhArGmao4oMcnA5UbwzyWtyjin54ozo8iOFEBsWZcxbZ+KwBMdvunoeuyArLB5GLZ\nFlgFGJxdw82l+LxKYjQS4cG4qayCsyyzPwCGdW15sMEgUp3Pd2rXWorYe8cEJupx\n8jmVXSlvgT5/gphPgVZu4aBl2cc5pjRnJkovvGqyQQKBgQD1rsWKvhSEx8XijXOc\nAerE1SSSBq0dOeGJKqPt2Oa3ntFtvJlheOaQ3CRffA3JPk8WDbniqZMvg+JM2nVJ\nGrk/alDfH8qrxdGFASs9eZxYfrAiLH4O8d1ahTUbwiARaq7UCuH2FbEazQkyPC2/\n/AgKrrspJAZoxr/GXvtgNhpdQQKBgQDatlqZ3vgSiwxOskgbJ3+xxXRnrr5VK09o\nPSCTiSmiJK68qS2B4ebY3CSMwlBJPwdLtRZdybuUwZF7aUoUnPiS1AVzxebiZuoI\n1YWn0Lrc0ddsyXTDsB5Cq1JyrdsJo+703m4hSAC37HATZrXwEClKMGuCFB/cL3ok\nckgpjY0tuwKBgBrnpdh40nRsED6sMPHvv88IbHXVZ1XhBdLoqYUdkL6hFNxIoB9t\nhwpsIUuXoUbdnPmUTTwGSAkXD0xNTDTSSWEpemvE5oQDKNvA8gRMchO64/0KFE/8\nqroEBnngu3RM05KDEpXJcFi4BX7L2lLA/fx1gCeUO2N0CIJn2m2B30dBAoGBANVj\nscYLG7LL47gsjdmgkiAabNZ0UdO7LACiE1SfMPW4IJyF25arl5XiQ+7p73dnfXDK\nQAZFuzUKHy1vrw2pkYWAQ8mPPxOKIbF40qzHJGoqeqrza286OGwHx6uIIPuo7I4R\nLxZdsAXDNB5Zyg1tVzvBPkNt6x/jWqKQtgOEzkfdAoGACucETCdbHhHjdibKHaGf\ni5hc/Hwyh3DxWGA04Yfe6PYT18N7t0TizPyot5lYHRPp1pfuYl4ybVy5GTDJtr0+\nyvrUvbUgRWUx+ucTjBXgFLjOUrOO/aiGJ5XAi6tqsApGgj01FxxnI4oR9nY6pZsf\noddOTx5dJ7Aui4Z984HBpbU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "proposta-bot@helical-yeti-410913.iam.gserviceaccount.com",
+  "client_id": "101945944091059560594",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/proposta-bot%40helical-yeti-410913.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

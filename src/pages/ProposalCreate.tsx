@@ -209,6 +209,20 @@ export default function ProposalCreate() {
     }
   }, [existingProposal, loaded, isDuplicating]);
 
+  // Load defaults for new proposals
+  useEffect(() => {
+    if (!isEditing && !isDuplicating && proposalDefaults && !defaultsLoaded) {
+      setHourlyRate(proposalDefaults.hourly_rate);
+      setGpPercentage(proposalDefaults.gp_percentage);
+      setTravelLocalHours(proposalDefaults.travel_local_hours);
+      setTravelTripHours(proposalDefaults.travel_trip_hours);
+      setTravelHourlyRate(proposalDefaults.travel_hourly_rate);
+      setAdditionalAnalystRate(proposalDefaults.additional_analyst_rate);
+      setAdditionalGpRate(proposalDefaults.additional_gp_rate);
+      setDefaultsLoaded(true);
+    }
+  }, [proposalDefaults, isEditing, isDuplicating, defaultsLoaded]);
+
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);

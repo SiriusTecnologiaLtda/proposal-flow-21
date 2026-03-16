@@ -140,7 +140,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { proposalId } = await req.json();
+    const bodyText = await req.text();
+    console.log("Request body (first 200 chars):", bodyText.substring(0, 200));
+    let parsedBody: any;
+    try {
+      parsedBody = JSON.parse(bodyText);
+    } catch (e) {
+      console.error("Body parse error. Body hex:", Array.from(new TextEncoder().encode(bodyText.substring(0, 20))).map(b => b.toString(16)).join(' '));
+      throw e;
+    }
+    const { proposalId } = parsedBody;
 
     if (!proposalId) {
       return new Response(JSON.stringify({ error: "proposalId is required" }), {

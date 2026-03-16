@@ -220,43 +220,47 @@ function baseStyles() {
 function coverPage() {
   return `<div class="page cover-page" style="background: var(--totvs-dark); display:flex; flex-direction:column; justify-content:space-between; align-items:stretch;">
     <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
-      <!-- Abstract teal shape -->
       <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#1a4a5a;stop-opacity:1" />
-            <stop offset="50%" style="stop-color:#2a8a9a;stop-opacity:1" />
+          <linearGradient id="tealGrad1" x1="0%" y1="0%" x2="100%" y2="80%">
+            <stop offset="0%" style="stop-color:#1a5a6a;stop-opacity:1" />
+            <stop offset="40%" style="stop-color:#2a8a9a;stop-opacity:1" />
+            <stop offset="70%" style="stop-color:#35a5b5;stop-opacity:1" />
             <stop offset="100%" style="stop-color:#5ce0f0;stop-opacity:1" />
           </linearGradient>
-          <linearGradient id="tealEdge" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#4fc3d8;stop-opacity:0.8" />
-            <stop offset="100%" style="stop-color:#7df0ff;stop-opacity:0.9" />
+          <linearGradient id="cyanEdge1" x1="20%" y1="0%" x2="80%" y2="100%">
+            <stop offset="0%" style="stop-color:#60e8f8;stop-opacity:0.9" />
+            <stop offset="100%" style="stop-color:#90f0ff;stop-opacity:0.95" />
+          </linearGradient>
+          <linearGradient id="innerDark1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#0f1923;stop-opacity:0.6" />
+            <stop offset="100%" style="stop-color:#0a1018;stop-opacity:0.4" />
           </linearGradient>
         </defs>
-        <!-- Main flowing shape -->
-        <path d="M350,200 Q550,100 600,350 Q650,550 500,700 Q350,850 400,1000 Q420,1100 500,1130 L800,1130 L800,0 L500,0 Q400,50 350,200Z" fill="url(#tealGrad)"/>
-        <!-- Highlight edge -->
-        <path d="M340,220 Q540,120 590,360 Q640,540 490,690 Q340,840 390,990 Q410,1080 480,1130" fill="none" stroke="url(#tealEdge)" stroke-width="4"/>
-        <!-- Inner dark shape -->
-        <path d="M420,350 Q550,250 580,450 Q610,600 500,720 Q420,800 440,950 Q450,1050 500,1130 L800,1130 L800,100 L550,100 Q470,150 420,350Z" fill="var(--totvs-dark)" opacity="0.3"/>
+        <!-- Main teal flowing shape -->
+        <path d="M800,180 Q700,120 550,200 Q350,310 280,480 Q200,680 250,850 Q280,950 350,1050 Q400,1130 450,1130 L800,1130Z" fill="url(#tealGrad1)"/>
+        <!-- Cyan highlight edge -->
+        <path d="M800,170 Q690,115 540,195 Q340,305 270,475 Q190,680 240,850 Q270,950 340,1050 Q390,1130 440,1130" fill="none" stroke="url(#cyanEdge1)" stroke-width="6"/>
+        <!-- Cyan edge band -->
+        <path d="M800,165 Q685,108 535,190 Q330,300 260,470 Q180,675 230,848 Q260,948 330,1048 Q380,1130 430,1130 L450,1130 Q400,1130 350,1050 Q280,950 250,850 Q200,680 280,480 Q350,310 550,200 Q700,120 800,180Z" fill="url(#cyanEdge1)" opacity="0.5"/>
+        <!-- Inner dark shadow -->
+        <path d="M800,250 Q720,200 600,270 Q420,370 360,530 Q290,720 330,880 Q360,970 420,1060 Q460,1130 500,1130 L800,1130Z" fill="url(#innerDark1)"/>
       </svg>
     </div>
     
-    <!-- Title -->
     <div style="position:relative; z-index:1; padding: 80px 60px 0;">
-      <h1 style="color:white; font-size:42px; font-weight:900; border:none; margin:0; line-height:1.1; letter-spacing:-1px;">PROPOSTA<br/>COMERCIAL</h1>
+      <h1 style="color:white; font-size:44px; font-weight:900; border:none; margin:0; line-height:1.08; letter-spacing:-0.5px; font-family:'Arial Black',Arial,sans-serif;">PROPOSTA<br/>COMERCIAL</h1>
     </div>
     
-    <!-- Logo bottom -->
-    <div style="position:relative; z-index:1; padding: 0 60px 60px; text-align:left;">
-      <div style="display:flex; align-items:center; gap:14px;">
-        <svg viewBox="0 0 50 50" style="width:60px; height:60px;" fill="white">
-          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
-          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+    <div style="position:relative; z-index:1; padding: 0 50px 50px; text-align:left;">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <svg viewBox="0 0 60 60" style="width:65px; height:65px;" fill="white">
+          <path d="M30,4 C16.2,4 5,14.2 5,27 C5,35.5 9.5,42.8 16.2,47 L30,56 L43.8,47 C50.5,42.8 55,35.5 55,27 C55,14.2 43.8,4 30,4Z M30,8 C41.6,8 51,16.4 51,27 C51,34 47.3,40 41.6,43.5 L30,51.5 L18.4,43.5 C12.7,40 9,34 9,27 C9,16.4 18.4,8 30,8Z" fill="white" opacity="0.9"/>
+          <path d="M18,27 Q30,12 42,27 Q30,42 18,27Z" fill="white" opacity="0.8"/>
         </svg>
         <div>
-          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:42px; font-weight:900; color:white; letter-spacing:3px; line-height:1;">TOTVS</div>
-          <div style="font-size:18px; font-weight:700; color:var(--totvs-cyan); letter-spacing:6px; margin-top:-2px;">LESTE</div>
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:48px; font-weight:900; color:white; letter-spacing:4px; line-height:1;">TOTVS</div>
+          <div style="font-size:22px; font-weight:800; color:white; letter-spacing:8px; margin-top:0px; margin-left:2px;">LESTE</div>
         </div>
       </div>
     </div>
@@ -270,45 +274,49 @@ function subCoverPage() {
     <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
       <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <linearGradient id="darkTeal" x1="0%" y1="30%" x2="100%" y2="70%">
+          <linearGradient id="darkTeal2" x1="0%" y1="20%" x2="100%" y2="80%">
             <stop offset="0%" style="stop-color:#0f2a35;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#1a5a6a;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#1a4a5a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a5a6a;stop-opacity:0.8" />
+          </linearGradient>
+          <linearGradient id="darkTealEdge2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a6a7a;stop-opacity:0.4" />
+            <stop offset="100%" style="stop-color:#2a7a8a;stop-opacity:0.3" />
           </linearGradient>
         </defs>
-        <!-- Subtle flowing shape -->
-        <path d="M500,0 Q300,200 350,500 Q400,800 300,1130 L800,1130 L800,0Z" fill="url(#darkTeal)" opacity="0.6"/>
-        <path d="M490,20 Q290,220 340,510 Q390,790 290,1130" fill="none" stroke="#2a8a9a" stroke-width="2" opacity="0.4"/>
+        <path d="M350,0 Q250,100 300,300 Q370,550 280,750 Q200,950 250,1130 L800,1130 L800,0Z" fill="url(#darkTeal2)" opacity="0.5"/>
+        <path d="M340,0 Q240,100 290,300 Q360,550 270,750 Q190,950 240,1130" fill="none" stroke="url(#darkTealEdge2)" stroke-width="3"/>
+        <path d="M500,0 Q400,200 450,450 Q520,700 420,900 Q370,1050 400,1130 L800,1130 L800,0Z" fill="#0f2530" opacity="0.3"/>
       </svg>
     </div>
     
-    <div style="position:relative; z-index:1; padding:100px 60px 0; flex:1; display:flex; flex-direction:column; justify-content:center;">
-      <p style="font-size:38px; font-weight:800; color:white; line-height:1.25; margin:0;">
+    <div style="position:relative; z-index:1; padding:100px 60px 0; flex:1; display:flex; flex-direction:column; justify-content:flex-start;">
+      <p style="font-size:40px; font-weight:800; color:white; line-height:1.25; margin:0; font-family:'Inter','Arial',sans-serif;">
         Parabéns!<br/>
-        <span style="color:white;">Você está fazendo</span><br/>
-        <span style="color:white;">negócio com a</span><br/>
-        <span style="color:var(--totvs-lime); font-weight:900;">maior empresa</span><br/>
-        <span style="color:var(--totvs-lime); font-weight:900;">de tecnologia</span><br/>
-        <span style="color:var(--totvs-lime); font-weight:900;">do Brasil!</span>
+        Você está fazendo<br/>
+        negócio com a<br/>
+        <span style="color:var(--totvs-lime);">maior empresa</span><br/>
+        <span style="color:var(--totvs-lime);">de tecnologia</span><br/>
+        <span style="color:var(--totvs-lime);">do Brasil!</span>
       </p>
     </div>
     
-    <!-- Logo bottom-right -->
-    <div style="position:relative; z-index:1; padding: 0 60px 50px; text-align:right;">
-      <div style="display:inline-flex; align-items:center; gap:10px;">
-        <svg viewBox="0 0 50 50" style="width:40px; height:40px;" fill="white">
-          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
-          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+    <div style="position:relative; z-index:1; padding: 0 50px 45px; text-align:right;">
+      <div style="display:inline-flex; align-items:center; gap:8px;">
+        <svg viewBox="0 0 50 50" style="width:32px; height:32px;" fill="white">
+          <path d="M25,3 C13,3 4,11.5 4,22 C4,29 7.8,35 13.3,38.5 L25,46 L36.7,38.5 C42.2,35 46,29 46,22 C46,11.5 37,3 25,3Z M25,6.5 C35,6.5 43,13.5 43,22 C43,27.8 39.8,32.8 35,35.7 L25,42 L15,35.7 C10.2,32.8 7,27.8 7,22 C7,13.5 15,6.5 25,6.5Z" fill="white" opacity="0.9"/>
+          <path d="M15,22 Q25,10 35,22 Q25,34 15,22Z" fill="white" opacity="0.8"/>
         </svg>
         <div style="text-align:left;">
-          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:28px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
-          <div style="font-size:12px; font-weight:700; color:var(--totvs-cyan); letter-spacing:4px; margin-top:-1px;">LESTE</div>
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:22px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
+          <div style="font-size:9px; font-weight:700; color:white; letter-spacing:4px; margin-top:0px;">LESTE</div>
         </div>
       </div>
     </div>
   </div>`;
 }
 
-// ─── Title Page (Page 3) — differs only in title ────────────────────
+// ─── Title Page (Page 3) ────────────────────────────────────────────
 
 function titlePage(data: any) {
   const { proposal, unitInfo } = data;
@@ -323,54 +331,56 @@ function titlePage(data: any) {
     <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
       <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#6d28d9;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+          <linearGradient id="purpleGrad3" x1="30%" y1="0%" x2="100%" y2="60%">
+            <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#9b6dfa;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#b794ff;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="purpleBot3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#9b6dfa;stop-opacity:1" />
           </linearGradient>
         </defs>
-        <!-- Purple shape top-right -->
-        <path d="M500,0 Q350,100 400,300 Q450,450 600,400 Q800,340 800,0Z" fill="url(#purpleGrad)"/>
-        <!-- Dark wave bottom -->
-        <path d="M0,800 Q200,750 400,820 Q600,890 800,800 L800,1130 L0,1130Z" fill="#1a2a3a"/>
-        <path d="M0,810 Q200,760 400,830 Q600,900 800,810" fill="none" stroke="var(--totvs-purple)" stroke-width="3" opacity="0.5"/>
-        <!-- Purple bottom accent -->
-        <path d="M0,900 Q300,850 500,950 Q700,1050 800,950 L800,1130 L0,1130Z" fill="var(--totvs-purple)" opacity="0.15"/>
+        <!-- Large purple shape top -->
+        <path d="M300,0 Q200,80 250,250 Q330,500 550,500 Q750,490 800,350 L800,0Z" fill="url(#purpleGrad3)"/>
+        <!-- Bottom purple wave -->
+        <path d="M800,600 Q650,580 500,650 Q300,750 250,900 Q200,1000 300,1130 L800,1130Z" fill="url(#purpleBot3)"/>
+        <!-- Dark overlay for depth -->
+        <path d="M800,700 Q680,680 550,730 Q380,810 330,930 Q290,1030 360,1130 L800,1130Z" fill="var(--totvs-dark)" opacity="0.3"/>
       </svg>
     </div>
     
-    <!-- Logo top-left -->
-    <div style="position:relative; z-index:1; padding:50px 60px 0;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <svg viewBox="0 0 50 50" style="width:36px; height:36px;" fill="white">
-          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
-          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+    <div style="position:relative; z-index:1; padding:45px 50px 0;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <svg viewBox="0 0 50 50" style="width:30px; height:30px;" fill="white">
+          <path d="M25,3 C13,3 4,11.5 4,22 C4,29 7.8,35 13.3,38.5 L25,46 L36.7,38.5 C42.2,35 46,29 46,22 C46,11.5 37,3 25,3Z M25,6.5 C35,6.5 43,13.5 43,22 C43,27.8 39.8,32.8 35,35.7 L25,42 L15,35.7 C10.2,32.8 7,27.8 7,22 C7,13.5 15,6.5 25,6.5Z" fill="white" opacity="0.9"/>
+          <path d="M15,22 Q25,10 35,22 Q25,34 15,22Z" fill="white" opacity="0.8"/>
         </svg>
         <div>
-          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:22px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
-          <div style="font-size:10px; font-weight:700; color:var(--totvs-cyan); letter-spacing:4px; margin-top:-1px;">LESTE</div>
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:20px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
+          <div style="font-size:9px; font-weight:700; color:white; letter-spacing:4px; margin-top:0px; margin-left:1px;">LESTE</div>
         </div>
       </div>
     </div>
     
-    <!-- Title + Info -->
-    <div style="position:relative; z-index:1; padding:120px 60px 0; flex:1;">
-      <h1 style="color:white; font-size:32px; font-weight:800; border:none; margin:0 0 40px; line-height:1.15;">${title}</h1>
+    <div style="position:relative; z-index:1; padding:0 60px; flex:1; display:flex; flex-direction:column; justify-content:center; margin-top:80px;">
+      <h1 style="color:white; font-size:30px; font-weight:800; border:none; margin:0 0 36px; line-height:1.15; font-family:'Inter','Arial',sans-serif;">${title}</h1>
       
       <h2 style="color:white; font-size:16px; font-weight:700; margin:0 0 14px;">Informações gerais</h2>
-      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.8;">
-        <p style="margin:3px 0;">Proposta número: <strong>${proposal.number}</strong></p>
-        <p style="margin:3px 0;">Linha de Produto: <strong>${proposal.product}</strong></p>
-        <p style="margin:3px 0;">Cliente: <strong>${client?.code || ""} - ${client?.name || "—"}</strong></p>
-        <p style="margin:3px 0;">Data de Validade: <strong>${fmtDate(proposal.date_validity)}</strong></p>
-        <p style="margin:3px 0;">Data de emissão: <strong>${fmtDate(proposal.created_at)}</strong></p>
-        <p style="margin:3px 0;">Unidade TOTVS: <strong>${unitInfo?.name || "—"}</strong></p>
+      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.9;">
+        <p style="margin:2px 0;">Proposta número: <strong>${proposal.number}</strong></p>
+        <p style="margin:2px 0;">Linha de Produto: <strong>${proposal.product}</strong></p>
+        <p style="margin:2px 0;">Cliente: <strong>${client?.code || ""} - ${client?.name || "—"}</strong></p>
+        <p style="margin:2px 0;">Data de Validade: <strong>${fmtDate(proposal.date_validity)}</strong></p>
+        <p style="margin:2px 0;">Data de emissão: <strong>${fmtDate(proposal.created_at)}</strong></p>
+        <p style="margin:2px 0;">Unidade TOTVS: <strong>${unitInfo?.name || "—"}</strong></p>
       </div>
       
-      <h2 style="color:white; font-size:16px; font-weight:700; margin:30px 0 14px;">Nossa equipe</h2>
-      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.8;">
-        <p style="margin:3px 0;">Gerente de vendas: <strong>${gsn?.code || ""} - ${gsn?.name || "—"}</strong></p>
-        <p style="margin:3px 0;">Executivo de vendas: <strong>${esn?.code || ""} - ${esn?.name || "—"}</strong></p>
-        <p style="margin:3px 0;">Arquiteto de solução: <strong>${arq?.code || ""} - ${arq?.name || "—"}</strong></p>
+      <h2 style="color:white; font-size:16px; font-weight:700; margin:28px 0 14px;">Nossa equipe</h2>
+      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.9;">
+        <p style="margin:2px 0;">Gerente de vendas: <strong>${gsn?.code || ""} - ${gsn?.name || "—"}</strong></p>
+        <p style="margin:2px 0;">Executivo de vendas: <strong>${esn?.code || ""} - ${esn?.name || "—"}</strong></p>
+        <p style="margin:2px 0;">Arquiteto de solução: <strong>${arq?.code || ""} - ${arq?.name || "—"}</strong></p>
       </div>
     </div>
   </div>`;

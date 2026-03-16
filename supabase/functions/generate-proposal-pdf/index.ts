@@ -140,7 +140,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { proposalId } = await req.json();
+    const bodyText = await req.text();
+    console.log("Request body (first 200 chars):", bodyText.substring(0, 200));
+    let parsedBody: any;
+    try {
+      parsedBody = JSON.parse(bodyText);
+    } catch (e) {
+      console.error("Body parse error. Body hex:", Array.from(new TextEncoder().encode(bodyText.substring(0, 20))).map(b => b.toString(16)).join(' '));
+      throw e;
+    }
+    const { proposalId } = parsedBody;
 
     if (!proposalId) {
       return new Response(JSON.stringify({ error: "proposalId is required" }), {
@@ -156,7 +165,18 @@ Deno.serve(async (req) => {
     if (!serviceAccountKeyRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
     if (!driveFolderId) throw new Error("GOOGLE_DRIVE_FOLDER_ID not configured");
 
-    const serviceAccountKey = JSON.parse(serviceAccountKeyRaw);
+    let serviceAccountKey: any;
+    try {
+      // Handle potential double-encoding or extra wrapping
+      let raw = serviceAccountKeyRaw.trim();
+      if (raw.startsWith('"') || raw.startsWith("'")) {
+        try { raw = JSON.parse(raw); } catch { /* use as-is */ }
+      }
+      serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 100 chars:", serviceAccountKeyRaw.substring(0, 100));
+      throw new Error(`Failed to parse service account key: ${e.message}`);
+    }
 
     // ─── Fetch proposal data from Supabase ────────────────────────
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

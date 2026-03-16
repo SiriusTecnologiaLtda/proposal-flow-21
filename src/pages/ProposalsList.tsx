@@ -67,24 +67,29 @@ export default function ProposalsList() {
     setConsoleOpen(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-proposal-pdf", {
-        body: { proposalId },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ proposalId }),
+        }
+      );
+
+      const data = await response.json();
 
       if (data?.logs) {
         setConsoleLogs(data.logs);
       }
 
-      if (error) {
-        if (!data?.logs) {
-          setConsoleLogs([{ step: "Erro", status: "error", message: error.message, timestamp: new Date().toISOString() }]);
-        }
-      } else if (data?.docUrl) {
+      if (response.ok && data?.docUrl) {
         setConsoleDocUrl(data.docUrl);
-      } else if (data?.error) {
-        if (!data?.logs) {
-          setConsoleLogs([{ step: "Erro", status: "error", message: data.error, timestamp: new Date().toISOString() }]);
-        }
+      } else if (!data?.logs) {
+        setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);
       }
     } catch (err: any) {
       setConsoleLogs(prev => [...prev, { step: "Erro de rede", status: "error", message: err.message, timestamp: new Date().toISOString() }]);

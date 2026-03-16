@@ -493,7 +493,7 @@ export default function ProposalCreate() {
   }
 
   // Recalculate linear payments when totalValue changes
-  const prevTotalValueRef = useMemo(() => totalValue, [totalValue]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (paymentMode === "linear" && numInstallments > 0) {
       generateLinearPayments(numInstallments, totalValue, firstDueDate);

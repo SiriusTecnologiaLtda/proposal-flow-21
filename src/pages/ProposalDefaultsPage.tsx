@@ -87,8 +87,16 @@ export default function ProposalDefaultsPage() {
                 <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">% Horas GP</Label>
+                <Label className="text-xs">% Hrs Projeto GP</Label>
                 <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Acomp. Analista</Label>
+                <Input type="number" value={accompAnalystPercentage} onChange={(e) => setAccompAnalystPercentage(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Acomp. GP</Label>
+                <Input type="number" value={accompGpPercentage} onChange={(e) => setAccompGpPercentage(Number(e.target.value))} />
               </div>
             </div>
 

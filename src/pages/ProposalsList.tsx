@@ -35,21 +35,18 @@ export default function ProposalsList() {
   const [winId, setWinId] = useState<string | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
-  async function handleViewPdf(proposalId: string) {
+  async function handleGenerateDoc(proposalId: string) {
     setGeneratingPdfId(proposalId);
     try {
       const { data, error } = await supabase.functions.invoke("generate-proposal-pdf", {
         body: { proposalId },
       });
       if (error) throw error;
-      if (data?.html) {
-        const win = window.open("", "_blank");
-        if (win) {
-          win.document.write(data.html);
-          win.document.close();
-        } else {
-          toast({ title: "Pop-up bloqueado", description: "Permita pop-ups para visualizar a proposta.", variant: "destructive" });
-        }
+      if (data?.docUrl) {
+        window.open(data.docUrl, "_blank");
+        toast({ title: "Proposta gerada!", description: `Documento "${data.fileName}" criado no Google Drive.` });
+      } else if (data?.error) {
+        throw new Error(data.error);
       }
     } catch (err: any) {
       toast({ title: "Erro ao gerar proposta", description: err.message, variant: "destructive" });
@@ -176,9 +173,9 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleViewPdf(p.id)} disabled={generatingPdfId === p.id}>
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)} disabled={generatingPdfId === p.id}>
                         {generatingPdfId === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Eye className="mr-2 h-3.5 w-3.5" />}
-                        Visualizar Proposta
+                        Gerar Proposta
                       </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>

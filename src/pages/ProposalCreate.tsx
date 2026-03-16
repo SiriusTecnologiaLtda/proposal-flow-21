@@ -79,6 +79,8 @@ export default function ProposalCreate() {
   const [scopeType, setScopeType] = useState<string>("detalhado");
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
+  const [accompAnalyst, setAccompAnalyst] = useState(15);
+  const [accompGP, setAccompGP] = useState(10);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
   const [paymentMode, setPaymentMode] = useState<"linear" | "custom">("linear");
   const [numInstallments, setNumInstallments] = useState(1);

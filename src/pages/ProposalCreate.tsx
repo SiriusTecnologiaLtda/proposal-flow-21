@@ -1002,18 +1002,61 @@ export default function ProposalCreate() {
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">Condições de Pagamento</h3>
-              <Button variant="outline" size="sm" onClick={addPayment}><Plus className="mr-1 h-3 w-3" /> Parcela</Button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePaymentModeChange("linear")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${paymentMode === "linear" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                >
+                  Linear
+                </button>
+                <button
+                  onClick={() => handlePaymentModeChange("custom")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${paymentMode === "custom" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                >
+                  Personalizado
+                </button>
+              </div>
             </div>
-            <div className="space-y-2">
-              {payments.map((payment, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <span className="w-8 text-xs text-muted-foreground text-right">{payment.installment}ª</span>
-                  <Input type="date" value={payment.dueDate} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], dueDate: e.target.value }; setPayments(u); }} className="h-8 text-xs" />
-                  <Input type="number" placeholder="Valor" value={payment.amount || ""} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], amount: Number(e.target.value) }; setPayments(u); }} className="h-8 text-xs" />
-                  {payments.length > 1 && <button onClick={() => removePayment(index)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
+
+            {paymentMode === "linear" ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Quantidade de Parcelas</Label>
+                    <Input type="number" min={1} value={numInstallments} onChange={(e) => handleNumInstallmentsChange(Math.max(1, Number(e.target.value)))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Data do Primeiro Vencimento</Label>
+                    <Input type="date" value={firstDueDate} onChange={(e) => handleFirstDueDateChange(e.target.value)} />
+                  </div>
                 </div>
-              ))}
-            </div>
+                {payments.length > 0 && totalValue > 0 && (
+                  <div className="rounded-md border border-border bg-muted/50 p-3 text-center text-sm font-medium text-foreground">
+                    {numInstallments}x de <span className="font-bold">R$ {(totalValue / numInstallments).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {payments.map((payment, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <span className="w-8 text-xs text-muted-foreground text-right">{payment.installment}ª</span>
+                    <Input type="date" value={payment.dueDate} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], dueDate: e.target.value }; setPayments(u); }} className="h-8 text-xs" />
+                    <Input type="number" placeholder="Valor" value={payment.amount || ""} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], amount: Number(e.target.value) }; setPayments(u); }} className="h-8 text-xs" />
+                    {payments.length > 1 && <button onClick={() => removePayment(index)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" size="sm" onClick={addPayment}><Plus className="mr-1 h-3 w-3" /> Parcela</Button>
+                  <span className="text-xs text-muted-foreground">
+                    Total: R$ {payments.reduce((s, p) => s + p.amount, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    {Math.abs(payments.reduce((s, p) => s + p.amount, 0) - totalValue) > 0.01 && (
+                      <span className="ml-1 text-destructive">(diferença: R$ {(totalValue - payments.reduce((s, p) => s + p.amount, 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">

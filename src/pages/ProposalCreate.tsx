@@ -601,6 +601,8 @@ export default function ProposalCreate() {
       arquiteto_id: arquitetoId || null,
       hourly_rate: hourlyRate,
       gp_percentage: gpPercentage,
+      accomp_analyst: accompAnalyst,
+      accomp_gp: accompGP,
       travel_local_hours: travelLocalHours,
       travel_trip_hours: travelTripHours,
       travel_hourly_rate: travelHourlyRate,

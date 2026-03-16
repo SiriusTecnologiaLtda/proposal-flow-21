@@ -175,13 +175,13 @@ function baseStyles() {
     /* Cover pages have no padding */
     .cover-page { padding: 0; overflow: hidden; }
     
-    h1 { color: var(--totvs-teal); font-size: 20px; font-weight: 700; margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--totvs-teal); }
-    h2 { color: var(--totvs-dark); font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
-    h3 { color: var(--totvs-text); font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
-    p { margin: 6px 0; }
-    
-    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 11px; }
-    th { background: var(--totvs-dark); color: white; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+     h1 { color: var(--totvs-teal); font-size: 20px; font-weight: 700; margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--totvs-teal); }
+     h2 { color: var(--totvs-teal); font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+     h3 { color: var(--totvs-teal); font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
+     p { margin: 6px 0; }
+     
+     table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 11px; }
+     th { background: var(--totvs-teal); color: white; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
     td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
     tr:nth-child(even) td { background: #f8fafc; }
     

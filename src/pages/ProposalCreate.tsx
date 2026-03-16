@@ -1007,12 +1007,54 @@ export default function ProposalCreate() {
 
           <div className="rounded-md border border-border bg-muted/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo Financeiro</h3>
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Horas Analista:</span><span className="font-medium text-foreground">{totalHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Horas GP ({gpPercentage}%):</span><span className="font-medium text-foreground">{gpHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Total de Horas:</span><span className="font-medium text-foreground">{totalHours + gpHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Valor Líquido:</span><span className="font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></div>
+            <div className="overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Descritivo</th>
+                    <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Analista de Implantação</td>
+                    <td className="py-2 px-3 text-center text-foreground">{totalHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {(totalHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Coordenador de Projeto</td>
+                    <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(gpHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-accent/30">
+                    <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                    <td className="py-2 px-3 text-center font-semibold text-foreground">{totalHours + gpHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
+            {taxFactor > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground text-right">
+                Fator imposto: {taxFactor}% ({clientUnit?.name || "Unidade"})
+              </p>
+            )}
+            {!selectedClient?.unit_id && (
+              <p className="mt-2 text-xs text-destructive text-right">
+                Cliente sem unidade vinculada — fator imposto não aplicado.
+              </p>
+            )}
           </div>
 
           <div>

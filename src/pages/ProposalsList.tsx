@@ -173,9 +173,9 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleViewPdf(p.id)} disabled={generatingPdfId === p.id}>
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)} disabled={generatingPdfId === p.id}>
                         {generatingPdfId === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Eye className="mr-2 h-3.5 w-3.5" />}
-                        Visualizar Proposta
+                        Gerar Proposta
                       </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>

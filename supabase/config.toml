@@ -2,3 +2,6 @@ project_id = "vpyniuyqmseusowjreth"
 
 [functions.generate-proposal-pdf]
 verify_jwt = false
+
+[functions.test-google-connection]
+verify_jwt = false

@@ -77,6 +77,9 @@ export default function ProposalCreate() {
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
   const [payments, setPayments] = useState<PaymentCondition[]>([{ installment: 1, dueDate: "", amount: 0 }]);
+  const [paymentMode, setPaymentMode] = useState<"linear" | "custom">("linear");
+  const [numInstallments, setNumInstallments] = useState(1);
+  const [firstDueDate, setFirstDueDate] = useState("");
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
 
@@ -178,7 +181,14 @@ export default function ProposalCreate() {
       // Load payments
       const pays = (existingProposal as any).payment_conditions || [];
       if (pays.length > 0) {
-        setPayments(pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount })));
+        const loadedPayments = pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount }));
+        setPayments(loadedPayments);
+        setNumInstallments(loadedPayments.length);
+        if (loadedPayments[0]?.dueDate) setFirstDueDate(loadedPayments[0].dueDate);
+        // Detect if amounts are equal (linear) or not (custom)
+        const amounts = loadedPayments.map((p: any) => p.amount);
+        const allEqual = amounts.every((a: number) => Math.abs(a - amounts[0]) < 0.02);
+        setPaymentMode(allEqual ? "linear" : "custom");
       }
 
       setLoaded(true);
@@ -443,6 +453,52 @@ export default function ProposalCreate() {
   function removePayment(index: number) {
     setPayments((prev) => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, installment: i + 1 })));
   }
+
+  function generateLinearPayments(count: number, total: number, startDate: string) {
+    if (count <= 0) return;
+    const perInstallment = Math.round((total / count) * 100) / 100;
+    const remainder = Math.round((total - perInstallment * (count - 1)) * 100) / 100;
+    const newPayments: PaymentCondition[] = [];
+    for (let i = 0; i < count; i++) {
+      let dueDate = "";
+      if (startDate) {
+        const d = new Date(startDate + "T00:00:00");
+        d.setMonth(d.getMonth() + i);
+        dueDate = d.toISOString().split("T")[0];
+      }
+      newPayments.push({
+        installment: i + 1,
+        dueDate,
+        amount: i === count - 1 ? remainder : perInstallment,
+      });
+    }
+    setPayments(newPayments);
+  }
+
+  function handleNumInstallmentsChange(val: number) {
+    setNumInstallments(val);
+    if (paymentMode === "linear") generateLinearPayments(val, totalValue, firstDueDate);
+  }
+
+  function handleFirstDueDateChange(val: string) {
+    setFirstDueDate(val);
+    if (paymentMode === "linear") generateLinearPayments(numInstallments, totalValue, val);
+  }
+
+  function handlePaymentModeChange(mode: "linear" | "custom") {
+    setPaymentMode(mode);
+    if (mode === "linear") {
+      generateLinearPayments(numInstallments, totalValue, firstDueDate);
+    }
+  }
+
+  // Recalculate linear payments when totalValue changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (paymentMode === "linear" && numInstallments > 0) {
+      generateLinearPayments(numInstallments, totalValue, firstDueDate);
+    }
+  }, [totalValue]);
 
   async function handleSave(status: "rascunho" | "enviada") {
     if (!proposalNumber || !clientId || !product || !proposalType) {
@@ -953,18 +1009,61 @@ export default function ProposalCreate() {
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">Condições de Pagamento</h3>
-              <Button variant="outline" size="sm" onClick={addPayment}><Plus className="mr-1 h-3 w-3" /> Parcela</Button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePaymentModeChange("linear")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${paymentMode === "linear" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                >
+                  Linear
+                </button>
+                <button
+                  onClick={() => handlePaymentModeChange("custom")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${paymentMode === "custom" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}
+                >
+                  Personalizado
+                </button>
+              </div>
             </div>
-            <div className="space-y-2">
-              {payments.map((payment, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <span className="w-8 text-xs text-muted-foreground text-right">{payment.installment}ª</span>
-                  <Input type="date" value={payment.dueDate} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], dueDate: e.target.value }; setPayments(u); }} className="h-8 text-xs" />
-                  <Input type="number" placeholder="Valor" value={payment.amount || ""} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], amount: Number(e.target.value) }; setPayments(u); }} className="h-8 text-xs" />
-                  {payments.length > 1 && <button onClick={() => removePayment(index)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
+
+            {paymentMode === "linear" ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Quantidade de Parcelas</Label>
+                    <Input type="number" min={1} value={numInstallments} onChange={(e) => handleNumInstallmentsChange(Math.max(1, Number(e.target.value)))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Data do Primeiro Vencimento</Label>
+                    <Input type="date" value={firstDueDate} onChange={(e) => handleFirstDueDateChange(e.target.value)} />
+                  </div>
                 </div>
-              ))}
-            </div>
+                {payments.length > 0 && totalValue > 0 && (
+                  <div className="rounded-md border border-border bg-muted/50 p-3 text-center text-sm font-medium text-foreground">
+                    {numInstallments}x de <span className="font-bold">R$ {(totalValue / numInstallments).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {payments.map((payment, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <span className="w-8 text-xs text-muted-foreground text-right">{payment.installment}ª</span>
+                    <Input type="date" value={payment.dueDate} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], dueDate: e.target.value }; setPayments(u); }} className="h-8 text-xs" />
+                    <Input type="number" placeholder="Valor" value={payment.amount || ""} onChange={(e) => { const u = [...payments]; u[index] = { ...u[index], amount: Number(e.target.value) }; setPayments(u); }} className="h-8 text-xs" />
+                    {payments.length > 1 && <button onClick={() => removePayment(index)} className="rounded p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" size="sm" onClick={addPayment}><Plus className="mr-1 h-3 w-3" /> Parcela</Button>
+                  <span className="text-xs text-muted-foreground">
+                    Total: R$ {payments.reduce((s, p) => s + p.amount, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    {Math.abs(payments.reduce((s, p) => s + p.amount, 0) - totalValue) > 0.01 && (
+                      <span className="ml-1 text-destructive">(diferença: R$ {(totalValue - payments.reduce((s, p) => s + p.amount, 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">

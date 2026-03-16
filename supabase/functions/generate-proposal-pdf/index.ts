@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch proposal with related data
     const { data: proposal, error: propError } = await supabase
       .from("proposals")
       .select(`
@@ -48,7 +47,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch unit info for the client
     let unitInfo = null;
     if (proposal.clients?.unit_id) {
       const { data } = await supabase.from("unit_info").select("*").eq("id", proposal.clients.unit_id).single();
@@ -59,7 +57,6 @@ Deno.serve(async (req) => {
       unitInfo = data;
     }
 
-    // Fetch scope template names
     const scopeItems = proposal.proposal_scope_items || [];
     const includedItems = scopeItems.filter((i: any) => i.included);
     const parentItems = includedItems.filter((i: any) => !i.parent_id);
@@ -68,14 +65,10 @@ Deno.serve(async (req) => {
     const templateIds = [...new Set(includedItems.map((i: any) => i.template_id).filter(Boolean))];
     let templateNames: Record<string, string> = {};
     if (templateIds.length > 0) {
-      const { data: templates } = await supabase
-        .from("scope_templates")
-        .select("id, name")
-        .in("id", templateIds);
+      const { data: templates } = await supabase.from("scope_templates").select("id, name").in("id", templateIds);
       templateNames = (templates || []).reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
     }
 
-    // Calculate financials
     const totalAnalystHours = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
     const gpPercentage = Number(proposal.gp_percentage);
     const gpHours = Math.ceil(totalAnalystHours * (gpPercentage / 100));
@@ -89,19 +82,14 @@ Deno.serve(async (req) => {
     const accompAnalystHours = Math.ceil(totalAnalystHours * (accompAnalyst / 100));
     const accompGPHours = Math.ceil(gpHours * (accompGP / 100));
 
-    // Build macro scope list (template names of included items)
     const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
-    // Add non-template groups
     const hasAvulsos = includedItems.some((i: any) => !i.template_id);
-
-    // Build detailed scope grouped by template
     const detailedScope = buildDetailedScope(parentItems, childItems, templateNames);
-
     const isProjeto = proposal.type === "projeto";
 
-    const html = isProjeto
-      ? generateProjetoHTML({ proposal, unitInfo, macroScopeNames, detailedScope, totalAnalystHours, gpHours, totalHours, hourlyRate, totalValueNet, totalValueGross, taxFactor, accompAnalystHours, accompGPHours, templateNames, hasAvulsos })
-      : generateBancoDeHorasHTML({ proposal, unitInfo, macroScopeNames, detailedScope, totalAnalystHours, gpHours, totalHours, hourlyRate, totalValueNet, totalValueGross, taxFactor, accompAnalystHours, accompGPHours, templateNames, hasAvulsos });
+    const data = { proposal, unitInfo, macroScopeNames, detailedScope, totalAnalystHours, gpHours, totalHours, hourlyRate, totalValueNet, totalValueGross, taxFactor, accompAnalystHours, accompGPHours, templateNames, hasAvulsos };
+
+    const html = isProjeto ? generateProjetoHTML(data) : generateBancoDeHorasHTML(data);
 
     return new Response(JSON.stringify({ html, proposal: { number: proposal.number, totalValue: totalValueNet, totalHours } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -114,25 +102,17 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildDetailedScope(parentItems: any[], childItems: any[], templateNames: Record<string, string>) {
-  // Group parents by template
-  const groups: Record<string, { templateName: string; processes: { description: string; children: { description: string; hours: number }[] }[] }> = {};
+// ─── Helpers ────────────────────────────────────────────────────────
 
+function buildDetailedScope(parentItems: any[], childItems: any[], templateNames: Record<string, string>) {
+  const groups: Record<string, { templateName: string; processes: { description: string; children: { description: string; hours: number }[] }[] }> = {};
   for (const parent of parentItems) {
     const tid = parent.template_id || "_avulso";
     const tname = parent.template_id ? (templateNames[parent.template_id] || "Outros") : "Itens Avulsos";
     if (!groups[tid]) groups[tid] = { templateName: tname, processes: [] };
-
-    const children = childItems
-      .filter((c: any) => c.parent_id === parent.id)
-      .sort((a: any, b: any) => a.sort_order - b.sort_order);
-
-    groups[tid].processes.push({
-      description: parent.description,
-      children: children.map((c: any) => ({ description: c.description, hours: Number(c.hours) })),
-    });
+    const children = childItems.filter((c: any) => c.parent_id === parent.id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    groups[tid].processes.push({ description: parent.description, children: children.map((c: any) => ({ description: c.description, hours: Number(c.hours) })) });
   }
-
   return Object.values(groups);
 }
 
@@ -145,44 +125,192 @@ function fmtDate(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString("pt-BR");
 }
 
+// ─── TOTVS Logo SVG (white) ────────────────────────────────────────
+
+const TOTVS_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 60" fill="white">
+  <text x="60" y="42" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="40" letter-spacing="2">TOTVS</text>
+  <circle cx="25" cy="30" r="22" fill="none" stroke="white" stroke-width="4"/>
+  <path d="M10,30 Q25,10 40,30 Q25,50 10,30Z" fill="white" opacity="0.7"/>
+</svg>`;
+
+const TOTVS_LOGO_SMALL = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" fill="white" style="height:36px;">
+  <text x="45" y="34" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="30" letter-spacing="1">TOTVS</text>
+  <circle cx="20" cy="25" r="16" fill="none" stroke="white" stroke-width="3"/>
+  <path d="M8,25 Q20,10 32,25 Q20,40 8,25Z" fill="white" opacity="0.7"/>
+</svg>`;
+
+// ─── Styles ─────────────────────────────────────────────────────────
+
 function baseStyles() {
   return `
-    @page { size: A4; margin: 25mm 20mm; }
-    body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; color: #333; font-size: 12px; line-height: 1.6; margin: 0; padding: 0; }
-    .page { page-break-before: always; padding: 40px; max-width: 800px; margin: 0 auto; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    
+    :root {
+      --totvs-dark: #0f1923;
+      --totvs-dark2: #162330;
+      --totvs-teal: #2a7a8a;
+      --totvs-teal-light: #4fc3d8;
+      --totvs-cyan: #5ce0f0;
+      --totvs-purple: #8b5cf6;
+      --totvs-purple-dark: #6d28d9;
+      --totvs-lime: #c8e64a;
+      --totvs-white: #ffffff;
+      --totvs-gray: #e5e7eb;
+      --totvs-text: #1e293b;
+      --totvs-text-light: #64748b;
+    }
+    
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; color: var(--totvs-text); font-size: 11px; line-height: 1.6; margin: 0; padding: 0; }
+    
+    .page { 
+      width: 210mm; min-height: 297mm; 
+      padding: 30mm 25mm 35mm 25mm; 
+      page-break-before: always; 
+      position: relative;
+    }
     .page:first-child { page-break-before: auto; }
-    h1 { color: #00a8e8; font-size: 22px; margin: 24px 0 12px; border-bottom: 2px solid #00a8e8; padding-bottom: 6px; }
-    h2 { color: #00a8e8; font-size: 16px; margin: 20px 0 8px; }
-    h3 { color: #333; font-size: 14px; margin: 16px 0 6px; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12px; }
-    th { background: #00a8e8; color: white; padding: 8px 10px; text-align: left; font-weight: 600; }
-    td { padding: 6px 10px; border: 1px solid #ddd; }
-    tr:nth-child(even) td { background: #f9f9f9; }
-    .info-table td { border: none; padding: 4px 10px; }
-    .info-table td:first-child { color: #666; width: 200px; }
-    .info-table td:last-child { font-weight: 600; }
-    .total-box { background: #f0f8ff; border: 2px solid #00a8e8; border-radius: 8px; padding: 16px; text-align: center; margin: 16px 0; }
-    .total-box .amount { font-size: 24px; font-weight: 700; color: #00a8e8; }
-    .footer { font-size: 10px; color: #999; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 30px; }
-    .footer p { margin: 2px 0; }
-    ul { padding-left: 20px; }
-    ul li { margin-bottom: 4px; }
+    
+    /* Cover pages have no padding */
+    .cover-page { padding: 0; overflow: hidden; }
+    
+    h1 { color: var(--totvs-teal); font-size: 20px; font-weight: 700; margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--totvs-teal); }
+    h2 { color: var(--totvs-dark); font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    h3 { color: var(--totvs-text); font-size: 12px; font-weight: 600; margin: 14px 0 6px; }
+    p { margin: 6px 0; }
+    
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 11px; }
+    th { background: var(--totvs-dark); color: white; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    
+    .info-table td { border: none; padding: 5px 12px; }
+    .info-table td:first-child { color: var(--totvs-text-light); width: 200px; font-weight: 500; }
+    .info-table td:last-child { font-weight: 600; color: var(--totvs-text); }
+    
     .scope-table th { text-align: left; }
+    
     .signature-table { margin-top: 40px; }
     .signature-table td { border: none; padding: 20px; vertical-align: top; width: 50%; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .page { padding: 0; } }
-    @media screen { .page { border: 1px solid #eee; margin: 20px auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); } }
+    
+    ul { padding-left: 20px; }
+    ul li { margin-bottom: 6px; }
+    
+    .page-footer {
+      position: absolute; bottom: 15mm; left: 25mm; right: 25mm;
+      font-size: 8px; color: var(--totvs-text-light); 
+      text-align: center; border-top: 1px solid #e2e8f0; padding-top: 8px;
+    }
+    .page-footer p { margin: 1px 0; }
+    
+    @media print { 
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    @media screen { 
+      body { background: #94a3b8; }
+      .page { margin: 20px auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2); background: white; } 
+      .cover-page { background: transparent; }
+    }
   `;
 }
 
-function footerHTML(unitInfo: any) {
-  return `<div class="footer">
-    <p>Este documento é propriedade da TOTVS. Todos os direitos reservados. ©</p>
-    <p>${unitInfo?.name || "TOTVS Leste"} · ${unitInfo?.cnpj || ""} · ${unitInfo?.phone || ""}</p>
+// ─── Cover Page (Page 1) ────────────────────────────────────────────
+
+function coverPage() {
+  return `<div class="page cover-page" style="background: var(--totvs-dark); display:flex; flex-direction:column; justify-content:space-between; align-items:stretch;">
+    <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
+      <!-- Abstract teal shape -->
+      <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a4a5a;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#2a8a9a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#5ce0f0;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="tealEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4fc3d8;stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:#7df0ff;stop-opacity:0.9" />
+          </linearGradient>
+        </defs>
+        <!-- Main flowing shape -->
+        <path d="M350,200 Q550,100 600,350 Q650,550 500,700 Q350,850 400,1000 Q420,1100 500,1130 L800,1130 L800,0 L500,0 Q400,50 350,200Z" fill="url(#tealGrad)"/>
+        <!-- Highlight edge -->
+        <path d="M340,220 Q540,120 590,360 Q640,540 490,690 Q340,840 390,990 Q410,1080 480,1130" fill="none" stroke="url(#tealEdge)" stroke-width="4"/>
+        <!-- Inner dark shape -->
+        <path d="M420,350 Q550,250 580,450 Q610,600 500,720 Q420,800 440,950 Q450,1050 500,1130 L800,1130 L800,100 L550,100 Q470,150 420,350Z" fill="var(--totvs-dark)" opacity="0.3"/>
+      </svg>
+    </div>
+    
+    <!-- Title -->
+    <div style="position:relative; z-index:1; padding: 80px 60px 0;">
+      <h1 style="color:white; font-size:42px; font-weight:900; border:none; margin:0; line-height:1.1; letter-spacing:-1px;">PROPOSTA<br/>COMERCIAL</h1>
+    </div>
+    
+    <!-- Logo bottom -->
+    <div style="position:relative; z-index:1; padding: 0 60px 60px; text-align:left;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <svg viewBox="0 0 50 50" style="width:60px; height:60px;" fill="white">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
+          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+        </svg>
+        <div>
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:42px; font-weight:900; color:white; letter-spacing:3px; line-height:1;">TOTVS</div>
+          <div style="font-size:18px; font-weight:700; color:var(--totvs-cyan); letter-spacing:6px; margin-top:-2px;">LESTE</div>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
-function infoPage(data: any) {
+// ─── Sub-Cover Page (Page 2) ────────────────────────────────────────
+
+function subCoverPage() {
+  return `<div class="page cover-page" style="background: var(--totvs-dark); display:flex; flex-direction:column; justify-content:space-between;">
+    <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
+      <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="darkTeal" x1="0%" y1="30%" x2="100%" y2="70%">
+            <stop offset="0%" style="stop-color:#0f2a35;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a5a6a;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <!-- Subtle flowing shape -->
+        <path d="M500,0 Q300,200 350,500 Q400,800 300,1130 L800,1130 L800,0Z" fill="url(#darkTeal)" opacity="0.6"/>
+        <path d="M490,20 Q290,220 340,510 Q390,790 290,1130" fill="none" stroke="#2a8a9a" stroke-width="2" opacity="0.4"/>
+      </svg>
+    </div>
+    
+    <div style="position:relative; z-index:1; padding:100px 60px 0; flex:1; display:flex; flex-direction:column; justify-content:center;">
+      <p style="font-size:38px; font-weight:800; color:white; line-height:1.25; margin:0;">
+        Parabéns!<br/>
+        <span style="color:white;">Você está fazendo</span><br/>
+        <span style="color:white;">negócio com a</span><br/>
+        <span style="color:var(--totvs-lime); font-weight:900;">maior empresa</span><br/>
+        <span style="color:var(--totvs-lime); font-weight:900;">de tecnologia</span><br/>
+        <span style="color:var(--totvs-lime); font-weight:900;">do Brasil!</span>
+      </p>
+    </div>
+    
+    <!-- Logo bottom-right -->
+    <div style="position:relative; z-index:1; padding: 0 60px 50px; text-align:right;">
+      <div style="display:inline-flex; align-items:center; gap:10px;">
+        <svg viewBox="0 0 50 50" style="width:40px; height:40px;" fill="white">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
+          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+        </svg>
+        <div style="text-align:left;">
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:28px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
+          <div style="font-size:12px; font-weight:700; color:var(--totvs-cyan); letter-spacing:4px; margin-top:-1px;">LESTE</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── Title Page (Page 3) — differs only in title ────────────────────
+
+function titlePage(data: any) {
   const { proposal, unitInfo } = data;
   const client = proposal.clients;
   const esn = proposal.esn;
@@ -191,26 +319,73 @@ function infoPage(data: any) {
   const isProjeto = proposal.type === "projeto";
   const title = isProjeto ? "Proposta de Implantação" : "Proposta de Banco de Horas";
 
-  return `<div class="page">
-    <h1>${title}</h1>
-    <h2>Informações Gerais</h2>
-    <table class="info-table">
-      <tr><td>Proposta número:</td><td>${proposal.number}</td></tr>
-      <tr><td>Linha de Produto:</td><td>${proposal.product}</td></tr>
-      <tr><td>Cliente:</td><td>${client?.code || ""} - ${client?.name || "—"}</td></tr>
-      <tr><td>Data de Validade:</td><td>${fmtDate(proposal.date_validity)}</td></tr>
-      <tr><td>Data de emissão:</td><td>${fmtDate(proposal.created_at)}</td></tr>
-      <tr><td>Unidade TOTVS:</td><td>${unitInfo?.name || "—"}</td></tr>
-    </table>
-    <h2>Nossa Equipe</h2>
-    <table class="info-table">
-      <tr><td>Gerente de vendas:</td><td>${gsn?.code || ""} - ${gsn?.name || "—"}</td></tr>
-      <tr><td>Executivo de vendas:</td><td>${esn?.code || ""} - ${esn?.name || "—"}</td></tr>
-      <tr><td>Arquiteto de solução:</td><td>${arq?.code || ""} - ${arq?.name || "—"}</td></tr>
-    </table>
-    ${footerHTML(unitInfo)}
+  return `<div class="page cover-page" style="background: var(--totvs-dark); display:flex; flex-direction:column;">
+    <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
+      <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#6d28d9;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <!-- Purple shape top-right -->
+        <path d="M500,0 Q350,100 400,300 Q450,450 600,400 Q800,340 800,0Z" fill="url(#purpleGrad)"/>
+        <!-- Dark wave bottom -->
+        <path d="M0,800 Q200,750 400,820 Q600,890 800,800 L800,1130 L0,1130Z" fill="#1a2a3a"/>
+        <path d="M0,810 Q200,760 400,830 Q600,900 800,810" fill="none" stroke="var(--totvs-purple)" stroke-width="3" opacity="0.5"/>
+        <!-- Purple bottom accent -->
+        <path d="M0,900 Q300,850 500,950 Q700,1050 800,950 L800,1130 L0,1130Z" fill="var(--totvs-purple)" opacity="0.15"/>
+      </svg>
+    </div>
+    
+    <!-- Logo top-left -->
+    <div style="position:relative; z-index:1; padding:50px 60px 0;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <svg viewBox="0 0 50 50" style="width:36px; height:36px;" fill="white">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="white" stroke-width="3.5"/>
+          <path d="M10,25 Q25,8 40,25 Q25,42 10,25Z" fill="white" opacity="0.8"/>
+        </svg>
+        <div>
+          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:22px; font-weight:900; color:white; letter-spacing:2px; line-height:1;">TOTVS</div>
+          <div style="font-size:10px; font-weight:700; color:var(--totvs-cyan); letter-spacing:4px; margin-top:-1px;">LESTE</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Title + Info -->
+    <div style="position:relative; z-index:1; padding:120px 60px 0; flex:1;">
+      <h1 style="color:white; font-size:32px; font-weight:800; border:none; margin:0 0 40px; line-height:1.15;">${title}</h1>
+      
+      <h2 style="color:white; font-size:16px; font-weight:700; margin:0 0 14px;">Informações gerais</h2>
+      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.8;">
+        <p style="margin:3px 0;">Proposta número: <strong>${proposal.number}</strong></p>
+        <p style="margin:3px 0;">Linha de Produto: <strong>${proposal.product}</strong></p>
+        <p style="margin:3px 0;">Cliente: <strong>${client?.code || ""} - ${client?.name || "—"}</strong></p>
+        <p style="margin:3px 0;">Data de Validade: <strong>${fmtDate(proposal.date_validity)}</strong></p>
+        <p style="margin:3px 0;">Data de emissão: <strong>${fmtDate(proposal.created_at)}</strong></p>
+        <p style="margin:3px 0;">Unidade TOTVS: <strong>${unitInfo?.name || "—"}</strong></p>
+      </div>
+      
+      <h2 style="color:white; font-size:16px; font-weight:700; margin:30px 0 14px;">Nossa equipe</h2>
+      <div style="color:rgba(255,255,255,0.9); font-size:13px; line-height:1.8;">
+        <p style="margin:3px 0;">Gerente de vendas: <strong>${gsn?.code || ""} - ${gsn?.name || "—"}</strong></p>
+        <p style="margin:3px 0;">Executivo de vendas: <strong>${esn?.code || ""} - ${esn?.name || "—"}</strong></p>
+        <p style="margin:3px 0;">Arquiteto de solução: <strong>${arq?.code || ""} - ${arq?.name || "—"}</strong></p>
+      </div>
+    </div>
   </div>`;
 }
+
+// ─── Footer ─────────────────────────────────────────────────────────
+
+function footerHTML(unitInfo: any) {
+  return `<div class="page-footer">
+    <p>Este documento é propriedade da TOTVS. Todos os direitos reservados. ©</p>
+    <p>${unitInfo?.name || "TOTVS Leste"} · ${unitInfo?.cnpj || ""} · ${unitInfo?.phone || ""}</p>
+  </div>`;
+}
+
+// ─── Content Pages ──────────────────────────────────────────────────
 
 function contractIntro(data: any) {
   const { proposal, unitInfo } = data;
@@ -221,7 +396,6 @@ function contractIntro(data: any) {
   return `<div class="page">
     <h1>${title}</h1>
     <p>De um lado, <strong>EDUCO SERVIÇOS LTDA</strong> com sede na ${unitInfo?.address || "—"}, inscrita no CNPJ/MF sob o n° ${unitInfo?.cnpj || "—"}, Inscrição Estadual: Isento, neste ato representada de acordo com seu estatuto/contrato social, doravante denominada "TOTVS LESTE", e, de outro lado, CLIENTE <strong>${client?.name || "—"}</strong>, com sede na ${client?.address || "—"}, inscrito no CNPJ/MF sob n.° ${client?.cnpj || "—"}, Inscrição Estadual n.° ${client?.state_registration || "—"}, Telefone ${client?.phone || "—"}, Contato ${client?.contact || "—"}, email: ${client?.email || "—"}, neste ato representada de acordo com seu contrato social, doravante denominada "Cliente".</p>
-
     <h2>Introdução</h2>
     ${isProjeto
       ? `<p>A TOTVS oferece nesta proposta o serviço de implantação, conforme descrito no tópico "Escopo de Serviços" abaixo com o objetivo de tornar operacional a solução TOTVS descrita no tópico Escopo da Solução. Colocamo-nos à disposição para esclarecer qualquer dúvida decorrente a sua interpretação e para avaliar possíveis alterações que sejam essenciais ao seu negócio.</p>`
@@ -330,10 +504,9 @@ function investmentPage(data: any) {
 
 function expensesPage(data: any) {
   const { proposal, unitInfo } = data;
-  const isProjeto = proposal.type === "projeto";
 
   return `<div class="page">
-    <h1>${isProjeto ? "5" : "5"}. Despesas Acessórias</h1>
+    <h1>5. Despesas Acessórias</h1>
     <p>Fica estabelecido que, para a execução de serviços nas dependências do Cliente, este deverá arcar com as despesas e logísticas descritas a seguir:</p>
     <ul>
       <li><strong>ALIMENTAÇÃO:</strong> Será cobrado o valor diário de R$ 70,00 por profissional alocado, faturado posteriormente via Nota de Débito.</li>
@@ -365,7 +538,7 @@ function legalPage(data: any) {
 
     <h1>7. Termo de Aceite ao Contrato</h1>
     <p>Documentos aplicáveis e ciência prévia: O Cliente declara ter lido e estar de acordo com as disposições de todos os documentos que integrarão essa Proposta.</p>
-    <p>Condições Específicas de Serviços: <a href="https://info.totvs.com/hubfs/AnexoContratoServicos.v2020.pdf">info.totvs.com/hubfs/AnexoContratoServicos.v2020.pdf</a></p>
+    <p>Condições Específicas de Serviços: <a href="https://info.totvs.com/hubfs/AnexoContratoServicos.v2020.pdf" style="color:var(--totvs-teal);">info.totvs.com/hubfs/AnexoContratoServicos.v2020.pdf</a></p>
     <p style="margin-top:16px;">${fmtDate(proposal.created_at)}</p>
 
     <h2>ASSINATURAS DOS REPRESENTANTES LEGAIS</h2>
@@ -438,7 +611,7 @@ function detailedScopeAnnex(data: any) {
   const { unitInfo, detailedScope } = data;
 
   let html = `<div class="page">
-    <h1 style="color:#00a8e8;">Anexo - Escopo Detalhado</h1>`;
+    <h1>Anexo - Escopo Detalhado</h1>`;
 
   for (const group of detailedScope) {
     html += `<h2>${group.templateName}</h2>`;
@@ -447,9 +620,7 @@ function detailedScopeAnnex(data: any) {
       <tbody>`;
 
     for (const proc of group.processes) {
-      // Parent row
-      html += `<tr style="background:#f0f8ff;font-weight:600"><td>${proc.description}</td><td></td><td style="text-align:center">Sim</td></tr>`;
-      // Children
+      html += `<tr style="background:#e2e8f0;font-weight:600"><td>${proc.description}</td><td></td><td style="text-align:center">Sim</td></tr>`;
       for (const child of proc.children) {
         html += `<tr><td style="padding-left:24px">${child.description}</td><td></td><td style="text-align:center">Sim</td></tr>`;
       }
@@ -476,7 +647,6 @@ function metodologiaPage(unitInfo: any) {
     <p>É a construção de fato sobre o desenho detalhado aprovado na fase anterior. A construção e testes são baseadas em Sprints com base no backlog.</p>
     <h3>Fase 4 - Operação:</h3>
     <p>É a execução das atividades para entrada em produção e o período de Acompanhamento ou Operação Assistida do sistema logo após o GO LIVE!</p>
-
     <h2>2.2 Aderência ao Padrão (Fit-to-Standard)</h2>
     <p>Todos os módulos, rotinas e processos listados no "Escopo da Solução" desta proposta serão atendidos e parametrizados de acordo com o funcionamento nativo e padrão (Standard) do sistema TOTVS.</p>
     ${footerHTML(unitInfo)}
@@ -545,10 +715,14 @@ function bancoRegrasPage(unitInfo: any) {
   </div>`;
 }
 
+// ─── Generators ─────────────────────────────────────────────────────
+
 function generateProjetoHTML(data: any) {
   const { proposal } = data;
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Proposta ${proposal.number}</title><style>${baseStyles()}</style></head><body>
-    ${infoPage(data)}
+    ${coverPage()}
+    ${subCoverPage()}
+    ${titlePage(data)}
     ${contractIntro(data)}
     ${scopePage(data)}
     ${metodologiaPage(data.unitInfo)}
@@ -564,7 +738,9 @@ function generateProjetoHTML(data: any) {
 function generateBancoDeHorasHTML(data: any) {
   const { proposal } = data;
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Proposta ${proposal.number}</title><style>${baseStyles()}</style></head><body>
-    ${infoPage(data)}
+    ${coverPage()}
+    ${subCoverPage()}
+    ${titlePage(data)}
     ${contractIntro(data)}
     ${bancoDeHorasNaturezaPage(data)}
     ${bancoRegrasPage(data.unitInfo)}

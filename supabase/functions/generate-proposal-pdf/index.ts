@@ -158,30 +158,51 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── Load secrets ─────────────────────────────────────────────
-    const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID");
-
-    if (!serviceAccountKeyRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
-    if (!driveFolderId) throw new Error("GOOGLE_DRIVE_FOLDER_ID not configured");
-
-    let serviceAccountKey: any;
-    try {
-      // Handle potential double-encoding or extra wrapping
-      let raw = serviceAccountKeyRaw.trim();
-      if (raw.startsWith('"') || raw.startsWith("'")) {
-        try { raw = JSON.parse(raw); } catch { /* use as-is */ }
-      }
-      serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    } catch (e) {
-      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 100 chars:", serviceAccountKeyRaw.substring(0, 100));
-      throw new Error(`Failed to parse service account key: ${e.message}`);
-    }
-
-    // ─── Fetch proposal data from Supabase ────────────────────────
+    // ─── Load credentials (DB first, env fallback) ─────────────
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let serviceAccountKey: any;
+    let driveFolderId: string;
+
+    // Try loading from google_integrations table
+    const { data: integration } = await supabase
+      .from("google_integrations")
+      .select("service_account_key, drive_folder_id")
+      .limit(1)
+      .maybeSingle();
+
+    if (integration) {
+      try {
+        serviceAccountKey = JSON.parse(integration.service_account_key);
+        driveFolderId = integration.drive_folder_id;
+        console.log("Using credentials from google_integrations table");
+      } catch (e) {
+        throw new Error(`Failed to parse service account key from DB: ${e.message}`);
+      }
+    } else {
+      // Fallback to env secrets
+      console.log("No DB integration found, falling back to env secrets");
+      const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+      driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
+
+      if (!serviceAccountKeyRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
+      if (!driveFolderId) throw new Error("GOOGLE_DRIVE_FOLDER_ID not configured");
+
+      try {
+        let raw = serviceAccountKeyRaw.trim();
+        if (raw.startsWith('"') || raw.startsWith("'")) {
+          try { raw = JSON.parse(raw); } catch { /* use as-is */ }
+        }
+        serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (e) {
+        console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 100 chars:", serviceAccountKeyRaw.substring(0, 100));
+        throw new Error(`Failed to parse service account key: ${e.message}`);
+      }
+    }
+
+    // ─── Fetch proposal data from Supabase ────────────────────────
 
     const { data: proposal, error: propError } = await supabase
       .from("proposals")

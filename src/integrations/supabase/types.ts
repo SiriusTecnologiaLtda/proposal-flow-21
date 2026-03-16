@@ -105,6 +105,33 @@ export type Database = {
           },
         ]
       }
+      google_integrations: {
+        Row: {
+          created_at: string
+          drive_folder_id: string
+          id: string
+          label: string
+          service_account_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drive_folder_id: string
+          id?: string
+          label: string
+          service_account_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drive_folder_id?: string
+          id?: string
+          label?: string
+          service_account_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_conditions: {
         Row: {
           amount: number

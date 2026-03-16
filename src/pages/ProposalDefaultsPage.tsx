@@ -27,6 +27,8 @@ export default function ProposalDefaultsPage() {
     if (defaults) {
       setHourlyRate(defaults.hourly_rate);
       setGpPercentage(defaults.gp_percentage);
+      setAccompAnalystPercentage((defaults as any).accomp_analyst_percentage ?? 15);
+      setAccompGpPercentage((defaults as any).accomp_gp_percentage ?? 10);
       setTravelLocalHours(defaults.travel_local_hours);
       setTravelTripHours(defaults.travel_trip_hours);
       setTravelHourlyRate(defaults.travel_hourly_rate);

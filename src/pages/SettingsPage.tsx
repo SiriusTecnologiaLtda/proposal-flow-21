@@ -8,6 +8,7 @@ import { useProposalDefaults, useUpdateProposalDefaults } from "@/hooks/useSupab
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const { data: defaults, isLoading } = useProposalDefaults();
   const updateDefaults = useUpdateProposalDefaults();
   const { toast } = useToast();

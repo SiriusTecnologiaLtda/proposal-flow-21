@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,8 +16,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, ArrowLeft, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface GoogleIntegration {
   id: string;
@@ -26,6 +27,13 @@ interface GoogleIntegration {
   drive_folder_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface LogEntry {
+  step: string;
+  status: "ok" | "error" | "info";
+  message: string;
+  timestamp: string;
 }
 
 const emptyForm = { label: "", service_account_key: "", drive_folder_id: "" };
@@ -41,6 +49,17 @@ export default function GoogleIntegrationPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [jsonError, setJsonError] = useState("");
+
+  // Test console state
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testLogs, setTestLogs] = useState<LogEntry[]>([]);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testLabel, setTestLabel] = useState("");
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [testLogs]);
 
   const { data: integrations = [], isLoading } = useQuery({
     queryKey: ["google_integrations"],
@@ -130,6 +149,52 @@ export default function GoogleIntegrationPage() {
     saveMutation.mutate({ ...form, id: editingId ?? undefined });
   }
 
+  async function runTest(item: GoogleIntegration) {
+    setTestLabel(item.label);
+    setTestLogs([]);
+    setTestRunning(true);
+    setTestDialogOpen(true);
+
+    const startLog: LogEntry = { step: "start", status: "info", message: `Iniciando teste da conexão "${item.label}"...`, timestamp: new Date().toISOString() };
+    setTestLogs([startLog]);
+
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/test-google-connection`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token || anonKey}`,
+            "apikey": anonKey,
+          },
+          body: JSON.stringify({ integrationId: item.id }),
+        }
+      );
+
+      const result = await res.json();
+      const logs: LogEntry[] = result.logs || [];
+      setTestLogs((prev) => [...prev, ...logs]);
+    } catch (e: any) {
+      setTestLogs((prev) => [
+        ...prev,
+        { step: "network", status: "error", message: `Erro de rede: ${e.message}`, timestamp: new Date().toISOString() },
+      ]);
+    } finally {
+      setTestRunning(false);
+    }
+  }
+
+  function statusIcon(status: LogEntry["status"]) {
+    if (status === "ok") return <span className="text-green-400">✓</span>;
+    if (status === "error") return <span className="text-red-400">✗</span>;
+    return <span className="text-blue-400">›</span>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -163,7 +228,7 @@ export default function GoogleIntegrationPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Pasta Drive</TableHead>
                   <TableHead>Service Account</TableHead>
-                  {isAdmin && <TableHead className="w-24">Ações</TableHead>}
+                  {isAdmin && <TableHead className="w-32">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,6 +243,9 @@ export default function GoogleIntegrationPage() {
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" title="Testar conexão" onClick={() => runTest(item)}>
+                              <Play className="h-4 w-4 text-green-600" />
+                            </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -229,6 +297,44 @@ export default function GoogleIntegrationPage() {
               {saveMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Console Dialog */}
+      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>Console — Teste de Conexão</DialogTitle>
+            <DialogDescription>Conexão: {testLabel}</DialogDescription>
+          </DialogHeader>
+          <div className="bg-gray-950 mx-4 mb-4 rounded-lg border border-gray-800">
+            <ScrollArea className="h-[350px] p-4">
+              <div className="space-y-1 font-mono text-xs">
+                {testLogs.map((entry, i) => (
+                  <div key={i} className="flex gap-2 leading-relaxed">
+                    <span className="shrink-0 text-gray-500 select-none">
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span className="shrink-0">{statusIcon(entry.status)}</span>
+                    <span className={
+                      entry.status === "ok" ? "text-green-300" :
+                      entry.status === "error" ? "text-red-300" :
+                      "text-gray-300"
+                    }>
+                      {entry.message}
+                    </span>
+                  </div>
+                ))}
+                {testRunning && (
+                  <div className="flex gap-2 text-gray-400 animate-pulse">
+                    <span>⏳</span>
+                    <span>Executando...</span>
+                  </div>
+                )}
+                <div ref={consoleEndRef} />
+              </div>
+            </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -84,20 +84,72 @@ async function getAccessToken(serviceAccountKey: any): Promise<string> {
 
 // ─── Google Drive helpers ───────────────────────────────────────────
 
-async function copyFile(accessToken: string, fileId: string, name: string, parentFolderId: string): Promise<string> {
-  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/copy`, {
+function fmtBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(2) + " " + units[i];
+}
+
+async function getDriveQuota(accessToken: string): Promise<{ limit: string; usage: string; usageInDrive: string; usageInTrash: string; free: string; raw: any }> {
+  const resp = await fetch(
+    "https://www.googleapis.com/drive/v3/about?fields=storageQuota,user",
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await resp.json();
+  if (!resp.ok) return { limit: "?", usage: "?", usageInDrive: "?", usageInTrash: "?", free: "?", raw: data };
+  const q = data.storageQuota || {};
+  const limit = Number(q.limit || 0);
+  const usage = Number(q.usage || 0);
+  return {
+    limit: fmtBytes(limit),
+    usage: fmtBytes(usage),
+    usageInDrive: fmtBytes(Number(q.usageInDrive || 0)),
+    usageInTrash: fmtBytes(Number(q.usageInDriveTrash || 0)),
+    free: fmtBytes(limit - usage),
+    raw: { storageQuota: q, user: data.user?.emailAddress || data.user?.displayName || "?" },
+  };
+}
+
+async function getFileInfo(accessToken: string, fileId: string): Promise<{ size: string; name: string; mimeType: string; rawSize: number }> {
+  const resp = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,size,mimeType,quotaBytesUsed`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await resp.json();
+  const size = Number(data.quotaBytesUsed || data.size || 0);
+  return { size: fmtBytes(size), name: data.name || "", mimeType: data.mimeType || "", rawSize: size };
+}
+
+async function copyFile(accessToken: string, fileId: string, name: string, parentFolderId: string, logs: LogEntry[]): Promise<string> {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}/copy`;
+  const bodyObj = { name, parents: [parentFolderId] };
+  const body = JSON.stringify(bodyObj);
+
+  // Log the curl equivalent
+  log(logs, "CURL - Copiar", "info",
+    `curl -X POST '${url}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '${body}'`
+  );
+
+  const resp = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, parents: [parentFolderId] }),
+    body,
   });
+
+  const responseText = await resp.text();
+  log(logs, "Resposta Drive API", resp.ok ? "ok" : "error",
+    `Status: ${resp.status} ${resp.statusText}\nBody: ${responseText}`
+  );
+
   if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Drive copy failed: ${err}`);
+    throw new Error(`Drive copy failed (${resp.status}): ${responseText}`);
   }
-  const data = await resp.json();
+
+  const data = JSON.parse(responseText);
   return data.id;
 }
 
@@ -108,6 +160,17 @@ async function listTemplates(accessToken: string, folderId: string): Promise<any
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) throw new Error(`Drive list failed: ${await resp.text()}`);
+  const data = await resp.json();
+  return data.files || [];
+}
+
+async function listFilesInFolder(accessToken: string, folderId: string, namePrefix: string): Promise<any[]> {
+  const query = `'${folderId}' in parents and name contains '${namePrefix.replace(/'/g, "\\'")}' and trashed=false`;
+  const resp = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!resp.ok) return [];
   const data = await resp.json();
   return data.files || [];
 }
@@ -315,8 +378,19 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, { error: e.message }, 500);
     }
 
+    // ─── Drive Quota ────────────────────────────────────────────
+    log(logs, "Quota do Drive", "info", "Verificando espaço disponível...");
+    try {
+      const quota = await getDriveQuota(accessToken);
+      log(logs, "Quota do Drive", "ok",
+        `Conta: ${quota.raw.user}\nLimite: ${quota.limit}\nUsado: ${quota.usage}\nUsado no Drive: ${quota.usageInDrive}\nNa Lixeira: ${quota.usageInTrash}\nLivre: ${quota.free}`
+      );
+    } catch (e: any) {
+      log(logs, "Quota do Drive", "error", `Falha ao consultar quota: ${e.message}`);
+    }
+
     // ─── Find template in Drive ─────────────────────────────────
-    log(logs, "Buscar template", "info", `Buscando template "${isProjeto ? "projeto" : "banco"}" na pasta...`);
+    log(logs, "Buscar template", "info", `Buscando template "${isProjeto ? "projeto" : "banco"}" na pasta ${driveFolderId}...`);
     let templates: any[];
     try {
       templates = await listTemplates(accessToken, driveFolderId);
@@ -332,7 +406,15 @@ Deno.serve(async (req) => {
       log(logs, "Buscar template", "error", `Template "${templateKeyword}" não encontrado. Arquivos na pasta: ${templates.map((t: any) => t.name).join(", ") || "nenhum"}`);
       return respondWithLogs(logs, { error: `Template "${templateKeyword}" not found in Drive folder` }, 404);
     }
-    log(logs, "Buscar template", "ok", `Template encontrado: "${template.name}"`);
+    log(logs, "Buscar template", "ok", `Template encontrado: "${template.name}" (ID: ${template.id})`);
+
+    // ─── Template file info ─────────────────────────────────────
+    try {
+      const fileInfo = await getFileInfo(accessToken, template.id);
+      log(logs, "Info do Template", "ok", `Nome: ${fileInfo.name}\nTipo: ${fileInfo.mimeType}\nTamanho: ${fileInfo.size}`);
+    } catch (e: any) {
+      log(logs, "Info do Template", "info", `Não foi possível obter info do arquivo: ${e.message}`);
+    }
 
     // ─── Check existing versions ────────────────────────────────
     const proposalBaseName = `${proposal.number} - ${client?.name || "Cliente"}`;
@@ -342,10 +424,10 @@ Deno.serve(async (req) => {
     log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
 
     // ─── Copy template ──────────────────────────────────────────
-    log(logs, "Copiar template", "info", "Criando cópia do template no Drive...");
+    log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta: ${driveFolderId})...`);
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId);
+      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);
@@ -430,16 +512,3 @@ Deno.serve(async (req) => {
     return respondWithLogs(logs, { error: error.message }, 500);
   }
 });
-
-// ─── Additional Drive helper ────────────────────────────────────────
-
-async function listFilesInFolder(accessToken: string, folderId: string, namePrefix: string): Promise<any[]> {
-  const query = `'${folderId}' in parents and name contains '${namePrefix.replace(/'/g, "\\'")}' and trashed=false`;
-  const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  if (!resp.ok) return [];
-  const data = await resp.json();
-  return data.files || [];
-}

@@ -273,6 +273,14 @@ export default function ProposalCreate() {
   const gpHours = Math.ceil(totalHours * (gpPercentage / 100));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
+  // Get tax factor from client's unit
+  const clientUnit = useMemo(() => {
+    if (!selectedClient?.unit_id) return null;
+    return units.find((u) => u.id === selectedClient.unit_id) || null;
+  }, [selectedClient, units]);
+  const taxFactor = clientUnit?.tax_factor || 0;
+  const totalValueGross = totalValue * (1 + taxFactor / 100);
+
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {
     if (addedTemplateIds.has(templateId)) return;

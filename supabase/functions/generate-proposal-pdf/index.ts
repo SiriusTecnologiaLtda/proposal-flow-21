@@ -195,7 +195,7 @@ async function listTemplates(accessToken: string, folderId: string): Promise<any
 async function listFilesInFolder(accessToken: string, folderId: string, namePrefix: string): Promise<any[]> {
   const query = `'${folderId}' in parents and name contains '${namePrefix.replace(/'/g, "\\'")}' and trashed=false`;
   const resp = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!resp.ok) return [];

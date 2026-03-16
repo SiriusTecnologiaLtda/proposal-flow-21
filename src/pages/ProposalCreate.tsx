@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal } from "@/hooks/useSupabaseData";
+import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -60,6 +60,7 @@ export default function ProposalCreate() {
   const { data: salesTeam = [] } = useSalesTeam();
   const { data: scopeTemplates = [] } = useScopeTemplates();
   const { data: productsList = [] } = useProducts();
+  const { data: units = [] } = useUnits();
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);
@@ -271,6 +272,14 @@ export default function ProposalCreate() {
 
   const gpHours = Math.ceil(totalHours * (gpPercentage / 100));
   const totalValue = (totalHours + gpHours) * hourlyRate;
+
+  // Get tax factor from client's unit
+  const clientUnit = useMemo(() => {
+    if (!selectedClient?.unit_id) return null;
+    return units.find((u) => u.id === selectedClient.unit_id) || null;
+  }, [selectedClient, units]);
+  const taxFactor = clientUnit?.tax_factor || 0;
+  const totalValueGross = totalValue * (1 + taxFactor / 100);
 
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {
@@ -998,12 +1007,54 @@ export default function ProposalCreate() {
 
           <div className="rounded-md border border-border bg-muted/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo Financeiro</h3>
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Horas Analista:</span><span className="font-medium text-foreground">{totalHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Horas GP ({gpPercentage}%):</span><span className="font-medium text-foreground">{gpHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Total de Horas:</span><span className="font-medium text-foreground">{totalHours + gpHours}h</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Valor Líquido:</span><span className="font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></div>
+            <div className="overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Descritivo</th>
+                    <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Analista de Implantação</td>
+                    <td className="py-2 px-3 text-center text-foreground">{totalHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {(totalHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 px-3 text-foreground">Coordenador de Projeto</td>
+                    <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(gpHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-accent/30">
+                    <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                    <td className="py-2 px-3 text-center font-semibold text-foreground">{totalHours + gpHours}</td>
+                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
+            {taxFactor > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground text-right">
+                Fator imposto: {taxFactor}% ({clientUnit?.name || "Unidade"})
+              </p>
+            )}
+            {!selectedClient?.unit_id && (
+              <p className="mt-2 text-xs text-destructive text-right">
+                Cliente sem unidade vinculada — fator imposto não aplicado.
+              </p>
+            )}
           </div>
 
           <div>
@@ -1110,8 +1161,10 @@ export default function ProposalCreate() {
                 <div className="grid gap-1 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">Total Horas:</span> <span className="font-semibold">{totalHours + gpHours}h</span></p>
                   <p><span className="text-muted-foreground">Valor Hora:</span> <span className="font-semibold">R$ {hourlyRate.toFixed(2)}</span></p>
-                  <p><span className="text-muted-foreground">Valor Total:</span> <span className="text-lg font-bold text-primary">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
+                  <p><span className="text-muted-foreground">Valor Líquido:</span> <span className="font-semibold">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
+                  <p><span className="text-muted-foreground">Valor Bruto:</span> <span className="text-lg font-bold text-primary">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
                   <p><span className="text-muted-foreground">Parcelas:</span> <span className="font-semibold">{payments.length}x</span></p>
+                  {taxFactor > 0 && <p><span className="text-muted-foreground">Fator Imposto:</span> <span className="font-medium">{taxFactor}%</span></p>}
                 </div>
               </div>
             </div>

@@ -15,6 +15,8 @@ export default function ProposalDefaultsPage() {
 
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
+  const [accompAnalystPercentage, setAccompAnalystPercentage] = useState(15);
+  const [accompGpPercentage, setAccompGpPercentage] = useState(10);
   const [travelLocalHours, setTravelLocalHours] = useState(1);
   const [travelTripHours, setTravelTripHours] = useState(4);
   const [travelHourlyRate, setTravelHourlyRate] = useState(250);

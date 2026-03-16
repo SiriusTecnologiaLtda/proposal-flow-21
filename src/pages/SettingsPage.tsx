@@ -26,7 +26,7 @@ export default function SettingsPage() {
           <div key={item.title} onClick={item.action} className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/50">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-muted-foreground">
-                <Settings className="h-4 w-4" />
+                {item.icon ? <item.icon className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{item.title}</p>

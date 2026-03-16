@@ -1037,8 +1037,16 @@ export default function ProposalCreate() {
               <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">% Horas GP</Label>
+              <Label className="text-xs">% Hrs Projeto GP</Label>
               <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% Acomp. Analista</Label>
+              <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% Acomp. GP</Label>
+              <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} />
             </div>
           </div>
 

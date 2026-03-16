@@ -218,50 +218,54 @@ function baseStyles() {
 // ─── Cover Page (Page 1) ────────────────────────────────────────────
 
 function coverPage() {
-  return `<div class="page cover-page" style="background: var(--totvs-dark); display:flex; flex-direction:column; justify-content:space-between; align-items:stretch;">
+  return `<div class="page cover-page" style="background: #0d1b24; display:flex; flex-direction:column; justify-content:space-between; align-items:stretch;">
     <div style="position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden;">
       <svg viewBox="0 0 800 1130" style="position:absolute; top:0; left:0; width:100%; height:100%;" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <linearGradient id="tealGrad1" x1="0%" y1="0%" x2="100%" y2="80%">
-            <stop offset="0%" style="stop-color:#1a5a6a;stop-opacity:1" />
-            <stop offset="40%" style="stop-color:#2a8a9a;stop-opacity:1" />
-            <stop offset="70%" style="stop-color:#35a5b5;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#5ce0f0;stop-opacity:1" />
+          <linearGradient id="tealMain" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a6a7a;stop-opacity:1" />
+            <stop offset="35%" style="stop-color:#1f8090;stop-opacity:1" />
+            <stop offset="65%" style="stop-color:#2a95a5;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#35b0c0;stop-opacity:1" />
           </linearGradient>
-          <linearGradient id="cyanEdge1" x1="20%" y1="0%" x2="80%" y2="100%">
-            <stop offset="0%" style="stop-color:#60e8f8;stop-opacity:0.9" />
-            <stop offset="100%" style="stop-color:#90f0ff;stop-opacity:0.95" />
+          <linearGradient id="cyanHighlight" x1="30%" y1="0%" x2="70%" y2="100%">
+            <stop offset="0%" style="stop-color:#50e0f0;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#70ecfc;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#90f4ff;stop-opacity:0.9" />
           </linearGradient>
-          <linearGradient id="innerDark1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#0f1923;stop-opacity:0.6" />
-            <stop offset="100%" style="stop-color:#0a1018;stop-opacity:0.4" />
+          <linearGradient id="innerShadow" x1="40%" y1="20%" x2="60%" y2="80%">
+            <stop offset="0%" style="stop-color:#0d1b24;stop-opacity:0.7" />
+            <stop offset="100%" style="stop-color:#0a1520;stop-opacity:0.5" />
+          </linearGradient>
+          <linearGradient id="tealDeep" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" style="stop-color:#155565;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a7585;stop-opacity:1" />
           </linearGradient>
         </defs>
-        <!-- Main teal flowing shape -->
-        <path d="M800,180 Q700,120 550,200 Q350,310 280,480 Q200,680 250,850 Q280,950 350,1050 Q400,1130 450,1130 L800,1130Z" fill="url(#tealGrad1)"/>
-        <!-- Cyan highlight edge -->
-        <path d="M800,170 Q690,115 540,195 Q340,305 270,475 Q190,680 240,850 Q270,950 340,1050 Q390,1130 440,1130" fill="none" stroke="url(#cyanEdge1)" stroke-width="6"/>
-        <!-- Cyan edge band -->
-        <path d="M800,165 Q685,108 535,190 Q330,300 260,470 Q180,675 230,848 Q260,948 330,1048 Q380,1130 430,1130 L450,1130 Q400,1130 350,1050 Q280,950 250,850 Q200,680 280,480 Q350,310 550,200 Q700,120 800,180Z" fill="url(#cyanEdge1)" opacity="0.5"/>
-        <!-- Inner dark shadow -->
-        <path d="M800,250 Q720,200 600,270 Q420,370 360,530 Q290,720 330,880 Q360,970 420,1060 Q460,1130 500,1130 L800,1130Z" fill="url(#innerDark1)"/>
+        <!-- Main large teal shape - flowing from right side curving down-left -->
+        <path d="M800,100 Q750,80 680,130 Q580,200 500,320 Q400,480 350,600 Q280,760 300,880 Q320,980 380,1060 Q430,1130 500,1130 L800,1130Z" fill="url(#tealMain)"/>
+        <!-- Bright cyan edge highlight - outer edge of shape -->
+        <path d="M800,90 Q745,70 670,125 Q565,195 490,315 Q385,478 335,598 Q265,760 285,880 Q305,982 365,1062 Q415,1130 485,1130" fill="none" stroke="url(#cyanHighlight)" stroke-width="8"/>
+        <!-- Cyan fill band along edge -->
+        <path d="M800,90 Q745,70 670,125 Q565,195 490,315 Q385,478 335,598 Q265,760 285,880 Q305,982 365,1062 Q415,1130 485,1130 L500,1130 Q430,1130 380,1060 Q320,980 300,880 Q280,760 350,600 Q400,480 500,320 Q580,200 680,130 Q750,80 800,100Z" fill="url(#cyanHighlight)" opacity="0.4"/>
+        <!-- Dark inner shadow within the shape -->
+        <path d="M800,200 Q760,180 710,220 Q630,290 570,400 Q480,560 440,680 Q390,810 410,920 Q430,1010 480,1080 Q510,1130 550,1130 L800,1130Z" fill="url(#innerShadow)"/>
+        <!-- Deeper teal accent on right -->
+        <path d="M800,350 Q770,330 740,360 Q690,420 650,520 Q600,650 590,770 Q580,880 610,970 Q640,1050 690,1100 Q720,1130 760,1130 L800,1130Z" fill="url(#tealDeep)" opacity="0.4"/>
       </svg>
     </div>
     
     <div style="position:relative; z-index:1; padding: 80px 60px 0;">
-      <h1 style="color:white; font-size:44px; font-weight:900; border:none; margin:0; line-height:1.08; letter-spacing:-0.5px; font-family:'Arial Black',Arial,sans-serif;">PROPOSTA<br/>COMERCIAL</h1>
+      <h1 style="color:white; font-size:46px; font-weight:900; border:none; margin:0; line-height:1.1; letter-spacing:-0.5px; font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;">PROPOSTA<br/>COMERCIAL</h1>
     </div>
     
-    <div style="position:relative; z-index:1; padding: 0 50px 50px; text-align:left;">
-      <div style="display:flex; align-items:center; gap:16px;">
-        <svg viewBox="0 0 60 60" style="width:65px; height:65px;" fill="white">
-          <path d="M30,4 C16.2,4 5,14.2 5,27 C5,35.5 9.5,42.8 16.2,47 L30,56 L43.8,47 C50.5,42.8 55,35.5 55,27 C55,14.2 43.8,4 30,4Z M30,8 C41.6,8 51,16.4 51,27 C51,34 47.3,40 41.6,43.5 L30,51.5 L18.4,43.5 C12.7,40 9,34 9,27 C9,16.4 18.4,8 30,8Z" fill="white" opacity="0.9"/>
-          <path d="M18,27 Q30,12 42,27 Q30,42 18,27Z" fill="white" opacity="0.8"/>
+    <div style="position:relative; z-index:1; padding: 0 45px 40px; text-align:left;">
+      <div style="display:flex; align-items:center; gap:18px;">
+        <svg viewBox="0 0 100 100" style="width:80px; height:80px;" fill="white">
+          <path d="M50,5 C25,5 5,22 5,43 C5,56 12,67 23,73 L50,90 L77,73 C88,67 95,56 95,43 C95,22 75,5 50,5Z M50,12 C71,12 88,26 88,43 C88,54 82,63 73,68 L50,82 L27,68 C18,63 12,54 12,43 C12,26 29,12 50,12Z"/>
+          <path d="M28,43 Q50,22 72,43 Q50,64 28,43Z"/>
         </svg>
-        <div>
-          <div style="font-family:'Arial Black',Arial,sans-serif; font-size:48px; font-weight:900; color:white; letter-spacing:4px; line-height:1;">TOTVS</div>
-          <div style="font-size:22px; font-weight:800; color:white; letter-spacing:8px; margin-top:0px; margin-left:2px;">LESTE</div>
-        </div>
+        <div style="font-family:'Arial Black','Helvetica Neue',Arial,sans-serif; font-size:64px; font-weight:900; color:white; letter-spacing:6px; line-height:1;">TOTVS</div>
       </div>
     </div>
   </div>`;

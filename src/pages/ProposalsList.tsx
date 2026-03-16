@@ -33,6 +33,29 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+
+  async function handleViewPdf(proposalId: string) {
+    setGeneratingPdfId(proposalId);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-proposal-pdf", {
+        body: { proposalId },
+      });
+      if (error) throw error;
+      if (data?.html) {
+        const win = window.open("", "_blank");
+        if (win) {
+          win.document.write(data.html);
+          win.document.close();
+        } else {
+          toast({ title: "Pop-up bloqueado", description: "Permita pop-ups para visualizar a proposta.", variant: "destructive" });
+        }
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar proposta", description: err.message, variant: "destructive" });
+    }
+    setGeneratingPdfId(null);
+  }
 
   const filtered = proposals.filter((p) => {
     const clientName = (p as any).clients?.name || "";

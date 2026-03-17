@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
     let updated = 0;
     let errors = 0;
     let totalRecords = 0;
+    const requestLogs: string[] = [];
 
     const paginationEnabled = integration.pagination_enabled === true;
     const pageSize = integration.pagination_page_size || 200;

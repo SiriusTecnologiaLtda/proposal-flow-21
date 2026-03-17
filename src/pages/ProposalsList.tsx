@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { useProposals, useDeleteProposal, useUpdateProposalStatus } from "@/hooks/useSupabaseData";
+import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LogEntry {
   step: string;
@@ -33,15 +34,35 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
+function roundUp8(val: number): number {
+  return Math.ceil(val / 8) * 8;
+}
+
 function StatusIcon({ status }: { status: LogEntry["status"] }) {
   if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
   if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
   return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
 }
 
+function computeNetValue(proposal: any, units: any[]): number | null {
+  const scopeItems = proposal.proposal_scope_items;
+  if (!scopeItems || scopeItems.length === 0) return null;
+
+  // Sum hours of included children (items with parent_id)
+  const totalHours = roundUp8(
+    scopeItems
+      .filter((item: any) => item.included && item.parent_id)
+      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0)
+  );
+
+  const gpHours = roundUp8(Math.ceil(totalHours * (proposal.gp_percentage / 100)));
+  return (totalHours + gpHours) * proposal.hourly_rate;
+}
+
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const { data: proposals = [] } = useProposals();
+  const { data: units = [] } = useUnits();
   const deleteProposal = useDeleteProposal();
   const updateStatus = useUpdateProposalStatus();
   const navigate = useNavigate();
@@ -200,300 +221,346 @@ export default function ProposalsList() {
 
   const isCancelled = (status: string) => status === "cancelada";
 
+  function getDocCounts(proposal: any) {
+    const docs = (proposal as any).proposal_documents || [];
+    const propostas = docs.filter((d: any) => d.doc_type === "proposta").length;
+    const mits = docs.filter((d: any) => d.doc_type === "mit").length;
+    return { propostas, mits };
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Propostas</h1>
-          <p className="text-sm text-muted-foreground">{proposals.length} propostas cadastradas</p>
-        </div>
-        <Button asChild>
-          <Link to="/propostas/nova">
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Proposta
-          </Link>
-        </Button>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por número, cliente ou descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-      </div>
-
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-8 md:gap-4">
-          <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
-          <span className="text-xs font-medium text-muted-foreground">Descrição</span>
-          <span className="text-xs font-medium text-muted-foreground">Tipo</span>
-          <span className="text-xs font-medium text-muted-foreground">Produto</span>
-          <span className="text-xs font-medium text-muted-foreground text-right">Valor Total</span>
-          <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
-          <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
-        </div>
-        <div className="divide-y divide-border">
-          {filtered.map((p) => {
-            const status = statusMap[p.status] || statusMap.rascunho;
-            const clientName = (p as any).clients?.name || "—";
-            const description = (p as any).description || "";
-            const totalValue = typeof (p as any).total_value === "number" ? (p as any).total_value : null;
-            const cancelled = isCancelled(p.status);
-            return (
-              <div
-                key={p.id}
-                className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-8 md:items-center md:gap-4 ${cancelled ? "opacity-60" : ""}`}
-              >
-                <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <FileText className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{clientName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{p.number}</p>
-                  </div>
-                </Link>
-                <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
-                <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
-                <p className="text-sm text-foreground">{p.product}</p>
-                <p className="text-sm font-medium text-foreground text-right">
-                  {totalValue != null ? `R$ ${totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
-                </p>
-                <div className="text-right">
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                    {status.label}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
-                        <Eye className="mr-2 h-3.5 w-3.5" />
-                        Gerar Proposta
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => loadVersions(p.id, "proposta")}>
-                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
-                        Propostas Geradas
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
-                        <FileCheck className="mr-2 h-3.5 w-3.5" />
-                        Gerar MIT-065
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => loadVersions(p.id, "mit")}>
-                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
-                        MIT-065 Gerados
-                      </DropdownMenuItem>
-                      {!cancelled && (
-                        <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
-                          <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => handleDuplicate(p)}>
-                        <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
-                      </DropdownMenuItem>
-                      {!cancelled && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                            <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
-                            <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
-                            <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma proposta encontrada.</div>
-          )}
-        </div>
-      </div>
-
-      {/* Generation console dialog */}
-      <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6 pb-3">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Gerar Proposta — Console de Execução
-            </DialogTitle>
-          </DialogHeader>
-          <div className="bg-zinc-950 mx-4 mb-4 rounded-lg border border-zinc-800 overflow-hidden">
-            <ScrollArea className="h-80">
-              <div className="p-4 font-mono text-sm space-y-2">
-                {consoleLogs.map((entry, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <StatusIcon status={entry.status} />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-zinc-400 text-xs mr-2">
-                        {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
-                      </span>
-                      <span className="text-zinc-200 font-semibold">{entry.step}</span>
-                      <span className="text-zinc-400 mx-1">—</span>
-                      <span className={
-                        entry.status === "error" ? "text-red-400" :
-                        entry.status === "ok" ? "text-green-400" :
-                        "text-blue-400"
-                      }>
-                        {entry.message}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {consoleLoading && (
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Processando...</span>
-                  </div>
-                )}
-                <div ref={consoleEndRef} />
-              </div>
-            </ScrollArea>
+    <TooltipProvider>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Propostas</h1>
+            <p className="text-sm text-muted-foreground">{proposals.length} propostas cadastradas</p>
           </div>
-          {!consoleLoading && consoleLogs.length > 0 && (
-            <div className="px-6 pb-4 flex gap-2 justify-end">
-              {consoleDocUrl && (
-                <Button onClick={() => window.open(consoleDocUrl, "_blank")}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Abrir Documento
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setConsoleOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          <Button asChild>
+            <Link to="/propostas/nova">
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Proposta
+            </Link>
+          </Button>
+        </div>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir proposta?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita. A proposta e todos os dados relacionados serão removidos permanentemente.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar por número, cliente ou descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
 
-      {/* Cancel confirmation */}
-      <AlertDialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar proposta?</AlertDialogTitle>
-            <AlertDialogDescription>A proposta será marcada como cancelada e não poderá mais ser editada ou excluída.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirmar Cancelamento</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-9 md:gap-4">
+            <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
+            <span className="text-xs font-medium text-muted-foreground">Descrição</span>
+            <span className="text-xs font-medium text-muted-foreground">Tipo</span>
+            <span className="text-xs font-medium text-muted-foreground">Produto</span>
+            <span className="text-xs font-medium text-muted-foreground text-right">Valor Líquido</span>
+            <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
+            <span className="text-xs font-medium text-muted-foreground text-center">Docs</span>
+            <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+          </div>
+          <div className="divide-y divide-border">
+            {filtered.map((p) => {
+              const status = statusMap[p.status] || statusMap.rascunho;
+              const clientName = (p as any).clients?.name || "—";
+              const description = (p as any).description || "";
+              const netValue = computeNetValue(p, units);
+              const cancelled = isCancelled(p.status);
+              const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
+              return (
+                <div
+                  key={p.id}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-9 md:items-center md:gap-4 ${cancelled ? "opacity-60" : ""}`}
+                >
+                  <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <FileText className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{clientName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{p.number}</p>
+                    </div>
+                  </Link>
+                  <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
+                  <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
+                  <p className="text-sm text-foreground">{p.product}</p>
+                  <p className="text-sm font-medium text-foreground text-right">
+                    {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                  </p>
+                  <div className="text-right">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                  {/* Document indicator icons */}
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          disabled={propostaCount === 0}
+                          onClick={() => propostaCount > 0 && loadVersions(p.id, "proposta")}
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
+                            propostaCount > 0
+                              ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                              : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                          }`}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {propostaCount > 0
+                          ? `${propostaCount} proposta(s) gerada(s)`
+                          : "Nenhuma proposta gerada"}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          disabled={mitCount === 0}
+                          onClick={() => mitCount > 0 && loadVersions(p.id, "mit")}
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
+                            mitCount > 0
+                              ? "bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"
+                              : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                          }`}
+                        >
+                          <FileCheck className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {mitCount > 0
+                          ? `${mitCount} MIT-065 gerado(s)`
+                          : "Nenhum MIT-065 gerado"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
+                          <Eye className="mr-2 h-3.5 w-3.5" />
+                          Gerar Proposta
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                          <FileCheck className="mr-2 h-3.5 w-3.5" />
+                          Gerar MIT-065
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {!cancelled && (
+                          <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
+                            <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                          <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
+                        </DropdownMenuItem>
+                        {!cancelled && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
+                              <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma proposta encontrada.</div>
+            )}
+          </div>
+        </div>
 
-      {/* Win confirmation */}
-      <AlertDialog open={!!winId} onOpenChange={(open) => !open && setWinId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Encerrar como ganha?</AlertDialogTitle>
-            <AlertDialogDescription>A proposta será marcada como ganha.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleWin}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Versions dialog */}
-      <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="h-5 w-5" />
-              {versionsDocType === "mit" ? "MIT-065 Gerados" : "Propostas Geradas"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {versionsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : versions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma proposta gerada ainda.</p>
-            ) : (
-              <ScrollArea className="max-h-80">
-                <div className="space-y-2 pr-2">
-                  {versions.map((doc, idx) => (
-                    <div
-                      key={doc.id}
-                      className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                        doc.is_official
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-accent/50"
-                      }`}
-                    >
+        {/* Generation console dialog */}
+        <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
+          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+            <DialogHeader className="px-6 pt-6 pb-3">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Gerar Documento — Console de Execução
+              </DialogTitle>
+            </DialogHeader>
+            <div className="bg-zinc-950 mx-4 mb-4 rounded-lg border border-zinc-800 overflow-hidden">
+              <ScrollArea className="h-80">
+                <div className="p-4 font-mono text-sm space-y-2">
+                  {consoleLogs.map((entry, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <StatusIcon status={entry.status} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
-                          {doc.is_official && (
-                            <Badge variant="default" className="text-[10px] px-1.5 py-0">
-                              Oficial
-                            </Badge>
-                          )}
-                          {idx === 0 && !doc.is_official && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              Mais recente
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          v{doc.version} · {new Date(doc.created_at).toLocaleDateString("pt-BR")} às {new Date(doc.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 ml-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title={doc.is_official ? "Desmarcar como oficial" : "Definir como oficial"}
-                          onClick={() => toggleOfficial(doc.id, doc.is_official)}
-                        >
-                          <Star className={`h-4 w-4 ${doc.is_official ? "fill-primary text-primary" : "text-muted-foreground"}`} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Abrir documento"
-                          onClick={() => window.open(doc.doc_url, "_blank")}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <span className="text-zinc-400 text-xs mr-2">
+                          {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
+                        </span>
+                        <span className="text-zinc-200 font-semibold">{entry.step}</span>
+                        <span className="text-zinc-400 mx-1">—</span>
+                        <span className={
+                          entry.status === "error" ? "text-red-400" :
+                          entry.status === "ok" ? "text-green-400" :
+                          "text-blue-400"
+                        }>
+                          {entry.message}
+                        </span>
                       </div>
                     </div>
                   ))}
+                  {consoleLoading && (
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Processando...</span>
+                    </div>
+                  )}
+                  <div ref={consoleEndRef} />
                 </div>
               </ScrollArea>
+            </div>
+            {!consoleLoading && consoleLogs.length > 0 && (
+              <div className="px-6 pb-4 flex gap-2 justify-end">
+                {consoleDocUrl && (
+                  <Button onClick={() => window.open(consoleDocUrl, "_blank")}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Abrir Documento
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setConsoleOpen(false)}>
+                  Fechar
+                </Button>
+              </div>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirmation */}
+        <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir proposta?</AlertDialogTitle>
+              <AlertDialogDescription>Esta ação não pode ser desfeita. A proposta e todos os dados relacionados serão removidos permanentemente.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Cancel confirmation */}
+        <AlertDialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar proposta?</AlertDialogTitle>
+              <AlertDialogDescription>A proposta será marcada como cancelada e não poderá mais ser editada ou excluída.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Voltar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirmar Cancelamento</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Win confirmation */}
+        <AlertDialog open={!!winId} onOpenChange={(open) => !open && setWinId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Encerrar como ganha?</AlertDialogTitle>
+              <AlertDialogDescription>A proposta será marcada como ganha.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Voltar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleWin}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Versions dialog */}
+        <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />
+                {versionsDocType === "mit" ? "MIT-065 Gerados" : "Propostas Geradas"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              {versionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : versions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum documento gerado ainda.</p>
+              ) : (
+                <ScrollArea className="max-h-80">
+                  <div className="space-y-2 pr-2">
+                    {versions.map((doc, idx) => (
+                      <div
+                        key={doc.id}
+                        className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+                          doc.is_official
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:bg-accent/50"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
+                            {doc.is_official && (
+                              <Badge variant="default" className="text-[10px] px-1.5 py-0">
+                                Oficial
+                              </Badge>
+                            )}
+                            {idx === 0 && !doc.is_official && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                Mais recente
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            v{doc.version} · {new Date(doc.created_at).toLocaleDateString("pt-BR")} às {new Date(doc.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={doc.is_official ? "Desmarcar como oficial" : "Definir como oficial"}
+                            onClick={() => toggleOfficial(doc.id, doc.is_official)}
+                          >
+                            <Star className={`h-4 w-4 ${doc.is_official ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Abrir documento"
+                            onClick={() => window.open(doc.doc_url, "_blank")}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }

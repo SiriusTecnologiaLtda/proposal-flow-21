@@ -592,6 +592,48 @@ export default function IntegrationsPage() {
               )}
             </div>
 
+            {/* Pagination */}
+            <div className="rounded-md border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Paginação (offset + limit)</Label>
+                <Switch
+                  checked={form.pagination_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, pagination_enabled: v })}
+                />
+              </div>
+              {form.pagination_enabled && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tamanho da página</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-xs"
+                      value={form.pagination_page_size}
+                      onChange={(e) => setForm({ ...form, pagination_page_size: parseInt(e.target.value) || 200 })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Param offset</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      value={form.pagination_param_offset}
+                      onChange={(e) => setForm({ ...form, pagination_param_offset: e.target.value })}
+                      placeholder="offset"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Param limit</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      value={form.pagination_param_limit}
+                      onChange={(e) => setForm({ ...form, pagination_param_limit: e.target.value })}
+                      placeholder="limit"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Field Mapping */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">

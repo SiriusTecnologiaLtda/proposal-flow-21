@@ -27,6 +27,7 @@ interface GoogleIntegration {
   auth_type: string;
   service_account_key: string;
   drive_folder_id: string;
+  output_folder_id: string | null;
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   oauth_refresh_token: string | null;

@@ -552,16 +552,19 @@ async function appendDetailedScope(
     const allRows: { cells: string[]; isHeader: boolean; isDisabled: boolean }[] = [
       { cells: ["Processo", "Resumo", "Escopo"], isHeader: true, isDisabled: false },
     ];
-    for (const parent of group.parents) {
+    for (let pi = 0; pi < group.parents.length; pi++) {
+      const parent = group.parents[pi];
+      const parentNum = pi + 1;
       allRows.push({
-        cells: [parent.description || "—", parent.notes || "", parent.included ? "Sim" : "Não"],
+        cells: [`${parentNum}. ${parent.description || "—"}`, parent.notes || "", parent.included ? "Sim" : "Não"],
         isHeader: false,
         isDisabled: !parent.included,
       });
       const children = group.children[parent.id] || [];
-      for (const child of children) {
+      for (let ci = 0; ci < children.length; ci++) {
+        const child = children[ci];
         allRows.push({
-          cells: [`   ${child.description || "—"}`, child.notes || "", child.included ? "Sim" : "Não"],
+          cells: [`   ${parentNum}.${ci + 1} ${child.description || "—"}`, child.notes || "", child.included ? "Sim" : "Não"],
           isHeader: false,
           isDisabled: !child.included,
         });

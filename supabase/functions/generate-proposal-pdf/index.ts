@@ -534,77 +534,147 @@ async function appendDetailedScope(
   let tableIdx = 0;
   const fillRequests: any[] = [];
   
+  // Track row metadata for styling after insert
+  interface RowMeta { row: number; isHeader: boolean; isDisabled: boolean; }
+  const tableRowMetas: { tableIndex: number; rows: RowMeta[] }[] = [];
+  
   for (const [tmplId, group] of Object.entries(grouped)) {
     if (group.parents.length === 0) continue;
     if (tableIdx >= newTables.length) break;
     
     const tableEl = newTables[tableIdx];
+    const currentTableIdx = tableIdx;
     tableIdx++;
     
-    const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
+    const allRows: { cells: string[]; isHeader: boolean; isDisabled: boolean }[] = [
+      { cells: ["Processo", "Resumo", "Escopo"], isHeader: true, isDisabled: false },
+    ];
     for (const parent of group.parents) {
-      allRows.push([
-        parent.description || "—",
-        parent.notes || "",
-        parent.included ? "Sim" : "Não",
-      ]);
+      allRows.push({
+        cells: [parent.description || "—", parent.notes || "", parent.included ? "Sim" : "Não"],
+        isHeader: false,
+        isDisabled: !parent.included,
+      });
       const children = group.children[parent.id] || [];
       for (const child of children) {
-        allRows.push([
-          `   ${child.description || "—"}`,
-          child.notes || "",
-          child.included ? "Sim" : "Não",
-        ]);
+        allRows.push({
+          cells: [`   ${child.description || "—"}`, child.notes || "", child.included ? "Sim" : "Não"],
+          isHeader: false,
+          isDisabled: !child.included,
+        });
       }
     }
+    
+    const rowMetas: RowMeta[] = allRows.map((r, i) => ({ row: i, isHeader: r.isHeader, isDisabled: r.isDisabled }));
+    tableRowMetas.push({ tableIndex: currentTableIdx, rows: rowMetas });
     
     const tableRows = tableEl.table?.tableRows || [];
     for (let r = 0; r < Math.min(tableRows.length, allRows.length); r++) {
       const cells = tableRows[r].tableCells || [];
-      for (let c = 0; c < Math.min(cells.length, allRows[r].length); c++) {
+      for (let c = 0; c < Math.min(cells.length, allRows[r].cells.length); c++) {
         const cellContent = cells[c].content?.[0];
         if (cellContent?.paragraph) {
           const insertIdx = cellContent.paragraph.elements?.[0]?.startIndex || cellContent.startIndex;
-          if (insertIdx && allRows[r][c]) {
+          if (insertIdx && allRows[r].cells[c]) {
             fillRequests.push({
               insertText: {
                 location: { index: insertIdx },
-                text: allRows[r][c],
+                text: allRows[r].cells[c],
               },
             });
-            
-            // Bold header row and "Processo" column for parent items
-            if (r === 0) {
-              fillRequests.push({
-                updateTextStyle: {
-                  range: { startIndex: insertIdx, endIndex: insertIdx + allRows[r][c].length },
-                  textStyle: { bold: true },
-                  fields: "bold",
-                },
-              });
-            }
           }
         }
       }
     }
   }
   
-  // Sort by descending index to avoid shift issues
+  // Sort inserts by descending index
   fillRequests.sort((a: any, b: any) => {
-    const aIdx = a.insertText?.location?.index || a.updateTextStyle?.range?.startIndex || 0;
-    const bIdx = b.insertText?.location?.index || b.updateTextStyle?.range?.startIndex || 0;
+    const aIdx = a.insertText?.location?.index || 0;
+    const bIdx = b.insertText?.location?.index || 0;
     return bIdx - aIdx;
   });
   
   if (fillRequests.length > 0) {
-    // Split: first do all insertText (sorted desc), then updateTextStyle needs re-read
-    const inserts = fillRequests.filter((r: any) => r.insertText);
-    if (inserts.length > 0) {
-      await docBatchUpdate(accessToken, docId, inserts);
+    await docBatchUpdate(accessToken, docId, fillRequests);
+  }
+  
+  // Re-read doc to apply styling (bold headers, strikethrough+gray for disabled rows, Arial Narrow 9pt)
+  doc = await getDocumentStructure(accessToken, docId);
+  const styledBodyContent = doc.body?.content || [];
+  const styledTables: any[] = [];
+  for (const el of styledBodyContent) {
+    if (el.table && el.startIndex >= endIndex) {
+      styledTables.push(el);
     }
+  }
+  
+  const styleRequests: any[] = [];
+  
+  for (const meta of tableRowMetas) {
+    if (meta.tableIndex >= styledTables.length) continue;
+    const tableEl = styledTables[meta.tableIndex];
+    const tableRows = tableEl.table?.tableRows || [];
     
-    // Re-read for styling header rows
-    // Skip styling for now to avoid complexity — the text content is the priority
+    for (const rm of meta.rows) {
+      if (rm.row >= tableRows.length) continue;
+      const cells = tableRows[rm.row].tableCells || [];
+      
+      for (const cell of cells) {
+        const para = cell.content?.[0]?.paragraph;
+        if (!para) continue;
+        const startIdx = para.elements?.[0]?.startIndex;
+        const endIdx = para.elements?.[para.elements.length - 1]?.endIndex;
+        if (!startIdx || !endIdx || startIdx >= endIdx) continue;
+        
+        if (rm.isHeader) {
+          // Header: Bold, Arial Narrow 9pt
+          styleRequests.push({
+            updateTextStyle: {
+              range: { startIndex: startIdx, endIndex: endIdx },
+              textStyle: {
+                bold: true,
+                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 700 },
+                fontSize: { magnitude: 9, unit: "PT" },
+              },
+              fields: "bold,weightedFontFamily,fontSize",
+            },
+          });
+        } else if (rm.isDisabled) {
+          // Disabled: strikethrough, gray, Arial Narrow 9pt
+          styleRequests.push({
+            updateTextStyle: {
+              range: { startIndex: startIdx, endIndex: endIdx },
+              textStyle: {
+                bold: false,
+                strikethrough: true,
+                foregroundColor: { color: { rgbColor: { red: 0.6, green: 0.6, blue: 0.6 } } },
+                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
+                fontSize: { magnitude: 9, unit: "PT" },
+              },
+              fields: "bold,strikethrough,foregroundColor,weightedFontFamily,fontSize",
+            },
+          });
+        } else {
+          // Normal: Arial Narrow 9pt, not bold
+          styleRequests.push({
+            updateTextStyle: {
+              range: { startIndex: startIdx, endIndex: endIdx },
+              textStyle: {
+                bold: false,
+                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
+                fontSize: { magnitude: 9, unit: "PT" },
+              },
+              fields: "bold,weightedFontFamily,fontSize",
+            },
+          });
+        }
+      }
+    }
+  }
+  
+  if (styleRequests.length > 0) {
+    await docBatchUpdate(accessToken, docId, styleRequests);
   }
   
   log(logs, "Escopo detalhado", "ok", `${Object.keys(grouped).length} grupo(s) de template adicionado(s) ao final do documento`);
@@ -914,6 +984,7 @@ Deno.serve(async (req) => {
       "{{DESC_RECURSO1}}": "Analista de Implantação",
       "{{DESC_RECURSO2}}": "Coordenador de Projeto",
       "{{NEGOCIACAO}}": proposal.negotiation || "",
+      "{{CONTEUDO_NEGESPECIFICA}}": proposal.negotiation || "",
     };
 
     // ─── Replace placeholders ───────────────────────────────────

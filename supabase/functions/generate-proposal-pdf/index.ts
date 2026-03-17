@@ -895,6 +895,7 @@ Deno.serve(async (req) => {
       "{{ENDERECO_UNIDADE}}": unitInfo?.address || "—",
       "{{CIDADE}}": unitInfo?.city || "—",
       "{{DESC_PROJETO}}": desc,
+      "{{ESCOPO1}}": macroScopeNames.join(", "),
       "{{QT_TOTALHRS}}": totalHours.toString(),
       "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": accompGPHours.toString(),
@@ -923,6 +924,32 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       log(logs, "Substituir placeholders", "error", `Falha: ${e.message}`);
       return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
+    // ─── Insert payment rows into table ─────────────────────────
+    if (payments.length > 0) {
+      log(logs, "Pagamento", "info", "Inserindo parcelas na tabela de condições de pagamento...");
+      try {
+        const docStructure = await getDocumentStructure(accessToken, newDocId);
+        const paymentTableInfo = findPaymentTableIndex(docStructure);
+        if (paymentTableInfo) {
+          await insertPaymentRows(accessToken, newDocId, paymentTableInfo, payments, logs);
+        } else {
+          log(logs, "Pagamento", "info", "Tabela de condições de pagamento não encontrada no template — usando placeholder textual");
+        }
+      } catch (e: any) {
+        log(logs, "Pagamento", "error", `Falha ao inserir parcelas: ${e.message}`);
+      }
+    }
+
+    // ─── Append detailed scope pages ────────────────────────────
+    if (scopeItems.length > 0) {
+      log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");
+      try {
+        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, logs);
+      } catch (e: any) {
+        log(logs, "Escopo detalhado", "error", `Falha ao adicionar escopo detalhado: ${e.message}`);
+      }
     }
 
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;

@@ -287,16 +287,20 @@ export default function IntegrationsPage() {
     }
   }
 
+  const [syncIntegrationId, setSyncIntegrationId] = useState<string | null>(null);
+
   async function handleSync(integrationId: string) {
     setSyncLog(null);
     setActiveSyncLogId(null);
+    setSyncIntegrationId(integrationId);
     setSyncDialogOpen(true);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "vpyniuyqmseusowjreth";
-      const res = await fetch(
+      // Fire-and-forget: don't await the response body
+      fetch(
         `https://${projectId}.supabase.co/functions/v1/sync-api-clients`,
         {
           method: "POST",
@@ -306,17 +310,9 @@ export default function IntegrationsPage() {
           },
           body: JSON.stringify({ integrationId, triggerType: "manual" }),
         }
-      );
-      const result = await res.json();
-      if (result.logId) {
-        setActiveSyncLogId(result.logId);
-      }
-      if (!res.ok) {
-        // Log was already created with error status, polling will pick it up
-        if (!result.logId) {
-          setSyncLog({ status: "error", error_message: result.error || "Falha" });
-        }
-      }
+      ).catch(() => {
+        // Network error — will be caught by polling showing no running log
+      });
     } catch (err: any) {
       setSyncLog({ status: "error", error_message: err.message });
     }

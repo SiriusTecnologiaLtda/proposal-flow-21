@@ -55,7 +55,12 @@ const emptyForm = {
 };
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
-const REDIRECT_URI_BASE = () => {
+const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
+const getRedirectUri = () => {
+  const loc = window.location;
+  return `${loc.protocol}//${loc.host}${OAUTH_CALLBACK_PATH}`;
+};
+const getPageUrl = () => {
   const loc = window.location;
   return `${loc.protocol}//${loc.host}/configuracoes/google`;
 };

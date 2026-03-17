@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
-const emptyForm = { name: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
+const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
 
 export default function UnitsPage() {
   const { data: units = [] } = useUnits();

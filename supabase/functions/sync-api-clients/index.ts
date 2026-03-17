@@ -321,6 +321,7 @@ Deno.serve(async (req) => {
       finished_at: new Date().toISOString(),
       inserted, updated, errors,
       total_records: totalRecords,
+      request_log: requestLogs.join("\n\n"),
     }).eq("id", logId);
 
     await adminClient.from("api_integrations").update({

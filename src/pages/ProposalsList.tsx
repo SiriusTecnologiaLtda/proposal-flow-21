@@ -66,6 +66,7 @@ export default function ProposalsList() {
     version: number;
     is_official: boolean;
     created_at: string;
+    doc_type: string;
   }
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);

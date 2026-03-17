@@ -111,6 +111,7 @@ export type Database = {
           created_at: string
           drive_folder_id: string
           id: string
+          is_default: boolean
           label: string
           oauth_client_id: string | null
           oauth_client_secret: string | null
@@ -124,6 +125,7 @@ export type Database = {
           created_at?: string
           drive_folder_id: string
           id?: string
+          is_default?: boolean
           label: string
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
@@ -137,6 +139,7 @@ export type Database = {
           created_at?: string
           drive_folder_id?: string
           id?: string
+          is_default?: boolean
           label?: string
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
@@ -279,6 +282,7 @@ export type Database = {
           created_at: string
           created_by: string
           doc_id: string
+          doc_type: string
           doc_url: string
           file_name: string
           id: string
@@ -290,6 +294,7 @@ export type Database = {
           created_at?: string
           created_by: string
           doc_id: string
+          doc_type?: string
           doc_url: string
           file_name: string
           id?: string
@@ -301,6 +306,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           doc_id?: string
+          doc_type?: string
           doc_url?: string
           file_name?: string
           id?: string

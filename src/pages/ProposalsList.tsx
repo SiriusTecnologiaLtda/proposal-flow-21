@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,9 +66,11 @@ export default function ProposalsList() {
     version: number;
     is_official: boolean;
     created_at: string;
+    doc_type: string;
   }
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
+  const [versionsDocType, setVersionsDocType] = useState<string>("proposta");
   const [versions, setVersions] = useState<ProposalDoc[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
 
@@ -76,15 +78,17 @@ export default function ProposalsList() {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [consoleLogs]);
 
-  async function handleGenerateDoc(proposalId: string) {
+  async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     setConsoleLogs([]);
     setConsoleDocUrl(null);
     setConsoleLoading(true);
     setConsoleOpen(true);
 
+    const endpoint = docType === "mit" ? "generate-mit-doc" : "generate-proposal-pdf";
+
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
           method: "POST",
           headers: {
@@ -160,8 +164,9 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
-  async function loadVersions(proposalId: string) {
+  async function loadVersions(proposalId: string, docType: string = "proposta") {
     setVersionsProposalId(proposalId);
+    setVersionsDocType(docType);
     setVersionsLoading(true);
     setVersionsOpen(true);
     try {
@@ -169,6 +174,7 @@ export default function ProposalsList() {
         .from("proposal_documents")
         .select("*")
         .eq("proposal_id", proposalId)
+        .eq("doc_type", docType)
         .order("version", { ascending: false });
       if (error) throw error;
       setVersions((data || []) as any);
@@ -181,13 +187,11 @@ export default function ProposalsList() {
 
   async function toggleOfficial(docId: string, currentOfficial: boolean) {
     try {
-      // If setting as official, unset all others first
       if (!currentOfficial && versionsProposalId) {
-        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId);
+        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId).eq("doc_type", versionsDocType);
       }
       await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
-      // Reload
-      if (versionsProposalId) await loadVersions(versionsProposalId);
+      if (versionsProposalId) await loadVersions(versionsProposalId, versionsDocType);
       toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -266,13 +270,22 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)}>
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         Gerar Proposta
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => loadVersions(p.id)}>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id, "proposta")}>
                         <FolderOpen className="mr-2 h-3.5 w-3.5" />
                         Propostas Geradas
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                        <FileCheck className="mr-2 h-3.5 w-3.5" />
+                        Gerar MIT-065
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id, "mit")}>
+                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                        MIT-065 Gerados
                       </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
@@ -413,7 +426,7 @@ export default function ProposalsList() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5" />
-              Propostas Geradas
+              {versionsDocType === "mit" ? "MIT-065 Gerados" : "Propostas Geradas"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">

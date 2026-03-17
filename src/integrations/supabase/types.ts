@@ -875,6 +875,7 @@ export type Database = {
           address: string | null
           city: string | null
           cnpj: string | null
+          code: string | null
           contact: string | null
           email: string | null
           id: string
@@ -887,6 +888,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           cnpj?: string | null
+          code?: string | null
           contact?: string | null
           email?: string | null
           id?: string
@@ -899,6 +901,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           cnpj?: string | null
+          code?: string | null
           contact?: string | null
           email?: string | null
           id?: string

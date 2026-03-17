@@ -1,0 +1,1 @@
+ALTER TABLE public.unit_info ADD COLUMN code text UNIQUE;

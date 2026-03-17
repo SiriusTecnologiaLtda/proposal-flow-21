@@ -56,13 +56,49 @@ const emptyForm = {
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
 const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
-const getRedirectUri = () => {
-  const loc = window.location;
-  return `${loc.protocol}//${loc.host}${OAUTH_CALLBACK_PATH}`;
+
+const resolveOAuthBaseOrigin = () => {
+  const currentOrigin = window.location.origin;
+  const currentHost = window.location.hostname;
+
+  if (currentHost.includes("lovableproject.com") && document.referrer) {
+    try {
+      const referrerUrl = new URL(document.referrer);
+      if (referrerUrl.hostname.includes("lovable.app")) {
+        return referrerUrl.origin;
+      }
+    } catch {
+      // ignore invalid referrer
+    }
+  }
+
+  return currentOrigin;
 };
-const getPageUrl = () => {
-  const loc = window.location;
-  return `${loc.protocol}//${loc.host}/configuracoes/google`;
+
+const getRedirectUri = () => `${resolveOAuthBaseOrigin()}${OAUTH_CALLBACK_PATH}`;
+
+const decodeOAuthState = (rawState: string | null) => {
+  if (!rawState) return null;
+
+  try {
+    const parsed = JSON.parse(atob(rawState));
+    if (typeof parsed?.integrationId === "string") {
+      return {
+        integrationId: parsed.integrationId,
+        openerOrigin:
+          typeof parsed?.openerOrigin === "string"
+            ? parsed.openerOrigin
+            : window.location.origin,
+      };
+    }
+  } catch {
+    // Legacy plain-text state support
+  }
+
+  return {
+    integrationId: rawState,
+    openerOrigin: window.location.origin,
+  };
 };
 
 export default function GoogleIntegrationPage() {
@@ -105,16 +141,23 @@ export default function GoogleIntegrationPage() {
 
   // Handle OAuth callback via postMessage from popup
   useEffect(() => {
+    const trustedOrigins = new Set([window.location.origin, resolveOAuthBaseOrigin()]);
+
     function handleMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin) return;
+      if (!trustedOrigins.has(event.origin)) return;
       if (event.data?.type !== "google-oauth-callback") return;
 
-      const { code, state, error } = event.data;
+      const decodedState = decodeOAuthState(event.data?.state ?? null);
+      const integrationId = decodedState?.integrationId;
+      const error = event.data?.error as string | null;
+      const code = event.data?.code as string | null;
+
       if (error) {
         toast({ title: "Erro na autorização", description: error, variant: "destructive" });
         return;
       }
-      if (!code || !state) return;
+
+      if (!code || !integrationId) return;
 
       setExchangingCode(true);
       (async () => {
@@ -133,7 +176,7 @@ export default function GoogleIntegrationPage() {
               },
               body: JSON.stringify({
                 code,
-                integrationId: state,
+                integrationId,
                 redirectUri: getRedirectUri(),
               }),
             }
@@ -158,11 +201,12 @@ export default function GoogleIntegrationPage() {
     return () => window.removeEventListener("message", handleMessage);
   }, [toast, queryClient]);
 
-  // Also handle direct URL params (fallback if popup didn't work)
+  // Direct URL fallback
   useEffect(() => {
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    if (!code || !state || exchangingCode) return;
+    const decodedState = decodeOAuthState(searchParams.get("state"));
+    const integrationId = decodedState?.integrationId;
+    if (!code || !integrationId || exchangingCode) return;
 
     setExchangingCode(true);
     setSearchParams({}, { replace: true });
@@ -183,7 +227,7 @@ export default function GoogleIntegrationPage() {
             },
             body: JSON.stringify({
               code,
-              integrationId: state,
+              integrationId,
               redirectUri: getRedirectUri(),
             }),
           }
@@ -202,7 +246,7 @@ export default function GoogleIntegrationPage() {
         setExchangingCode(false);
       }
     })();
-  }, [searchParams]);
+  }, [searchParams, exchangingCode, setSearchParams, toast, queryClient]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: typeof emptyForm & { id?: string }) => {
@@ -332,6 +376,12 @@ export default function GoogleIntegrationPage() {
 
   function startGoogleAuth(integrationId: string, clientId: string) {
     const redirectUri = getRedirectUri();
+    const statePayload = btoa(
+      JSON.stringify({
+        integrationId,
+        openerOrigin: window.location.origin,
+      })
+    );
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -339,7 +389,7 @@ export default function GoogleIntegrationPage() {
       scope: GOOGLE_SCOPES,
       access_type: "offline",
       prompt: "consent",
-      state: integrationId,
+      state: statePayload,
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     
@@ -433,7 +483,7 @@ export default function GoogleIntegrationPage() {
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
           {[
-            { label: "Domínio autorizado", value: "lovable.app" },
+            { label: "Domínios autorizados", value: "lovable.app, lovableproject.com" },
             { label: "URL de redirecionamento (OAuth Drive)", value: getRedirectUri() },
             { label: "URL de redirecionamento (Login Google)", value: redirectUrl },
           ].map((item) => (

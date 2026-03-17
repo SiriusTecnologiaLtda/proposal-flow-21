@@ -257,6 +257,161 @@ async function batchReplace(accessToken: string, docId: string, replacements: Re
   }
 }
 
+// ─── Scope table helper ─────────────────────────────────────────────
+
+async function replaceScopePlaceholderWithRows(
+  accessToken: string, docId: string, scopeNames: string[], logs: LogEntry[]
+) {
+  // Step 1: Find {{ESCOPO1}} in the document
+  const doc = await getDocumentStructure(accessToken, docId);
+  const body = doc.body?.content || [];
+
+  let targetTableStartIndex: number | null = null;
+  let targetRowIndex = -1;
+  let targetCellStartIndex = -1;
+  let targetCellEndIndex = -1;
+  let targetTableElement: any = null;
+
+  for (const el of body) {
+    if (!el.table) continue;
+    const rows = el.table.tableRows || [];
+    for (let ri = 0; ri < rows.length; ri++) {
+      const cells = rows[ri].tableCells || [];
+      for (const cell of cells) {
+        const cellText = (cell.content || [])
+          .map((c: any) => (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join(""))
+          .join("");
+        if (cellText.includes("{{ESCOPO1}}")) {
+          targetTableStartIndex = el.startIndex;
+          targetTableElement = el;
+          targetRowIndex = ri;
+          const para = cell.content?.[0]?.paragraph;
+          if (para?.elements?.[0]) {
+            targetCellStartIndex = para.elements[0].startIndex;
+            targetCellEndIndex = para.elements[para.elements.length - 1].endIndex;
+          }
+        }
+      }
+    }
+  }
+
+  if (targetTableStartIndex === null || targetRowIndex < 0) {
+    // Fallback: just do a simple text replace
+    log(logs, "Escopo macro", "info", "Tabela com {{ESCOPO1}} não encontrada, usando substituição simples");
+    await batchReplace(accessToken, docId, { "{{ESCOPO1}}": scopeNames.join("\n") });
+    return;
+  }
+
+  // Step 2: Clear the placeholder text and insert first scope name
+  const clearAndInsertRequests: any[] = [];
+
+  // Delete existing content (the placeholder text)
+  if (targetCellStartIndex > 0 && targetCellEndIndex > targetCellStartIndex) {
+    clearAndInsertRequests.push({
+      deleteContentRange: {
+        range: { startIndex: targetCellStartIndex, endIndex: targetCellEndIndex - 1 },
+      },
+    });
+    clearAndInsertRequests.push({
+      insertText: {
+        location: { index: targetCellStartIndex },
+        text: scopeNames[0],
+      },
+    });
+  }
+
+  if (clearAndInsertRequests.length > 0) {
+    await docBatchUpdate(accessToken, docId, clearAndInsertRequests);
+  }
+
+  // Step 3: Insert additional rows for remaining scope names
+  if (scopeNames.length > 1) {
+    // Insert rows below the current row
+    const insertRowRequests: any[] = [];
+    for (let i = 1; i < scopeNames.length; i++) {
+      insertRowRequests.push({
+        insertTableRow: {
+          tableCellLocation: {
+            tableStartLocation: { index: targetTableStartIndex },
+            rowIndex: targetRowIndex,
+            columnIndex: 0,
+          },
+          insertBelow: true,
+        },
+      });
+    }
+    await docBatchUpdate(accessToken, docId, insertRowRequests);
+
+    // Re-read document to get updated indices
+    const updatedDoc = await getDocumentStructure(accessToken, docId);
+    const updatedBody = updatedDoc.body?.content || [];
+
+    // Find the table again
+    let table: any = null;
+    for (const el of updatedBody) {
+      if (el.table && el.startIndex === targetTableStartIndex) {
+        table = el;
+        break;
+      }
+    }
+    // If startIndex shifted, search by proximity
+    if (!table) {
+      for (const el of updatedBody) {
+        if (el.table) {
+          const rows = el.table.tableRows || [];
+          for (const row of rows) {
+            const cells = row.tableCells || [];
+            for (const cell of cells) {
+              const cellText = (cell.content || [])
+                .map((c: any) => (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join(""))
+                .join("");
+              if (cellText.includes(scopeNames[0])) {
+                table = el;
+                break;
+              }
+            }
+            if (table) break;
+          }
+          if (table) break;
+        }
+      }
+    }
+
+    if (table) {
+      const rows = table.table.tableRows || [];
+      // Fill the new rows (they start after targetRowIndex)
+      const fillRequests: any[] = [];
+      for (let i = 1; i < scopeNames.length; i++) {
+        const newRowIdx = targetRowIndex + i;
+        if (newRowIdx < rows.length) {
+          const cell = rows[newRowIdx].tableCells?.[0];
+          const para = cell?.content?.[0]?.paragraph;
+          const insertIdx = para?.elements?.[0]?.startIndex;
+          if (insertIdx) {
+            fillRequests.push({
+              insertText: {
+                location: { index: insertIdx },
+                text: scopeNames[i],
+              },
+            });
+          }
+        }
+      }
+      // Sort by descending index
+      fillRequests.sort((a: any, b: any) => {
+        const aIdx = a.insertText?.location?.index || 0;
+        const bIdx = b.insertText?.location?.index || 0;
+        return bIdx - aIdx;
+      });
+      if (fillRequests.length > 0) {
+        await docBatchUpdate(accessToken, docId, fillRequests);
+      }
+    }
+  }
+
+  log(logs, "Escopo macro", "ok", `${scopeNames.length} item(ns) de macro escopo inserido(s) na tabela`);
+}
+
 // ─── Google Docs structure helpers ──────────────────────────────────
 
 async function getDocumentStructure(accessToken: string, docId: string): Promise<any> {

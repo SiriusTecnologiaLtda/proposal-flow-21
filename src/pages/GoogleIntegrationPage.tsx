@@ -352,8 +352,14 @@ export default function GoogleIntegrationPage() {
               <Input placeholder="Ex: Unidade Leste" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
             </div>
             <div>
-              <Label>ID da Pasta do Google Drive</Label>
+              <Label>Pasta de Templates (Google Drive ID)</Label>
               <Input placeholder="Ex: 1JBh1YFS86MMe-M91kWeBchfh8xwQrFwB" value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Pasta onde estão os modelos de documento</p>
+            </div>
+            <div>
+              <Label>Pasta de Documentos Gerados (Google Drive ID)</Label>
+              <Input placeholder="Mesmo ID ou pasta diferente" value={form.output_folder_id} onChange={(e) => setForm({ ...form, output_folder_id: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Pasta onde os documentos gerados serão salvos. Se vazio, usa a pasta de templates.</p>
             </div>
 
             <Tabs value={form.auth_type} onValueChange={(v) => setForm({ ...form, auth_type: v as "service_account" | "oauth2" })}>

@@ -237,6 +237,66 @@ export type Database = {
         }
         Relationships: []
       }
+      import_logs: {
+        Row: {
+          cleared_before: boolean
+          created_at: string
+          duration_ms: number | null
+          entity: string
+          error_details: Json | null
+          errors: number
+          file_name: string
+          finished_at: string | null
+          id: string
+          imported: number
+          skipped: number
+          started_at: string
+          status: string
+          summary: string | null
+          total_rows: number
+          updated: number
+          user_id: string | null
+        }
+        Insert: {
+          cleared_before?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          entity: string
+          error_details?: Json | null
+          errors?: number
+          file_name: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          skipped?: number
+          started_at?: string
+          status?: string
+          summary?: string | null
+          total_rows?: number
+          updated?: number
+          user_id?: string | null
+        }
+        Update: {
+          cleared_before?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          entity?: string
+          error_details?: Json | null
+          errors?: number
+          file_name?: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          skipped?: number
+          started_at?: string
+          status?: string
+          summary?: string | null
+          total_rows?: number
+          updated?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payment_conditions: {
         Row: {
           amount: number

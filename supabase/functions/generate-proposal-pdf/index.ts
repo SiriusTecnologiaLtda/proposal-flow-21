@@ -914,6 +914,7 @@ Deno.serve(async (req) => {
       "{{DESC_RECURSO1}}": "Analista de Implantação",
       "{{DESC_RECURSO2}}": "Coordenador de Projeto",
       "{{NEGOCIACAO}}": proposal.negotiation || "",
+      "{{CONTEUDO_NEGESPECIFICA}}": proposal.negotiation || "",
     };
 
     // ─── Replace placeholders ───────────────────────────────────

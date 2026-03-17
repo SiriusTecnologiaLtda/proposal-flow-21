@@ -1109,6 +1109,7 @@ Deno.serve(async (req) => {
         version,
         is_official: false,
         created_by: userId,
+        doc_type: "proposta",
       });
       log(logs, "Registro", "ok", "Documento registrado no banco de dados");
     } catch (e: any) {

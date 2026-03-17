@@ -526,6 +526,7 @@ export type Database = {
           date_validity: string | null
           description: string | null
           esn_id: string | null
+          expected_close_date: string | null
           gp_percentage: number
           gsn_id: string | null
           hourly_rate: number
@@ -554,6 +555,7 @@ export type Database = {
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
+          expected_close_date?: string | null
           gp_percentage?: number
           gsn_id?: string | null
           hourly_rate?: number
@@ -582,6 +584,7 @@ export type Database = {
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
+          expected_close_date?: string | null
           gp_percentage?: number
           gsn_id?: string | null
           hourly_rate?: number

@@ -1,0 +1,1 @@
+ALTER TABLE public.proposals ADD COLUMN expected_close_date date;

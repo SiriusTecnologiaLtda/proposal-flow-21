@@ -87,6 +87,7 @@ export default function ProposalCreate() {
   const [firstDueDate, setFirstDueDate] = useState("");
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
+  const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [travelLocalHours, setTravelLocalHours] = useState(1);
   const [travelTripHours, setTravelTripHours] = useState(4);
   const [travelHourlyRate, setTravelHourlyRate] = useState(250);
@@ -126,6 +127,7 @@ export default function ProposalCreate() {
       setTravelHourlyRate(existingProposal.travel_hourly_rate);
       setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
       setAdditionalGpRate(existingProposal.additional_gp_rate);
+      setExpectedCloseDate(existingProposal.expected_close_date || "");
       setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
@@ -615,6 +617,7 @@ export default function ProposalCreate() {
       additional_gp_rate: additionalGpRate,
       negotiation,
       description,
+      expected_close_date: expectedCloseDate || null,
       scopeItems: allScopeItems,
       payments: paymentRows,
     };
@@ -718,9 +721,15 @@ export default function ProposalCreate() {
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Descrição do Projeto</Label>
-            <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Descrição do Projeto</Label>
+              <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Data Prevista de Fechamento</Label>
+              <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} />
+            </div>
           </div>
 
           {/* Client */}

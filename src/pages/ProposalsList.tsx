@@ -57,6 +57,21 @@ export default function ProposalsList() {
   const [consoleDocUrl, setConsoleDocUrl] = useState<string | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
+  // Versions dialog state
+  interface ProposalDoc {
+    id: string;
+    doc_id: string;
+    doc_url: string;
+    file_name: string;
+    version: number;
+    is_official: boolean;
+    created_at: string;
+  }
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
+  const [versions, setVersions] = useState<ProposalDoc[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [consoleLogs]);

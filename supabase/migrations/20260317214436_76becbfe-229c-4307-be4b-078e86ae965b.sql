@@ -1,0 +1,1 @@
+CREATE POLICY "Admins can delete sales team" ON public.sales_team FOR DELETE TO authenticated USING (has_role(auth.uid(), 'admin'::app_role));

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle, Trash2, UserCog } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";

@@ -160,6 +160,40 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
+  async function loadVersions(proposalId: string) {
+    setVersionsProposalId(proposalId);
+    setVersionsLoading(true);
+    setVersionsOpen(true);
+    try {
+      const { data, error } = await supabase
+        .from("proposal_documents")
+        .select("*")
+        .eq("proposal_id", proposalId)
+        .order("version", { ascending: false });
+      if (error) throw error;
+      setVersions((data || []) as any);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar versões", description: err.message, variant: "destructive" });
+      setVersions([]);
+    }
+    setVersionsLoading(false);
+  }
+
+  async function toggleOfficial(docId: string, currentOfficial: boolean) {
+    try {
+      // If setting as official, unset all others first
+      if (!currentOfficial && versionsProposalId) {
+        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId);
+      }
+      await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
+      // Reload
+      if (versionsProposalId) await loadVersions(versionsProposalId);
+      toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  }
+
   const isCancelled = (status: string) => status === "cancelada";
 
   return (

@@ -127,6 +127,7 @@ export default function ProposalCreate() {
       setTravelHourlyRate(existingProposal.travel_hourly_rate);
       setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
       setAdditionalGpRate(existingProposal.additional_gp_rate);
+      setExpectedCloseDate(existingProposal.expected_close_date || "");
       setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items

@@ -270,6 +270,10 @@ export default function ProposalsList() {
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         Gerar Proposta
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id)}>
+                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                        Propostas Geradas
+                      </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
                           <Edit2 className="mr-2 h-3.5 w-3.5" />Editar

@@ -725,6 +725,10 @@ async function appendDetailedScope(
 
 // ─── Formatters ─────────────────────────────────────────────────────
 
+function roundUp8(val: number) {
+  return Math.ceil(val / 8) * 8;
+}
+
 function fmt(val: number) {
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -767,7 +771,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let driveFolderId: string;
+    let driveFolderId: string; // templates folder
+    let outputFolderId: string; // output folder for generated docs
     let authType = "service_account";
     let serviceAccountKey: any = null;
     let oauthClientId = "";
@@ -782,6 +787,7 @@ Deno.serve(async (req) => {
 
     if (integration) {
       driveFolderId = integration.drive_folder_id;
+      outputFolderId = integration.output_folder_id || integration.drive_folder_id;
       authType = integration.auth_type || "service_account";
 
       if (authType === "oauth2") {
@@ -802,6 +808,7 @@ Deno.serve(async (req) => {
       log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
       const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
       driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
+      outputFolderId = driveFolderId;
 
       if (!serviceAccountKeyRaw) {
         log(logs, "Carregar credenciais", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");
@@ -876,9 +883,10 @@ Deno.serve(async (req) => {
       templateNames = (templates || []).reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
     }
 
-    const totalAnalystHours = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
+    const totalAnalystHoursRaw = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
+    const totalAnalystHours = roundUp8(totalAnalystHoursRaw);
     const gpPercentage = Number(proposal.gp_percentage);
-    const gpHours = Math.ceil(totalAnalystHours * (gpPercentage / 100));
+    const gpHours = roundUp8(Math.ceil(totalAnalystHours * (gpPercentage / 100)));
     const hourlyRate = Number(proposal.hourly_rate);
     const totalHours = totalAnalystHours + gpHours;
     const totalValueNet = totalHours * hourlyRate;
@@ -886,8 +894,8 @@ Deno.serve(async (req) => {
     const totalValueGross = totalValueNet * (1 + taxFactor / 100);
     const accompAnalyst = Number(proposal.accomp_analyst) || 0;
     const accompGP = Number(proposal.accomp_gp) || 0;
-    const accompAnalystHours = Math.ceil(totalAnalystHours * (accompAnalyst / 100));
-    const accompGPHours = Math.ceil(gpHours * (accompGP / 100));
+    const accompAnalystHours = roundUp8(Math.ceil(totalAnalystHours * (accompAnalyst / 100)));
+    const accompGPHours = roundUp8(Math.ceil(gpHours * (accompGP / 100)));
 
     const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
     const isProjeto = proposal.type === "projeto";
@@ -956,19 +964,19 @@ Deno.serve(async (req) => {
 
     // ─── Check existing versions ────────────────────────────────
     const proposalBaseName = `${proposal.number} - ${client?.name || "Cliente"}`;
-    const existingFiles = await listFilesInFolder(accessToken, driveFolderId, proposalBaseName);
+    const existingFiles = await listFilesInFolder(accessToken, outputFolderId, proposalBaseName);
     const version = existingFiles.length + 1;
     const newFileName = `${proposalBaseName} v${version}`;
     log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
 
     // ─── Check folder type (Shared Drive vs personal) ─────────
-    const folderInfo = await getFolderDriveInfo(accessToken, driveFolderId, logs);
+    const folderInfo = await getFolderDriveInfo(accessToken, outputFolderId, logs);
 
     // ─── Copy template ──────────────────────────────────────────
-    log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta: ${driveFolderId})...`);
+    log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta output: ${outputFolderId})...`);
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, folderInfo.driveId, logs);
+      newDocId = await copyFile(accessToken, template.id, newFileName, outputFolderId, folderInfo.driveId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);
@@ -1068,6 +1076,30 @@ Deno.serve(async (req) => {
 
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     log(logs, "Concluído", "ok", `Documento gerado com sucesso: ${newFileName}`);
+
+    // ─── Save document record ───────────────────────────────────
+    try {
+      // Get user from auth header
+      const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
+      let userId = proposal.created_by;
+      if (authHeader) {
+        const { data: { user } } = await supabase.auth.getUser(authHeader);
+        if (user) userId = user.id;
+      }
+
+      await supabase.from("proposal_documents").insert({
+        proposal_id: proposalId,
+        doc_id: newDocId,
+        doc_url: docUrl,
+        file_name: newFileName,
+        version,
+        is_official: false,
+        created_by: userId,
+      });
+      log(logs, "Registro", "ok", "Documento registrado no banco de dados");
+    } catch (e: any) {
+      log(logs, "Registro", "info", `Não foi possível registrar: ${e.message}`);
+    }
 
     return respondWithLogs(logs, {
       docUrl,

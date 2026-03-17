@@ -115,6 +115,7 @@ export type Database = {
           oauth_client_id: string | null
           oauth_client_secret: string | null
           oauth_refresh_token: string | null
+          output_folder_id: string | null
           service_account_key: string | null
           updated_at: string
         }
@@ -127,6 +128,7 @@ export type Database = {
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
           oauth_refresh_token?: string | null
+          output_folder_id?: string | null
           service_account_key?: string | null
           updated_at?: string
         }
@@ -139,6 +141,7 @@ export type Database = {
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
           oauth_refresh_token?: string | null
+          output_folder_id?: string | null
           service_account_key?: string | null
           updated_at?: string
         }
@@ -270,6 +273,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      proposal_documents: {
+        Row: {
+          created_at: string
+          created_by: string
+          doc_id: string
+          doc_url: string
+          file_name: string
+          id: string
+          is_official: boolean
+          proposal_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          doc_id: string
+          doc_url: string
+          file_name: string
+          id?: string
+          is_official?: boolean
+          proposal_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          doc_id?: string
+          doc_url?: string
+          file_name?: string
+          id?: string
+          is_official?: boolean
+          proposal_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_documents_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposal_macro_scope: {
         Row: {

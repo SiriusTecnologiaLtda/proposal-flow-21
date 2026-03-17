@@ -27,6 +27,7 @@ interface GoogleIntegration {
   auth_type: string;
   service_account_key: string;
   drive_folder_id: string;
+  output_folder_id: string | null;
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   oauth_refresh_token: string | null;
@@ -46,6 +47,7 @@ const emptyForm = {
   auth_type: "oauth2" as "service_account" | "oauth2",
   service_account_key: "",
   drive_folder_id: "",
+  output_folder_id: "",
   oauth_client_id: "",
   oauth_client_secret: "",
   oauth_refresh_token: "",
@@ -91,6 +93,7 @@ export default function GoogleIntegrationPage() {
         label: values.label,
         auth_type: values.auth_type,
         drive_folder_id: values.drive_folder_id,
+        output_folder_id: values.output_folder_id || values.drive_folder_id,
       };
 
       if (values.auth_type === "service_account") {
@@ -163,6 +166,7 @@ export default function GoogleIntegrationPage() {
       auth_type: (item.auth_type as "service_account" | "oauth2") || "service_account",
       service_account_key: item.service_account_key || "",
       drive_folder_id: item.drive_folder_id,
+      output_folder_id: item.output_folder_id || "",
       oauth_client_id: item.oauth_client_id || "",
       oauth_client_secret: item.oauth_client_secret || "",
       oauth_refresh_token: item.oauth_refresh_token || "",
@@ -282,7 +286,8 @@ export default function GoogleIntegrationPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
-                  <TableHead>Pasta Drive</TableHead>
+                  <TableHead>Pasta Templates</TableHead>
+                  <TableHead>Pasta Documentos</TableHead>
                   <TableHead>Conta</TableHead>
                   {isAdmin && <TableHead className="w-32">Ações</TableHead>}
                 </TableRow>
@@ -308,6 +313,7 @@ export default function GoogleIntegrationPage() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{item.output_folder_id || item.drive_folder_id}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{account}</TableCell>
                       {isAdmin && (
                         <TableCell>
@@ -346,8 +352,14 @@ export default function GoogleIntegrationPage() {
               <Input placeholder="Ex: Unidade Leste" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
             </div>
             <div>
-              <Label>ID da Pasta do Google Drive</Label>
+              <Label>Pasta de Templates (Google Drive ID)</Label>
               <Input placeholder="Ex: 1JBh1YFS86MMe-M91kWeBchfh8xwQrFwB" value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Pasta onde estão os modelos de documento</p>
+            </div>
+            <div>
+              <Label>Pasta de Documentos Gerados (Google Drive ID)</Label>
+              <Input placeholder="Mesmo ID ou pasta diferente" value={form.output_folder_id} onChange={(e) => setForm({ ...form, output_folder_id: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Pasta onde os documentos gerados serão salvos. Se vazio, usa a pasta de templates.</p>
             </div>
 
             <Tabs value={form.auth_type} onValueChange={(v) => setForm({ ...form, auth_type: v as "service_account" | "oauth2" })}>

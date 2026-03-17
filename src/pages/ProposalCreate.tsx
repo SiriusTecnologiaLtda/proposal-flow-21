@@ -250,7 +250,12 @@ export default function ProposalCreate() {
     return templates;
   }, [product, scopeTemplates, templateSearch]);
 
-  // Calculate total hours from included children only
+  // Round up to nearest multiple of 8
+  function roundUp8(val: number) {
+    return Math.ceil(val / 8) * 8;
+  }
+
+  // Calculate total hours from included children only (rounded to multiple of 8)
   const totalHours = useMemo(() => {
     let total = 0;
     for (const proc of scopeProcesses) {
@@ -260,7 +265,7 @@ export default function ProposalCreate() {
         }
       }
     }
-    return total;
+    return roundUp8(total);
   }, [scopeProcesses]);
 
   // Group scope processes by template for grouped display
@@ -304,7 +309,7 @@ export default function ProposalCreate() {
     });
   }
 
-  const gpHours = Math.ceil(totalHours * (gpPercentage / 100));
+  const gpHours = roundUp8(Math.ceil(totalHours * (gpPercentage / 100)));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
   // Get tax factor from client's unit
@@ -1055,7 +1060,7 @@ export default function ProposalCreate() {
                       <div className="flex items-center gap-2">
                         <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} className="flex-1" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {Math.ceil(totalHours * (accompAnalyst / 100))}h
+                          = {roundUp8(Math.ceil(totalHours * (accompAnalyst / 100)))}h
                         </span>
                       </div>
                     </div>
@@ -1064,7 +1069,7 @@ export default function ProposalCreate() {
                       <div className="flex items-center gap-2">
                         <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {Math.ceil(totalHours * (accompGP / 100))}h
+                          = {roundUp8(Math.ceil(totalHours * (accompGP / 100)))}h
                         </span>
                       </div>
                     </div>

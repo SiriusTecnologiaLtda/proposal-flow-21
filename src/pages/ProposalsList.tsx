@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 interface LogEntry {
@@ -55,6 +56,21 @@ export default function ProposalsList() {
   const [consoleLoading, setConsoleLoading] = useState(false);
   const [consoleDocUrl, setConsoleDocUrl] = useState<string | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  // Versions dialog state
+  interface ProposalDoc {
+    id: string;
+    doc_id: string;
+    doc_url: string;
+    file_name: string;
+    version: number;
+    is_official: boolean;
+    created_at: string;
+  }
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
+  const [versions, setVersions] = useState<ProposalDoc[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
 
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -144,6 +160,40 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
+  async function loadVersions(proposalId: string) {
+    setVersionsProposalId(proposalId);
+    setVersionsLoading(true);
+    setVersionsOpen(true);
+    try {
+      const { data, error } = await supabase
+        .from("proposal_documents")
+        .select("*")
+        .eq("proposal_id", proposalId)
+        .order("version", { ascending: false });
+      if (error) throw error;
+      setVersions((data || []) as any);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar versões", description: err.message, variant: "destructive" });
+      setVersions([]);
+    }
+    setVersionsLoading(false);
+  }
+
+  async function toggleOfficial(docId: string, currentOfficial: boolean) {
+    try {
+      // If setting as official, unset all others first
+      if (!currentOfficial && versionsProposalId) {
+        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId);
+      }
+      await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
+      // Reload
+      if (versionsProposalId) await loadVersions(versionsProposalId);
+      toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  }
+
   const isCancelled = (status: string) => status === "cancelada";
 
   return (
@@ -219,6 +269,10 @@ export default function ProposalsList() {
                       <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)}>
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         Gerar Proposta
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id)}>
+                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                        Propostas Geradas
                       </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
@@ -352,6 +406,81 @@ export default function ProposalsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Versions dialog */}
+      <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5" />
+              Propostas Geradas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {versionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : versions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma proposta gerada ainda.</p>
+            ) : (
+              <ScrollArea className="max-h-80">
+                <div className="space-y-2 pr-2">
+                  {versions.map((doc, idx) => (
+                    <div
+                      key={doc.id}
+                      className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+                        doc.is_official
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-accent/50"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
+                          {doc.is_official && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">
+                              Oficial
+                            </Badge>
+                          )}
+                          {idx === 0 && !doc.is_official && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              Mais recente
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          v{doc.version} · {new Date(doc.created_at).toLocaleDateString("pt-BR")} às {new Date(doc.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={doc.is_official ? "Desmarcar como oficial" : "Definir como oficial"}
+                          onClick={() => toggleOfficial(doc.id, doc.is_official)}
+                        >
+                          <Star className={`h-4 w-4 ${doc.is_official ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Abrir documento"
+                          onClick={() => window.open(doc.doc_url, "_blank")}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

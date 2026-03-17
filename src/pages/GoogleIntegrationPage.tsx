@@ -331,7 +331,7 @@ export default function GoogleIntegrationPage() {
   }
 
   function startGoogleAuth(integrationId: string, clientId: string) {
-    const redirectUri = REDIRECT_URI_BASE();
+    const redirectUri = getRedirectUri();
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,

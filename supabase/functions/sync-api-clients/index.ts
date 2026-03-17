@@ -120,13 +120,57 @@ Deno.serve(async (req) => {
     const paramOffset = integration.pagination_param_offset || "offset";
     const paramLimit = integration.pagination_param_limit || "limit";
 
-    // Fetch records — with or without pagination
-    let allRecords: any[] = [];
+    // Fetch/process records page by page to avoid timeouts and excessive memory usage
+    const processRecordsBatch = async (records: any[]) => {
+      for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = records.slice(i, i + BATCH_SIZE);
+
+        for (const record of batch) {
+          try {
+            const mapped: Record<string, any> = {};
+            for (const [apiField, systemField] of Object.entries(fieldMapping)) {
+              if (record[apiField] !== undefined) {
+                mapped[systemField] = String(record[apiField] ?? "");
+              }
+            }
+
+            if (!mapped.code || !mapped.name) {
+              errors++;
+              continue;
+            }
+            if (!mapped.cnpj) mapped.cnpj = "";
+
+            const { data: existing } = await adminClient
+              .from("clients")
+              .select("id")
+              .eq("code", mapped.code)
+              .maybeSingle();
+
+            if (existing) {
+              await adminClient.from("clients").update(mapped).eq("id", existing.id);
+              updated++;
+            } else {
+              await adminClient.from("clients").insert(mapped);
+              inserted++;
+            }
+          } catch {
+            errors++;
+          }
+        }
+
+        await adminClient.from("sync_logs").update({
+          inserted,
+          updated,
+          errors,
+          total_records: totalRecords,
+        }).eq("id", logId);
+      }
+    };
 
     if (paginationEnabled) {
       let currentOffset = 0;
       let hasMore = true;
-      const MAX_PAGES = 500; // safeguard against infinite loops
+      const MAX_PAGES = 500;
       let pageCount = 0;
 
       while (hasMore && pageCount < MAX_PAGES) {
@@ -141,14 +185,9 @@ Deno.serve(async (req) => {
             try { bodyObj = JSON.parse(integration.body_template); } catch { /* use empty */ }
           }
 
-          // If body has sqlScript, inject LIMIT/OFFSET into the SQL query itself
           if (bodyObj.sqlScript && typeof bodyObj.sqlScript === "string") {
-            // Remove any existing LIMIT/OFFSET from the SQL
-            let sql = bodyObj.sqlScript.replace(/\s+(LIMIT|OFFSET)\s+\d+/gi, "");
-            sql = `${sql.trim()} LIMIT ${pageSize} OFFSET ${currentOffset}`;
-            bodyObj.sqlScript = sql;
+            bodyObj.sqlScript = buildPaginatedSqlScript(bodyObj.sqlScript, pageSize, currentOffset);
           } else {
-            // For non-SQL POST bodies, add offset/limit as params
             bodyObj[paramOffset] = currentOffset;
             bodyObj[paramLimit] = pageSize;
           }
@@ -194,11 +233,9 @@ Deno.serve(async (req) => {
           ? rawData
           : rawData.data || rawData.items || rawData.results || [rawData];
 
-        allRecords = allRecords.concat(pageRecords);
-        totalRecords = allRecords.length;
-
-        // Update log with running total
+        totalRecords += pageRecords.length;
         await adminClient.from("sync_logs").update({ total_records: totalRecords }).eq("id", logId);
+        await processRecordsBatch(pageRecords);
 
         if (pageRecords.length < pageSize) {
           hasMore = false;

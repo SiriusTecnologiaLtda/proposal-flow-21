@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, ChevronRight, FolderOpen, Upload } from "lucide-react";
+import { Settings, ChevronRight, FolderOpen, Upload, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const navigate = useNavigate();

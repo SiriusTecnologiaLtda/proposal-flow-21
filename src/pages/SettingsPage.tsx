@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, ChevronRight, FolderOpen, Upload, Copy } from "lucide-react";
+import { Settings, ChevronRight, FolderOpen, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -35,33 +34,6 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <p className="text-sm font-medium text-foreground">Google OAuth 2.0 — URLs de Configuração</p>
-        <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
-        {[
-          { label: "Domínio autorizado", value: "lovable.app" },
-          { label: "URL de redirecionamento", value: `https://vpyniuyqmseusowjreth.supabase.co/auth/v1/callback` },
-        ].map((item) => (
-          <div key={item.label} className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-muted px-3 py-1.5 text-xs text-foreground break-all">{item.value}</code>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => {
-                  navigator.clipboard.writeText(item.value);
-                  toast({ title: "Copiado!", description: `${item.label} copiado para a área de transferência.` });
-                }}
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
             </div>
           </div>
         ))}

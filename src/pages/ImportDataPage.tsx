@@ -719,6 +719,56 @@ export default function ImportDataPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Sales Team */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <UserCog className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Time de Vendas</CardTitle>
+                <CardDescription>Importar ESN, GSN e Arquitetos</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Baixe o modelo, preencha com os membros do time e faça o upload. Vínculos de GSN e Unidade são resolvidos automaticamente.
+            </p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="clear-sales-team"
+                checked={clearSalesTeamBeforeImport}
+                onCheckedChange={(v) => setClearSalesTeamBeforeImport(!!v)}
+              />
+              <Label htmlFor="clear-sales-team" className="text-xs text-destructive flex items-center gap-1 cursor-pointer">
+                <Trash2 className="h-3 w-3" />
+                Limpar base antes de importar
+              </Label>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadWorkbook(generateSalesTeamTemplate(), "modelo_time_vendas.xlsx")}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Baixar Modelo
+              </Button>
+              <Button
+                size="sm"
+                disabled={importing}
+                onClick={() => salesTeamFileRef.current?.click()}
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Importar
+              </Button>
+              <input ref={salesTeamFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onSalesTeamFile} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Import log */}

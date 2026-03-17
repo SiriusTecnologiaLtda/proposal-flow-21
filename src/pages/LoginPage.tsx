@@ -152,6 +152,10 @@ export default function LoginPage() {
                   setLoading(true);
                   const { error } = await lovable.auth.signInWithOAuth("google", {
                     redirect_uri: window.location.origin,
+                    extraParams: {
+                      hd: "totvs.com.br",
+                      prompt: "select_account",
+                    },
                   });
                   setLoading(false);
                   if (error) {

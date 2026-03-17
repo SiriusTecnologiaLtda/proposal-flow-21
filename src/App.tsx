@@ -20,6 +20,7 @@ import ImportDataPage from "@/pages/ImportDataPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();

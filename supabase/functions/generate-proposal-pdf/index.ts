@@ -257,6 +257,359 @@ async function batchReplace(accessToken: string, docId: string, replacements: Re
   }
 }
 
+// ─── Google Docs structure helpers ──────────────────────────────────
+
+async function getDocumentStructure(accessToken: string, docId: string): Promise<any> {
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) throw new Error(`Failed to get doc structure: ${await resp.text()}`);
+  return resp.json();
+}
+
+async function docBatchUpdate(accessToken: string, docId: string, requests: any[]) {
+  if (requests.length === 0) return;
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests }),
+  });
+  if (!resp.ok) throw new Error(`Docs batchUpdate failed: ${await resp.text()}`);
+  return resp.json();
+}
+
+function findPaymentTableIndex(doc: any): { tableStartIndex: number; tableElement: any } | null {
+  const body = doc.body?.content || [];
+  for (let i = 0; i < body.length; i++) {
+    const el = body[i];
+    if (el.paragraph) {
+      const text = (el.paragraph.elements || []).map((e: any) => e.textRun?.content || "").join("").toLowerCase();
+      if (text.includes("condições de pagamento") || text.includes("condicoes de pagamento")) {
+        // Find the next table after this paragraph
+        for (let j = i + 1; j < body.length; j++) {
+          if (body[j].table) {
+            return { tableStartIndex: body[j].startIndex, tableElement: body[j] };
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function insertPaymentRows(
+  accessToken: string, docId: string, tableInfo: { tableStartIndex: number; tableElement: any },
+  payments: any[], logs: LogEntry[]
+) {
+  const table = tableInfo.tableElement.table;
+  const numRows = table.tableRows?.length || 0;
+  const numCols = table.columns || 3;
+
+  // Insert rows bottom-up so indices don't shift
+  const requests: any[] = [];
+  
+  // For each payment, insert a row after the header (row 0) — we insert them in reverse
+  // so the first payment ends up at the top
+  for (let p = payments.length - 1; p >= 0; p--) {
+    requests.push({
+      insertTableRow: {
+        tableCellLocation: {
+          tableStartLocation: { index: tableInfo.tableStartIndex },
+          rowIndex: numRows - 1, // insert after last existing row
+          columnIndex: 0,
+        },
+        insertBelow: true,
+      },
+    });
+  }
+
+  if (requests.length > 0) {
+    await docBatchUpdate(accessToken, docId, requests);
+  }
+
+  // Re-read doc to get updated indices
+  const updatedDoc = await getDocumentStructure(accessToken, docId);
+  const updatedBody = updatedDoc.body?.content || [];
+  
+  // Find the table again
+  let updatedTable: any = null;
+  for (const el of updatedBody) {
+    if (el.table && el.startIndex === tableInfo.tableStartIndex) {
+      updatedTable = el;
+      break;
+    }
+    if (el.table) {
+      // Table index may have shifted, find by proximity
+      updatedTable = el; // keep looking
+    }
+  }
+  
+  // Find payment table again by scanning for it
+  const paymentTableInfo = findPaymentTableIndex(updatedDoc);
+  if (!paymentTableInfo) {
+    log(logs, "Pagamento", "error", "Tabela de pagamento não encontrada após inserção de linhas");
+    return;
+  }
+  
+  const finalTable = paymentTableInfo.tableElement.table;
+  const tableRows = finalTable.tableRows || [];
+  
+  // Fill the new rows (starting from row index = numRows, which are the newly inserted ones)
+  const textRequests: any[] = [];
+  for (let p = 0; p < payments.length; p++) {
+    const rowIdx = numRows + p; // new rows start after original rows
+    if (rowIdx >= tableRows.length) break;
+    
+    const row = tableRows[rowIdx];
+    const cells = row.tableCells || [];
+    
+    const values = [
+      `${payments[p].installment}ª parcela`,
+      fmtDate(payments[p].due_date),
+      `R$ ${fmt(Number(payments[p].amount))}`,
+    ];
+    
+    for (let c = 0; c < Math.min(cells.length, values.length); c++) {
+      const cell = cells[c];
+      // Get the start index of the cell content
+      const cellContent = cell.content?.[0];
+      if (cellContent?.paragraph) {
+        const insertIdx = cellContent.paragraph.elements?.[0]?.startIndex || cellContent.startIndex;
+        if (insertIdx) {
+          textRequests.push({
+            insertText: {
+              location: { index: insertIdx },
+              text: values[c],
+            },
+          });
+        }
+      }
+    }
+  }
+  
+  // Insert text in reverse order of index to avoid shifting issues
+  textRequests.sort((a: any, b: any) => b.insertText.location.index - a.insertText.location.index);
+  
+  if (textRequests.length > 0) {
+    await docBatchUpdate(accessToken, docId, textRequests);
+    log(logs, "Pagamento", "ok", `${payments.length} parcela(s) inserida(s) na tabela`);
+  }
+}
+
+async function appendDetailedScope(
+  accessToken: string, docId: string, scopeItems: any[],
+  templateNames: Record<string, string>, logs: LogEntry[]
+) {
+  // Group scope items by template
+  const grouped: Record<string, { parents: any[]; children: Record<string, any[]> }> = {};
+  
+  for (const item of scopeItems) {
+    const tmplId = item.template_id || "__other__";
+    if (!grouped[tmplId]) grouped[tmplId] = { parents: [], children: {} };
+    
+    if (!item.parent_id) {
+      grouped[tmplId].parents.push(item);
+    } else {
+      if (!grouped[tmplId].children[item.parent_id]) grouped[tmplId].children[item.parent_id] = [];
+      grouped[tmplId].children[item.parent_id].push(item);
+    }
+  }
+  
+  // Sort parents by sort_order
+  for (const g of Object.values(grouped)) {
+    g.parents.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+    for (const children of Object.values(g.children)) {
+      children.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+  }
+  
+  // Get current doc end index
+  let doc = await getDocumentStructure(accessToken, docId);
+  let endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
+  
+  const requests: any[] = [];
+  let cursor = endIndex;
+  
+  // Page break
+  requests.push({ insertText: { location: { index: cursor }, text: "\n" } });
+  cursor += 1;
+  requests.push({ insertPageBreak: { location: { index: cursor } } });
+  cursor += 1;
+  
+  // Title
+  const title1 = "Anexo - Escopo Detalhado\n";
+  requests.push({ insertText: { location: { index: cursor }, text: title1 } });
+  requests.push({
+    updateParagraphStyle: {
+      range: { startIndex: cursor, endIndex: cursor + title1.length },
+      paragraphStyle: { namedStyleType: "HEADING_1", alignment: "CENTER" },
+      fields: "namedStyleType,alignment",
+    },
+  });
+  requests.push({
+    updateTextStyle: {
+      range: { startIndex: cursor, endIndex: cursor + title1.length - 1 },
+      textStyle: { bold: true, fontSize: { magnitude: 16, unit: "PT" } },
+      fields: "bold,fontSize",
+    },
+  });
+  cursor += title1.length;
+  
+  // For each template group
+  for (const [tmplId, group] of Object.entries(grouped)) {
+    if (group.parents.length === 0) continue;
+    
+    const tmplName = templateNames[tmplId] || "Outros";
+    const subtitle = `\n${tmplName}\n`;
+    requests.push({ insertText: { location: { index: cursor }, text: subtitle } });
+    requests.push({
+      updateParagraphStyle: {
+        range: { startIndex: cursor + 1, endIndex: cursor + subtitle.length },
+        paragraphStyle: { namedStyleType: "HEADING_2" },
+        fields: "namedStyleType",
+      },
+    });
+    requests.push({
+      updateTextStyle: {
+        range: { startIndex: cursor + 1, endIndex: cursor + subtitle.length - 1 },
+        textStyle: { bold: true, fontSize: { magnitude: 13, unit: "PT" } },
+        fields: "bold,fontSize",
+      },
+    });
+    cursor += subtitle.length;
+    
+    // Build table rows
+    const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
+    
+    for (const parent of group.parents) {
+      allRows.push([
+        parent.description || "—",
+        parent.notes || "",
+        parent.included ? "Sim" : "Não",
+      ]);
+      
+      const children = group.children[parent.id] || [];
+      for (const child of children) {
+        allRows.push([
+          `   ${child.description || "—"}`,
+          child.notes || "",
+          child.included ? "Sim" : "Não",
+        ]);
+      }
+    }
+    
+    // Insert table
+    const numRows = allRows.length;
+    const numCols = 3;
+    
+    requests.push({
+      insertTable: {
+        rows: numRows,
+        columns: numCols,
+        location: { index: cursor },
+      },
+    });
+    
+    // We need to execute what we have so far, then read the doc to get table cell indices
+  }
+  
+  // Execute the first batch (page break, titles, tables structure)
+  if (requests.length > 0) {
+    await docBatchUpdate(accessToken, docId, requests);
+  }
+  
+  // Now re-read doc and fill tables with content
+  doc = await getDocumentStructure(accessToken, docId);
+  const bodyContent = doc.body?.content || [];
+  
+  // Find all tables that were just inserted (after the original content)
+  const newTables: any[] = [];
+  for (const el of bodyContent) {
+    if (el.table && el.startIndex >= endIndex) {
+      newTables.push(el);
+    }
+  }
+  
+  // Build text fill requests for each table
+  let tableIdx = 0;
+  const fillRequests: any[] = [];
+  
+  for (const [tmplId, group] of Object.entries(grouped)) {
+    if (group.parents.length === 0) continue;
+    if (tableIdx >= newTables.length) break;
+    
+    const tableEl = newTables[tableIdx];
+    tableIdx++;
+    
+    const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
+    for (const parent of group.parents) {
+      allRows.push([
+        parent.description || "—",
+        parent.notes || "",
+        parent.included ? "Sim" : "Não",
+      ]);
+      const children = group.children[parent.id] || [];
+      for (const child of children) {
+        allRows.push([
+          `   ${child.description || "—"}`,
+          child.notes || "",
+          child.included ? "Sim" : "Não",
+        ]);
+      }
+    }
+    
+    const tableRows = tableEl.table?.tableRows || [];
+    for (let r = 0; r < Math.min(tableRows.length, allRows.length); r++) {
+      const cells = tableRows[r].tableCells || [];
+      for (let c = 0; c < Math.min(cells.length, allRows[r].length); c++) {
+        const cellContent = cells[c].content?.[0];
+        if (cellContent?.paragraph) {
+          const insertIdx = cellContent.paragraph.elements?.[0]?.startIndex || cellContent.startIndex;
+          if (insertIdx && allRows[r][c]) {
+            fillRequests.push({
+              insertText: {
+                location: { index: insertIdx },
+                text: allRows[r][c],
+              },
+            });
+            
+            // Bold header row and "Processo" column for parent items
+            if (r === 0) {
+              fillRequests.push({
+                updateTextStyle: {
+                  range: { startIndex: insertIdx, endIndex: insertIdx + allRows[r][c].length },
+                  textStyle: { bold: true },
+                  fields: "bold",
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Sort by descending index to avoid shift issues
+  fillRequests.sort((a: any, b: any) => {
+    const aIdx = a.insertText?.location?.index || a.updateTextStyle?.range?.startIndex || 0;
+    const bIdx = b.insertText?.location?.index || b.updateTextStyle?.range?.startIndex || 0;
+    return bIdx - aIdx;
+  });
+  
+  if (fillRequests.length > 0) {
+    // Split: first do all insertText (sorted desc), then updateTextStyle needs re-read
+    const inserts = fillRequests.filter((r: any) => r.insertText);
+    if (inserts.length > 0) {
+      await docBatchUpdate(accessToken, docId, inserts);
+    }
+    
+    // Re-read for styling header rows
+    // Skip styling for now to avoid complexity — the text content is the priority
+  }
+  
+  log(logs, "Escopo detalhado", "ok", `${Object.keys(grouped).length} grupo(s) de template adicionado(s) ao final do documento`);
+}
+
 // ─── Formatters ─────────────────────────────────────────────────────
 
 function fmt(val: number) {
@@ -542,6 +895,7 @@ Deno.serve(async (req) => {
       "{{ENDERECO_UNIDADE}}": unitInfo?.address || "—",
       "{{CIDADE}}": unitInfo?.city || "—",
       "{{DESC_PROJETO}}": desc,
+      "{{ESCOPO1}}": macroScopeNames.join(", "),
       "{{QT_TOTALHRS}}": totalHours.toString(),
       "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": accompGPHours.toString(),
@@ -570,6 +924,32 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       log(logs, "Substituir placeholders", "error", `Falha: ${e.message}`);
       return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
+    // ─── Insert payment rows into table ─────────────────────────
+    if (payments.length > 0) {
+      log(logs, "Pagamento", "info", "Inserindo parcelas na tabela de condições de pagamento...");
+      try {
+        const docStructure = await getDocumentStructure(accessToken, newDocId);
+        const paymentTableInfo = findPaymentTableIndex(docStructure);
+        if (paymentTableInfo) {
+          await insertPaymentRows(accessToken, newDocId, paymentTableInfo, payments, logs);
+        } else {
+          log(logs, "Pagamento", "info", "Tabela de condições de pagamento não encontrada no template — usando placeholder textual");
+        }
+      } catch (e: any) {
+        log(logs, "Pagamento", "error", `Falha ao inserir parcelas: ${e.message}`);
+      }
+    }
+
+    // ─── Append detailed scope pages ────────────────────────────
+    if (scopeItems.length > 0) {
+      log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");
+      try {
+        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, logs);
+      } catch (e: any) {
+        log(logs, "Escopo detalhado", "error", `Falha ao adicionar escopo detalhado: ${e.message}`);
+      }
     }
 
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;

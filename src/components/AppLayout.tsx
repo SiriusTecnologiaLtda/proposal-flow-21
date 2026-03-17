@@ -26,13 +26,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const { role } = useUserRole();
+  const { role, allowedResources } = useUserRole();
 
   const displayName = user?.user_metadata?.display_name || user?.email || "U";
   const initials = displayName.substring(0, 2).toUpperCase();
 
   const filteredNavItems = navItems.filter((item) =>
-    canAccessRoute(role, item.path)
+    canAccessRoute(role, item.path, allowedResources)
   );
 
   return (

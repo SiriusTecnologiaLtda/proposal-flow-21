@@ -450,6 +450,143 @@ export default function ImportDataPage() {
     setImporting(false);
   }
 
+  // ─── Sales Team import ──────────────────────────────────────
+
+  async function handleSalesTeamImport(file: File) {
+    setLogs([]);
+    setShowLogs(true);
+    setImporting(true);
+
+    if (clearSalesTeamBeforeImport) {
+      const cleared = await clearSalesTeam();
+      if (!cleared) { setImporting(false); return; }
+    }
+
+    addLog("info", `Lendo arquivo "${file.name}"...`);
+
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      if (rows.length < 2) {
+        addLog("error", "Planilha vazia ou sem dados além do cabeçalho.");
+        setImporting(false);
+        return;
+      }
+
+      const dataRows = rows.slice(1).filter(r => r[0] && r[1]);
+      addLog("info", `${dataRows.length} registros encontrados.`);
+
+      // Load units for lookup by name or code
+      const { data: units } = await supabase.from("unit_info").select("id, code, name");
+      const unitMap = new Map<string, string>();
+      for (const u of (units || [])) {
+        if (u.code) unitMap.set(u.code.trim().toLowerCase(), u.id);
+        unitMap.set(u.name.trim().toLowerCase(), u.id);
+      }
+
+      // Determine role from "Cargo" column
+      function parseRole(cargo: string): "esn" | "gsn" | "arquiteto" | null {
+        const c = cargo.toLowerCase().trim();
+        if (c.includes("arquiteto")) return "arquiteto";
+        if (c.includes("gsn")) return "gsn";
+        if (c.includes("esn")) return "esn";
+        return null;
+      }
+
+      // First pass: insert all members without linked_gsn_id
+      let success = 0;
+      let errors = 0;
+      const insertedCodeMap = new Map<string, string>(); // code → id
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const r = dataRows[i];
+        const code = String(r[0] || "").trim();
+        const name = String(r[1] || "").trim();
+        const unidade = String(r[2] || "").trim().toLowerCase();
+        const cargo = String(r[3] || "").trim();
+        const email = String(r[6] || "").trim() || null;
+
+        if (!code || !name) {
+          addLog("error", `Linha ${i + 2}: Código e Nome são obrigatórios.`);
+          errors++;
+          continue;
+        }
+
+        const role = parseRole(cargo);
+        if (!role) {
+          addLog("error", `Linha ${i + 2} (${code}): Cargo "${cargo}" não reconhecido.`);
+          errors++;
+          continue;
+        }
+
+        const unit_id = unidade ? (unitMap.get(unidade) || null) : null;
+        if (unidade && !unit_id) {
+          addLog("info", `Linha ${i + 2} (${code}): Unidade "${r[2]}" não encontrada.`);
+        }
+
+        const payload: any = { code, name, role, email, unit_id };
+
+        // Check if already exists by code
+        const { data: existing } = await supabase.from("sales_team").select("id").eq("code", code).maybeSingle();
+        
+        if (existing) {
+          const { error } = await supabase.from("sales_team").update(payload).eq("id", existing.id);
+          if (error) {
+            addLog("error", `Linha ${i + 2} (${code}): ${error.message}`);
+            errors++;
+          } else {
+            insertedCodeMap.set(code.toLowerCase(), existing.id);
+            success++;
+          }
+        } else {
+          const { data: inserted, error } = await supabase.from("sales_team").insert(payload).select("id").single();
+          if (error) {
+            addLog("error", `Linha ${i + 2} (${code}): ${error.message}`);
+            errors++;
+          } else if (inserted) {
+            insertedCodeMap.set(code.toLowerCase(), inserted.id);
+            success++;
+          }
+        }
+      }
+
+      // Second pass: link GSN references
+      addLog("info", "Vinculando GSNs...");
+      // Load all sales_team to resolve GSN codes
+      const { data: allTeam } = await supabase.from("sales_team").select("id, code");
+      const teamCodeMap = new Map<string, string>();
+      for (const t of (allTeam || [])) {
+        teamCodeMap.set(t.code.trim().toLowerCase(), t.id);
+      }
+
+      let linked = 0;
+      for (let i = 0; i < dataRows.length; i++) {
+        const r = dataRows[i];
+        const code = String(r[0] || "").trim().toLowerCase();
+        const gsnCode = String(r[4] || "").trim().toLowerCase();
+        if (!gsnCode || !code) continue;
+
+        const memberId = teamCodeMap.get(code);
+        const gsnId = teamCodeMap.get(gsnCode);
+        if (memberId && gsnId) {
+          await supabase.from("sales_team").update({ linked_gsn_id: gsnId }).eq("id", memberId);
+          linked++;
+        } else if (!gsnId && gsnCode) {
+          addLog("info", `${code}: GSN "${r[4]}" não encontrado na base.`);
+        }
+      }
+
+      addLog("ok", `Importação concluída: ${success} membros importados, ${linked} vínculos GSN, ${errors} erros.`);
+      if (success > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
+    } catch (err: any) {
+      addLog("error", `Erro ao processar arquivo: ${err.message}`);
+    }
+    setImporting(false);
+  }
+
   // ─── File input handlers ────────────────────────────────────
 
   function onClientFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -461,6 +598,12 @@ export default function ImportDataPage() {
   function onTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) handleTemplateImport(file);
+    e.target.value = "";
+  }
+
+  function onSalesTeamFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleSalesTeamImport(file);
     e.target.value = "";
   }
 

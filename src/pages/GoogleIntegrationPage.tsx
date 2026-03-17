@@ -282,7 +282,24 @@ export default function GoogleIntegrationPage() {
       prompt: "consent",
       state: integrationId,
     });
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    
+    // Open in popup to avoid iframe restrictions
+    const width = 600;
+    const height = 700;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    const popup = window.open(
+      authUrl,
+      "google-oauth",
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      // Fallback: navigate directly if popup blocked
+      window.open(authUrl, "_blank");
+      toast({ title: "Popup bloqueado", description: "A janela de autorização foi aberta em nova aba. Após autorizar, volte a esta página.", variant: "default" });
+    }
   }
 
   async function runTest(item: GoogleIntegration) {

@@ -436,10 +436,14 @@ Deno.serve(async (req) => {
     log(logs, "Calcular valores", "ok", `${totalHours}h total (${totalAnalystHours}h analista + ${gpHours}h GP) — Líquido: R$ ${fmt(totalValueNet)} — Bruto: R$ ${fmt(totalValueGross)}`);
 
     // ─── Google Auth ────────────────────────────────────────────
-    log(logs, "Autenticação Google", "info", "Obtendo token de acesso...");
+    log(logs, "Autenticação Google", "info", `Obtendo token de acesso (${authType})...`);
     let accessToken: string;
     try {
-      accessToken = await getAccessToken(serviceAccountKey);
+      if (authType === "oauth2") {
+        accessToken = await getAccessTokenOAuth2(oauthClientId, oauthClientSecret, oauthRefreshToken);
+      } else {
+        accessToken = await getAccessTokenServiceAccount(serviceAccountKey);
+      }
       log(logs, "Autenticação Google", "ok", "Token obtido com sucesso");
     } catch (e: any) {
       log(logs, "Autenticação Google", "error", `Falha na autenticação: ${e.message}`);

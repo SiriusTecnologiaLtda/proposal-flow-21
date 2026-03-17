@@ -779,11 +779,25 @@ Deno.serve(async (req) => {
     let oauthClientSecret = "";
     let oauthRefreshToken = "";
 
-    const { data: integration } = await supabase
+    // Try default integration first, then fall back to first available
+    let integration: any = null;
+    const { data: defaultInt } = await supabase
       .from("google_integrations")
       .select("*")
+      .eq("is_default", true)
       .limit(1)
       .maybeSingle();
+    
+    if (defaultInt) {
+      integration = defaultInt;
+    } else {
+      const { data: firstInt } = await supabase
+        .from("google_integrations")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      integration = firstInt;
+    }
 
     if (integration) {
       driveFolderId = integration.drive_folder_id;

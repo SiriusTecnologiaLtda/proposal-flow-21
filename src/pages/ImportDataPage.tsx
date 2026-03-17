@@ -91,6 +91,44 @@ function generateTemplateTemplate(): XLSX.WorkBook {
   return wb;
 }
 
+function generateSalesTeamTemplate(): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+
+  const headers = [
+    "Código*", "Nome*", "Unidade", "Cargo*",
+    "Código GSN", "GSN", "E-mail", "Telefone"
+  ];
+
+  const examples = [
+    ["T16593", "ELAINE DOBRAWOLSKE", "Espirito Santo", "ESN", "T25034", "JOSÉ MARIA MARQUES LEITE", "elaine@totvs.com.br", "27 99890-0868"],
+    ["T25034", "JOSÉ MARIA MARQUES LEITE", "Espirito Santo", "GSN", "", "", "jose.leite@totvs.com.br", "27 99882-2287"],
+    ["T23725", "FABIANA REZENDE", "Espirito Santo", "Arquiteto RM", "T13544", "WAGNER FERNANDES ZANONI", "fabiana.rezende@totvs.com.br", "31 98609-0697"],
+  ];
+
+  const instructions = [
+    "",
+    "INSTRUÇÕES DE PREENCHIMENTO:",
+    "- Campos marcados com * são obrigatórios",
+    "- Código: identificador único TOTVS do membro",
+    "- Cargo: ESN, GSN, ESN MODA, GSN MODA, ESN RD, Arquiteto RM, Arquiteto Protheus, Arquiteto Whintor, Arquiteto Modas, etc.",
+    "- Cargos com 'ESN' viram role esn, 'GSN' viram role gsn, 'Arquiteto' viram role arquiteto",
+    "- Código GSN: código do GSN vinculado (para ESN e Arquiteto)",
+    "- Unidade: nome da unidade (será buscada por nome ou código na base)",
+    "- Remova as linhas de exemplo e instruções antes de importar",
+  ];
+
+  const data = [headers, ...examples, ...instructions.map(i => [i])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  ws["!cols"] = [
+    { wch: 12 }, { wch: 40 }, { wch: 22 }, { wch: 20 },
+    { wch: 14 }, { wch: 35 }, { wch: 32 }, { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Time de Vendas");
+  return wb;
+}
+
 function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });

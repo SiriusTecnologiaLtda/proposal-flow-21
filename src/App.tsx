@@ -20,6 +20,7 @@ import ImportDataPage from "@/pages/ImportDataPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/oauth/google/callback" element={<GoogleOAuthCallback />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

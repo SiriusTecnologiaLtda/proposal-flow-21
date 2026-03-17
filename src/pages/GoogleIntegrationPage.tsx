@@ -55,7 +55,12 @@ const emptyForm = {
 };
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
-const REDIRECT_URI_BASE = () => {
+const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
+const getRedirectUri = () => {
+  const loc = window.location;
+  return `${loc.protocol}//${loc.host}${OAUTH_CALLBACK_PATH}`;
+};
+const getPageUrl = () => {
   const loc = window.location;
   return `${loc.protocol}//${loc.host}/configuracoes/google`;
 };
@@ -98,14 +103,68 @@ export default function GoogleIntegrationPage() {
     },
   });
 
-  // Handle OAuth callback - exchange code for refresh token
+  // Handle OAuth callback via postMessage from popup
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "google-oauth-callback") return;
+
+      const { code, state, error } = event.data;
+      if (error) {
+        toast({ title: "Erro na autorização", description: error, variant: "destructive" });
+        return;
+      }
+      if (!code || !state) return;
+
+      setExchangingCode(true);
+      (async () => {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "vpyniuyqmseusowjreth";
+
+          const res = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/google-oauth-exchange`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                code,
+                integrationId: state,
+                redirectUri: getRedirectUri(),
+              }),
+            }
+          );
+
+          const result = await res.json();
+          if (result.success) {
+            toast({ title: "Autorizado!", description: result.message });
+            queryClient.invalidateQueries({ queryKey: ["google_integrations"] });
+          } else {
+            toast({ title: "Erro na autorização", description: result.error, variant: "destructive" });
+          }
+        } catch (err: any) {
+          toast({ title: "Erro", description: err.message, variant: "destructive" });
+        } finally {
+          setExchangingCode(false);
+        }
+      })();
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [toast, queryClient]);
+
+  // Also handle direct URL params (fallback if popup didn't work)
   useEffect(() => {
     const code = searchParams.get("code");
-    const state = searchParams.get("state"); // integrationId
+    const state = searchParams.get("state");
     if (!code || !state || exchangingCode) return;
 
     setExchangingCode(true);
-    // Clear URL params
     setSearchParams({}, { replace: true });
 
     (async () => {
@@ -125,7 +184,7 @@ export default function GoogleIntegrationPage() {
             body: JSON.stringify({
               code,
               integrationId: state,
-              redirectUri: REDIRECT_URI_BASE(),
+              redirectUri: getRedirectUri(),
             }),
           }
         );
@@ -272,7 +331,7 @@ export default function GoogleIntegrationPage() {
   }
 
   function startGoogleAuth(integrationId: string, clientId: string) {
-    const redirectUri = REDIRECT_URI_BASE();
+    const redirectUri = getRedirectUri();
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -375,7 +434,7 @@ export default function GoogleIntegrationPage() {
           <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
           {[
             { label: "Domínio autorizado", value: "lovable.app" },
-            { label: "URL de redirecionamento (OAuth Drive)", value: REDIRECT_URI_BASE() },
+            { label: "URL de redirecionamento (OAuth Drive)", value: getRedirectUri() },
             { label: "URL de redirecionamento (Login Google)", value: redirectUrl },
           ].map((item) => (
             <div key={item.label} className="space-y-1">

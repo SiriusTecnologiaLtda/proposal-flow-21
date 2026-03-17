@@ -166,6 +166,7 @@ export default function GoogleIntegrationPage() {
       auth_type: (item.auth_type as "service_account" | "oauth2") || "service_account",
       service_account_key: item.service_account_key || "",
       drive_folder_id: item.drive_folder_id,
+      output_folder_id: item.output_folder_id || "",
       oauth_client_id: item.oauth_client_id || "",
       oauth_client_secret: item.oauth_client_secret || "",
       oauth_refresh_token: item.oauth_refresh_token || "",

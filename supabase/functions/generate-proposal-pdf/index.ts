@@ -28,7 +28,7 @@ function respondWithLogs(logs: LogEntry[], extra: Record<string, any> = {}, stat
 
 // ─── Google Auth ────────────────────────────────────────────────────
 
-async function getAccessToken(serviceAccountKey: any): Promise<string> {
+async function getAccessTokenServiceAccount(serviceAccountKey: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const payload = btoa(JSON.stringify({
@@ -79,6 +79,26 @@ async function getAccessToken(serviceAccountKey: any): Promise<string> {
   }
 
   const tokenData = await tokenResp.json();
+  return tokenData.access_token;
+}
+
+async function getAccessTokenOAuth2(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`OAuth2 token refresh failed (${tokenRes.status}): ${errText}`);
+  }
+  const tokenData = await tokenRes.json();
   return tokenData.access_token;
 }
 

@@ -30,6 +30,11 @@ export type Database = {
           last_sync_at: string | null
           last_sync_message: string | null
           last_sync_status: string | null
+          pagination_enabled: boolean
+          pagination_page_size: number
+          pagination_param_limit: string
+          pagination_param_offset: string
+          pagination_type: string
           schedule_cron: string | null
           schedule_days: Json
           schedule_enabled: boolean
@@ -51,6 +56,11 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_message?: string | null
           last_sync_status?: string | null
+          pagination_enabled?: boolean
+          pagination_page_size?: number
+          pagination_param_limit?: string
+          pagination_param_offset?: string
+          pagination_type?: string
           schedule_cron?: string | null
           schedule_days?: Json
           schedule_enabled?: boolean
@@ -72,6 +82,11 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_message?: string | null
           last_sync_status?: string | null
+          pagination_enabled?: boolean
+          pagination_page_size?: number
+          pagination_param_limit?: string
+          pagination_param_offset?: string
+          pagination_type?: string
           schedule_cron?: string | null
           schedule_days?: Json
           schedule_enabled?: boolean

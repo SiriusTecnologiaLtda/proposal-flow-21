@@ -71,6 +71,10 @@ interface IntegrationForm {
   schedule_enabled: boolean;
   schedule_days: string[];
   schedule_time: string;
+  pagination_enabled: boolean;
+  pagination_page_size: number;
+  pagination_param_offset: string;
+  pagination_param_limit: string;
 }
 
 const emptyForm: IntegrationForm = {
@@ -85,6 +89,10 @@ const emptyForm: IntegrationForm = {
   schedule_enabled: false,
   schedule_days: [],
   schedule_time: "06:00",
+  pagination_enabled: false,
+  pagination_page_size: 200,
+  pagination_param_offset: "offset",
+  pagination_param_limit: "limit",
 };
 
 export default function IntegrationsPage() {
@@ -216,6 +224,10 @@ export default function IntegrationsPage() {
       schedule_enabled: item.schedule_enabled || false,
       schedule_days: days as string[],
       schedule_time: item.schedule_time || "06:00",
+      pagination_enabled: item.pagination_enabled || false,
+      pagination_page_size: item.pagination_page_size || 200,
+      pagination_param_offset: item.pagination_param_offset || "offset",
+      pagination_param_limit: item.pagination_param_limit || "limit",
     });
     setTestResult(null);
     setDialogOpen(true);
@@ -255,6 +267,10 @@ export default function IntegrationsPage() {
       schedule_enabled: form.schedule_enabled,
       schedule_days: form.schedule_days,
       schedule_time: form.schedule_time || null,
+      pagination_enabled: form.pagination_enabled,
+      pagination_page_size: form.pagination_page_size,
+      pagination_param_offset: form.pagination_param_offset,
+      pagination_param_limit: form.pagination_param_limit,
     };
 
     const { error } = editingId
@@ -570,6 +586,48 @@ export default function IntegrationsPage() {
                       className="w-32"
                       value={form.schedule_time}
                       onChange={(e) => setForm({ ...form, schedule_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pagination */}
+            <div className="rounded-md border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Paginação (offset + limit)</Label>
+                <Switch
+                  checked={form.pagination_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, pagination_enabled: v })}
+                />
+              </div>
+              {form.pagination_enabled && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tamanho da página</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-xs"
+                      value={form.pagination_page_size}
+                      onChange={(e) => setForm({ ...form, pagination_page_size: parseInt(e.target.value) || 200 })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Param offset</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      value={form.pagination_param_offset}
+                      onChange={(e) => setForm({ ...form, pagination_param_offset: e.target.value })}
+                      placeholder="offset"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Param limit</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      value={form.pagination_param_limit}
+                      onChange={(e) => setForm({ ...form, pagination_param_limit: e.target.value })}
+                      placeholder="limit"
                     />
                   </div>
                 </div>

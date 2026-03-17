@@ -150,6 +150,156 @@ async function batchReplace(accessToken: string, docId: string, replacements: Re
   if (!resp.ok) throw new Error(`Docs batchUpdate failed: ${await resp.text()}`);
 }
 
+// ─── Scope table helper ─────────────────────────────────────────────
+
+async function getDocumentStructure(accessToken: string, docId: string): Promise<any> {
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) throw new Error(`Failed to get doc structure: ${await resp.text()}`);
+  return resp.json();
+}
+
+async function docBatchUpdate(accessToken: string, docId: string, requests: any[]) {
+  if (requests.length === 0) return;
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests }),
+  });
+  if (!resp.ok) throw new Error(`Docs batchUpdate failed: ${await resp.text()}`);
+  return resp.json();
+}
+
+async function replaceScopePlaceholderWithRows(
+  accessToken: string, docId: string, scopeNames: string[], logs: LogEntry[]
+) {
+  const doc = await getDocumentStructure(accessToken, docId);
+  const body = doc.body?.content || [];
+
+  let targetTableStartIndex: number | null = null;
+  let targetRowIndex = -1;
+  let targetCellStartIndex = -1;
+  let targetCellEndIndex = -1;
+
+  for (const el of body) {
+    if (!el.table) continue;
+    const rows = el.table.tableRows || [];
+    for (let ri = 0; ri < rows.length; ri++) {
+      const cells = rows[ri].tableCells || [];
+      for (const cell of cells) {
+        const cellText = (cell.content || [])
+          .map((c: any) => (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join(""))
+          .join("");
+        if (cellText.includes("{{ESCOPO1}}")) {
+          targetTableStartIndex = el.startIndex;
+          targetRowIndex = ri;
+          const para = cell.content?.[0]?.paragraph;
+          if (para?.elements?.[0]) {
+            targetCellStartIndex = para.elements[0].startIndex;
+            targetCellEndIndex = para.elements[para.elements.length - 1].endIndex;
+          }
+        }
+      }
+    }
+  }
+
+  if (targetTableStartIndex === null || targetRowIndex < 0) {
+    log(logs, "Escopo macro", "info", "Tabela com {{ESCOPO1}} não encontrada, usando substituição simples");
+    await batchReplace(accessToken, docId, { "{{ESCOPO1}}": scopeNames.join("\n") });
+    return;
+  }
+
+  // Clear placeholder and insert first scope name
+  const clearRequests: any[] = [];
+  if (targetCellStartIndex > 0 && targetCellEndIndex > targetCellStartIndex) {
+    clearRequests.push({
+      deleteContentRange: {
+        range: { startIndex: targetCellStartIndex, endIndex: targetCellEndIndex - 1 },
+      },
+    });
+    clearRequests.push({
+      insertText: {
+        location: { index: targetCellStartIndex },
+        text: scopeNames[0],
+      },
+    });
+  }
+  if (clearRequests.length > 0) {
+    await docBatchUpdate(accessToken, docId, clearRequests);
+  }
+
+  // Insert additional rows
+  if (scopeNames.length > 1) {
+    const insertRowRequests: any[] = [];
+    for (let i = 1; i < scopeNames.length; i++) {
+      insertRowRequests.push({
+        insertTableRow: {
+          tableCellLocation: {
+            tableStartLocation: { index: targetTableStartIndex },
+            rowIndex: targetRowIndex,
+            columnIndex: 0,
+          },
+          insertBelow: true,
+        },
+      });
+    }
+    await docBatchUpdate(accessToken, docId, insertRowRequests);
+
+    // Re-read to fill new rows
+    const updatedDoc = await getDocumentStructure(accessToken, docId);
+    const updatedBody = updatedDoc.body?.content || [];
+
+    let table: any = null;
+    for (const el of updatedBody) {
+      if (el.table) {
+        const rows = el.table.tableRows || [];
+        for (const row of rows) {
+          const cells = row.tableCells || [];
+          for (const cell of cells) {
+            const cellText = (cell.content || [])
+              .map((c: any) => (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join(""))
+              .join("");
+            if (cellText.includes(scopeNames[0])) {
+              table = el;
+              break;
+            }
+          }
+          if (table) break;
+        }
+        if (table) break;
+      }
+    }
+
+    if (table) {
+      const rows = table.table.tableRows || [];
+      const fillRequests: any[] = [];
+      for (let i = 1; i < scopeNames.length; i++) {
+        const newRowIdx = targetRowIndex + i;
+        if (newRowIdx < rows.length) {
+          const cell = rows[newRowIdx].tableCells?.[0];
+          const para = cell?.content?.[0]?.paragraph;
+          const insertIdx = para?.elements?.[0]?.startIndex;
+          if (insertIdx) {
+            fillRequests.push({
+              insertText: {
+                location: { index: insertIdx },
+                text: scopeNames[i],
+              },
+            });
+          }
+        }
+      }
+      fillRequests.sort((a: any, b: any) => (b.insertText?.location?.index || 0) - (a.insertText?.location?.index || 0));
+      if (fillRequests.length > 0) {
+        await docBatchUpdate(accessToken, docId, fillRequests);
+      }
+    }
+  }
+
+  log(logs, "Escopo macro", "ok", `${scopeNames.length} item(ns) de macro escopo inserido(s) na tabela`);
+}
+
 // ─── Formatting helpers ─────────────────────────────────────────────
 
 function fmt(v: number): string {
@@ -406,7 +556,6 @@ Deno.serve(async (req) => {
       "{{ENDERECO_UNIDADE}}": unitInfo?.address || "—",
       "{{CIDADE}}": unitInfo?.city || "—",
       "{{DESC_PROJETO}}": desc,
-      "{{ESCOPO1}}": macroScopeNames.join("\n"),
       "{{QT_TOTALHRS}}": totalHours.toString(),
       "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": accompGPHours.toString(),
@@ -433,6 +582,16 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       log(logs, "Substituir placeholders", "error", `Falha: ${e.message}`);
       return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
+    // ─── Replace {{ESCOPO1}} with individual table rows ─────────
+    if (macroScopeNames.length > 0) {
+      log(logs, "Escopo macro", "info", "Inserindo macro escopo com linhas de grade...");
+      try {
+        await replaceScopePlaceholderWithRows(accessToken, newDocId, macroScopeNames, logs);
+      } catch (e: any) {
+        log(logs, "Escopo macro", "error", `Falha: ${e.message}`);
+      }
     }
 
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;

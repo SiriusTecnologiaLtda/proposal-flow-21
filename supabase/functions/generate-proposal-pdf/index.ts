@@ -301,23 +301,36 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let serviceAccountKey: any;
     let driveFolderId: string;
+    let authType = "service_account";
+    let serviceAccountKey: any = null;
+    let oauthClientId = "";
+    let oauthClientSecret = "";
+    let oauthRefreshToken = "";
 
     const { data: integration } = await supabase
       .from("google_integrations")
-      .select("service_account_key, drive_folder_id")
+      .select("*")
       .limit(1)
       .maybeSingle();
 
     if (integration) {
-      try {
-        serviceAccountKey = JSON.parse(integration.service_account_key);
-        driveFolderId = integration.drive_folder_id;
-        log(logs, "Carregar credenciais", "ok", `Usando integração do banco (email: ${serviceAccountKey.client_email})`);
-      } catch (e) {
-        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave da conta de serviço: ${e.message}`);
-        return respondWithLogs(logs, { error: e.message }, 500);
+      driveFolderId = integration.drive_folder_id;
+      authType = integration.auth_type || "service_account";
+
+      if (authType === "oauth2") {
+        oauthClientId = integration.oauth_client_id || "";
+        oauthClientSecret = integration.oauth_client_secret || "";
+        oauthRefreshToken = integration.oauth_refresh_token || "";
+        log(logs, "Carregar credenciais", "ok", `Usando OAuth2 (Client ID: ${oauthClientId.substring(0, 20)}...)`);
+      } else {
+        try {
+          serviceAccountKey = JSON.parse(integration.service_account_key);
+          log(logs, "Carregar credenciais", "ok", `Usando Service Account (email: ${serviceAccountKey.client_email})`);
+        } catch (e) {
+          log(logs, "Carregar credenciais", "error", `Falha ao parsear chave da conta de serviço: ${e.message}`);
+          return respondWithLogs(logs, { error: e.message }, 500);
+        }
       }
     } else {
       log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");

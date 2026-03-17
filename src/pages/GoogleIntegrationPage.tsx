@@ -147,6 +147,19 @@ export default function GoogleIntegrationPage() {
     },
   });
 
+  async function setAsDefault(id: string) {
+    try {
+      // Unset all defaults first
+      await supabase.from("google_integrations").update({ is_default: false } as any).neq("id", "00000000-0000-0000-0000-000000000000");
+      // Set selected as default
+      await supabase.from("google_integrations").update({ is_default: true } as any).eq("id", id);
+      queryClient.invalidateQueries({ queryKey: ["google_integrations"] });
+      toast({ title: "Padrão definido", description: "Conexão definida como padrão." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  }
+
   function closeDialog() {
     setDialogOpen(false);
     setEditingId(null);

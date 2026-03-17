@@ -109,8 +109,11 @@ Deno.serve(async (req) => {
     if (paginationEnabled) {
       let currentOffset = 0;
       let hasMore = true;
+      const MAX_PAGES = 500; // safeguard against infinite loops
+      let pageCount = 0;
 
-      while (hasMore) {
+      while (hasMore && pageCount < MAX_PAGES) {
+        pageCount++;
         let url: string;
         let fetchOpts: RequestInit;
 
@@ -120,8 +123,19 @@ Deno.serve(async (req) => {
           if (integration.body_template) {
             try { bodyObj = JSON.parse(integration.body_template); } catch { /* use empty */ }
           }
-          bodyObj[paramOffset] = currentOffset;
-          bodyObj[paramLimit] = pageSize;
+
+          // If body has sqlScript, inject LIMIT/OFFSET into the SQL query itself
+          if (bodyObj.sqlScript && typeof bodyObj.sqlScript === "string") {
+            // Remove any existing LIMIT/OFFSET from the SQL
+            let sql = bodyObj.sqlScript.replace(/\s+(LIMIT|OFFSET)\s+\d+/gi, "");
+            sql = `${sql.trim()} LIMIT ${pageSize} OFFSET ${currentOffset}`;
+            bodyObj.sqlScript = sql;
+          } else {
+            // For non-SQL POST bodies, add offset/limit as params
+            bodyObj[paramOffset] = currentOffset;
+            bodyObj[paramLimit] = pageSize;
+          }
+
           fetchOpts = {
             method: "POST",
             headers: apiHeaders,
@@ -132,6 +146,8 @@ Deno.serve(async (req) => {
           url = `${integration.endpoint_url}${separator}${paramOffset}=${currentOffset}&${paramLimit}=${pageSize}`;
           fetchOpts = { method: "GET", headers: apiHeaders };
         }
+
+        console.log(`Page ${pageCount}: offset=${currentOffset}, limit=${pageSize}`);
 
         const apiRes = await fetch(url, fetchOpts);
         if (!apiRes.ok) {

@@ -205,6 +205,22 @@ export default function ImportDataPage() {
     return true;
   }
 
+  async function clearSalesTeam() {
+    addLog("info", "Limpando base de time de vendas...");
+    // Clear linked_gsn_id references first
+    const { error: unlinkErr } = await supabase.from("sales_team").update({ linked_gsn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    // Clear client references to sales team
+    const { error: clientEsnErr } = await supabase.from("clients").update({ esn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: clientGsnErr } = await supabase.from("clients").update({ gsn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error } = await supabase.from("sales_team").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) {
+      addLog("error", `Erro ao limpar time de vendas: ${error.message}`);
+      return false;
+    }
+    addLog("ok", "Base de time de vendas limpa com sucesso.");
+    return true;
+  }
+
   // ─── Client import ──────────────────────────────────────────
 
   async function handleClientImport(file: File) {

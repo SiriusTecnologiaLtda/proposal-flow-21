@@ -29,8 +29,8 @@ import NotFound from "./pages/NotFound.tsx";
 const queryClient = new QueryClient();
 
 function GuardedRoute({ path, children }: { path: string; children: React.ReactNode }) {
-  const { role } = useUserRole();
-  if (!canAccessRoute(role, path)) {
+  const { role, allowedResources } = useUserRole();
+  if (!canAccessRoute(role, path, allowedResources)) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;

@@ -617,6 +617,7 @@ export default function ProposalCreate() {
       additional_gp_rate: additionalGpRate,
       negotiation,
       description,
+      expected_close_date: expectedCloseDate || null,
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

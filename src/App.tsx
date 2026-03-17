@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { canAccessRoute } from "@/lib/permissions";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import ProposalsList from "@/pages/ProposalsList";
@@ -18,12 +20,21 @@ import ProposalDefaultsPage from "@/pages/ProposalDefaultsPage";
 import UnitsPage from "@/pages/UnitsPage";
 import ImportDataPage from "@/pages/ImportDataPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
+import UserManagementPage from "@/pages/UserManagementPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
+
+function GuardedRoute({ path, children }: { path: string; children: React.ReactNode }) {
+  const { role } = useUserRole();
+  if (!canAccessRoute(role, path)) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -47,16 +58,17 @@ function ProtectedRoutes() {
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />
-        <Route path="/clientes" element={<ClientsList />} />
-        <Route path="/templates" element={<ScopeTemplatesPage />} />
-        <Route path="/produtos-categorias" element={<ProductsCategoriesPage />} />
-            <Route path="/time" element={<SalesTeamPage />} />
-            <Route path="/unidades" element={<UnitsPage />} />
-            <Route path="/configuracoes" element={<SettingsPage />} />
-            <Route path="/configuracoes/parametros" element={<ProposalDefaultsPage />} />
-            <Route path="/configuracoes/google" element={<GoogleIntegrationPage />} />
-            <Route path="/configuracoes/integracoes" element={<IntegrationsPage />} />
-            <Route path="/configuracoes/importar" element={<ImportDataPage />} />
+        <Route path="/clientes" element={<GuardedRoute path="/clientes"><ClientsList /></GuardedRoute>} />
+        <Route path="/unidades" element={<GuardedRoute path="/unidades"><UnitsPage /></GuardedRoute>} />
+        <Route path="/templates" element={<GuardedRoute path="/templates"><ScopeTemplatesPage /></GuardedRoute>} />
+        <Route path="/produtos-categorias" element={<GuardedRoute path="/produtos-categorias"><ProductsCategoriesPage /></GuardedRoute>} />
+        <Route path="/time" element={<GuardedRoute path="/time"><SalesTeamPage /></GuardedRoute>} />
+        <Route path="/configuracoes" element={<GuardedRoute path="/configuracoes"><SettingsPage /></GuardedRoute>} />
+        <Route path="/configuracoes/parametros" element={<GuardedRoute path="/configuracoes"><ProposalDefaultsPage /></GuardedRoute>} />
+        <Route path="/configuracoes/google" element={<GuardedRoute path="/configuracoes"><GoogleIntegrationPage /></GuardedRoute>} />
+        <Route path="/configuracoes/integracoes" element={<GuardedRoute path="/configuracoes"><IntegrationsPage /></GuardedRoute>} />
+        <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
+        <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

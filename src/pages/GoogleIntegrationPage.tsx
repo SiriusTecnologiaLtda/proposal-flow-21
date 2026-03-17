@@ -141,16 +141,23 @@ export default function GoogleIntegrationPage() {
 
   // Handle OAuth callback via postMessage from popup
   useEffect(() => {
+    const trustedOrigins = new Set([window.location.origin, resolveOAuthBaseOrigin()]);
+
     function handleMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin) return;
+      if (!trustedOrigins.has(event.origin)) return;
       if (event.data?.type !== "google-oauth-callback") return;
 
-      const { code, state, error } = event.data;
+      const decodedState = decodeOAuthState(event.data?.state ?? null);
+      const integrationId = decodedState?.integrationId;
+      const error = event.data?.error as string | null;
+      const code = event.data?.code as string | null;
+
       if (error) {
         toast({ title: "Erro na autorização", description: error, variant: "destructive" });
         return;
       }
-      if (!code || !state) return;
+
+      if (!code || !integrationId) return;
 
       setExchangingCode(true);
       (async () => {
@@ -169,7 +176,7 @@ export default function GoogleIntegrationPage() {
               },
               body: JSON.stringify({
                 code,
-                integrationId: state,
+                integrationId,
                 redirectUri: getRedirectUri(),
               }),
             }
@@ -194,11 +201,12 @@ export default function GoogleIntegrationPage() {
     return () => window.removeEventListener("message", handleMessage);
   }, [toast, queryClient]);
 
-  // Also handle direct URL params (fallback if popup didn't work)
+  // Direct URL fallback
   useEffect(() => {
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    if (!code || !state || exchangingCode) return;
+    const decodedState = decodeOAuthState(searchParams.get("state"));
+    const integrationId = decodedState?.integrationId;
+    if (!code || !integrationId || exchangingCode) return;
 
     setExchangingCode(true);
     setSearchParams({}, { replace: true });
@@ -219,7 +227,7 @@ export default function GoogleIntegrationPage() {
             },
             body: JSON.stringify({
               code,
-              integrationId: state,
+              integrationId,
               redirectUri: getRedirectUri(),
             }),
           }
@@ -238,7 +246,7 @@ export default function GoogleIntegrationPage() {
         setExchangingCode(false);
       }
     })();
-  }, [searchParams]);
+  }, [searchParams, exchangingCode, setSearchParams, toast, queryClient]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: typeof emptyForm & { id?: string }) => {

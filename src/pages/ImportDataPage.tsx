@@ -615,11 +615,11 @@ export default function ImportDataPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Importar Dados</h1>
-          <p className="text-sm text-muted-foreground">Importe clientes e templates de escopo via planilha Excel</p>
+          <p className="text-sm text-muted-foreground">Importe clientes, time de vendas e templates de escopo via planilha Excel</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Clients */}
         <Card>
           <CardHeader>

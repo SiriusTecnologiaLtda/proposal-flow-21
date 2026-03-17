@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle, Trash2, UserCog } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,44 @@ function generateTemplateTemplate(): XLSX.WorkBook {
   return wb;
 }
 
+function generateSalesTeamTemplate(): XLSX.WorkBook {
+  const wb = XLSX.utils.book_new();
+
+  const headers = [
+    "Código*", "Nome*", "Unidade", "Cargo*",
+    "Código GSN", "GSN", "E-mail", "Telefone"
+  ];
+
+  const examples = [
+    ["T16593", "ELAINE DOBRAWOLSKE", "Espirito Santo", "ESN", "T25034", "JOSÉ MARIA MARQUES LEITE", "elaine@totvs.com.br", "27 99890-0868"],
+    ["T25034", "JOSÉ MARIA MARQUES LEITE", "Espirito Santo", "GSN", "", "", "jose.leite@totvs.com.br", "27 99882-2287"],
+    ["T23725", "FABIANA REZENDE", "Espirito Santo", "Arquiteto RM", "T13544", "WAGNER FERNANDES ZANONI", "fabiana.rezende@totvs.com.br", "31 98609-0697"],
+  ];
+
+  const instructions = [
+    "",
+    "INSTRUÇÕES DE PREENCHIMENTO:",
+    "- Campos marcados com * são obrigatórios",
+    "- Código: identificador único TOTVS do membro",
+    "- Cargo: ESN, GSN, ESN MODA, GSN MODA, ESN RD, Arquiteto RM, Arquiteto Protheus, Arquiteto Whintor, Arquiteto Modas, etc.",
+    "- Cargos com 'ESN' viram role esn, 'GSN' viram role gsn, 'Arquiteto' viram role arquiteto",
+    "- Código GSN: código do GSN vinculado (para ESN e Arquiteto)",
+    "- Unidade: nome da unidade (será buscada por nome ou código na base)",
+    "- Remova as linhas de exemplo e instruções antes de importar",
+  ];
+
+  const data = [headers, ...examples, ...instructions.map(i => [i])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  ws["!cols"] = [
+    { wch: 12 }, { wch: 40 }, { wch: 22 }, { wch: 20 },
+    { wch: 14 }, { wch: 35 }, { wch: 32 }, { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Time de Vendas");
+  return wb;
+}
+
 function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -118,12 +156,14 @@ export default function ImportDataPage() {
 
   const clientFileRef = useRef<HTMLInputElement>(null);
   const templateFileRef = useRef<HTMLInputElement>(null);
+  const salesTeamFileRef = useRef<HTMLInputElement>(null);
 
   const [importing, setImporting] = useState(false);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [clearClientsBeforeImport, setClearClientsBeforeImport] = useState(false);
   const [clearTemplatesBeforeImport, setClearTemplatesBeforeImport] = useState(false);
+  const [clearSalesTeamBeforeImport, setClearSalesTeamBeforeImport] = useState(false);
 
   function addLog(status: ImportLog["status"], message: string) {
     setLogs(prev => [...prev, { status, message }]);
@@ -162,6 +202,22 @@ export default function ImportDataPage() {
       return false;
     }
     addLog("ok", "Base de templates limpa com sucesso.");
+    return true;
+  }
+
+  async function clearSalesTeam() {
+    addLog("info", "Limpando base de time de vendas...");
+    // Clear linked_gsn_id references first
+    const { error: unlinkErr } = await supabase.from("sales_team").update({ linked_gsn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    // Clear client references to sales team
+    const { error: clientEsnErr } = await supabase.from("clients").update({ esn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: clientGsnErr } = await supabase.from("clients").update({ gsn_id: null }).neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error } = await supabase.from("sales_team").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) {
+      addLog("error", `Erro ao limpar time de vendas: ${error.message}`);
+      return false;
+    }
+    addLog("ok", "Base de time de vendas limpa com sucesso.");
     return true;
   }
 
@@ -394,6 +450,143 @@ export default function ImportDataPage() {
     setImporting(false);
   }
 
+  // ─── Sales Team import ──────────────────────────────────────
+
+  async function handleSalesTeamImport(file: File) {
+    setLogs([]);
+    setShowLogs(true);
+    setImporting(true);
+
+    if (clearSalesTeamBeforeImport) {
+      const cleared = await clearSalesTeam();
+      if (!cleared) { setImporting(false); return; }
+    }
+
+    addLog("info", `Lendo arquivo "${file.name}"...`);
+
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      if (rows.length < 2) {
+        addLog("error", "Planilha vazia ou sem dados além do cabeçalho.");
+        setImporting(false);
+        return;
+      }
+
+      const dataRows = rows.slice(1).filter(r => r[0] && r[1]);
+      addLog("info", `${dataRows.length} registros encontrados.`);
+
+      // Load units for lookup by name or code
+      const { data: units } = await supabase.from("unit_info").select("id, code, name");
+      const unitMap = new Map<string, string>();
+      for (const u of (units || [])) {
+        if (u.code) unitMap.set(u.code.trim().toLowerCase(), u.id);
+        unitMap.set(u.name.trim().toLowerCase(), u.id);
+      }
+
+      // Determine role from "Cargo" column
+      function parseRole(cargo: string): "esn" | "gsn" | "arquiteto" | null {
+        const c = cargo.toLowerCase().trim();
+        if (c.includes("arquiteto")) return "arquiteto";
+        if (c.includes("gsn")) return "gsn";
+        if (c.includes("esn")) return "esn";
+        return null;
+      }
+
+      // First pass: insert all members without linked_gsn_id
+      let success = 0;
+      let errors = 0;
+      const insertedCodeMap = new Map<string, string>(); // code → id
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const r = dataRows[i];
+        const code = String(r[0] || "").trim();
+        const name = String(r[1] || "").trim();
+        const unidade = String(r[2] || "").trim().toLowerCase();
+        const cargo = String(r[3] || "").trim();
+        const email = String(r[6] || "").trim() || null;
+
+        if (!code || !name) {
+          addLog("error", `Linha ${i + 2}: Código e Nome são obrigatórios.`);
+          errors++;
+          continue;
+        }
+
+        const role = parseRole(cargo);
+        if (!role) {
+          addLog("error", `Linha ${i + 2} (${code}): Cargo "${cargo}" não reconhecido.`);
+          errors++;
+          continue;
+        }
+
+        const unit_id = unidade ? (unitMap.get(unidade) || null) : null;
+        if (unidade && !unit_id) {
+          addLog("info", `Linha ${i + 2} (${code}): Unidade "${r[2]}" não encontrada.`);
+        }
+
+        const payload: any = { code, name, role, email, unit_id };
+
+        // Check if already exists by code
+        const { data: existing } = await supabase.from("sales_team").select("id").eq("code", code).maybeSingle();
+        
+        if (existing) {
+          const { error } = await supabase.from("sales_team").update(payload).eq("id", existing.id);
+          if (error) {
+            addLog("error", `Linha ${i + 2} (${code}): ${error.message}`);
+            errors++;
+          } else {
+            insertedCodeMap.set(code.toLowerCase(), existing.id);
+            success++;
+          }
+        } else {
+          const { data: inserted, error } = await supabase.from("sales_team").insert(payload).select("id").single();
+          if (error) {
+            addLog("error", `Linha ${i + 2} (${code}): ${error.message}`);
+            errors++;
+          } else if (inserted) {
+            insertedCodeMap.set(code.toLowerCase(), inserted.id);
+            success++;
+          }
+        }
+      }
+
+      // Second pass: link GSN references
+      addLog("info", "Vinculando GSNs...");
+      // Load all sales_team to resolve GSN codes
+      const { data: allTeam } = await supabase.from("sales_team").select("id, code");
+      const teamCodeMap = new Map<string, string>();
+      for (const t of (allTeam || [])) {
+        teamCodeMap.set(t.code.trim().toLowerCase(), t.id);
+      }
+
+      let linked = 0;
+      for (let i = 0; i < dataRows.length; i++) {
+        const r = dataRows[i];
+        const code = String(r[0] || "").trim().toLowerCase();
+        const gsnCode = String(r[4] || "").trim().toLowerCase();
+        if (!gsnCode || !code) continue;
+
+        const memberId = teamCodeMap.get(code);
+        const gsnId = teamCodeMap.get(gsnCode);
+        if (memberId && gsnId) {
+          await supabase.from("sales_team").update({ linked_gsn_id: gsnId }).eq("id", memberId);
+          linked++;
+        } else if (!gsnId && gsnCode) {
+          addLog("info", `${code}: GSN "${r[4]}" não encontrado na base.`);
+        }
+      }
+
+      addLog("ok", `Importação concluída: ${success} membros importados, ${linked} vínculos GSN, ${errors} erros.`);
+      if (success > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
+    } catch (err: any) {
+      addLog("error", `Erro ao processar arquivo: ${err.message}`);
+    }
+    setImporting(false);
+  }
+
   // ─── File input handlers ────────────────────────────────────
 
   function onClientFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -408,6 +601,12 @@ export default function ImportDataPage() {
     e.target.value = "";
   }
 
+  function onSalesTeamFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleSalesTeamImport(file);
+    e.target.value = "";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -416,11 +615,11 @@ export default function ImportDataPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Importar Dados</h1>
-          <p className="text-sm text-muted-foreground">Importe clientes e templates de escopo via planilha Excel</p>
+          <p className="text-sm text-muted-foreground">Importe clientes, time de vendas e templates de escopo via planilha Excel</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Clients */}
         <Card>
           <CardHeader>
@@ -517,6 +716,56 @@ export default function ImportDataPage() {
                 Importar
               </Button>
               <input ref={templateFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onTemplateFile} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sales Team */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <UserCog className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Time de Vendas</CardTitle>
+                <CardDescription>Importar ESN, GSN e Arquitetos</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Baixe o modelo, preencha com os membros do time e faça o upload. Vínculos de GSN e Unidade são resolvidos automaticamente.
+            </p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="clear-sales-team"
+                checked={clearSalesTeamBeforeImport}
+                onCheckedChange={(v) => setClearSalesTeamBeforeImport(!!v)}
+              />
+              <Label htmlFor="clear-sales-team" className="text-xs text-destructive flex items-center gap-1 cursor-pointer">
+                <Trash2 className="h-3 w-3" />
+                Limpar base antes de importar
+              </Label>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadWorkbook(generateSalesTeamTemplate(), "modelo_time_vendas.xlsx")}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Baixar Modelo
+              </Button>
+              <Button
+                size="sm"
+                disabled={importing}
+                onClick={() => salesTeamFileRef.current?.click()}
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Importar
+              </Button>
+              <input ref={salesTeamFileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={onSalesTeamFile} />
             </div>
           </CardContent>
         </Card>

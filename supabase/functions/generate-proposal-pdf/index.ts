@@ -478,20 +478,23 @@ async function appendDetailedScope(
     });
     cursor += subtitle.length;
     
-    // Build table rows
+    // Build table rows with level numbering
     const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
     
-    for (const parent of group.parents) {
+    for (let pi = 0; pi < group.parents.length; pi++) {
+      const parent = group.parents[pi];
+      const parentNum = pi + 1;
       allRows.push([
-        parent.description || "—",
+        `${parentNum}. ${parent.description || "—"}`,
         parent.notes || "",
         parent.included ? "Sim" : "Não",
       ]);
       
       const children = group.children[parent.id] || [];
-      for (const child of children) {
+      for (let ci = 0; ci < children.length; ci++) {
+        const child = children[ci];
         allRows.push([
-          `   ${child.description || "—"}`,
+          `   ${parentNum}.${ci + 1} ${child.description || "—"}`,
           child.notes || "",
           child.included ? "Sim" : "Não",
         ]);

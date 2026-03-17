@@ -103,6 +103,7 @@ export default function IntegrationsPage() {
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [activeSyncLogId, setActiveSyncLogId] = useState<string | null>(null);
   const [syncLog, setSyncLog] = useState<any>(null);
+  const [syncIntegrationId, setSyncIntegrationId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Logs viewer

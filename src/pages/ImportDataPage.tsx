@@ -5,8 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Download, Upload, FileSpreadsheet, Users, LayoutTemplate, Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import * as XLSX from "xlsx";
 
 // ─── Template generation ─────────────────────────────────────────
@@ -15,12 +17,12 @@ function generateClientTemplate(): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
   const headers = [
-    "Código*", "Nome*", "CNPJ*", "Inscrição Estadual", "Contato",
+    "Código*", "Nome*", "CNPJ*", "Loja", "Inscrição Estadual", "Contato",
     "Email", "Telefone", "Endereço", "Código Unidade", "Código ESN", "Código GSN"
   ];
 
   const exampleRow = [
-    "CLI001", "Empresa Exemplo LTDA", "12.345.678/0001-90", "123456789",
+    "CLI001", "Empresa Exemplo LTDA", "12.345.678/0001-90", "01", "123456789",
     "João Silva", "joao@empresa.com", "(11) 99999-0000",
     "Rua Exemplo, 123 - São Paulo/SP", "", "", ""
   ];
@@ -28,7 +30,8 @@ function generateClientTemplate(): XLSX.WorkBook {
   const instructions = [
     "INSTRUÇÕES DE PREENCHIMENTO:",
     "- Campos marcados com * são obrigatórios",
-    "- Código: identificador único do cliente",
+    "- Código: identificador único do cliente (A1_COD)",
+    "- Loja: código da loja/filial (A1_LOJA)",
     "- CNPJ: formato XX.XXX.XXX/XXXX-XX",
     "- Código Unidade/ESN/GSN: códigos dos registros já cadastrados no sistema",
     "- Remova esta linha de instruções e a linha de exemplo antes de importar",
@@ -37,9 +40,8 @@ function generateClientTemplate(): XLSX.WorkBook {
   const data = [headers, exampleRow, [], instructions];
   const ws = XLSX.utils.aoa_to_sheet(data);
 
-  // Column widths
   ws["!cols"] = [
-    { wch: 12 }, { wch: 35 }, { wch: 22 }, { wch: 18 },
+    { wch: 12 }, { wch: 35 }, { wch: 22 }, { wch: 8 }, { wch: 18 },
     { wch: 20 }, { wch: 28 }, { wch: 18 }, { wch: 40 },
     { wch: 16 }, { wch: 14 }, { wch: 14 },
   ];
@@ -120,9 +122,47 @@ export default function ImportDataPage() {
   const [importing, setImporting] = useState(false);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [clearClientsBeforeImport, setClearClientsBeforeImport] = useState(false);
+  const [clearTemplatesBeforeImport, setClearTemplatesBeforeImport] = useState(false);
 
   function addLog(status: ImportLog["status"], message: string) {
     setLogs(prev => [...prev, { status, message }]);
+  }
+
+  // ─── Clear data helpers ────────────────────────────────────
+
+  async function clearClients() {
+    addLog("info", "Limpando base de clientes...");
+    // Must delete proposals and related data first due to FK constraints
+    const { error: pcErr } = await supabase.from("payment_conditions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: psiErr } = await supabase.from("proposal_scope_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: pmsErr } = await supabase.from("proposal_macro_scope").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: pdErr } = await supabase.from("proposal_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error: prErr } = await supabase.from("proposals").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    const { error } = await supabase.from("clients").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) {
+      addLog("error", `Erro ao limpar clientes: ${error.message}`);
+      return false;
+    }
+    addLog("ok", "Base de clientes limpa com sucesso.");
+    return true;
+  }
+
+  async function clearTemplates() {
+    addLog("info", "Limpando base de templates...");
+    // Delete items first, then templates
+    const { error: itemsErr } = await supabase.from("scope_template_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (itemsErr) {
+      addLog("error", `Erro ao limpar itens de template: ${itemsErr.message}`);
+      return false;
+    }
+    const { error } = await supabase.from("scope_templates").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) {
+      addLog("error", `Erro ao limpar templates: ${error.message}`);
+      return false;
+    }
+    addLog("ok", "Base de templates limpa com sucesso.");
+    return true;
   }
 
   // ─── Client import ──────────────────────────────────────────
@@ -131,6 +171,15 @@ export default function ImportDataPage() {
     setLogs([]);
     setShowLogs(true);
     setImporting(true);
+
+    if (clearClientsBeforeImport) {
+      const cleared = await clearClients();
+      if (!cleared) {
+        setImporting(false);
+        return;
+      }
+    }
+
     addLog("info", `Lendo arquivo "${file.name}"...`);
 
     try {
@@ -145,7 +194,7 @@ export default function ImportDataPage() {
         return;
       }
 
-      // Skip header row, filter empty rows
+      // Skip header row, filter empty rows (code + name + cnpj required)
       const dataRows = rows.slice(1).filter(r => r[0] && r[1] && r[2]);
       addLog("info", `${dataRows.length} registros encontrados.`);
 
@@ -171,19 +220,21 @@ export default function ImportDataPage() {
           continue;
         }
 
-        const unitCode = String(r[8] || "").trim().toLowerCase();
-        const esnCode = String(r[9] || "").trim().toLowerCase();
-        const gsnCode = String(r[10] || "").trim().toLowerCase();
+        const storeCode = String(r[3] || "").trim();
+        const unitCode = String(r[9] || "").trim().toLowerCase();
+        const esnCode = String(r[10] || "").trim().toLowerCase();
+        const gsnCode = String(r[11] || "").trim().toLowerCase();
 
         const payload: any = {
           code,
           name,
           cnpj,
-          state_registration: String(r[3] || "").trim() || null,
-          contact: String(r[4] || "").trim() || null,
-          email: String(r[5] || "").trim() || null,
-          phone: String(r[6] || "").trim() || null,
-          address: String(r[7] || "").trim() || null,
+          store_code: storeCode || "",
+          state_registration: String(r[4] || "").trim() || null,
+          contact: String(r[5] || "").trim() || null,
+          email: String(r[6] || "").trim() || null,
+          phone: String(r[7] || "").trim() || null,
+          address: String(r[8] || "").trim() || null,
           unit_id: unitCode ? (unitMap.get(unitCode) || null) : null,
           esn_id: esnCode ? (esnMap.get(esnCode) || null) : null,
           gsn_id: gsnCode ? (gsnMap.get(gsnCode) || null) : null,
@@ -212,6 +263,15 @@ export default function ImportDataPage() {
     setLogs([]);
     setShowLogs(true);
     setImporting(true);
+
+    if (clearTemplatesBeforeImport) {
+      const cleared = await clearTemplates();
+      if (!cleared) {
+        setImporting(false);
+        return;
+      }
+    }
+
     addLog("info", `Lendo arquivo "${file.name}"...`);
 
     try {
@@ -255,7 +315,6 @@ export default function ImportDataPage() {
       let errors = 0;
 
       for (const [tplName, group] of templateGroups) {
-        // Create template
         const { data: tpl, error: tplErr } = await supabase
           .from("scope_templates")
           .insert({ name: tplName, product: group.product, category: group.category })
@@ -269,8 +328,6 @@ export default function ImportDataPage() {
         }
 
         const templateId = tpl.id;
-
-        // Insert processes first
         const processes = group.items.filter(i => i.tipo === "P");
         const processIdMap = new Map<string, string>();
         let sortOrder = 0;
@@ -295,7 +352,6 @@ export default function ImportDataPage() {
           }
         }
 
-        // Insert sub-items
         const subItems = group.items.filter(i => i.tipo === "S");
         for (const sub of subItems) {
           const parentId = processIdMap.get(sub.parentDesc.toLowerCase());
@@ -378,6 +434,17 @@ export default function ImportDataPage() {
             <p className="text-xs text-muted-foreground">
               Baixe o modelo de planilha, preencha com os dados dos clientes e faça o upload para importar.
             </p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="clear-clients"
+                checked={clearClientsBeforeImport}
+                onCheckedChange={(v) => setClearClientsBeforeImport(!!v)}
+              />
+              <Label htmlFor="clear-clients" className="text-xs text-destructive flex items-center gap-1 cursor-pointer">
+                <Trash2 className="h-3 w-3" />
+                Limpar base antes de importar
+              </Label>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -417,6 +484,17 @@ export default function ImportDataPage() {
             <p className="text-xs text-muted-foreground">
               Baixe o modelo, preencha com os templates e seus itens hierárquicos, e faça o upload para importar.
             </p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="clear-templates"
+                checked={clearTemplatesBeforeImport}
+                onCheckedChange={(v) => setClearTemplatesBeforeImport(!!v)}
+              />
+              <Label htmlFor="clear-templates" className="text-xs text-destructive flex items-center gap-1 cursor-pointer">
+                <Trash2 className="h-3 w-3" />
+                Limpar base antes de importar
+              </Label>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"

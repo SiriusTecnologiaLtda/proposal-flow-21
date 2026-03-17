@@ -145,6 +145,27 @@ Deno.serve(async (req) => {
   }
 });
 
+// ─── Lookup cache helper ────────────────────────────────────────
+async function loadLookupMaps(admin: any) {
+  const { data: units } = await admin.from("unit_info").select("id, name");
+  const { data: salesTeam } = await admin.from("sales_team").select("id, code, role");
+
+  const unitMap = new Map<string, string>();
+  for (const u of units || []) {
+    unitMap.set(u.name.trim().toLowerCase(), u.id);
+  }
+
+  const esnMap = new Map<string, string>();
+  const gsnMap = new Map<string, string>();
+  for (const s of salesTeam || []) {
+    const code = s.code.trim().toLowerCase();
+    if (s.role === "esn") esnMap.set(code, s.id);
+    else if (s.role === "gsn") gsnMap.set(code, s.id);
+  }
+
+  return { unitMap, esnMap, gsnMap };
+}
+
 async function processSync(
   admin: any,
   integration: any,
@@ -182,6 +203,9 @@ async function processSync(
     apiHeaders["x-api-key"] = integration.auth_value;
   }
 
+  // Load lookup maps for @-prefixed fields
+  const { unitMap, esnMap, gsnMap } = await loadLookupMaps(admin);
+
   const updateProgress = async () => {
     await admin.from("sync_logs").update({
       heartbeat_at: new Date().toISOString(),
@@ -193,7 +217,26 @@ async function processSync(
     }).eq("id", logId);
   };
 
-  // Process records in batch - single upsert per record but minimal queries
+  // Resolve @lookup fields to actual IDs
+  const resolveLookups = (row: Record<string, any>) => {
+    if (row["@unit_code"]) {
+      const code = String(row["@unit_code"]).trim().toLowerCase();
+      row["unit_id"] = unitMap.get(code) || null;
+      delete row["@unit_code"];
+    }
+    if (row["@esn_code"]) {
+      const code = String(row["@esn_code"]).trim().toLowerCase();
+      row["esn_id"] = esnMap.get(code) || null;
+      delete row["@esn_code"];
+    }
+    if (row["@gsn_code"]) {
+      const code = String(row["@gsn_code"]).trim().toLowerCase();
+      row["gsn_id"] = gsnMap.get(code) || null;
+      delete row["@gsn_code"];
+    }
+  };
+
+  // Process records in batch
   const processRecords = async (records: any[]) => {
     const mapped: any[] = [];
     for (const record of records) {
@@ -206,6 +249,10 @@ async function processSync(
       if (!row.code || !row.name) { errors++; continue; }
       if (!row.cnpj) row.cnpj = "";
       if (!row.store_code) row.store_code = "";
+
+      // Resolve lookup fields (@unit_code, @esn_code, @gsn_code → IDs)
+      resolveLookups(row);
+
       mapped.push(row);
     }
 
@@ -242,7 +289,6 @@ async function processSync(
       const { error: insErr, data: insData } = await admin.from("clients").insert(toInsert).select("id");
       if (insErr) {
         console.error("Batch insert error:", insErr.message);
-        // Fallback: insert one by one
         for (const row of toInsert) {
           try {
             await admin.from("clients").insert(row);
@@ -320,16 +366,14 @@ async function processSync(
   };
 
   // Main loop - process pages until done or time budget exceeded
-  const MAX_EXECUTION_MS = 120_000; // 120s budget (waitUntil allows up to 150s wall clock)
+  const MAX_EXECUTION_MS = 120_000;
   const startExecution = Date.now();
   let hasMore = true;
 
   try {
     while (hasMore) {
-      // Time budget check - self-chain if needed
       if (Date.now() - startExecution > MAX_EXECUTION_MS) {
         await updateProgress();
-        // Self-chain using service role (no user auth needed)
         const nextBody = JSON.stringify({ integrationId, syncLogId: logId, _serviceChain: true });
         fetch(`${supabaseUrl}/functions/v1/sync-api-clients`, {
           method: "POST",
@@ -382,7 +426,6 @@ async function processSync(
       pagesProcessed++;
       recordsFetched += records.length;
 
-      // Save per-page event
       await admin.from("sync_log_events").insert({
         sync_log_id: logId,
         page_number: pagesProcessed,
@@ -394,13 +437,9 @@ async function processSync(
         duration_ms: duration,
       });
 
-      // Process records
       await processRecords(records);
-
-      // Update heartbeat + counters
       await updateProgress();
 
-      // Check if done
       if (!paginationEnabled || records.length < pageSize) {
         hasMore = false;
       } else {
@@ -408,7 +447,6 @@ async function processSync(
       }
     }
 
-    // Success
     const message = `Inseridos: ${inserted}, Atualizados: ${updated}, Erros: ${errors}`;
     await admin.from("sync_logs").update({
       status: "success",

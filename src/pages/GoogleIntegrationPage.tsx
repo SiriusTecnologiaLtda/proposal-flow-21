@@ -93,6 +93,7 @@ export default function GoogleIntegrationPage() {
         label: values.label,
         auth_type: values.auth_type,
         drive_folder_id: values.drive_folder_id,
+        output_folder_id: values.output_folder_id || values.drive_folder_id,
       };
 
       if (values.auth_type === "service_account") {

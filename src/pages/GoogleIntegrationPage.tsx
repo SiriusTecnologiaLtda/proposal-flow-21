@@ -47,6 +47,7 @@ const emptyForm = {
   auth_type: "oauth2" as "service_account" | "oauth2",
   service_account_key: "",
   drive_folder_id: "",
+  output_folder_id: "",
   oauth_client_id: "",
   oauth_client_secret: "",
   oauth_refresh_token: "",

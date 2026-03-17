@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -19,7 +23,7 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Trash2, HelpCircle, RefreshCw, Play, Pencil, CheckCircle2, XCircle, Clock, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, HelpCircle, RefreshCw, Play, Pencil, CheckCircle2, XCircle, Clock, Users, FileText, Settings2, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const SYSTEM_FIELDS = [
@@ -43,6 +47,16 @@ const DEFAULT_MAPPING = [
   { api_field: "A1_EST", system_field: "state_registration" },
 ];
 
+const WEEKDAYS = [
+  { value: "mon", label: "Seg" },
+  { value: "tue", label: "Ter" },
+  { value: "wed", label: "Qua" },
+  { value: "thu", label: "Qui" },
+  { value: "fri", label: "Sex" },
+  { value: "sat", label: "Sáb" },
+  { value: "sun", label: "Dom" },
+];
+
 interface MappingRow { api_field: string; system_field: string; }
 
 interface IntegrationForm {
@@ -54,6 +68,9 @@ interface IntegrationForm {
   headers: string;
   body_template: string;
   field_mapping: MappingRow[];
+  schedule_enabled: boolean;
+  schedule_days: string[];
+  schedule_time: string;
 }
 
 const emptyForm: IntegrationForm = {
@@ -65,6 +82,9 @@ const emptyForm: IntegrationForm = {
   headers: "",
   body_template: "",
   field_mapping: [...DEFAULT_MAPPING],
+  schedule_enabled: false,
+  schedule_days: [],
+  schedule_time: "06:00",
 };
 
 export default function IntegrationsPage() {
@@ -78,7 +98,16 @@ export default function IntegrationsPage() {
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<any[] | null>(null);
   const [testLoading, setTestLoading] = useState(false);
-  const [syncLoading, setSyncLoading] = useState(false);
+
+  // Sync progress console
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [activeSyncLogId, setActiveSyncLogId] = useState<string | null>(null);
+  const [syncLog, setSyncLog] = useState<any>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Logs viewer
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [logsIntegrationId, setLogsIntegrationId] = useState<string | null>(null);
 
   const { data: integrations = [], isLoading } = useQuery({
     queryKey: ["api_integrations", "clients"],
@@ -93,6 +122,52 @@ export default function IntegrationsPage() {
     },
   });
 
+  const clientsIntegration = integrations.length > 0 ? integrations[0] : null;
+
+  const { data: logs = [] } = useQuery({
+    queryKey: ["sync_logs", logsIntegrationId],
+    enabled: !!logsIntegrationId && logsDialogOpen,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sync_logs")
+        .select("*")
+        .eq("integration_id", logsIntegrationId!)
+        .order("started_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Polling for sync progress
+  useEffect(() => {
+    if (!activeSyncLogId || !syncDialogOpen) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      return;
+    }
+
+    const poll = async () => {
+      const { data } = await supabase
+        .from("sync_logs")
+        .select("*")
+        .eq("id", activeSyncLogId)
+        .single();
+      if (data) {
+        setSyncLog(data);
+        if (data.status !== "running") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          queryClient.invalidateQueries({ queryKey: ["api_integrations"] });
+          queryClient.invalidateQueries({ queryKey: ["clients"] });
+          queryClient.invalidateQueries({ queryKey: ["sync_logs"] });
+        }
+      }
+    };
+
+    poll();
+    pollingRef.current = setInterval(poll, 2000);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [activeSyncLogId, syncDialogOpen]);
+
   function openCreate() {
     setEditingId(null);
     setForm({ ...emptyForm });
@@ -102,6 +177,7 @@ export default function IntegrationsPage() {
 
   function openEdit(item: any) {
     const mapping = item.field_mapping as Record<string, string>;
+    const days = Array.isArray(item.schedule_days) ? item.schedule_days : [];
     setEditingId(item.id);
     setForm({
       label: item.label,
@@ -115,6 +191,9 @@ export default function IntegrationsPage() {
         api_field,
         system_field: system_field as string,
       })),
+      schedule_enabled: item.schedule_enabled || false,
+      schedule_days: days as string[],
+      schedule_time: item.schedule_time || "06:00",
     });
     setTestResult(null);
     setDialogOpen(true);
@@ -141,8 +220,8 @@ export default function IntegrationsPage() {
       }
     }
 
-    const payload = {
-      entity: "clients" as const,
+    const payload: any = {
+      entity: "clients",
       label: form.label,
       endpoint_url: form.endpoint_url,
       http_method: form.http_method,
@@ -151,6 +230,9 @@ export default function IntegrationsPage() {
       headers: parsedHeaders,
       body_template: form.body_template || null,
       field_mapping: mappingToJson(form.field_mapping),
+      schedule_enabled: form.schedule_enabled,
+      schedule_days: form.schedule_days,
+      schedule_time: form.schedule_time || null,
     };
 
     const { error } = editingId
@@ -206,7 +288,10 @@ export default function IntegrationsPage() {
   }
 
   async function handleSync(integrationId: string) {
-    setSyncLoading(true);
+    setSyncLog(null);
+    setActiveSyncLogId(null);
+    setSyncDialogOpen(true);
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -219,22 +304,27 @@ export default function IntegrationsPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ integrationId }),
+          body: JSON.stringify({ integrationId, triggerType: "manual" }),
         }
       );
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Falha na sincronização");
-      toast({
-        title: "Sincronização concluída!",
-        description: `Inseridos: ${result.inserted}, Atualizados: ${result.updated}, Erros: ${result.errors}`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["api_integrations"] });
-      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      if (result.logId) {
+        setActiveSyncLogId(result.logId);
+      }
+      if (!res.ok) {
+        // Log was already created with error status, polling will pick it up
+        if (!result.logId) {
+          setSyncLog({ status: "error", error_message: result.error || "Falha" });
+        }
+      }
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSyncLoading(false);
+      setSyncLog({ status: "error", error_message: err.message });
     }
+  }
+
+  function openLogs(integrationId: string) {
+    setLogsIntegrationId(integrationId);
+    setLogsDialogOpen(true);
   }
 
   function addMappingRow() {
@@ -250,6 +340,19 @@ export default function IntegrationsPage() {
       return { ...f, field_mapping: rows };
     });
   }
+
+  function toggleDay(day: string) {
+    setForm((f) => {
+      const days = f.schedule_days.includes(day)
+        ? f.schedule_days.filter((d) => d !== day)
+        : [...f.schedule_days, day];
+      return { ...f, schedule_days: days };
+    });
+  }
+
+  const syncProgress = syncLog?.total_records
+    ? Math.round(((syncLog.inserted + syncLog.updated + syncLog.errors) / syncLog.total_records) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -275,7 +378,7 @@ export default function IntegrationsPage() {
               <p className="text-xs text-muted-foreground">Sincronize clientes de uma API externa (ex: Protheus)</p>
             </div>
           </div>
-          {isAdmin && (
+          {isAdmin && !clientsIntegration && (
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" /> Nova Integração
             </Button>
@@ -284,43 +387,48 @@ export default function IntegrationsPage() {
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
-        ) : integrations.length === 0 ? (
+        ) : !clientsIntegration ? (
           <p className="text-sm text-muted-foreground">Nenhuma integração configurada.</p>
         ) : (
-          <div className="space-y-2">
-            {integrations.map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between rounded-md border border-border px-4 py-3">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.http_method} {item.endpoint_url}</p>
-                  {item.last_sync_at && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      {item.last_sync_status === "success" ? (
-                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                      ) : item.last_sync_status === "error" ? (
-                        <XCircle className="h-3 w-3 text-destructive" />
-                      ) : (
-                        <Clock className="h-3 w-3" />
-                      )}
-                      Última sync: {new Date(item.last_sync_at).toLocaleString("pt-BR")}
-                      {item.last_sync_message && ` — ${item.last_sync_message}`}
-                    </p>
+          <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">{clientsIntegration.label}</p>
+              <p className="text-xs text-muted-foreground">{clientsIntegration.http_method} {clientsIntegration.endpoint_url}</p>
+              {clientsIntegration.schedule_enabled && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Agendado: {(clientsIntegration.schedule_days as string[] || []).map((d: string) => WEEKDAYS.find(w => w.value === d)?.label).filter(Boolean).join(", ")} às {clientsIntegration.schedule_time || "—"}
+                </p>
+              )}
+              {clientsIntegration.last_sync_at && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {clientsIntegration.last_sync_status === "success" ? (
+                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  ) : clientsIntegration.last_sync_status === "error" ? (
+                    <XCircle className="h-3 w-3 text-destructive" />
+                  ) : (
+                    <Clock className="h-3 w-3" />
                   )}
-                </div>
-                <div className="flex gap-2">
-                  {isAdmin && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => openEdit(item)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={syncLoading} onClick={() => handleSync(item.id)}>
-                        <RefreshCw className={`h-3.5 w-3.5 ${syncLoading ? "animate-spin" : ""}`} />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+                  Última sync: {new Date(clientsIntegration.last_sync_at).toLocaleString("pt-BR")}
+                  {clientsIntegration.last_sync_message && ` — ${clientsIntegration.last_sync_message}`}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {isAdmin && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => openLogs(clientsIntegration.id)} title="Ver Logs">
+                    <FileText className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => openEdit(clientsIntegration)} title="Configurar">
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleSync(clientsIntegration.id)} title="Sincronizar">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -329,8 +437,8 @@ export default function IntegrationsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Editar" : "Nova"} Integração de Clientes</DialogTitle>
-            <DialogDescription>Configure o endpoint, autenticação e mapeamento de campos</DialogDescription>
+            <DialogTitle>{editingId ? "Configurar" : "Nova"} Integração de Clientes</DialogTitle>
+            <DialogDescription>Configure o endpoint, autenticação, agendamento e mapeamento de campos</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -412,6 +520,44 @@ export default function IntegrationsPage() {
                 />
               </div>
             )}
+
+            {/* Schedule */}
+            <div className="rounded-md border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Agendamento automático</Label>
+                <Switch
+                  checked={form.schedule_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, schedule_enabled: v })}
+                />
+              </div>
+              {form.schedule_enabled && (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Dias da semana</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map((day) => (
+                        <label key={day.value} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <Checkbox
+                            checked={form.schedule_days.includes(day.value)}
+                            onCheckedChange={() => toggleDay(day.value)}
+                          />
+                          {day.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Horário</Label>
+                    <Input
+                      type="time"
+                      className="w-32"
+                      value={form.schedule_time}
+                      onChange={(e) => setForm({ ...form, schedule_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Field Mapping */}
             <div className="space-y-2">
@@ -515,6 +661,111 @@ export default function IntegrationsPage() {
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync Progress Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={(open) => {
+        if (!open && pollingRef.current) clearInterval(pollingRef.current);
+        setSyncDialogOpen(open);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sincronização</DialogTitle>
+            <DialogDescription>Acompanhe o progresso da importação</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {!syncLog ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Iniciando sincronização...
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  {syncLog.status === "running" ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : syncLog.status === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  )}
+                  <span className="text-sm font-medium capitalize">{syncLog.status === "running" ? "Em andamento..." : syncLog.status === "success" ? "Concluída!" : "Erro"}</span>
+                </div>
+
+                {syncLog.total_records > 0 && (
+                  <div className="space-y-1">
+                    <Progress value={syncProgress} className="h-2" />
+                    <p className="text-xs text-muted-foreground text-right">{syncProgress}%</p>
+                  </div>
+                )}
+
+                <div className="rounded-md bg-muted p-3 font-mono text-xs space-y-1">
+                  <p>Total de registros: {syncLog.total_records || "—"}</p>
+                  <p className="text-green-600">Inseridos: {syncLog.inserted}</p>
+                  <p className="text-primary">Atualizados: {syncLog.updated}</p>
+                  {syncLog.errors > 0 && <p className="text-destructive">Erros: {syncLog.errors}</p>}
+                  {syncLog.error_message && <p className="text-destructive mt-2">{syncLog.error_message}</p>}
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logs Viewer Dialog */}
+      <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Histórico de Sincronizações</DialogTitle>
+            <DialogDescription>Últimas 50 execuções</DialogDescription>
+          </DialogHeader>
+
+          {logs.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nenhuma sincronização registrada.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Data/Hora</TableHead>
+                  <TableHead className="text-xs">Tipo</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs text-right">Total</TableHead>
+                  <TableHead className="text-xs text-right">Inseridos</TableHead>
+                  <TableHead className="text-xs text-right">Atualizados</TableHead>
+                  <TableHead className="text-xs text-right">Erros</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log: any) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {new Date(log.started_at).toLocaleString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <Badge variant="outline" className="text-[10px]">
+                        {log.trigger_type === "manual" ? "Manual" : "Agendado"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {log.status === "success" ? (
+                        <Badge className="bg-green-600/10 text-green-600 text-[10px]">Sucesso</Badge>
+                      ) : log.status === "error" ? (
+                        <Badge variant="destructive" className="text-[10px]">Erro</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px]">Executando</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-right">{log.total_records}</TableCell>
+                    <TableCell className="text-xs text-right">{log.inserted}</TableCell>
+                    <TableCell className="text-xs text-right">{log.updated}</TableCell>
+                    <TableCell className="text-xs text-right">{log.errors}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </DialogContent>
       </Dialog>
     </div>

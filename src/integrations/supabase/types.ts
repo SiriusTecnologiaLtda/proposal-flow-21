@@ -751,6 +751,7 @@ export type Database = {
           id: string
           inserted: number
           integration_id: string
+          request_log: string | null
           started_at: string
           status: string
           total_records: number
@@ -764,6 +765,7 @@ export type Database = {
           id?: string
           inserted?: number
           integration_id: string
+          request_log?: string | null
           started_at?: string
           status?: string
           total_records?: number
@@ -777,6 +779,7 @@ export type Database = {
           id?: string
           inserted?: number
           integration_id?: string
+          request_log?: string | null
           started_at?: string
           status?: string
           total_records?: number

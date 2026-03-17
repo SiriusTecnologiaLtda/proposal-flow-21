@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -814,29 +814,53 @@ export default function IntegrationsPage() {
               </TableHeader>
               <TableBody>
                 {logs.map((log: any) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-xs whitespace-nowrap">
-                      {new Date(log.started_at).toLocaleString("pt-BR")}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <Badge variant="outline" className="text-[10px]">
-                        {log.trigger_type === "manual" ? "Manual" : "Agendado"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {log.status === "success" ? (
-                        <Badge className="bg-green-600/10 text-green-600 text-[10px]">Sucesso</Badge>
-                      ) : log.status === "error" ? (
-                        <Badge variant="destructive" className="text-[10px]">Erro</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]">Executando</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-right">{log.total_records}</TableCell>
-                    <TableCell className="text-xs text-right">{log.inserted}</TableCell>
-                    <TableCell className="text-xs text-right">{log.updated}</TableCell>
-                    <TableCell className="text-xs text-right">{log.errors}</TableCell>
-                  </TableRow>
+                  <React.Fragment key={log.id}>
+                    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => {
+                      const el = document.getElementById(`log-detail-${log.id}`);
+                      if (el) el.classList.toggle("hidden");
+                    }}>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {new Date(log.started_at).toLocaleString("pt-BR")}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className="text-[10px]">
+                          {log.trigger_type === "manual" ? "Manual" : "Agendado"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {log.status === "success" ? (
+                          <Badge className="bg-green-600/10 text-green-600 text-[10px]">Sucesso</Badge>
+                        ) : log.status === "error" ? (
+                          <Badge variant="destructive" className="text-[10px]">Erro</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">Executando</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-right">{log.total_records}</TableCell>
+                      <TableCell className="text-xs text-right">{log.inserted}</TableCell>
+                      <TableCell className="text-xs text-right">{log.updated}</TableCell>
+                      <TableCell className="text-xs text-right">{log.errors}</TableCell>
+                    </TableRow>
+                    {(log.error_message || log.request_log) && (
+                      <TableRow id={`log-detail-${log.id}`} className="hidden">
+                        <TableCell colSpan={7} className="p-2">
+                          {log.error_message && (
+                            <div className="rounded bg-destructive/10 p-2 mb-2 text-xs text-destructive font-mono whitespace-pre-wrap">
+                              <strong>Erro:</strong> {log.error_message}
+                            </div>
+                          )}
+                          {log.request_log && (
+                            <details>
+                              <summary className="text-xs font-medium cursor-pointer mb-1">Chamadas API (curl)</summary>
+                              <pre className="rounded bg-muted p-2 text-[10px] font-mono whitespace-pre-wrap max-h-60 overflow-y-auto">
+                                {log.request_log}
+                              </pre>
+                            </details>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>

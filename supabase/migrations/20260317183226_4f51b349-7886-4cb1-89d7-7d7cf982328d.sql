@@ -1,0 +1,1 @@
+ALTER TABLE public.sync_logs ADD COLUMN request_log text DEFAULT '';

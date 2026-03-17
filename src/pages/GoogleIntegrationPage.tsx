@@ -315,8 +315,17 @@ export default function GoogleIntegrationPage() {
                     try { account = JSON.parse(item.service_account_key).client_email || "—"; } catch { /* ignore */ }
                   }
                   return (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.label}</TableCell>
+                    <TableRow key={item.id} className={item.is_default ? "bg-primary/5" : ""}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {item.label}
+                          {item.is_default && (
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              Padrão
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           item.auth_type === "oauth2"
@@ -332,6 +341,9 @@ export default function GoogleIntegrationPage() {
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" title={item.is_default ? "Conexão padrão" : "Definir como padrão"} onClick={() => setAsDefault(item.id)}>
+                              <Star className={`h-4 w-4 ${item.is_default ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                            </Button>
                             <Button variant="ghost" size="icon" title="Testar conexão" onClick={() => runTest(item)}>
                               <Play className="h-4 w-4 text-green-600" />
                             </Button>

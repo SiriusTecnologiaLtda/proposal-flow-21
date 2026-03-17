@@ -250,7 +250,12 @@ export default function ProposalCreate() {
     return templates;
   }, [product, scopeTemplates, templateSearch]);
 
-  // Calculate total hours from included children only
+  // Round up to nearest multiple of 8
+  function roundUp8(val: number) {
+    return Math.ceil(val / 8) * 8;
+  }
+
+  // Calculate total hours from included children only (rounded to multiple of 8)
   const totalHours = useMemo(() => {
     let total = 0;
     for (const proc of scopeProcesses) {
@@ -260,7 +265,7 @@ export default function ProposalCreate() {
         }
       }
     }
-    return total;
+    return roundUp8(total);
   }, [scopeProcesses]);
 
   // Group scope processes by template for grouped display

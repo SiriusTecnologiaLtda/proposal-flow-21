@@ -7,6 +7,23 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 50;
+const SQLSERVER_OFFSET_FETCH_PATTERN = /\s+OFFSET\s+\d+\s+ROWS\s+FETCH\s+NEXT\s+\d+\s+ROWS\s+ONLY\s*;?\s*$/i;
+const LIMIT_OFFSET_PATTERN = /\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*;?\s*$/i;
+const ORDER_BY_PATTERN = /\border\s+by\b/i;
+
+function buildPaginatedSqlScript(sql: string, pageSize: number, currentOffset: number) {
+  let normalized = sql
+    .trim()
+    .replace(/;+\s*$/, "")
+    .replace(SQLSERVER_OFFSET_FETCH_PATTERN, "")
+    .replace(LIMIT_OFFSET_PATTERN, "");
+
+  if (!ORDER_BY_PATTERN.test(normalized)) {
+    normalized = `${normalized} ORDER BY 1`;
+  }
+
+  return `${normalized} OFFSET ${currentOffset} ROWS FETCH NEXT ${pageSize} ROWS ONLY`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

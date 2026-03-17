@@ -72,6 +72,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/oauth/google/callback" element={<GoogleOAuthCallback />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

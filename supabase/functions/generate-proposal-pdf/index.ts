@@ -808,6 +808,7 @@ Deno.serve(async (req) => {
       log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
       const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
       driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
+      outputFolderId = driveFolderId;
 
       if (!serviceAccountKeyRaw) {
         log(logs, "Carregar credenciais", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");

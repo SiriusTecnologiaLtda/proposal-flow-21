@@ -1077,6 +1077,30 @@ Deno.serve(async (req) => {
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     log(logs, "Concluído", "ok", `Documento gerado com sucesso: ${newFileName}`);
 
+    // ─── Save document record ───────────────────────────────────
+    try {
+      // Get user from auth header
+      const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
+      let userId = proposal.created_by;
+      if (authHeader) {
+        const { data: { user } } = await supabase.auth.getUser(authHeader);
+        if (user) userId = user.id;
+      }
+
+      await supabase.from("proposal_documents").insert({
+        proposal_id: proposalId,
+        doc_id: newDocId,
+        doc_url: docUrl,
+        file_name: newFileName,
+        version,
+        is_official: false,
+        created_by: userId,
+      });
+      log(logs, "Registro", "ok", "Documento registrado no banco de dados");
+    } catch (e: any) {
+      log(logs, "Registro", "info", `Não foi possível registrar: ${e.message}`);
+    }
+
     return respondWithLogs(logs, {
       docUrl,
       docId: newDocId,

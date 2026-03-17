@@ -273,55 +273,12 @@ Deno.serve(async (req) => {
       }
 
       const rawData = await apiRes.json();
-      allRecords = Array.isArray(rawData)
+      const pageRecords = Array.isArray(rawData)
         ? rawData
         : rawData.data || rawData.items || rawData.results || [rawData];
-      totalRecords = allRecords.length;
-    }
-
-    // Update log with final total
-    await adminClient.from("sync_logs").update({ total_records: totalRecords }).eq("id", logId);
-
-    // Process all records in batches
-    for (let i = 0; i < allRecords.length; i += BATCH_SIZE) {
-      const batch = allRecords.slice(i, i + BATCH_SIZE);
-
-      for (const record of batch) {
-        try {
-          const mapped: Record<string, any> = {};
-          for (const [apiField, systemField] of Object.entries(fieldMapping)) {
-            if (record[apiField] !== undefined) {
-              mapped[systemField] = String(record[apiField] ?? "");
-            }
-          }
-
-          if (!mapped.code || !mapped.name) {
-            errors++;
-            continue;
-          }
-          if (!mapped.cnpj) mapped.cnpj = "";
-
-          const { data: existing } = await adminClient
-            .from("clients")
-            .select("id")
-            .eq("code", mapped.code)
-            .maybeSingle();
-
-          if (existing) {
-            await adminClient.from("clients").update(mapped).eq("id", existing.id);
-            updated++;
-          } else {
-            await adminClient.from("clients").insert(mapped);
-            inserted++;
-          }
-        } catch {
-          errors++;
-        }
-      }
-
-      await adminClient.from("sync_logs").update({
-        inserted, updated, errors,
-      }).eq("id", logId);
+      totalRecords = pageRecords.length;
+      await adminClient.from("sync_logs").update({ total_records: totalRecords }).eq("id", logId);
+      await processRecordsBatch(pageRecords);
     }
 
     const message = `Inseridos: ${inserted}, Atualizados: ${updated}, Erros: ${errors}`;

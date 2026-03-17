@@ -5,16 +5,18 @@ import {
   FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building, Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { canAccessRoute } from "@/lib/permissions";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/propostas", label: "Propostas", icon: FileText },
-  { path: "/clientes", label: "Clientes", icon: Users },
-  { path: "/unidades", label: "Unidades", icon: Building },
-  { path: "/templates", label: "Templates de Escopo", icon: LayoutTemplate },
-  { path: "/produtos-categorias", label: "Produtos & Categorias", icon: Package },
-  { path: "/time", label: "Time de Vendas", icon: UserCog },
-  { path: "/configuracoes", label: "Configurações", icon: Settings },
+  { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/propostas", key: "propostas", label: "Propostas", icon: FileText },
+  { path: "/clientes", key: "clientes", label: "Clientes", icon: Users },
+  { path: "/unidades", key: "unidades", label: "Unidades", icon: Building },
+  { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
+  { path: "/produtos-categorias", key: "produtos-categorias", label: "Produtos & Categorias", icon: Package },
+  { path: "/time", key: "time", label: "Time de Vendas", icon: UserCog },
+  { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },
 ];
 
 interface AppLayoutProps { children: React.ReactNode; }
@@ -24,9 +26,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { role } = useUserRole();
 
   const displayName = user?.user_metadata?.display_name || user?.email || "U";
   const initials = displayName.substring(0, 2).toUpperCase();
+
+  const filteredNavItems = navItems.filter((item) =>
+    canAccessRoute(role, item.path)
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -48,7 +55,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <nav className="flex-1 space-y-1 p-2">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
@@ -62,7 +69,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
           })}
         </nav>
 
-        {/* Logout */}
         <div className="border-t border-border p-2">
           <button onClick={signOut} className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Sair" : undefined}>
             <LogOut className="h-4 w-4 shrink-0" />

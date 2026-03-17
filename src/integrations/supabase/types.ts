@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_integrations: {
+        Row: {
+          auth_type: string
+          auth_value: string | null
+          body_template: string | null
+          created_at: string
+          endpoint_url: string
+          entity: string
+          field_mapping: Json
+          headers: Json | null
+          http_method: string
+          id: string
+          label: string
+          last_sync_at: string | null
+          last_sync_message: string | null
+          last_sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_type?: string
+          auth_value?: string | null
+          body_template?: string | null
+          created_at?: string
+          endpoint_url: string
+          entity?: string
+          field_mapping?: Json
+          headers?: Json | null
+          http_method?: string
+          id?: string
+          label: string
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_type?: string
+          auth_value?: string | null
+          body_template?: string | null
+          created_at?: string
+          endpoint_url?: string
+          entity?: string
+          field_mapping?: Json
+          headers?: Json | null
+          http_method?: string
+          id?: string
+          label?: string
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string

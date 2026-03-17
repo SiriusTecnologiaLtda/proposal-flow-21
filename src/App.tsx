@@ -17,6 +17,7 @@ import GoogleIntegrationPage from "@/pages/GoogleIntegrationPage";
 import ProposalDefaultsPage from "@/pages/ProposalDefaultsPage";
 import UnitsPage from "@/pages/UnitsPage";
 import ImportDataPage from "@/pages/ImportDataPage";
+import IntegrationsPage from "@/pages/IntegrationsPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -53,6 +54,7 @@ function ProtectedRoutes() {
             <Route path="/configuracoes" element={<SettingsPage />} />
             <Route path="/configuracoes/parametros" element={<ProposalDefaultsPage />} />
             <Route path="/configuracoes/google" element={<GoogleIntegrationPage />} />
+            <Route path="/configuracoes/integracoes" element={<IntegrationsPage />} />
             <Route path="/configuracoes/importar" element={<ImportDataPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

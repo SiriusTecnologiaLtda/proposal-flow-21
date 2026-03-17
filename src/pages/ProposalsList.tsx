@@ -70,6 +70,7 @@ export default function ProposalsList() {
   }
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
+  const [versionsDocType, setVersionsDocType] = useState<string>("proposta");
   const [versions, setVersions] = useState<ProposalDoc[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
 

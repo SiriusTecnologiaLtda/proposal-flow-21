@@ -309,7 +309,6 @@ export default function IntegrationsPage() {
     }
   }
 
-  const [syncIntegrationId, setSyncIntegrationId] = useState<string | null>(null);
 
   async function handleSync(integrationId: string) {
     setSyncLog(null);

@@ -53,6 +53,7 @@ function ProtectedRoutes() {
             <Route path="/configuracoes" element={<SettingsPage />} />
             <Route path="/configuracoes/parametros" element={<ProposalDefaultsPage />} />
             <Route path="/configuracoes/google" element={<GoogleIntegrationPage />} />
+            <Route path="/configuracoes/importar" element={<ImportDataPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

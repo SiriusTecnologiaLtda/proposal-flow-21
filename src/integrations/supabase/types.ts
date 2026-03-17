@@ -107,27 +107,39 @@ export type Database = {
       }
       google_integrations: {
         Row: {
+          auth_type: string
           created_at: string
           drive_folder_id: string
           id: string
           label: string
-          service_account_key: string
+          oauth_client_id: string | null
+          oauth_client_secret: string | null
+          oauth_refresh_token: string | null
+          service_account_key: string | null
           updated_at: string
         }
         Insert: {
+          auth_type?: string
           created_at?: string
           drive_folder_id: string
           id?: string
           label: string
-          service_account_key: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
+          oauth_refresh_token?: string | null
+          service_account_key?: string | null
           updated_at?: string
         }
         Update: {
+          auth_type?: string
           created_at?: string
           drive_folder_id?: string
           id?: string
           label?: string
-          service_account_key?: string
+          oauth_client_id?: string | null
+          oauth_client_secret?: string | null
+          oauth_refresh_token?: string | null
+          service_account_key?: string | null
           updated_at?: string
         }
         Relationships: []

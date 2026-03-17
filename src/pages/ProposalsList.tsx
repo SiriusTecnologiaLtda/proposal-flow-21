@@ -426,7 +426,7 @@ export default function ProposalsList() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5" />
-              Propostas Geradas
+              {versionsDocType === "mit" ? "MIT-065 Gerados" : "Propostas Geradas"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">

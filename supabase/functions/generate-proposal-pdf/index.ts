@@ -725,6 +725,10 @@ async function appendDetailedScope(
 
 // ─── Formatters ─────────────────────────────────────────────────────
 
+function roundUp8(val: number) {
+  return Math.ceil(val / 8) * 8;
+}
+
 function fmt(val: number) {
   return val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

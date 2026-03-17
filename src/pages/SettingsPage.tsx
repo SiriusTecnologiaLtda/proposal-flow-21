@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, ChevronRight, FolderOpen } from "lucide-react";
+import { Settings, ChevronRight, FolderOpen, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {

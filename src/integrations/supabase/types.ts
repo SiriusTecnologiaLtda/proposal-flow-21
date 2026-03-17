@@ -30,6 +30,10 @@ export type Database = {
           last_sync_at: string | null
           last_sync_message: string | null
           last_sync_status: string | null
+          schedule_cron: string | null
+          schedule_days: Json
+          schedule_enabled: boolean
+          schedule_time: string | null
           updated_at: string
         }
         Insert: {
@@ -47,6 +51,10 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_message?: string | null
           last_sync_status?: string | null
+          schedule_cron?: string | null
+          schedule_days?: Json
+          schedule_enabled?: boolean
+          schedule_time?: string | null
           updated_at?: string
         }
         Update: {
@@ -64,6 +72,10 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_message?: string | null
           last_sync_status?: string | null
+          schedule_cron?: string | null
+          schedule_days?: Json
+          schedule_enabled?: boolean
+          schedule_time?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -715,6 +727,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          error_message: string | null
+          errors: number
+          finished_at: string | null
+          id: string
+          inserted: number
+          integration_id: string
+          started_at: string
+          status: string
+          total_records: number
+          trigger_type: string
+          updated: number
+        }
+        Insert: {
+          error_message?: string | null
+          errors?: number
+          finished_at?: string | null
+          id?: string
+          inserted?: number
+          integration_id: string
+          started_at?: string
+          status?: string
+          total_records?: number
+          trigger_type?: string
+          updated?: number
+        }
+        Update: {
+          error_message?: string | null
+          errors?: number
+          finished_at?: string | null
+          id?: string
+          inserted?: number
+          integration_id?: string
+          started_at?: string
+          status?: string
+          total_records?: number
+          trigger_type?: string
+          updated?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "api_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unit_info: {
         Row: {

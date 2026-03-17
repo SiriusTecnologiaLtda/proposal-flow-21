@@ -16,6 +16,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import GoogleIntegrationPage from "@/pages/GoogleIntegrationPage";
 import ProposalDefaultsPage from "@/pages/ProposalDefaultsPage";
 import UnitsPage from "@/pages/UnitsPage";
+import ImportDataPage from "@/pages/ImportDataPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound.tsx";

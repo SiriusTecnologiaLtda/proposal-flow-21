@@ -16,10 +16,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, ArrowLeft, Play, Star } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Plus, Pencil, Trash2, ArrowLeft, Play, Star, Copy, ExternalLink, LogIn, CheckCircle2, Loader2 } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface GoogleIntegration {
   id: string;
@@ -51,7 +52,12 @@ const emptyForm = {
   output_folder_id: "",
   oauth_client_id: "",
   oauth_client_secret: "",
-  oauth_refresh_token: "",
+};
+
+const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
+const REDIRECT_URI_BASE = () => {
+  const loc = window.location;
+  return `${loc.protocol}//${loc.host}/configuracoes/google`;
 };
 
 export default function GoogleIntegrationPage() {
@@ -59,6 +65,7 @@ export default function GoogleIntegrationPage() {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -71,6 +78,9 @@ export default function GoogleIntegrationPage() {
   const [testRunning, setTestRunning] = useState(false);
   const [testLabel, setTestLabel] = useState("");
   const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  const [authorizingId, setAuthorizingId] = useState<string | null>(null);
+  const [exchangingCode, setExchangingCode] = useState(false);
 
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,6 +97,53 @@ export default function GoogleIntegrationPage() {
       return data as unknown as GoogleIntegration[];
     },
   });
+
+  // Handle OAuth callback - exchange code for refresh token
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const state = searchParams.get("state"); // integrationId
+    if (!code || !state || exchangingCode) return;
+
+    setExchangingCode(true);
+    // Clear URL params
+    setSearchParams({}, { replace: true });
+
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "vpyniuyqmseusowjreth";
+
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/google-oauth-exchange`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              code,
+              integrationId: state,
+              redirectUri: REDIRECT_URI_BASE(),
+            }),
+          }
+        );
+
+        const result = await res.json();
+        if (result.success) {
+          toast({ title: "Autorizado!", description: result.message });
+          queryClient.invalidateQueries({ queryKey: ["google_integrations"] });
+        } else {
+          toast({ title: "Erro na autorização", description: result.error, variant: "destructive" });
+        }
+      } catch (err: any) {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+      } finally {
+        setExchangingCode(false);
+      }
+    })();
+  }, [searchParams]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: typeof emptyForm & { id?: string }) => {
@@ -105,7 +162,6 @@ export default function GoogleIntegrationPage() {
       } else {
         payload.oauth_client_id = values.oauth_client_id;
         payload.oauth_client_secret = values.oauth_client_secret;
-        payload.oauth_refresh_token = values.oauth_refresh_token;
         payload.service_account_key = "";
       }
 
@@ -149,9 +205,7 @@ export default function GoogleIntegrationPage() {
 
   async function setAsDefault(id: string) {
     try {
-      // Unset all defaults first
       await supabase.from("google_integrations").update({ is_default: false } as any).neq("id", "00000000-0000-0000-0000-000000000000");
-      // Set selected as default
       await supabase.from("google_integrations").update({ is_default: true } as any).eq("id", id);
       queryClient.invalidateQueries({ queryKey: ["google_integrations"] });
       toast({ title: "Padrão definido", description: "Conexão definida como padrão." });
@@ -183,7 +237,6 @@ export default function GoogleIntegrationPage() {
       output_folder_id: item.output_folder_id || "",
       oauth_client_id: item.oauth_client_id || "",
       oauth_client_secret: item.oauth_client_secret || "",
-      oauth_refresh_token: item.oauth_refresh_token || "",
     });
     setEditingId(item.id);
     setJsonError("");
@@ -209,13 +262,27 @@ export default function GoogleIntegrationPage() {
         return;
       }
     } else {
-      if (!form.oauth_client_id.trim() || !form.oauth_client_secret.trim() || !form.oauth_refresh_token.trim()) {
-        toast({ title: "Campos obrigatórios", description: "Preencha Client ID, Client Secret e Refresh Token.", variant: "destructive" });
+      if (!form.oauth_client_id.trim() || !form.oauth_client_secret.trim()) {
+        toast({ title: "Campos obrigatórios", description: "Preencha Client ID e Client Secret.", variant: "destructive" });
         return;
       }
     }
 
     saveMutation.mutate({ ...form, id: editingId ?? undefined });
+  }
+
+  function startGoogleAuth(integrationId: string, clientId: string) {
+    const redirectUri = REDIRECT_URI_BASE();
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: GOOGLE_SCOPES,
+      access_type: "offline",
+      prompt: "consent",
+      state: integrationId,
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
   async function runTest(item: GoogleIntegration) {
@@ -268,6 +335,8 @@ export default function GoogleIntegrationPage() {
     return authType === "oauth2" ? "OAuth2" : "Service Account";
   }
 
+  const redirectUrl = `https://vpyniuyqmseusowjreth.supabase.co/auth/v1/callback`;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -280,6 +349,40 @@ export default function GoogleIntegrationPage() {
         </div>
       </div>
 
+      {/* OAuth Config URLs Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Google OAuth 2.0 — URLs de Configuração</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
+          {[
+            { label: "Domínio autorizado", value: "lovable.app" },
+            { label: "URL de redirecionamento (OAuth Drive)", value: REDIRECT_URI_BASE() },
+            { label: "URL de redirecionamento (Login Google)", value: redirectUrl },
+          ].map((item) => (
+            <div key={item.label} className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded bg-muted px-3 py-1.5 text-xs text-foreground break-all">{item.value}</code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(item.value);
+                    toast({ title: "Copiado!", description: `${item.label} copiado para a área de transferência.` });
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Connections */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Conexões configuradas</CardTitle>
@@ -290,6 +393,12 @@ export default function GoogleIntegrationPage() {
           )}
         </CardHeader>
         <CardContent>
+          {exchangingCode && (
+            <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm text-foreground">Processando autorização do Google...</span>
+            </div>
+          )}
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : integrations.length === 0 ? (
@@ -300,20 +409,16 @@ export default function GoogleIntegrationPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Pasta Templates</TableHead>
                   <TableHead>Pasta Documentos</TableHead>
-                  <TableHead>Conta</TableHead>
-                  {isAdmin && <TableHead className="w-32">Ações</TableHead>}
+                  {isAdmin && <TableHead className="w-40">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {integrations.map((item) => {
-                  let account = "—";
-                  if (item.auth_type === "oauth2") {
-                    account = item.oauth_client_id ? `${item.oauth_client_id.substring(0, 20)}...` : "—";
-                  } else {
-                    try { account = JSON.parse(item.service_account_key).client_email || "—"; } catch { /* ignore */ }
-                  }
+                  const isOAuth = item.auth_type === "oauth2";
+                  const hasRefreshToken = !!item.oauth_refresh_token;
                   return (
                     <TableRow key={item.id} className={item.is_default ? "bg-primary/5" : ""}>
                       <TableCell className="font-medium">
@@ -328,19 +433,41 @@ export default function GoogleIntegrationPage() {
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          item.auth_type === "oauth2"
+                          isOAuth
                             ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                         }`}>
                           {authLabel(item.auth_type)}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        {isOAuth ? (
+                          hasRefreshToken ? (
+                            <Badge className="bg-green-600/10 text-green-600 text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Autorizado
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-[10px]">Não autorizado</Badge>
+                          )
+                        ) : (
+                          <Badge className="bg-green-600/10 text-green-600 text-[10px]">Configurado</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
                       <TableCell className="font-mono text-xs">{item.output_folder_id || item.drive_folder_id}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{account}</TableCell>
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">
+                            {isOAuth && !hasRefreshToken && item.oauth_client_id && (
+                              <Button variant="ghost" size="icon" title="Autorizar com Google" onClick={() => startGoogleAuth(item.id, item.oauth_client_id!)}>
+                                <LogIn className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
+                            {isOAuth && hasRefreshToken && (
+                              <Button variant="ghost" size="icon" title="Re-autorizar" onClick={() => startGoogleAuth(item.id, item.oauth_client_id!)}>
+                                <LogIn className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" title={item.is_default ? "Conexão padrão" : "Definir como padrão"} onClick={() => setAsDefault(item.id)}>
                               <Star className={`h-4 w-4 ${item.is_default ? "fill-primary text-primary" : "text-muted-foreground"}`} />
                             </Button>
@@ -397,7 +524,7 @@ export default function GoogleIntegrationPage() {
 
               <TabsContent value="oauth2" className="space-y-3 mt-3">
                 <p className="text-xs text-muted-foreground">
-                  Use OAuth2 para autenticar com sua conta pessoal do Google e utilizar seus 15GB gratuitos do Drive.
+                  Use OAuth2 para autenticar com sua conta pessoal do Google. Após salvar, clique em "Autorizar" na tabela para conectar sua conta.
                 </p>
                 <div>
                   <Label>Client ID</Label>
@@ -416,14 +543,14 @@ export default function GoogleIntegrationPage() {
                     onChange={(e) => setForm({ ...form, oauth_client_secret: e.target.value })}
                   />
                 </div>
-                <div>
-                  <Label>Refresh Token</Label>
-                  <Input
-                    type="password"
-                    placeholder="Refresh Token obtido via OAuth Playground"
-                    value={form.oauth_refresh_token}
-                    onChange={(e) => setForm({ ...form, oauth_refresh_token: e.target.value })}
-                  />
+                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                  <p className="font-medium">Como funciona:</p>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>Preencha Client ID e Client Secret do Google Cloud Console</li>
+                    <li>Salve a conexão</li>
+                    <li>Clique no botão <LogIn className="inline h-3 w-3" /> na tabela para autorizar com o Google</li>
+                    <li>O refresh token será obtido automaticamente</li>
+                  </ol>
                 </div>
               </TabsContent>
 

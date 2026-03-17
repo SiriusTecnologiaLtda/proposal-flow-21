@@ -139,22 +139,37 @@ export default function IntegrationsPage() {
     },
   });
 
-  // Polling for sync progress
+  // Polling for sync progress — poll by integration_id to find latest log
   useEffect(() => {
-    if (!activeSyncLogId || !syncDialogOpen) {
+    const integrationId = syncIntegrationId;
+    if (!integrationId || !syncDialogOpen) {
       if (pollingRef.current) clearInterval(pollingRef.current);
       return;
     }
 
+    let stopped = false;
     const poll = async () => {
-      const { data } = await supabase
-        .from("sync_logs")
-        .select("*")
-        .eq("id", activeSyncLogId)
-        .single();
+      // If we have a specific logId, query by id; otherwise find latest for this integration
+      let data: any = null;
+      if (activeSyncLogId) {
+        const res = await supabase.from("sync_logs").select("*").eq("id", activeSyncLogId).single();
+        data = res.data;
+      } else {
+        const res = await supabase
+          .from("sync_logs")
+          .select("*")
+          .eq("integration_id", integrationId)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .single();
+        data = res.data;
+        // Lock onto this log once found
+        if (data) setActiveSyncLogId(data.id);
+      }
       if (data) {
         setSyncLog(data);
-        if (data.status !== "running") {
+        if (data.status !== "running" && !stopped) {
+          stopped = true;
           if (pollingRef.current) clearInterval(pollingRef.current);
           queryClient.invalidateQueries({ queryKey: ["api_integrations"] });
           queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -163,10 +178,16 @@ export default function IntegrationsPage() {
       }
     };
 
-    poll();
-    pollingRef.current = setInterval(poll, 2000);
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [activeSyncLogId, syncDialogOpen]);
+    // Small delay to let the edge function create the log entry
+    const timeout = setTimeout(() => {
+      poll();
+      pollingRef.current = setInterval(poll, 2000);
+    }, 1000);
+    return () => {
+      clearTimeout(timeout);
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [syncIntegrationId, syncDialogOpen, activeSyncLogId]);
 
   function openCreate() {
     setEditingId(null);

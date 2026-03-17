@@ -434,6 +434,16 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, { error: e.message }, 500);
     }
 
+    // ─── Replace {{ESCOPO1}} with individual table rows ─────────
+    if (macroScopeNames.length > 0) {
+      log(logs, "Escopo macro", "info", "Inserindo macro escopo com linhas de grade...");
+      try {
+        await replaceScopePlaceholderWithRows(accessToken, newDocId, macroScopeNames, logs);
+      } catch (e: any) {
+        log(logs, "Escopo macro", "error", `Falha: ${e.message}`);
+      }
+    }
+
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     log(logs, "Concluído", "ok", `MIT-065 gerado com sucesso: ${newFileName}`);
 

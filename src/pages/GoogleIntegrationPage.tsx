@@ -483,7 +483,7 @@ export default function GoogleIntegrationPage() {
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
           {[
-            { label: "Domínio autorizado", value: "lovable.app" },
+            { label: "Domínios autorizados", value: "lovable.app, lovableproject.com" },
             { label: "URL de redirecionamento (OAuth Drive)", value: getRedirectUri() },
             { label: "URL de redirecionamento (Login Google)", value: redirectUrl },
           ].map((item) => (

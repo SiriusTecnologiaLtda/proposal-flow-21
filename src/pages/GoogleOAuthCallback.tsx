@@ -2,35 +2,61 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
+function decodeOAuthState(rawState: string | null) {
+  if (!rawState) return null;
+
+  try {
+    const parsed = JSON.parse(atob(rawState));
+    if (typeof parsed?.integrationId === "string") {
+      return {
+        integrationId: parsed.integrationId,
+        openerOrigin:
+          typeof parsed?.openerOrigin === "string"
+            ? parsed.openerOrigin
+            : window.location.origin,
+      };
+    }
+  } catch {
+    // Legacy plain-text state support
+  }
+
+  return {
+    integrationId: rawState,
+    openerOrigin: window.location.origin,
+  };
+}
+
 export default function GoogleOAuthCallback() {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
     const error = searchParams.get("error");
+    const rawState = searchParams.get("state");
+    const decodedState = decodeOAuthState(rawState);
+    const openerOrigin = decodedState?.openerOrigin ?? window.location.origin;
+    const integrationId = decodedState?.integrationId ?? rawState;
 
     if (window.opener) {
-      // Send data to parent window and close
       window.opener.postMessage(
-        { type: "google-oauth-callback", code, state, error },
-        window.location.origin
+        { type: "google-oauth-callback", code, state: integrationId, error },
+        openerOrigin
       );
       window.close();
-    } else {
-      // If opened directly (not popup), redirect to main page with params
-      const params = new URLSearchParams();
-      if (code) params.set("code", code);
-      if (state) params.set("state", state);
-      if (error) params.set("error", error);
-      window.location.href = `/configuracoes/google?${params.toString()}`;
+      return;
     }
+
+    const params = new URLSearchParams();
+    if (code) params.set("code", code);
+    if (integrationId) params.set("state", integrationId);
+    if (error) params.set("error", error);
+    window.location.href = `${openerOrigin}/configuracoes/google?${params.toString()}`;
   }, [searchParams]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="space-y-3 text-center">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Processando autorização...</p>
       </div>
     </div>

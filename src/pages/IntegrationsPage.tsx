@@ -71,6 +71,10 @@ interface IntegrationForm {
   schedule_enabled: boolean;
   schedule_days: string[];
   schedule_time: string;
+  pagination_enabled: boolean;
+  pagination_page_size: number;
+  pagination_param_offset: string;
+  pagination_param_limit: string;
 }
 
 const emptyForm: IntegrationForm = {
@@ -85,6 +89,10 @@ const emptyForm: IntegrationForm = {
   schedule_enabled: false,
   schedule_days: [],
   schedule_time: "06:00",
+  pagination_enabled: false,
+  pagination_page_size: 200,
+  pagination_param_offset: "offset",
+  pagination_param_limit: "limit",
 };
 
 export default function IntegrationsPage() {

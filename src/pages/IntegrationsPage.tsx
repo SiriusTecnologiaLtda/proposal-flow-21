@@ -267,6 +267,10 @@ export default function IntegrationsPage() {
       schedule_enabled: form.schedule_enabled,
       schedule_days: form.schedule_days,
       schedule_time: form.schedule_time || null,
+      pagination_enabled: form.pagination_enabled,
+      pagination_page_size: form.pagination_page_size,
+      pagination_param_offset: form.pagination_param_offset,
+      pagination_param_limit: form.pagination_param_limit,
     };
 
     const { error } = editingId

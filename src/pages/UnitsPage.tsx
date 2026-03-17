@@ -46,6 +46,7 @@ export default function UnitsPage() {
 
   const fields = [
     { id: "name", label: "Nome da Unidade *", type: "text" },
+    { id: "code", label: "Código TOTVS", type: "text" },
     { id: "cnpj", label: "CNPJ", type: "text" },
     { id: "contact", label: "Contato", type: "text" },
     { id: "email", label: "E-mail", type: "email" },

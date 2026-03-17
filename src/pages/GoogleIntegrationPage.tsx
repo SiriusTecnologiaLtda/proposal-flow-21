@@ -56,13 +56,49 @@ const emptyForm = {
 
 const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
 const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
-const getRedirectUri = () => {
-  const loc = window.location;
-  return `${loc.protocol}//${loc.host}${OAUTH_CALLBACK_PATH}`;
+
+const resolveOAuthBaseOrigin = () => {
+  const currentOrigin = window.location.origin;
+  const currentHost = window.location.hostname;
+
+  if (currentHost.includes("lovableproject.com") && document.referrer) {
+    try {
+      const referrerUrl = new URL(document.referrer);
+      if (referrerUrl.hostname.includes("lovable.app")) {
+        return referrerUrl.origin;
+      }
+    } catch {
+      // ignore invalid referrer
+    }
+  }
+
+  return currentOrigin;
 };
-const getPageUrl = () => {
-  const loc = window.location;
-  return `${loc.protocol}//${loc.host}/configuracoes/google`;
+
+const getRedirectUri = () => `${resolveOAuthBaseOrigin()}${OAUTH_CALLBACK_PATH}`;
+
+const decodeOAuthState = (rawState: string | null) => {
+  if (!rawState) return null;
+
+  try {
+    const parsed = JSON.parse(atob(rawState));
+    if (typeof parsed?.integrationId === "string") {
+      return {
+        integrationId: parsed.integrationId,
+        openerOrigin:
+          typeof parsed?.openerOrigin === "string"
+            ? parsed.openerOrigin
+            : window.location.origin,
+      };
+    }
+  } catch {
+    // Legacy plain-text state support
+  }
+
+  return {
+    integrationId: rawState,
+    openerOrigin: window.location.origin,
+  };
 };
 
 export default function GoogleIntegrationPage() {

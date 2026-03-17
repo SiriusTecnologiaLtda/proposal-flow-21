@@ -27,7 +27,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify user
     const userClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -47,7 +46,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Load integration config
     const { data: integration, error: intError } = await adminClient
       .from("api_integrations")
       .select("*")
@@ -61,7 +59,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create sync log entry
     const { data: logEntry, error: logError } = await adminClient
       .from("sync_logs")
       .insert({
@@ -81,66 +78,143 @@ Deno.serve(async (req) => {
 
     const logId = logEntry.id;
 
-    // Build request to external API
-    const headers: Record<string, string> = {
+    // Build base headers for external API
+    const apiHeaders: Record<string, string> = {
       "Content-Type": "application/json",
       ...(integration.headers || {}),
     };
 
     if (integration.auth_type === "bearer" && integration.auth_value) {
-      headers["Authorization"] = `Bearer ${integration.auth_value}`;
+      apiHeaders["Authorization"] = `Bearer ${integration.auth_value}`;
     } else if (integration.auth_type === "basic" && integration.auth_value) {
-      headers["Authorization"] = `Basic ${btoa(integration.auth_value)}`;
+      apiHeaders["Authorization"] = `Basic ${btoa(integration.auth_value)}`;
     } else if (integration.auth_type === "api_key" && integration.auth_value) {
-      headers["x-api-key"] = integration.auth_value;
+      apiHeaders["x-api-key"] = integration.auth_value;
     }
-
-    const fetchOpts: RequestInit = { method: integration.http_method, headers };
-    if (integration.http_method === "POST" && integration.body_template) {
-      fetchOpts.body = integration.body_template;
-    }
-
-    const apiRes = await fetch(integration.endpoint_url, fetchOpts);
-    if (!apiRes.ok) {
-      const errorText = await apiRes.text();
-      const errMsg = `HTTP ${apiRes.status}: ${errorText.substring(0, 200)}`;
-      await adminClient.from("sync_logs").update({
-        status: "error",
-        finished_at: new Date().toISOString(),
-        error_message: errMsg,
-      }).eq("id", logId);
-
-      await adminClient.from("api_integrations").update({
-        last_sync_at: new Date().toISOString(),
-        last_sync_status: "error",
-        last_sync_message: errMsg,
-      }).eq("id", integrationId);
-
-      return new Response(JSON.stringify({ error: `API retornou HTTP ${apiRes.status}`, logId }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const rawData = await apiRes.json();
-    const records = Array.isArray(rawData)
-      ? rawData
-      : rawData.data || rawData.items || rawData.results || [rawData];
 
     const fieldMapping = integration.field_mapping as Record<string, string>;
     let inserted = 0;
     let updated = 0;
     let errors = 0;
-    const totalRecords = records.length;
+    let totalRecords = 0;
 
-    // Update log with total
-    await adminClient.from("sync_logs").update({
-      total_records: totalRecords,
-    }).eq("id", logId);
+    const paginationEnabled = integration.pagination_enabled === true;
+    const pageSize = integration.pagination_page_size || 200;
+    const paramOffset = integration.pagination_param_offset || "offset";
+    const paramLimit = integration.pagination_param_limit || "limit";
 
-    // Process in batches
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      const batch = records.slice(i, i + BATCH_SIZE);
+    // Fetch records — with or without pagination
+    let allRecords: any[] = [];
+
+    if (paginationEnabled) {
+      let currentOffset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        let url: string;
+        let fetchOpts: RequestInit;
+
+        if (integration.http_method === "POST") {
+          url = integration.endpoint_url;
+          let bodyObj: Record<string, any> = {};
+          if (integration.body_template) {
+            try { bodyObj = JSON.parse(integration.body_template); } catch { /* use empty */ }
+          }
+          bodyObj[paramOffset] = currentOffset;
+          bodyObj[paramLimit] = pageSize;
+          fetchOpts = {
+            method: "POST",
+            headers: apiHeaders,
+            body: JSON.stringify(bodyObj),
+          };
+        } else {
+          const separator = integration.endpoint_url.includes("?") ? "&" : "?";
+          url = `${integration.endpoint_url}${separator}${paramOffset}=${currentOffset}&${paramLimit}=${pageSize}`;
+          fetchOpts = { method: "GET", headers: apiHeaders };
+        }
+
+        const apiRes = await fetch(url, fetchOpts);
+        if (!apiRes.ok) {
+          const errorText = await apiRes.text();
+          const errMsg = `HTTP ${apiRes.status} (offset ${currentOffset}): ${errorText.substring(0, 200)}`;
+          await adminClient.from("sync_logs").update({
+            status: "error",
+            finished_at: new Date().toISOString(),
+            error_message: errMsg,
+            inserted, updated, errors, total_records: totalRecords,
+          }).eq("id", logId);
+
+          await adminClient.from("api_integrations").update({
+            last_sync_at: new Date().toISOString(),
+            last_sync_status: "error",
+            last_sync_message: errMsg,
+          }).eq("id", integrationId);
+
+          return new Response(JSON.stringify({ error: errMsg, logId }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const rawData = await apiRes.json();
+        const pageRecords = Array.isArray(rawData)
+          ? rawData
+          : rawData.data || rawData.items || rawData.results || [rawData];
+
+        allRecords = allRecords.concat(pageRecords);
+        totalRecords = allRecords.length;
+
+        // Update log with running total
+        await adminClient.from("sync_logs").update({ total_records: totalRecords }).eq("id", logId);
+
+        if (pageRecords.length < pageSize) {
+          hasMore = false;
+        } else {
+          currentOffset += pageSize;
+        }
+      }
+    } else {
+      // Single request (no pagination)
+      const fetchOpts: RequestInit = { method: integration.http_method, headers: apiHeaders };
+      if (integration.http_method === "POST" && integration.body_template) {
+        fetchOpts.body = integration.body_template;
+      }
+
+      const apiRes = await fetch(integration.endpoint_url, fetchOpts);
+      if (!apiRes.ok) {
+        const errorText = await apiRes.text();
+        const errMsg = `HTTP ${apiRes.status}: ${errorText.substring(0, 200)}`;
+        await adminClient.from("sync_logs").update({
+          status: "error",
+          finished_at: new Date().toISOString(),
+          error_message: errMsg,
+        }).eq("id", logId);
+
+        await adminClient.from("api_integrations").update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: "error",
+          last_sync_message: errMsg,
+        }).eq("id", integrationId);
+
+        return new Response(JSON.stringify({ error: `API retornou HTTP ${apiRes.status}`, logId }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const rawData = await apiRes.json();
+      allRecords = Array.isArray(rawData)
+        ? rawData
+        : rawData.data || rawData.items || rawData.results || [rawData];
+      totalRecords = allRecords.length;
+    }
+
+    // Update log with final total
+    await adminClient.from("sync_logs").update({ total_records: totalRecords }).eq("id", logId);
+
+    // Process all records in batches
+    for (let i = 0; i < allRecords.length; i += BATCH_SIZE) {
+      const batch = allRecords.slice(i, i + BATCH_SIZE);
 
       for (const record of batch) {
         try {
@@ -175,22 +249,16 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update log progress after each batch
       await adminClient.from("sync_logs").update({
-        inserted,
-        updated,
-        errors,
+        inserted, updated, errors,
       }).eq("id", logId);
     }
 
-    // Finalize log
     const message = `Inseridos: ${inserted}, Atualizados: ${updated}, Erros: ${errors}`;
     await adminClient.from("sync_logs").update({
       status: "success",
       finished_at: new Date().toISOString(),
-      inserted,
-      updated,
-      errors,
+      inserted, updated, errors,
       total_records: totalRecords,
     }).eq("id", logId);
 

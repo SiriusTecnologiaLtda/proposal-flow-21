@@ -103,6 +103,7 @@ export default function IntegrationsPage() {
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [activeSyncLogId, setActiveSyncLogId] = useState<string | null>(null);
   const [syncLog, setSyncLog] = useState<any>(null);
+  const [syncIntegrationId, setSyncIntegrationId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Logs viewer
@@ -139,22 +140,37 @@ export default function IntegrationsPage() {
     },
   });
 
-  // Polling for sync progress
+  // Polling for sync progress — poll by integration_id to find latest log
   useEffect(() => {
-    if (!activeSyncLogId || !syncDialogOpen) {
+    const integrationId = syncIntegrationId;
+    if (!integrationId || !syncDialogOpen) {
       if (pollingRef.current) clearInterval(pollingRef.current);
       return;
     }
 
+    let stopped = false;
     const poll = async () => {
-      const { data } = await supabase
-        .from("sync_logs")
-        .select("*")
-        .eq("id", activeSyncLogId)
-        .single();
+      // If we have a specific logId, query by id; otherwise find latest for this integration
+      let data: any = null;
+      if (activeSyncLogId) {
+        const res = await supabase.from("sync_logs").select("*").eq("id", activeSyncLogId).single();
+        data = res.data;
+      } else {
+        const res = await supabase
+          .from("sync_logs")
+          .select("*")
+          .eq("integration_id", integrationId)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .single();
+        data = res.data;
+        // Lock onto this log once found
+        if (data) setActiveSyncLogId(data.id);
+      }
       if (data) {
         setSyncLog(data);
-        if (data.status !== "running") {
+        if (data.status !== "running" && !stopped) {
+          stopped = true;
           if (pollingRef.current) clearInterval(pollingRef.current);
           queryClient.invalidateQueries({ queryKey: ["api_integrations"] });
           queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -163,10 +179,16 @@ export default function IntegrationsPage() {
       }
     };
 
-    poll();
-    pollingRef.current = setInterval(poll, 2000);
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [activeSyncLogId, syncDialogOpen]);
+    // Small delay to let the edge function create the log entry
+    const timeout = setTimeout(() => {
+      poll();
+      pollingRef.current = setInterval(poll, 2000);
+    }, 1000);
+    return () => {
+      clearTimeout(timeout);
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [syncIntegrationId, syncDialogOpen, activeSyncLogId]);
 
   function openCreate() {
     setEditingId(null);
@@ -287,16 +309,19 @@ export default function IntegrationsPage() {
     }
   }
 
+
   async function handleSync(integrationId: string) {
     setSyncLog(null);
     setActiveSyncLogId(null);
+    setSyncIntegrationId(integrationId);
     setSyncDialogOpen(true);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "vpyniuyqmseusowjreth";
-      const res = await fetch(
+      // Fire-and-forget: don't await the response body
+      fetch(
         `https://${projectId}.supabase.co/functions/v1/sync-api-clients`,
         {
           method: "POST",
@@ -306,17 +331,9 @@ export default function IntegrationsPage() {
           },
           body: JSON.stringify({ integrationId, triggerType: "manual" }),
         }
-      );
-      const result = await res.json();
-      if (result.logId) {
-        setActiveSyncLogId(result.logId);
-      }
-      if (!res.ok) {
-        // Log was already created with error status, polling will pick it up
-        if (!result.logId) {
-          setSyncLog({ status: "error", error_message: result.error || "Falha" });
-        }
-      }
+      ).catch(() => {
+        // Network error — will be caught by polling showing no running log
+      });
     } catch (err: any) {
       setSyncLog({ status: "error", error_message: err.message });
     }

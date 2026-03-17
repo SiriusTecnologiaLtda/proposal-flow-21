@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
-const emptyForm = { name: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
+const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
 
 export default function UnitsPage() {
   const { data: units = [] } = useUnits();
@@ -22,7 +22,7 @@ export default function UnitsPage() {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: any) => {
     setEditId(u.id);
-    setForm({ name: u.name, cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0 });
+    setForm({ name: u.name, code: u.code || "", cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0 });
     setDialogOpen(true);
   };
 
@@ -46,6 +46,7 @@ export default function UnitsPage() {
 
   const fields = [
     { id: "name", label: "Nome da Unidade *", type: "text" },
+    { id: "code", label: "Código TOTVS", type: "text" },
     { id: "cnpj", label: "CNPJ", type: "text" },
     { id: "contact", label: "Contato", type: "text" },
     { id: "email", label: "E-mail", type: "email" },
@@ -101,6 +102,7 @@ export default function UnitsPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{unit.name}</p>
+                  {unit.code && <p className="text-xs text-muted-foreground font-mono">{unit.code}</p>}
                   {unit.cnpj && <p className="text-xs text-muted-foreground">{unit.cnpj}</p>}
                 </div>
               </div>

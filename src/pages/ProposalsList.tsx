@@ -164,8 +164,9 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
-  async function loadVersions(proposalId: string) {
+  async function loadVersions(proposalId: string, docType: string = "proposta") {
     setVersionsProposalId(proposalId);
+    setVersionsDocType(docType);
     setVersionsLoading(true);
     setVersionsOpen(true);
     try {
@@ -173,6 +174,7 @@ export default function ProposalsList() {
         .from("proposal_documents")
         .select("*")
         .eq("proposal_id", proposalId)
+        .eq("doc_type", docType)
         .order("version", { ascending: false });
       if (error) throw error;
       setVersions((data || []) as any);

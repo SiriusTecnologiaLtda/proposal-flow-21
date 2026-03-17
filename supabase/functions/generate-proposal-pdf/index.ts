@@ -28,7 +28,7 @@ function respondWithLogs(logs: LogEntry[], extra: Record<string, any> = {}, stat
 
 // ─── Google Auth ────────────────────────────────────────────────────
 
-async function getAccessToken(serviceAccountKey: any): Promise<string> {
+async function getAccessTokenServiceAccount(serviceAccountKey: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const payload = btoa(JSON.stringify({
@@ -79,6 +79,26 @@ async function getAccessToken(serviceAccountKey: any): Promise<string> {
   }
 
   const tokenData = await tokenResp.json();
+  return tokenData.access_token;
+}
+
+async function getAccessTokenOAuth2(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`OAuth2 token refresh failed (${tokenRes.status}): ${errText}`);
+  }
+  const tokenData = await tokenRes.json();
   return tokenData.access_token;
 }
 
@@ -281,23 +301,36 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let serviceAccountKey: any;
     let driveFolderId: string;
+    let authType = "service_account";
+    let serviceAccountKey: any = null;
+    let oauthClientId = "";
+    let oauthClientSecret = "";
+    let oauthRefreshToken = "";
 
     const { data: integration } = await supabase
       .from("google_integrations")
-      .select("service_account_key, drive_folder_id")
+      .select("*")
       .limit(1)
       .maybeSingle();
 
     if (integration) {
-      try {
-        serviceAccountKey = JSON.parse(integration.service_account_key);
-        driveFolderId = integration.drive_folder_id;
-        log(logs, "Carregar credenciais", "ok", `Usando integração do banco (email: ${serviceAccountKey.client_email})`);
-      } catch (e) {
-        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave da conta de serviço: ${e.message}`);
-        return respondWithLogs(logs, { error: e.message }, 500);
+      driveFolderId = integration.drive_folder_id;
+      authType = integration.auth_type || "service_account";
+
+      if (authType === "oauth2") {
+        oauthClientId = integration.oauth_client_id || "";
+        oauthClientSecret = integration.oauth_client_secret || "";
+        oauthRefreshToken = integration.oauth_refresh_token || "";
+        log(logs, "Carregar credenciais", "ok", `Usando OAuth2 (Client ID: ${oauthClientId.substring(0, 20)}...)`);
+      } else {
+        try {
+          serviceAccountKey = JSON.parse(integration.service_account_key);
+          log(logs, "Carregar credenciais", "ok", `Usando Service Account (email: ${serviceAccountKey.client_email})`);
+        } catch (e) {
+          log(logs, "Carregar credenciais", "error", `Falha ao parsear chave da conta de serviço: ${e.message}`);
+          return respondWithLogs(logs, { error: e.message }, 500);
+        }
       }
     } else {
       log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
@@ -403,10 +436,14 @@ Deno.serve(async (req) => {
     log(logs, "Calcular valores", "ok", `${totalHours}h total (${totalAnalystHours}h analista + ${gpHours}h GP) — Líquido: R$ ${fmt(totalValueNet)} — Bruto: R$ ${fmt(totalValueGross)}`);
 
     // ─── Google Auth ────────────────────────────────────────────
-    log(logs, "Autenticação Google", "info", "Obtendo token de acesso...");
+    log(logs, "Autenticação Google", "info", `Obtendo token de acesso (${authType})...`);
     let accessToken: string;
     try {
-      accessToken = await getAccessToken(serviceAccountKey);
+      if (authType === "oauth2") {
+        accessToken = await getAccessTokenOAuth2(oauthClientId, oauthClientSecret, oauthRefreshToken);
+      } else {
+        accessToken = await getAccessTokenServiceAccount(serviceAccountKey);
+      }
       log(logs, "Autenticação Google", "ok", "Token obtido com sucesso");
     } catch (e: any) {
       log(logs, "Autenticação Google", "error", `Falha na autenticação: ${e.message}`);

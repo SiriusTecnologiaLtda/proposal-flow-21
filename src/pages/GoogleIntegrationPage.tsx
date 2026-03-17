@@ -19,12 +19,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Pencil, Trash2, ArrowLeft, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface GoogleIntegration {
   id: string;
   label: string;
+  auth_type: string;
   service_account_key: string;
   drive_folder_id: string;
+  oauth_client_id: string | null;
+  oauth_client_secret: string | null;
+  oauth_refresh_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,7 +41,15 @@ interface LogEntry {
   timestamp: string;
 }
 
-const emptyForm = { label: "", service_account_key: "", drive_folder_id: "" };
+const emptyForm = {
+  label: "",
+  auth_type: "oauth2" as "service_account" | "oauth2",
+  service_account_key: "",
+  drive_folder_id: "",
+  oauth_client_id: "",
+  oauth_client_secret: "",
+  oauth_refresh_token: "",
+};
 
 export default function GoogleIntegrationPage() {
   const navigate = useNavigate();
@@ -50,7 +63,6 @@ export default function GoogleIntegrationPage() {
   const [form, setForm] = useState(emptyForm);
   const [jsonError, setJsonError] = useState("");
 
-  // Test console state
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testLogs, setTestLogs] = useState<LogEntry[]>([]);
   const [testRunning, setTestRunning] = useState(false);
@@ -69,22 +81,40 @@ export default function GoogleIntegrationPage() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as GoogleIntegration[];
+      return data as unknown as GoogleIntegration[];
     },
   });
 
   const saveMutation = useMutation({
     mutationFn: async (values: typeof emptyForm & { id?: string }) => {
+      const payload: any = {
+        label: values.label,
+        auth_type: values.auth_type,
+        drive_folder_id: values.drive_folder_id,
+      };
+
+      if (values.auth_type === "service_account") {
+        payload.service_account_key = values.service_account_key;
+        payload.oauth_client_id = null;
+        payload.oauth_client_secret = null;
+        payload.oauth_refresh_token = null;
+      } else {
+        payload.oauth_client_id = values.oauth_client_id;
+        payload.oauth_client_secret = values.oauth_client_secret;
+        payload.oauth_refresh_token = values.oauth_refresh_token;
+        payload.service_account_key = "";
+      }
+
       if (values.id) {
         const { error } = await supabase
           .from("google_integrations")
-          .update({ label: values.label, service_account_key: values.service_account_key, drive_folder_id: values.drive_folder_id })
+          .update(payload)
           .eq("id", values.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("google_integrations")
-          .insert({ label: values.label, service_account_key: values.service_account_key, drive_folder_id: values.drive_folder_id });
+          .insert(payload);
         if (error) throw error;
       }
     },
@@ -128,24 +158,45 @@ export default function GoogleIntegrationPage() {
   }
 
   function openEdit(item: GoogleIntegration) {
-    setForm({ label: item.label, service_account_key: item.service_account_key, drive_folder_id: item.drive_folder_id });
+    setForm({
+      label: item.label,
+      auth_type: (item.auth_type as "service_account" | "oauth2") || "service_account",
+      service_account_key: item.service_account_key || "",
+      drive_folder_id: item.drive_folder_id,
+      oauth_client_id: item.oauth_client_id || "",
+      oauth_client_secret: item.oauth_client_secret || "",
+      oauth_refresh_token: item.oauth_refresh_token || "",
+    });
     setEditingId(item.id);
     setJsonError("");
     setDialogOpen(true);
   }
 
   function handleSave() {
-    if (!form.label.trim() || !form.drive_folder_id.trim() || !form.service_account_key.trim()) {
-      toast({ title: "Campos obrigatórios", description: "Preencha todos os campos.", variant: "destructive" });
+    if (!form.label.trim() || !form.drive_folder_id.trim()) {
+      toast({ title: "Campos obrigatórios", description: "Preencha Nome e ID da Pasta.", variant: "destructive" });
       return;
     }
-    try {
-      JSON.parse(form.service_account_key);
-      setJsonError("");
-    } catch {
-      setJsonError("JSON inválido. Cole o conteúdo completo do arquivo .json da Service Account.");
-      return;
+
+    if (form.auth_type === "service_account") {
+      if (!form.service_account_key.trim()) {
+        toast({ title: "Campo obrigatório", description: "Preencha o JSON da Service Account.", variant: "destructive" });
+        return;
+      }
+      try {
+        JSON.parse(form.service_account_key);
+        setJsonError("");
+      } catch {
+        setJsonError("JSON inválido. Cole o conteúdo completo do arquivo .json da Service Account.");
+        return;
+      }
+    } else {
+      if (!form.oauth_client_id.trim() || !form.oauth_client_secret.trim() || !form.oauth_refresh_token.trim()) {
+        toast({ title: "Campos obrigatórios", description: "Preencha Client ID, Client Secret e Refresh Token.", variant: "destructive" });
+        return;
+      }
     }
+
     saveMutation.mutate({ ...form, id: editingId ?? undefined });
   }
 
@@ -195,6 +246,10 @@ export default function GoogleIntegrationPage() {
     return <span className="text-blue-400">›</span>;
   }
 
+  function authLabel(authType: string) {
+    return authType === "oauth2" ? "OAuth2" : "Service Account";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -226,20 +281,34 @@ export default function GoogleIntegrationPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Tipo Auth</TableHead>
                   <TableHead>Pasta Drive</TableHead>
-                  <TableHead>Service Account</TableHead>
+                  <TableHead>Conta</TableHead>
                   {isAdmin && <TableHead className="w-32">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {integrations.map((item) => {
-                  let email = "—";
-                  try { email = JSON.parse(item.service_account_key).client_email || "—"; } catch { /* ignore */ }
+                  let account = "—";
+                  if (item.auth_type === "oauth2") {
+                    account = item.oauth_client_id ? `${item.oauth_client_id.substring(0, 20)}...` : "—";
+                  } else {
+                    try { account = JSON.parse(item.service_account_key).client_email || "—"; } catch { /* ignore */ }
+                  }
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.label}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.auth_type === "oauth2"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        }`}>
+                          {authLabel(item.auth_type)}
+                        </span>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{email}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{account}</TableCell>
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">
@@ -269,7 +338,7 @@ export default function GoogleIntegrationPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar conexão" : "Nova conexão Google"}</DialogTitle>
-            <DialogDescription>Preencha as credenciais da Service Account e o ID da pasta do Google Drive.</DialogDescription>
+            <DialogDescription>Configure as credenciais de acesso ao Google Drive.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -280,16 +349,62 @@ export default function GoogleIntegrationPage() {
               <Label>ID da Pasta do Google Drive</Label>
               <Input placeholder="Ex: 1JBh1YFS86MMe-M91kWeBchfh8xwQrFwB" value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} />
             </div>
-            <div>
-              <Label>JSON da Service Account</Label>
-              <Textarea
-                placeholder='Cole aqui o conteúdo completo do arquivo .json da Service Account'
-                className="min-h-[200px] font-mono text-xs"
-                value={form.service_account_key}
-                onChange={(e) => { setForm({ ...form, service_account_key: e.target.value }); setJsonError(""); }}
-              />
-              {jsonError && <p className="mt-1 text-xs text-destructive">{jsonError}</p>}
-            </div>
+
+            <Tabs value={form.auth_type} onValueChange={(v) => setForm({ ...form, auth_type: v as "service_account" | "oauth2" })}>
+              <Label>Tipo de Autenticação</Label>
+              <TabsList className="w-full mt-1">
+                <TabsTrigger value="oauth2" className="flex-1">OAuth2 (Pessoal)</TabsTrigger>
+                <TabsTrigger value="service_account" className="flex-1">Service Account</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="oauth2" className="space-y-3 mt-3">
+                <p className="text-xs text-muted-foreground">
+                  Use OAuth2 para autenticar com sua conta pessoal do Google e utilizar seus 15GB gratuitos do Drive.
+                </p>
+                <div>
+                  <Label>Client ID</Label>
+                  <Input
+                    placeholder="Ex: 123456789.apps.googleusercontent.com"
+                    value={form.oauth_client_id}
+                    onChange={(e) => setForm({ ...form, oauth_client_id: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Client Secret</Label>
+                  <Input
+                    type="password"
+                    placeholder="Client Secret do OAuth2"
+                    value={form.oauth_client_secret}
+                    onChange={(e) => setForm({ ...form, oauth_client_secret: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Refresh Token</Label>
+                  <Input
+                    type="password"
+                    placeholder="Refresh Token obtido via OAuth Playground"
+                    value={form.oauth_refresh_token}
+                    onChange={(e) => setForm({ ...form, oauth_refresh_token: e.target.value })}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="service_account" className="space-y-3 mt-3">
+                <p className="text-xs text-muted-foreground">
+                  Use Service Account para Shared Drives organizacionais. A conta de serviço precisa de acesso à pasta.
+                </p>
+                <div>
+                  <Label>JSON da Service Account</Label>
+                  <Textarea
+                    placeholder='Cole aqui o conteúdo completo do arquivo .json da Service Account'
+                    className="min-h-[200px] font-mono text-xs"
+                    value={form.service_account_key}
+                    onChange={(e) => { setForm({ ...form, service_account_key: e.target.value }); setJsonError(""); }}
+                  />
+                  {jsonError && <p className="mt-1 text-xs text-destructive">{jsonError}</p>}
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>

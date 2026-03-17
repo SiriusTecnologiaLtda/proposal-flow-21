@@ -31,6 +31,7 @@ export type Database = {
           last_sync_message: string | null
           last_sync_status: string | null
           pagination_enabled: boolean
+          pagination_order_by: string | null
           pagination_page_size: number
           pagination_param_limit: string
           pagination_param_offset: string
@@ -57,6 +58,7 @@ export type Database = {
           last_sync_message?: string | null
           last_sync_status?: string | null
           pagination_enabled?: boolean
+          pagination_order_by?: string | null
           pagination_page_size?: number
           pagination_param_limit?: string
           pagination_param_offset?: string
@@ -83,6 +85,7 @@ export type Database = {
           last_sync_message?: string | null
           last_sync_status?: string | null
           pagination_enabled?: boolean
+          pagination_order_by?: string | null
           pagination_page_size?: number
           pagination_param_limit?: string
           pagination_param_offset?: string
@@ -127,6 +130,7 @@ export type Database = {
           name: string
           phone: string | null
           state_registration: string | null
+          store_code: string | null
           unit_id: string | null
           updated_at: string
         }
@@ -143,6 +147,7 @@ export type Database = {
           name: string
           phone?: string | null
           state_registration?: string | null
+          store_code?: string | null
           unit_id?: string | null
           updated_at?: string
         }
@@ -159,6 +164,7 @@ export type Database = {
           name?: string
           phone?: string | null
           state_registration?: string | null
+          store_code?: string | null
           unit_id?: string | null
           updated_at?: string
         }
@@ -743,14 +749,70 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_log_events: {
+        Row: {
+          created_at: string
+          curl_command: string | null
+          duration_ms: number | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          page_number: number
+          page_offset: number
+          records_in_page: number | null
+          response_preview: string | null
+          sync_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          curl_command?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          page_number?: number
+          page_offset?: number
+          records_in_page?: number | null
+          response_preview?: string | null
+          sync_log_id: string
+        }
+        Update: {
+          created_at?: string
+          curl_command?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          page_number?: number
+          page_offset?: number
+          records_in_page?: number | null
+          response_preview?: string | null
+          sync_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_log_events_sync_log_id_fkey"
+            columns: ["sync_log_id"]
+            isOneToOne: false
+            referencedRelation: "sync_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_logs: {
         Row: {
+          current_offset: number | null
           error_message: string | null
           errors: number
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           inserted: number
           integration_id: string
+          last_page_count: number | null
+          page_size: number | null
+          pages_processed: number | null
+          records_fetched: number | null
           request_log: string | null
           started_at: string
           status: string
@@ -759,12 +821,18 @@ export type Database = {
           updated: number
         }
         Insert: {
+          current_offset?: number | null
           error_message?: string | null
           errors?: number
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           inserted?: number
           integration_id: string
+          last_page_count?: number | null
+          page_size?: number | null
+          pages_processed?: number | null
+          records_fetched?: number | null
           request_log?: string | null
           started_at?: string
           status?: string
@@ -773,12 +841,18 @@ export type Database = {
           updated?: number
         }
         Update: {
+          current_offset?: number | null
           error_message?: string | null
           errors?: number
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           inserted?: number
           integration_id?: string
+          last_page_count?: number | null
+          page_size?: number | null
+          pages_processed?: number | null
+          records_fetched?: number | null
           request_log?: string | null
           started_at?: string
           status?: string

@@ -42,12 +42,24 @@ export function useClients() {
   return useQuery({
     queryKey: ["clients"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*, unit_info(id, name), esn:sales_team!clients_esn_id_fkey(id, name, code), gsn:sales_team!clients_gsn_id_fkey(id, name, code)")
-        .order("name");
-      if (error) throw error;
-      return data;
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("*, unit_info(id, name), esn:sales_team!clients_esn_id_fkey(id, name, code), gsn:sales_team!clients_gsn_id_fkey(id, name, code)")
+          .order("name")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      return allData;
     },
   });
 }

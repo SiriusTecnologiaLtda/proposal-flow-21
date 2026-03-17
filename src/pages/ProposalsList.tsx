@@ -76,15 +76,17 @@ export default function ProposalsList() {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [consoleLogs]);
 
-  async function handleGenerateDoc(proposalId: string) {
+  async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     setConsoleLogs([]);
     setConsoleDocUrl(null);
     setConsoleLoading(true);
     setConsoleOpen(true);
 
+    const endpoint = docType === "mit" ? "generate-mit-doc" : "generate-proposal-pdf";
+
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`,
         {
           method: "POST",
           headers: {

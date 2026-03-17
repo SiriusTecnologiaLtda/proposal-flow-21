@@ -1030,7 +1030,6 @@ Deno.serve(async (req) => {
       "{{ENDERECO_UNIDADE}}": unitInfo?.address || "—",
       "{{CIDADE}}": unitInfo?.city || "—",
       "{{DESC_PROJETO}}": desc,
-      "{{ESCOPO1}}": macroScopeNames.join("\n"),
       "{{QT_TOTALHRS}}": totalHours.toString(),
       "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": accompGPHours.toString(),

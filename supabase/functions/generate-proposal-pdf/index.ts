@@ -458,11 +458,14 @@ Deno.serve(async (req) => {
     const newFileName = `${proposalBaseName} v${version}`;
     log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
 
+    // ─── Check folder type (Shared Drive vs personal) ─────────
+    const folderInfo = await getFolderDriveInfo(accessToken, driveFolderId, logs);
+
     // ─── Copy template ──────────────────────────────────────────
     log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta: ${driveFolderId})...`);
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, logs);
+      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, folderInfo.driveId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);

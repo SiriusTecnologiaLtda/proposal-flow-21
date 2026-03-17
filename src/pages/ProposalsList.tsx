@@ -406,6 +406,81 @@ export default function ProposalsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Versions dialog */}
+      <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5" />
+              Propostas Geradas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {versionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : versions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma proposta gerada ainda.</p>
+            ) : (
+              <ScrollArea className="max-h-80">
+                <div className="space-y-2 pr-2">
+                  {versions.map((doc, idx) => (
+                    <div
+                      key={doc.id}
+                      className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+                        doc.is_official
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-accent/50"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
+                          {doc.is_official && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">
+                              Oficial
+                            </Badge>
+                          )}
+                          {idx === 0 && !doc.is_official && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              Mais recente
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          v{doc.version} · {new Date(doc.created_at).toLocaleDateString("pt-BR")} às {new Date(doc.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={doc.is_official ? "Desmarcar como oficial" : "Definir como oficial"}
+                          onClick={() => toggleOfficial(doc.id, doc.is_official)}
+                        >
+                          <Star className={`h-4 w-4 ${doc.is_official ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Abrir documento"
+                          onClick={() => window.open(doc.doc_url, "_blank")}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

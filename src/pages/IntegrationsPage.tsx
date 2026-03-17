@@ -224,6 +224,10 @@ export default function IntegrationsPage() {
       schedule_enabled: item.schedule_enabled || false,
       schedule_days: days as string[],
       schedule_time: item.schedule_time || "06:00",
+      pagination_enabled: item.pagination_enabled || false,
+      pagination_page_size: item.pagination_page_size || 200,
+      pagination_param_offset: item.pagination_param_offset || "offset",
+      pagination_param_limit: item.pagination_param_limit || "limit",
     });
     setTestResult(null);
     setDialogOpen(true);

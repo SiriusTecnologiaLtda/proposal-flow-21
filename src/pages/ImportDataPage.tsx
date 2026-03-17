@@ -257,10 +257,23 @@ export default function ImportDataPage() {
       // Load units, sales_team for code lookup
       const { data: units } = await supabase.from("unit_info").select("id, code, name");
       const { data: salesTeam } = await supabase.from("sales_team").select("id, code, role");
-      const unitMap = new Map<string, string>();
-      for (const u of (units || [])) {
-        if (u.code) unitMap.set(u.code.trim().toLowerCase(), u.id);
-        unitMap.set(u.name.trim().toLowerCase(), u.id);
+      const unitList = (units || []).map(u => ({
+        id: u.id,
+        code: (u.code || "").trim().toLowerCase(),
+        name: u.name.trim().toLowerCase(),
+      }));
+      function findUnitId(search: string): string | null {
+        if (!search) return null;
+        const s = search.trim().toLowerCase();
+        // Exact match first
+        const exact = unitList.find(u => u.code === s || u.name === s);
+        if (exact) return exact.id;
+        // Partial match: search string contained in unit code or vice-versa
+        const partial = unitList.find(u =>
+          (u.code && (u.code.includes(s) || s.includes(u.code))) ||
+          (u.name && (u.name.includes(s) || s.includes(u.name)))
+        );
+        return partial ? partial.id : null;
       }
       const esnMap = new Map((salesTeam || []).filter(s => s.role === "esn").map(s => [s.code.toLowerCase(), s.id]));
       const gsnMap = new Map((salesTeam || []).filter(s => s.role === "gsn").map(s => [s.code.toLowerCase(), s.id]));

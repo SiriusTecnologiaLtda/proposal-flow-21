@@ -187,13 +187,11 @@ export default function ProposalsList() {
 
   async function toggleOfficial(docId: string, currentOfficial: boolean) {
     try {
-      // If setting as official, unset all others first
       if (!currentOfficial && versionsProposalId) {
-        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId);
+        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId).eq("doc_type", versionsDocType);
       }
       await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
-      // Reload
-      if (versionsProposalId) await loadVersions(versionsProposalId);
+      if (versionsProposalId) await loadVersions(versionsProposalId, versionsDocType);
       toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });

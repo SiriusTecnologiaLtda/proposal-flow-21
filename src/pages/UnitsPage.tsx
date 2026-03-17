@@ -102,6 +102,7 @@ export default function UnitsPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{unit.name}</p>
+                  {unit.code && <p className="text-xs text-muted-foreground font-mono">{unit.code}</p>}
                   {unit.cnpj && <p className="text-xs text-muted-foreground">{unit.cnpj}</p>}
                 </div>
               </div>

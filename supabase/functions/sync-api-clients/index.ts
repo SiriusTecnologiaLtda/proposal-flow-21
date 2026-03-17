@@ -206,15 +206,32 @@ Deno.serve(async (req) => {
 
         console.log(`Page ${pageCount}: offset=${currentOffset}, limit=${pageSize}`);
 
+        // Build curl log
+        const curlParts = [`curl -X ${integration.http_method} '${url}'`];
+        for (const [k, v] of Object.entries(apiHeaders)) {
+          curlParts.push(`-H '${k}: ${k.toLowerCase().includes("auth") ? "***" : v}'`);
+        }
+        if (fetchOpts.body) {
+          curlParts.push(`-d '${fetchOpts.body}'`);
+        }
+        const curlCmd = curlParts.join(" \\\n  ");
+
         const apiRes = await fetch(url, fetchOpts);
+        const responseText = await apiRes.text();
+
+        requestLogs.push(`[Page ${pageCount}] ${new Date().toISOString()}\n${curlCmd}\n\nHTTP ${apiRes.status}\nResponse (first 500 chars): ${responseText.substring(0, 500)}\n${"─".repeat(60)}`);
+
+        // Save request_log incrementally
+        await adminClient.from("sync_logs").update({ request_log: requestLogs.join("\n\n") }).eq("id", logId);
+
         if (!apiRes.ok) {
-          const errorText = await apiRes.text();
-          const errMsg = `HTTP ${apiRes.status} (offset ${currentOffset}): ${errorText.substring(0, 200)}`;
+          const errMsg = `HTTP ${apiRes.status} (offset ${currentOffset}): ${responseText.substring(0, 200)}`;
           await adminClient.from("sync_logs").update({
             status: "error",
             finished_at: new Date().toISOString(),
             error_message: errMsg,
             inserted, updated, errors, total_records: totalRecords,
+            request_log: requestLogs.join("\n\n"),
           }).eq("id", logId);
 
           await adminClient.from("api_integrations").update({
@@ -229,7 +246,23 @@ Deno.serve(async (req) => {
           });
         }
 
-        const rawData = await apiRes.json();
+        let rawData;
+        try {
+          rawData = JSON.parse(responseText);
+        } catch {
+          const errMsg = `Resposta não é JSON válido (offset ${currentOffset}): ${responseText.substring(0, 200)}`;
+          await adminClient.from("sync_logs").update({
+            status: "error",
+            finished_at: new Date().toISOString(),
+            error_message: errMsg,
+            request_log: requestLogs.join("\n\n"),
+          }).eq("id", logId);
+          return new Response(JSON.stringify({ error: errMsg, logId }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         const pageRecords = Array.isArray(rawData)
           ? rawData
           : rawData.data || rawData.items || rawData.results || [rawData];

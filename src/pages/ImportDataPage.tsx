@@ -156,12 +156,14 @@ export default function ImportDataPage() {
 
   const clientFileRef = useRef<HTMLInputElement>(null);
   const templateFileRef = useRef<HTMLInputElement>(null);
+  const salesTeamFileRef = useRef<HTMLInputElement>(null);
 
   const [importing, setImporting] = useState(false);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [clearClientsBeforeImport, setClearClientsBeforeImport] = useState(false);
   const [clearTemplatesBeforeImport, setClearTemplatesBeforeImport] = useState(false);
+  const [clearSalesTeamBeforeImport, setClearSalesTeamBeforeImport] = useState(false);
 
   function addLog(status: ImportLog["status"], message: string) {
     setLogs(prev => [...prev, { status, message }]);

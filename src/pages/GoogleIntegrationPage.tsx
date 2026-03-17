@@ -376,6 +376,12 @@ export default function GoogleIntegrationPage() {
 
   function startGoogleAuth(integrationId: string, clientId: string) {
     const redirectUri = getRedirectUri();
+    const statePayload = btoa(
+      JSON.stringify({
+        integrationId,
+        openerOrigin: window.location.origin,
+      })
+    );
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -383,7 +389,7 @@ export default function GoogleIntegrationPage() {
       scope: GOOGLE_SCOPES,
       access_type: "offline",
       prompt: "consent",
-      state: integrationId,
+      state: statePayload,
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     

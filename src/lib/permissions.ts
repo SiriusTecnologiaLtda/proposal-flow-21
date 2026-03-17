@@ -1,17 +1,11 @@
 /**
  * Role-based permissions configuration.
- * Each role maps to a set of allowed route prefixes.
- * "admin" has access to everything.
+ * Permissions are stored in DB (role_permissions table) and can be edited by admins.
+ * Admin role always has access to everything regardless of DB entries.
  */
 
 export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn";
 
-export interface PermissionDef {
-  label: string;
-  routes: string[];
-}
-
-// Route groups that can be restricted
 export const RESOURCE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   propostas: "Propostas",
@@ -23,26 +17,17 @@ export const RESOURCE_LABELS: Record<string, string> = {
   configuracoes: "Configurações",
 };
 
-// Which routes each role can access (admin always has all)
-const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
-  admin: Object.keys(RESOURCE_LABELS),
-  vendedor: ["dashboard", "propostas", "clientes"],
-  gsn: ["dashboard", "propostas", "clientes", "time"],
-  arquiteto: ["dashboard", "propostas", "clientes"],
-};
+export const ALL_RESOURCES = Object.keys(RESOURCE_LABELS);
 
-export function getAllowedResources(role: AppRole | null): string[] {
-  if (!role) return ["dashboard", "propostas"];
-  return ROLE_PERMISSIONS[role] || ["dashboard", "propostas"];
-}
-
-export function canAccessRoute(role: AppRole | null, pathname: string): boolean {
+export function canAccessRoute(
+  role: AppRole | null,
+  pathname: string,
+  allowedResources: string[]
+): boolean {
   if (role === "admin") return true;
-  const allowed = getAllowedResources(role);
-  // Root path = dashboard
-  if (pathname === "/" || pathname === "") return allowed.includes("dashboard");
+  if (pathname === "/" || pathname === "") return allowedResources.includes("dashboard");
   const segment = pathname.split("/").filter(Boolean)[0];
-  return allowed.includes(segment);
+  return allowedResources.includes(segment);
 }
 
 export const ROLE_LABELS: Record<AppRole, string> = {

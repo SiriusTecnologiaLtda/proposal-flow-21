@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sync-api-clients]
 verify_jwt = false
+
+[functions.google-oauth-exchange]
+verify_jwt = false

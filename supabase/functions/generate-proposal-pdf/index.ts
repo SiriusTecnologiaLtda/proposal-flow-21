@@ -883,9 +883,10 @@ Deno.serve(async (req) => {
       templateNames = (templates || []).reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
     }
 
-    const totalAnalystHours = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
+    const totalAnalystHoursRaw = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
+    const totalAnalystHours = roundUp8(totalAnalystHoursRaw);
     const gpPercentage = Number(proposal.gp_percentage);
-    const gpHours = Math.ceil(totalAnalystHours * (gpPercentage / 100));
+    const gpHours = roundUp8(Math.ceil(totalAnalystHours * (gpPercentage / 100)));
     const hourlyRate = Number(proposal.hourly_rate);
     const totalHours = totalAnalystHours + gpHours;
     const totalValueNet = totalHours * hourlyRate;
@@ -893,8 +894,8 @@ Deno.serve(async (req) => {
     const totalValueGross = totalValueNet * (1 + taxFactor / 100);
     const accompAnalyst = Number(proposal.accomp_analyst) || 0;
     const accompGP = Number(proposal.accomp_gp) || 0;
-    const accompAnalystHours = Math.ceil(totalAnalystHours * (accompAnalyst / 100));
-    const accompGPHours = Math.ceil(gpHours * (accompGP / 100));
+    const accompAnalystHours = roundUp8(Math.ceil(totalAnalystHours * (accompAnalyst / 100)));
+    const accompGPHours = roundUp8(Math.ceil(gpHours * (accompGP / 100)));
 
     const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
     const isProjeto = proposal.type === "projeto";

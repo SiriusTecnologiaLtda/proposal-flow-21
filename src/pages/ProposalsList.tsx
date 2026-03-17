@@ -270,13 +270,22 @@ export default function ProposalsList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id)}>
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         Gerar Proposta
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => loadVersions(p.id)}>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id, "proposta")}>
                         <FolderOpen className="mr-2 h-3.5 w-3.5" />
                         Propostas Geradas
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                        <FileCheck className="mr-2 h-3.5 w-3.5" />
+                        Gerar MIT-065
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => loadVersions(p.id, "mit")}>
+                        <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                        MIT-065 Gerados
                       </DropdownMenuItem>
                       {!cancelled && (
                         <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>

@@ -1061,6 +1061,16 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, { error: e.message }, 500);
     }
 
+    // ─── Replace {{ESCOPO1}} with individual table rows ─────────
+    if (macroScopeNames.length > 0) {
+      log(logs, "Escopo macro", "info", "Inserindo macro escopo com linhas de grade...");
+      try {
+        await replaceScopePlaceholderWithRows(accessToken, newDocId, macroScopeNames, logs);
+      } catch (e: any) {
+        log(logs, "Escopo macro", "error", `Falha: ${e.message}`);
+      }
+    }
+
     // ─── Insert payment rows into table ─────────────────────────
     if (payments.length > 0) {
       log(logs, "Pagamento", "info", "Inserindo parcelas na tabela de condições de pagamento...");

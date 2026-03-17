@@ -434,7 +434,7 @@ export default function GoogleIntegrationPage() {
           <p className="text-xs text-muted-foreground">Use esses valores ao configurar credenciais OAuth no Google Cloud Console</p>
           {[
             { label: "Domínio autorizado", value: "lovable.app" },
-            { label: "URL de redirecionamento (OAuth Drive)", value: REDIRECT_URI_BASE() },
+            { label: "URL de redirecionamento (OAuth Drive)", value: getRedirectUri() },
             { label: "URL de redirecionamento (Login Google)", value: redirectUrl },
           ].map((item) => (
             <div key={item.label} className="space-y-1">

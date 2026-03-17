@@ -308,7 +308,7 @@ export default function ImportDataPage() {
           email: String(r[6] || "").trim() || null,
           phone: String(r[7] || "").trim() || null,
           address: String(r[8] || "").trim() || null,
-          unit_id: unitCode ? (unitMap.get(unitCode) || null) : null,
+          unit_id: findUnitId(unitCode),
           esn_id: esnCode ? (esnMap.get(esnCode) || null) : null,
           gsn_id: gsnCode ? (gsnMap.get(gsnCode) || null) : null,
         };

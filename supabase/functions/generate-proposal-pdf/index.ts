@@ -121,12 +121,33 @@ async function getFileInfo(accessToken: string, fileId: string): Promise<{ size:
   return { size: fmtBytes(size), name: data.name || "", mimeType: data.mimeType || "", rawSize: size };
 }
 
-async function copyFile(accessToken: string, fileId: string, name: string, parentFolderId: string, logs: LogEntry[]): Promise<string> {
-  // Step 1: Copy WITHOUT parents (stays in SA root, avoids quota issue)
-  const copyUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/copy?supportsAllDrives=true`;
-  const copyBody = JSON.stringify({ name });
+async function getFolderDriveInfo(accessToken: string, folderId: string, logs: LogEntry[]): Promise<{ driveId: string | null; isSharedDrive: boolean }> {
+  const url = `https://www.googleapis.com/drive/v3/files/${folderId}?fields=driveId,name,owners,capabilities&supportsAllDrives=true`;
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await resp.json();
+  
+  if (!resp.ok) {
+    log(logs, "Info da pasta", "error", `Falha ao obter info da pasta: ${JSON.stringify(data)}`);
+    return { driveId: null, isSharedDrive: false };
+  }
+  
+  const driveId = data.driveId || null;
+  const isSharedDrive = !!driveId;
+  log(logs, "Info da pasta", isSharedDrive ? "ok" : "info",
+    `Pasta: ${data.name || folderId}\nTipo: ${isSharedDrive ? "Shared Drive (driveId: " + driveId + ")" : "Pasta pessoal compartilhada"}\n${!isSharedDrive ? "⚠️ Service Accounts não podem criar arquivos em pastas pessoais. Use um Shared Drive." : "✓ Shared Drive detectado — quota do drive será usada."}`
+  );
+  
+  return { driveId, isSharedDrive };
+}
 
-  log(logs, "CURL - Copiar (sem parents)", "info",
+async function copyFile(accessToken: string, fileId: string, name: string, parentFolderId: string, driveId: string | null, logs: LogEntry[]): Promise<string> {
+  // For Shared Drives: copy WITH parents so file is owned by the Shared Drive (not the SA)
+  // For personal folders: also try with parents (will fail if SA has no quota)
+  const copyUrl = `https://www.googleapis.com/drive/v3/files/${fileId}/copy?supportsAllDrives=true`;
+  const copyBodyObj: any = { name, parents: [parentFolderId] };
+  const copyBody = JSON.stringify(copyBodyObj);
+
+  log(logs, "CURL - Copiar arquivo", "info",
     `curl -X POST '${copyUrl}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '${copyBody}'`
   );
 
@@ -145,40 +166,26 @@ async function copyFile(accessToken: string, fileId: string, name: string, paren
   );
 
   if (!copyResp.ok) {
+    if (copyResp.status === 403 && copyText.includes("storageQuotaExceeded")) {
+      if (!driveId) {
+        throw new Error(
+          `A pasta de destino NÃO é um Shared Drive. Service Accounts não possuem quota de armazenamento e não podem criar/copiar arquivos em pastas pessoais.\n\n` +
+          `SOLUÇÃO: Crie um "Drive compartilhado" (Shared Drive) no Google Workspace, mova os templates para lá, e atualize o ID da pasta na configuração da integração.\n\n` +
+          `Passo a passo:\n` +
+          `1. Acesse drive.google.com → "Drives compartilhados" (menu esquerdo)\n` +
+          `2. Crie um novo Drive compartilhado\n` +
+          `3. Adicione a Service Account (${copyBodyObj.name ? '' : ''}proposta-bot@...) como membro com permissão de "Colaborador" ou superior\n` +
+          `4. Mova os templates para este Shared Drive\n` +
+          `5. Atualize o ID da pasta na configuração`
+        );
+      }
+      throw new Error(`Drive copy failed (403) mesmo com Shared Drive. Verifique se a Service Account tem permissão de "Colaborador" no Shared Drive.\n\nResposta: ${copyText}`);
+    }
     throw new Error(`Drive copy failed (${copyResp.status}): ${copyText}`);
   }
 
   const copyData = JSON.parse(copyText);
-  const newFileId = copyData.id;
-  const currentParents = (copyData.parents || []).join(",");
-
-  // Step 2: Move to target folder using PATCH
-  const moveUrl = `https://www.googleapis.com/drive/v3/files/${newFileId}?addParents=${parentFolderId}&removeParents=${currentParents}&supportsAllDrives=true`;
-
-  log(logs, "CURL - Mover para pasta", "info",
-    `curl -X PATCH '${moveUrl}' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{}'`
-  );
-
-  const moveResp = await fetch(moveUrl, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({}),
-  });
-
-  const moveText = await moveResp.text();
-  log(logs, "Resposta Move", moveResp.ok ? "ok" : "error",
-    `Status: ${moveResp.status} ${moveResp.statusText}\nBody: ${moveText}`
-  );
-
-  if (!moveResp.ok) {
-    log(logs, "Move falhou", "error", `Arquivo ${newFileId} criado mas não movido. Erro: ${moveText}`);
-    // Return the file ID anyway - it was created successfully, just not moved
-  }
-
-  return newFileId;
+  return copyData.id;
 }
 
 async function listTemplates(accessToken: string, folderId: string): Promise<any[]> {
@@ -451,11 +458,14 @@ Deno.serve(async (req) => {
     const newFileName = `${proposalBaseName} v${version}`;
     log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
 
+    // ─── Check folder type (Shared Drive vs personal) ─────────
+    const folderInfo = await getFolderDriveInfo(accessToken, driveFolderId, logs);
+
     // ─── Copy template ──────────────────────────────────────────
     log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta: ${driveFolderId})...`);
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, logs);
+      newDocId = await copyFile(accessToken, template.id, newFileName, driveFolderId, folderInfo.driveId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);

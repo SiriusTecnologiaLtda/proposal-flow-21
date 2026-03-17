@@ -286,7 +286,8 @@ export default function GoogleIntegrationPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
-                  <TableHead>Pasta Drive</TableHead>
+                  <TableHead>Pasta Templates</TableHead>
+                  <TableHead>Pasta Documentos</TableHead>
                   <TableHead>Conta</TableHead>
                   {isAdmin && <TableHead className="w-32">Ações</TableHead>}
                 </TableRow>
@@ -312,6 +313,7 @@ export default function GoogleIntegrationPage() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{item.output_folder_id || item.drive_folder_id}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{account}</TableCell>
                       {isAdmin && (
                         <TableCell>

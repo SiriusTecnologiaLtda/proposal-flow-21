@@ -302,49 +302,35 @@ async function insertPaymentRows(
   payments: any[], logs: LogEntry[]
 ) {
   const table = tableInfo.tableElement.table;
-  const numRows = table.tableRows?.length || 0;
-  const numCols = table.columns || 3;
+  const numExistingRows = table.tableRows?.length || 0;
+  // Row 0 = header. Rows 1+ may be empty template rows we can reuse.
+  const emptyDataRows = numExistingRows - 1; // rows after header
+  const rowsNeeded = payments.length;
+  const rowsToInsert = Math.max(0, rowsNeeded - emptyDataRows);
 
-  // Insert rows bottom-up so indices don't shift
-  const requests: any[] = [];
-  
-  // For each payment, insert a row after the header (row 0) — we insert them in reverse
-  // so the first payment ends up at the top
-  for (let p = payments.length - 1; p >= 0; p--) {
-    requests.push({
-      insertTableRow: {
-        tableCellLocation: {
-          tableStartLocation: { index: tableInfo.tableStartIndex },
-          rowIndex: numRows - 1, // insert after last existing row
-          columnIndex: 0,
+  // Insert additional rows only if we need more than the existing empty ones
+  if (rowsToInsert > 0) {
+    const requests: any[] = [];
+    for (let i = 0; i < rowsToInsert; i++) {
+      requests.push({
+        insertTableRow: {
+          tableCellLocation: {
+            tableStartLocation: { index: tableInfo.tableStartIndex },
+            rowIndex: numExistingRows - 1 + i, // insert after last existing row
+            columnIndex: 0,
+          },
+          insertBelow: true,
         },
-        insertBelow: true,
-      },
-    });
-  }
-
-  if (requests.length > 0) {
+      });
+    }
     await docBatchUpdate(accessToken, docId, requests);
   }
 
+  // If we have extra empty rows (more template rows than payments), delete them
+  // We'll handle this after filling to avoid index issues
+
   // Re-read doc to get updated indices
   const updatedDoc = await getDocumentStructure(accessToken, docId);
-  const updatedBody = updatedDoc.body?.content || [];
-  
-  // Find the table again
-  let updatedTable: any = null;
-  for (const el of updatedBody) {
-    if (el.table && el.startIndex === tableInfo.tableStartIndex) {
-      updatedTable = el;
-      break;
-    }
-    if (el.table) {
-      // Table index may have shifted, find by proximity
-      updatedTable = el; // keep looking
-    }
-  }
-  
-  // Find payment table again by scanning for it
   const paymentTableInfo = findPaymentTableIndex(updatedDoc);
   if (!paymentTableInfo) {
     log(logs, "Pagamento", "error", "Tabela de pagamento não encontrada após inserção de linhas");
@@ -354,10 +340,10 @@ async function insertPaymentRows(
   const finalTable = paymentTableInfo.tableElement.table;
   const tableRows = finalTable.tableRows || [];
   
-  // Fill the new rows (starting from row index = numRows, which are the newly inserted ones)
+  // Fill data rows starting from row index 1 (after header)
   const textRequests: any[] = [];
   for (let p = 0; p < payments.length; p++) {
-    const rowIdx = numRows + p; // new rows start after original rows
+    const rowIdx = 1 + p; // row 0 is header, data starts at 1
     if (rowIdx >= tableRows.length) break;
     
     const row = tableRows[rowIdx];
@@ -371,14 +357,26 @@ async function insertPaymentRows(
     
     for (let c = 0; c < Math.min(cells.length, values.length); c++) {
       const cell = cells[c];
-      // Get the start index of the cell content
       const cellContent = cell.content?.[0];
       if (cellContent?.paragraph) {
-        const insertIdx = cellContent.paragraph.elements?.[0]?.startIndex || cellContent.startIndex;
-        if (insertIdx) {
+        const paraElements = cellContent.paragraph.elements || [];
+        const startIdx = paraElements[0]?.startIndex;
+        const endIdx = paraElements[paraElements.length - 1]?.endIndex;
+        
+        // Check if cell has existing text (besides the newline) and clear it first
+        if (startIdx && endIdx && endIdx > startIdx + 1) {
+          // Delete existing content (keep last char which is paragraph mark)
+          textRequests.push({
+            deleteContentRange: {
+              range: { startIndex: startIdx, endIndex: endIdx - 1 },
+            },
+          });
+        }
+        
+        if (startIdx) {
           textRequests.push({
             insertText: {
-              location: { index: insertIdx },
+              location: { index: startIdx },
               text: values[c],
             },
           });
@@ -387,12 +385,51 @@ async function insertPaymentRows(
     }
   }
   
-  // Insert text in reverse order of index to avoid shifting issues
-  textRequests.sort((a: any, b: any) => b.insertText.location.index - a.insertText.location.index);
+  // Sort by descending index to avoid shifting issues
+  textRequests.sort((a: any, b: any) => {
+    const aIdx = a.insertText?.location?.index || a.deleteContentRange?.range?.startIndex || 0;
+    const bIdx = b.insertText?.location?.index || b.deleteContentRange?.range?.startIndex || 0;
+    return bIdx - aIdx;
+  });
   
   if (textRequests.length > 0) {
     await docBatchUpdate(accessToken, docId, textRequests);
     log(logs, "Pagamento", "ok", `${payments.length} parcela(s) inserida(s) na tabela`);
+  }
+
+  // Delete extra empty rows if template had more rows than payments
+  if (emptyDataRows > rowsNeeded) {
+    const rowsToDelete = emptyDataRows - rowsNeeded;
+    // Re-read to get fresh indices
+    const docAfterFill = await getDocumentStructure(accessToken, docId);
+    const ptInfo = findPaymentTableIndex(docAfterFill);
+    if (ptInfo) {
+      const tbl = ptInfo.tableElement.table;
+      const tblRows = tbl.tableRows || [];
+      const delRequests: any[] = [];
+      // Delete from bottom up to avoid index shifting
+      for (let d = 0; d < rowsToDelete; d++) {
+        const delRowIdx = tblRows.length - 1 - d;
+        if (delRowIdx > 0) { // never delete header
+          const rowStart = tblRows[delRowIdx].startIndex;
+          const rowEnd = tblRows[delRowIdx].endIndex;
+          if (rowStart && rowEnd) {
+            delRequests.push({
+              deleteTableRow: {
+                tableCellLocation: {
+                  tableStartLocation: { index: ptInfo.tableStartIndex },
+                  rowIndex: delRowIdx,
+                  columnIndex: 0,
+                },
+              },
+            });
+          }
+        }
+      }
+      if (delRequests.length > 0) {
+        await docBatchUpdate(accessToken, docId, delRequests);
+      }
+    }
   }
 }
 
@@ -478,20 +515,23 @@ async function appendDetailedScope(
     });
     cursor += subtitle.length;
     
-    // Build table rows
+    // Build table rows with level numbering
     const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
     
-    for (const parent of group.parents) {
+    for (let pi = 0; pi < group.parents.length; pi++) {
+      const parent = group.parents[pi];
+      const parentNum = pi + 1;
       allRows.push([
-        parent.description || "—",
+        `${parentNum}. ${parent.description || "—"}`,
         parent.notes || "",
         parent.included ? "Sim" : "Não",
       ]);
       
       const children = group.children[parent.id] || [];
-      for (const child of children) {
+      for (let ci = 0; ci < children.length; ci++) {
+        const child = children[ci];
         allRows.push([
-          `   ${child.description || "—"}`,
+          `   ${parentNum}.${ci + 1} ${child.description || "—"}`,
           child.notes || "",
           child.included ? "Sim" : "Não",
         ]);
@@ -549,16 +589,19 @@ async function appendDetailedScope(
     const allRows: { cells: string[]; isHeader: boolean; isDisabled: boolean }[] = [
       { cells: ["Processo", "Resumo", "Escopo"], isHeader: true, isDisabled: false },
     ];
-    for (const parent of group.parents) {
+    for (let pi = 0; pi < group.parents.length; pi++) {
+      const parent = group.parents[pi];
+      const parentNum = pi + 1;
       allRows.push({
-        cells: [parent.description || "—", parent.notes || "", parent.included ? "Sim" : "Não"],
+        cells: [`${parentNum}. ${parent.description || "—"}`, parent.notes || "", parent.included ? "Sim" : "Não"],
         isHeader: false,
         isDisabled: !parent.included,
       });
       const children = group.children[parent.id] || [];
-      for (const child of children) {
+      for (let ci = 0; ci < children.length; ci++) {
+        const child = children[ci];
         allRows.push({
-          cells: [`   ${child.description || "—"}`, child.notes || "", child.included ? "Sim" : "Não"],
+          cells: [`   ${parentNum}.${ci + 1} ${child.description || "—"}`, child.notes || "", child.included ? "Sim" : "Não"],
           isHeader: false,
           isDisabled: !child.included,
         });

@@ -1031,24 +1031,48 @@ export default function ProposalCreate() {
       {currentStep === 3 && (
         <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-foreground">Informações Financeiras</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Valor Hora (R$)</Label>
-              <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
+
+          {/* Parâmetros Financeiros - Collapsible */}
+          <Collapsible defaultOpen={true}>
+            <div className="rounded-md border border-border bg-muted/50">
+              <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-md">
+                <h3 className="text-sm font-semibold text-foreground">Parâmetros Financeiros</h3>
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-4 pb-4 space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Valor Hora (R$)</Label>
+                      <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">% Hrs Projeto GP</Label>
+                      <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">% Acomp. Analista</Label>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} className="flex-1" />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
+                          = {Math.ceil(totalHours * (accompAnalyst / 100))}h
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">% Acomp. GP</Label>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
+                          = {Math.ceil(totalHours * (accompGP / 100))}h
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">% Hrs Projeto GP</Label>
-              <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">% Acomp. Analista</Label>
-              <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">% Acomp. GP</Label>
-              <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} />
-            </div>
-          </div>
+          </Collapsible>
 
           <div className="rounded-md border border-border bg-muted/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo Financeiro</h3>

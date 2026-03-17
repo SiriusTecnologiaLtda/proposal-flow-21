@@ -721,9 +721,15 @@ export default function ProposalCreate() {
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Descrição do Projeto</Label>
-            <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Descrição do Projeto</Label>
+              <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Data Prevista de Fechamento</Label>
+              <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} />
+            </div>
           </div>
 
           {/* Client */}

@@ -566,6 +566,7 @@ Deno.serve(async (req) => {
       "{{VRLIQTOT_REC1}}": fmt(totalAnalystHours * hourlyRate),
       "{{QTHR_REC2}}": gpHours.toString(),
       "{{VRLIQTOT_REC2}}": fmt(gpHours * hourlyRate),
+      "{{QTHR_TOTAL}}": totalHours.toString(),
       "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": accompGPHours.toString(),
       "{{QT_HORAS_TRASL}}": (proposal.travel_local_hours || 1).toString(),

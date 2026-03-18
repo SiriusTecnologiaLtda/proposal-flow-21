@@ -61,6 +61,7 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />

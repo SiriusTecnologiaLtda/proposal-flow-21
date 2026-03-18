@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, ChevronRight, FolderOpen, Upload } from "lucide-react";
+import { Settings, ChevronRight, FolderOpen, Upload, PenTool } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
@@ -11,6 +11,7 @@ export default function SettingsPage() {
     { title: "Integrações / APIs", desc: "Configurar APIs externas para sincronizar Clientes e Time de Vendas", action: () => navigate("/configuracoes/integracoes"), icon: Settings },
     { title: "Parâmetros Padrão de Proposta", desc: "Valores padrão de hora, GP, traslado e taxas carregados em novas propostas", action: () => navigate("/configuracoes/parametros"), icon: Settings },
     { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de propostas", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
+    { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de propostas", action: () => navigate("/configuracoes/tae"), icon: PenTool },
     { title: "Importar Dados", desc: "Importar clientes e templates de escopo via planilha Excel", action: () => navigate("/configuracoes/importar"), icon: Upload },
   ];
 

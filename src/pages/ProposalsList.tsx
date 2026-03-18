@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
 
 interface LogEntry {
   step: string;
@@ -69,6 +70,8 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
+  const [signatureProposal, setSignatureProposal] = useState<any>(null);
+  const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
 
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -178,6 +181,23 @@ export default function ProposalsList() {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setWinId(null);
+  }
+
+  async function handleCancelSignature() {
+    if (!cancelSignatureId) return;
+    try {
+      await updateStatus.mutateAsync({ id: cancelSignatureId, status: "proposta_gerada" });
+      // Update signature record
+      await supabase
+        .from("proposal_signatures")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString() } as any)
+        .eq("proposal_id", cancelSignatureId)
+        .eq("status", "pending");
+      toast({ title: "Processo de assinatura cancelado. Status voltou para Proposta Gerada." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setCancelSignatureId(null);
   }
 
   function handleDuplicate(proposal: any) {
@@ -360,14 +380,31 @@ export default function ProposalsList() {
                         <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                           <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                         </DropdownMenuItem>
+                        {p.status === "proposta_gerada" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
+                              <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {p.status === "em_assinatura" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                              <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         {!locked && (
                           <>
                             <DropdownMenuSeparator />
-                            {p.status === "proposta_gerada" && (
-                              <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                                <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
                               <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
                             </DropdownMenuItem>
@@ -561,6 +598,29 @@ export default function ProposalsList() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Send to Signature dialog */}
+        <SendToSignatureDialog
+          proposal={signatureProposal}
+          open={!!signatureProposal}
+          onOpenChange={(open) => !open && setSignatureProposal(null)}
+        />
+
+        {/* Cancel Signature confirmation */}
+        <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar processo de assinatura?</AlertDialogTitle>
+              <AlertDialogDescription>O processo de assinatura será cancelado e o status da proposta voltará para "Proposta Gerada".</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Voltar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancelSignature} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Confirmar Cancelamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

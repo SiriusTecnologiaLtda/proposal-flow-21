@@ -25,6 +25,7 @@ import RolePermissionsPage from "@/pages/RolePermissionsPage";
 import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
+import TaeConfigPage from "@/pages/TaeConfigPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
@@ -80,6 +81,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/google" element={<GuardedRoute path="/configuracoes"><GoogleIntegrationPage /></GuardedRoute>} />
         <Route path="/configuracoes/integracoes" element={<GuardedRoute path="/configuracoes"><IntegrationsPage /></GuardedRoute>} />
         <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
+        <Route path="/configuracoes/tae" element={<GuardedRoute path="/configuracoes"><TaeConfigPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/permissoes" element={<GuardedRoute path="/configuracoes"><RolePermissionsPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/cadastrados" element={<GuardedRoute path="/configuracoes"><RegisteredUsersPage /></GuardedRoute>} />

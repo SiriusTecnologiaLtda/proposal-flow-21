@@ -649,6 +649,113 @@ export type Database = {
           },
         ]
       }
+      proposal_signatories: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          role: string | null
+          signature_id: string
+          signed_at: string | null
+          status: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string | null
+          signature_id: string
+          signed_at?: string | null
+          status?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string | null
+          signature_id?: string
+          signed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_signatories_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_signatories_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_signatures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_signatures: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          proposal_id: string
+          sent_at: string
+          sent_by: string
+          status: string
+          tae_document_id: string | null
+          tae_publication_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          proposal_id: string
+          sent_at?: string
+          sent_by: string
+          status?: string
+          tae_document_id?: string | null
+          tae_publication_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          proposal_id?: string
+          sent_at?: string
+          sent_by?: string
+          status?: string
+          tae_document_id?: string | null
+          tae_publication_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_signatures_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_types: {
         Row: {
           created_at: string
@@ -1059,6 +1166,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tae_config: {
+        Row: {
+          application_id: string | null
+          base_url: string
+          company_cnpj: string | null
+          environment: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_id?: string | null
+          base_url?: string
+          company_cnpj?: string | null
+          environment?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string | null
+          base_url?: string
+          company_cnpj?: string | null
+          environment?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       unit_info: {
         Row: {

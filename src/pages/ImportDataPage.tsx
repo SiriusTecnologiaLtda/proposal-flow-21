@@ -685,6 +685,11 @@ export default function ImportDataPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
 
+  // On mount, reconcile stale "running" logs from crashed/closed sessions
+  useEffect(() => {
+    reconcileStaleLogs();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

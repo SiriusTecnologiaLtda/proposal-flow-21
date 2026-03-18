@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
+import SignatureMonitorDialog from "@/components/proposal/SignatureMonitorDialog";
 
 interface LogEntry {
   step: string;
@@ -72,6 +73,7 @@ export default function ProposalsList() {
   const [winId, setWinId] = useState<string | null>(null);
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
+  const [monitorProposal, setMonitorProposal] = useState<any>(null);
 
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -394,6 +396,9 @@ export default function ProposalsList() {
                         {p.status === "em_assinatura" && (
                           <>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                              <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setWinId(p.id)}>
                               <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
                             </DropdownMenuItem>
@@ -606,6 +611,13 @@ export default function ProposalsList() {
           onOpenChange={(open) => !open && setSignatureProposal(null)}
         />
 
+        {/* Signature Monitor dialog */}
+        <SignatureMonitorDialog
+          proposalId={monitorProposal?.id || null}
+          proposalNumber={monitorProposal?.number}
+          open={!!monitorProposal}
+          onOpenChange={(open) => !open && setMonitorProposal(null)}
+        />
         {/* Cancel Signature confirmation */}
         <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>
           <AlertDialogContent>

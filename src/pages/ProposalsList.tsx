@@ -78,6 +78,70 @@ export default function ProposalsList() {
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
 
+  // Notification dialog state
+  const [notifDialogOpen, setNotifDialogOpen] = useState(false);
+  const [notifType, setNotifType] = useState<"solicitar_ajuste" | "notificar_esn">("solicitar_ajuste");
+  const [notifProposal, setNotifProposal] = useState<any>(null);
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifSending, setNotifSending] = useState(false);
+
+  function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
+    setNotifProposal(proposal);
+    setNotifType(type);
+    setNotifMessage("");
+    setNotifDialogOpen(true);
+  }
+
+  async function handleSendNotification() {
+    if (!notifProposal) return;
+    setNotifSending(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            proposalId: notifProposal.id,
+            type: notifType,
+            message: notifMessage,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: "Notificação enviada!",
+          description: `Email enviado para ${data.recipientName} (${data.recipientEmail})`,
+        });
+        setNotifDialogOpen(false);
+      } else {
+        // If email service fails, offer mailto fallback
+        if (data.fallback) {
+          const mailto = `mailto:${data.fallback.to}?subject=${encodeURIComponent(data.fallback.subject)}&body=${encodeURIComponent(notifMessage || "")}`;
+          window.open(mailto);
+          toast({
+            title: "Falha no envio automático",
+            description: "Abrindo cliente de email como alternativa.",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
+        }
+        setNotifDialogOpen(false);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
+    } finally {
+      setNotifSending(false);
+    }
+  }
+
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<LogEntry[]>([]);

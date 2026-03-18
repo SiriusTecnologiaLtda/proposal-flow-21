@@ -560,7 +560,7 @@ export default function Dashboard() {
         </CardHeader>
         <div className="divide-y divide-border">
           {proposals.slice(0, 10).map((proposal: any) => {
-            const status = statusMap[proposal.status] || statusMap.rascunho;
+            const status = statusMap[proposal.status] || statusMap.pendente;
             const clientName = proposal.clients?.name || "—";
             return (
               <Link

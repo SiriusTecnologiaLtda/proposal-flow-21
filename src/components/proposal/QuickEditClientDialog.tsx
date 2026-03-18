@@ -51,8 +51,17 @@ export default function QuickEditClientDialog({ client, open, onOpenChange, onSa
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
   const handleSave = async () => {
-    if (!form.name || !form.code || !form.cnpj) {
-      toast({ title: "Preencha campos obrigatórios", variant: "destructive" });
+    const missing: string[] = [];
+    if (!form.name) missing.push("Razão Social");
+    if (!form.code) missing.push("Código");
+    if (!form.cnpj) missing.push("CNPJ");
+
+    if (missing.length > 0) {
+      toast({ title: "Campos obrigatórios não preenchidos", description: missing.join(", "), variant: "destructive" });
+      setTimeout(() => {
+        const el = document.getElementById(missing[0] === "Razão Social" ? "qe-name" : missing[0] === "Código" ? "qe-code" : "qe-cnpj");
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus(); }
+      }, 100);
       return;
     }
 

@@ -570,8 +570,38 @@ export default function ProposalCreate() {
   }, [totalValue]);
 
   async function handleSave(status: string) {
-    if (!proposalNumber || !clientId || !product || !proposalType) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+    const missing: string[] = [];
+    if (!proposalNumber) missing.push("Número da Proposta");
+    if (!clientId) missing.push("Cliente");
+    if (!product) missing.push("Produto");
+    if (!proposalType) missing.push("Tipo de Proposta");
+
+    if (missing.length > 0) {
+      toast({
+        title: "Campos obrigatórios não preenchidos",
+        description: missing.join(", "),
+        variant: "destructive",
+      });
+      // Navigate to step 1 where these fields are
+      setCurrentStep(1);
+      // Focus first missing field
+      setTimeout(() => {
+        const fieldMap: Record<string, string> = {
+          "Número da Proposta": "proposalNumber",
+          "Cliente": "clientSearch",
+          "Produto": "product",
+          "Tipo de Proposta": "proposalType",
+        };
+        const firstMissing = missing[0];
+        const elId = fieldMap[firstMissing];
+        if (elId) {
+          const el = document.getElementById(elId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.focus();
+          }
+        }
+      }, 100);
       return;
     }
 
@@ -706,12 +736,12 @@ export default function ProposalCreate() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Número da Proposta (OPP)</Label>
-              <Input placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} />
+              <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tipo de Proposta</Label>
               <Select value={proposalType} onValueChange={setProposalType}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="proposalType"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {proposalTypes.map((pt: any) => (
                     <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
@@ -722,7 +752,7 @@ export default function ProposalCreate() {
             <div className="space-y-1.5">
               <Label className="text-xs">Produto</Label>
               <Select value={product} onValueChange={setProduct}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="product"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {productsList.map((p) => (
                     <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
@@ -776,7 +806,7 @@ export default function ProposalCreate() {
               <div className="space-y-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="pl-9" />
+                  <Input id="clientSearch" placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="pl-9" />
                 </div>
                 {clientSearch.length >= 2 && (
                   <div className="max-h-48 overflow-auto rounded-md border border-border bg-card">

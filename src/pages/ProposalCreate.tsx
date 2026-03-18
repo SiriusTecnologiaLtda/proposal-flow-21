@@ -191,6 +191,7 @@ export default function ProposalCreate() {
             description: item.description,
             included: item.included,
             templateId: item.template_id || undefined,
+            notes: item.notes || "",
             children: [],
           };
           parentMap.set(item.id, proc);
@@ -204,6 +205,7 @@ export default function ProposalCreate() {
               description: child.description,
               hours: child.hours,
               included: child.included,
+              notes: child.notes || "",
             });
           }
         }

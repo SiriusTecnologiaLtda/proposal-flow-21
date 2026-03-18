@@ -70,6 +70,8 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
+  const [signatureProposal, setSignatureProposal] = useState<any>(null);
+  const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
 
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);

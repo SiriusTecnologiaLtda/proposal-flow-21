@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.test-tae-connection]
 verify_jwt = false
+
+[functions.tae-send-signature]
+verify_jwt = false
+
+[functions.tae-check-status]
+verify_jwt = false

@@ -159,44 +159,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Send email using Lovable AI gateway
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "Email service not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const emailRes = await fetch("https://api.lovable.dev/v1/email/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        to: recipientEmail,
-        subject,
-        html: bodyHtml,
-      }),
-    });
-
-    if (!emailRes.ok) {
-      const errText = await emailRes.text();
-      console.error("Email send failed:", errText);
-      return new Response(
-        JSON.stringify({ 
-          error: "Falha ao enviar email", 
-          details: errText,
-          // Fallback: return info so frontend can show mailto link
-          fallback: { to: recipientEmail, subject, recipientName }
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    // Return recipient info so frontend opens mailto
     return new Response(
-      JSON.stringify({ success: true, recipientName, recipientEmail }),
+      JSON.stringify({ success: true, recipientName, recipientEmail, subject }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {

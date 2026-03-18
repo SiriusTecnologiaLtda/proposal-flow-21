@@ -1131,30 +1131,51 @@ export default function ProposalCreate() {
                               {isExpanded && (
                                 <div className="bg-muted/20">
                                   {proc.children.map((child, childIdx) => (
-                                    <div key={child.id} className={`flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 transition-colors ${child.included && proc.included ? "" : "opacity-60"}`}>
-                                      <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
-                                      <Input
-                                        value={child.description}
-                                        onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
-                                        placeholder="Descrição do item"
-                                        className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
-                                      />
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        value={child.hours}
-                                        onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
-                                        className="h-7 w-16 text-center text-xs"
-                                        disabled={!child.included || !proc.included}
-                                      />
-                                      <Switch
-                                        checked={child.included}
-                                        onCheckedChange={() => toggleChild(proc.id, child.id)}
-                                        disabled={!proc.included}
-                                      />
-                                      <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
+                                    <div key={child.id}>
+                                      <div className={`flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 transition-colors ${child.included && proc.included ? "" : "opacity-60"}`}>
+                                        <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
+                                        <Input
+                                          value={child.description}
+                                          onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
+                                          placeholder="Descrição do item"
+                                          className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                                        />
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          value={child.hours}
+                                          onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
+                                          className="h-7 w-16 text-center text-xs"
+                                          disabled={!child.included || !proc.included}
+                                        />
+                                        <button
+                                          onClick={() => toggleNotes(child.id)}
+                                          className={`shrink-0 rounded p-1 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                                          title="Comentário (impresso no escopo)"
+                                        >
+                                          <MessageSquare className="h-3.5 w-3.5" />
+                                        </button>
+                                        <Switch
+                                          checked={child.included}
+                                          onCheckedChange={() => toggleChild(proc.id, child.id)}
+                                          disabled={!proc.included}
+                                        />
+                                        <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                      {notesOpenIds.has(child.id) && (
+                                        <div className="px-14 pb-2 pt-1 bg-accent/30 border-t border-border/30">
+                                          <Label className="text-xs text-muted-foreground">📝 Comentário (impresso no escopo detalhado)</Label>
+                                          <Textarea
+                                            value={child.notes || ""}
+                                            onChange={(e) => updateChildNotes(proc.id, child.id, e.target.value)}
+                                            placeholder="Adicionar comentário para o escopo detalhado..."
+                                            className="mt-1 min-h-[50px] text-xs bg-background"
+                                            rows={2}
+                                          />
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                   <button

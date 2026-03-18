@@ -383,7 +383,6 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, { error: "No Google integration configured" }, 500);
     }
 
-    driveFolderId = integration.drive_folder_id;
     outputFolderId = integration.output_folder_id || integration.drive_folder_id;
     authType = integration.auth_type || "service_account";
 

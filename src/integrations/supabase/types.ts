@@ -425,34 +425,40 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           display_name: string
           email: string | null
           gmail_refresh_token: string | null
           gmail_sender_email: string | null
           id: string
+          phone: string | null
           sales_team_member_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           display_name: string
           email?: string | null
           gmail_refresh_token?: string | null
           gmail_sender_email?: string | null
           id?: string
+          phone?: string | null
           sales_team_member_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
           email?: string | null
           gmail_refresh_token?: string | null
           gmail_sender_email?: string | null
           id?: string
+          phone?: string | null
           sales_team_member_id?: string | null
           updated_at?: string
           user_id?: string

@@ -1173,8 +1173,8 @@ Deno.serve(async (req) => {
       "{{PRIMEIRO_VENC}}": firstPayment ? fmtDate(firstPayment.due_date) : "—",
       "{{MACRO_ESCOPO}}": macroEscopoText,
       "{{CONDICOES_PAGAMENTO}}": paymentText,
-      "{{DESC_RECURSO1}}": "Analista de Implantação",
-      "{{DESC_RECURSO2}}": "Coordenador de Projeto",
+      "{{DESC_RECURSO1}}": analystLabel,
+      "{{DESC_RECURSO2}}": gpLabelText,
       "{{NEGOCIACAO}}": proposal.negotiation || "",
       "{{CONTEUDO_NEGESPECIFICA}}": proposal.negotiation || "",
     };

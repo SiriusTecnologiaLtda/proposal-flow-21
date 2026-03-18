@@ -573,8 +573,8 @@ Deno.serve(async (req) => {
       "{{TOTAL_VALOR_BRUTO}}": fmt(totalValueGross),
       "{{TOTAL_VALOR_LIQUI}}": fmt(totalValueNet),
       "{{QT_PARCELAS}}": payments.length.toString(),
-      "{{DESC_RECURSO1}}": "Analista de Implantação",
-      "{{DESC_RECURSO2}}": "Coordenador de Projeto",
+      "{{DESC_RECURSO1}}": analystLabel,
+      "{{DESC_RECURSO2}}": gpLabelText,
       "{{NEGOCIACAO}}": proposal.negotiation || "",
       "{{CONTEUDO_NEGESPECIFICA}}": proposal.negotiation || "",
     };

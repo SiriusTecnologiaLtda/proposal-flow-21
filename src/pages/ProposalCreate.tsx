@@ -123,6 +123,8 @@ export default function ProposalCreate() {
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
+  const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
+  const [groupNotesOpenIds, setGroupNotesOpenIds] = useState<Set<string>>(new Set());
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {

@@ -63,7 +63,7 @@ function SignerIcon({ status }: { status: string }) {
   return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
 }
 
-export default function SignatureMonitorDialog({ proposalId, proposalNumber, open, onOpenChange }: Props) {
+export default function SignatureMonitorDialog({ proposalId, proposalNumber, open, onOpenChange, readOnly = false }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [signatures, setSignatures] = useState<SignatureRecord[]>([]);

@@ -598,13 +598,17 @@ Deno.serve(async (req) => {
         if (user) userId = user.id;
       }
 
+      // Desmarcar oficiais anteriores do mesmo tipo
+      await supabase.from("proposal_documents").update({ is_official: false })
+        .eq("proposal_id", proposalId).eq("doc_type", "mit").eq("is_official", true);
+
       await supabase.from("proposal_documents").insert({
         proposal_id: proposalId,
         doc_id: newDocId,
         doc_url: docUrl,
         file_name: newFileName,
         version,
-        is_official: false,
+        is_official: true,
         created_by: userId,
         doc_type: "mit",
       });

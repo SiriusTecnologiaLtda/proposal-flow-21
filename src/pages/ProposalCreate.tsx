@@ -65,6 +65,14 @@ export default function ProposalCreate() {
   const { data: productsList = [] } = useProducts();
   const { data: units = [] } = useUnits();
   const { data: proposalDefaults } = useProposalDefaults();
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("*").order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);

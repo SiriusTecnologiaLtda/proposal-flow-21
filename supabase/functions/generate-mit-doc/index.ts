@@ -424,6 +424,19 @@ Deno.serve(async (req) => {
 
     log(logs, "Buscar proposta", "ok", `Proposta ${proposal.number} — Cliente: ${proposal.clients?.name || "—"}`);
 
+    // ─── Proposal type config (labels + rounding) ───────────────
+    let analystLabel = "Analista de Implantação";
+    let gpLabelText = "Coordenador de Projeto";
+    let roundingFactor = 8;
+    if (proposal.type) {
+      const { data: ptConfig } = await supabase.from("proposal_types").select("analyst_label, gp_label, rounding_factor").eq("slug", proposal.type).maybeSingle();
+      if (ptConfig) {
+        analystLabel = ptConfig.analyst_label || analystLabel;
+        gpLabelText = ptConfig.gp_label || gpLabelText;
+        roundingFactor = ptConfig.rounding_factor || roundingFactor;
+      }
+    }
+
     // ─── Unit info ──────────────────────────────────────────────
     let unitInfo: any = null;
     if (proposal.clients?.unit_id) {
@@ -446,9 +459,9 @@ Deno.serve(async (req) => {
       templateNames = (templates || []).reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
     }
 
-    const totalAnalystHours = roundUp8(parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0));
+    const totalAnalystHours = roundUp(parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0), roundingFactor);
     const gpPercentage = Number(proposal.gp_percentage);
-    const gpHours = roundUp8(Math.ceil(totalAnalystHours * (gpPercentage / 100)));
+    const gpHours = roundUp(Math.ceil(totalAnalystHours * (gpPercentage / 100)), roundingFactor);
     const hourlyRate = Number(proposal.hourly_rate);
     const totalHours = totalAnalystHours + gpHours;
     const totalValueNet = totalHours * hourlyRate;
@@ -456,8 +469,8 @@ Deno.serve(async (req) => {
     const totalValueGross = taxFactor > 0 ? totalValueNet / taxFactor : totalValueNet;
     const accompAnalyst = Number(proposal.accomp_analyst) || 0;
     const accompGP = Number(proposal.accomp_gp) || 0;
-    const accompAnalystHours = roundUp8(Math.ceil(totalAnalystHours * (accompAnalyst / 100)));
-    const accompGPHours = roundUp8(Math.ceil(gpHours * (accompGP / 100)));
+    const accompAnalystHours = roundUp(Math.ceil(totalAnalystHours * (accompAnalyst / 100)), roundingFactor);
+    const accompGPHours = roundUp(Math.ceil(gpHours * (accompGP / 100)), roundingFactor);
 
     const client = proposal.clients;
     const esn = proposal.esn;

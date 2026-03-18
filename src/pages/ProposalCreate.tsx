@@ -620,17 +620,16 @@ export default function ProposalCreate() {
     let sortOrder = 0;
     for (const proc of scopeProcesses) {
       const parentSortOrder = sortOrder++;
-      // Save parent as a scope item with hours = sum
       allScopeItems.push({
         description: proc.description,
         included: proc.included,
         hours: processHours(proc),
         phase: 1,
-        notes: "",
+        notes: proc.notes || "",
         sort_order: parentSortOrder,
         template_id: proc.templateId || null,
         parent_id: null,
-        _local_id: proc.id, // for linking children
+        _local_id: proc.id,
       });
 
       for (const child of proc.children) {
@@ -639,10 +638,10 @@ export default function ProposalCreate() {
           included: child.included,
           hours: child.hours,
           phase: 1,
-          notes: "",
+          notes: child.notes || "",
           sort_order: sortOrder++,
           template_id: proc.templateId || null,
-          parent_id: proc.id, // will be resolved server-side
+          parent_id: proc.id,
           _local_id: child.id,
           _parent_local_id: proc.id,
         });

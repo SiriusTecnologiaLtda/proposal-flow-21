@@ -976,6 +976,7 @@ export default function ProposalCreate() {
               </Popover>
             </div>
           </div>
+        </div>
       )}
 
       {/* Step 2: Escopo */}

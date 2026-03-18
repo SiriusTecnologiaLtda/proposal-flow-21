@@ -880,8 +880,8 @@ async function appendDetailedScope(
 
 // ─── Formatters ─────────────────────────────────────────────────────
 
-function roundUp8(val: number) {
-  return Math.ceil(val / 8) * 8;
+function roundUp(val: number, factor: number = 8) {
+  return Math.ceil(val / factor) * factor;
 }
 
 function fmt(val: number) {

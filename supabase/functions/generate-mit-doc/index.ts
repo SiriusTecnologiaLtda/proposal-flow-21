@@ -314,8 +314,8 @@ function fmtDate(d: string | null): string {
   } catch { return d; }
 }
 
-function roundUp8(val: number): number {
-  return Math.ceil(val / 8) * 8;
+function roundUp(val: number, factor: number = 8): number {
+  return Math.ceil(val / factor) * factor;
 }
 
 // ─── Main handler ───────────────────────────────────────────────────

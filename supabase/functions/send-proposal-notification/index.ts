@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
       gInt.oauth_refresh_token
     );
 
-    await sendGmail(accessToken, senderEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, "Propostai", senderEmail, recipientEmail!, subject!, bodyHtml!);
 
     return new Response(
       JSON.stringify({

@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.tae-check-status]
 verify_jwt = false
+
+[functions.tae-webhook]
+verify_jwt = false

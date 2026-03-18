@@ -61,12 +61,12 @@ function ProtectedRoutes() {
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />
         <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
-        <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros"><ClientsList /></GuardedRoute>} />
-        <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros"><UnitsPage /></GuardedRoute>} />
-        <Route path="/cadastros/time" element={<GuardedRoute path="/cadastros"><SalesTeamPage /></GuardedRoute>} />
-        <Route path="/cadastros/produtos" element={<GuardedRoute path="/cadastros"><ProductsCategoriesPage /></GuardedRoute>} />
-        <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros"><ProductsCategoriesPage /></GuardedRoute>} />
-        <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros"><ProposalTypesPage /></GuardedRoute>} />
+        <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros/clientes"><ClientsList /></GuardedRoute>} />
+        <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros/unidades"><UnitsPage /></GuardedRoute>} />
+        <Route path="/cadastros/time" element={<GuardedRoute path="/cadastros/time"><SalesTeamPage /></GuardedRoute>} />
+        <Route path="/cadastros/produtos" element={<GuardedRoute path="/cadastros/produtos"><ProductsCategoriesPage /></GuardedRoute>} />
+        <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
+        <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
         {/* Legacy routes redirect */}
         <Route path="/clientes" element={<Navigate to="/cadastros/clientes" replace />} />
         <Route path="/unidades" element={<Navigate to="/cadastros/unidades" replace />} />

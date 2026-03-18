@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -309,10 +309,37 @@ export default function ProposalsList() {
                   <p className="text-sm font-medium text-foreground text-right">
                     {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
                   </p>
-                  <div className="text-right">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                      {status.label}
-                    </span>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {p.status === "ganha" && (() => {
+                      const sigs = (p as any).proposal_signatures || [];
+                      const hasTae = sigs.some((s: any) => s.status === "completed" && s.tae_publication_id);
+                      return hasTae ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-600 px-2 py-0.5 text-xs font-medium">
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              {status.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Assinatura eletrônica via TAE concluída</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-600 px-2 py-0.5 text-xs font-medium">
+                              <PenLine className="h-3.5 w-3.5" />
+                              {status.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Encerrada manualmente (sem assinatura eletrônica)</TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
+                    {p.status !== "ganha" && (
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                        {status.label}
+                      </span>
+                    )}
                   </div>
                   {/* Document indicator icons */}
                   <div className="flex items-center justify-center gap-1.5">

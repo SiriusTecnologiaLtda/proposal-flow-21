@@ -30,6 +30,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
+import LandingPage from "@/pages/LandingPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();

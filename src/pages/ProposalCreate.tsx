@@ -683,7 +683,10 @@ export default function ProposalCreate() {
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
 
-      // If "Gerar Proposta" was checked, actually trigger document generation
+      // Navigate to list immediately after save
+      navigate("/propostas");
+
+      // If "Gerar Proposta" was checked, trigger document generation in background
       if (status === "proposta_gerada" && savedId) {
         try {
           const session = (await supabase.auth.getSession()).data.session;
@@ -711,8 +714,6 @@ export default function ProposalCreate() {
           toast({ title: "Proposta salva, mas falha ao gerar documento", description: genErr.message, variant: "destructive" });
         }
       }
-
-      navigate("/propostas");
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     }

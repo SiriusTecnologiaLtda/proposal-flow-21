@@ -207,7 +207,7 @@ export default function ProposalsList() {
 
   async function handleRefreshSignatureStatus(proposal: any) {
     const sigs = ((proposal as any).proposal_signatures || [])
-      .filter((s: any) => s.tae_publication_id)
+      .filter((s: any) => s.tae_publication_id || s.tae_document_id)
       .sort((a: any, b: any) => new Date(b.created_at || b.sent_at || 0).getTime() - new Date(a.created_at || a.sent_at || 0).getTime());
 
     const activeSig = sigs.find((s: any) => ["sent", "pending"].includes(s.status)) || sigs[0];

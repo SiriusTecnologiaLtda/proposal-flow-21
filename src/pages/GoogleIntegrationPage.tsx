@@ -674,7 +674,13 @@ export default function GoogleIntegrationPage() {
                     <li>Salve a conexão</li>
                     <li>Clique no botão <LogIn className="inline h-3 w-3" /> na tabela para autorizar com o Google</li>
                     <li>O refresh token será obtido automaticamente</li>
+                    <li>O email da conta autorizada será salvo como remetente</li>
                   </ol>
+                  <p className="mt-2 font-medium">Escopos autorizados:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Google Drive (geração de documentos)</li>
+                    <li>Gmail Send (envio de notificações)</li>
+                  </ul>
                 </div>
               </TabsContent>
 

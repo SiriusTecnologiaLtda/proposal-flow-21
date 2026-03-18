@@ -133,6 +133,14 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
 
   const latestSig = signatures[0];
 
+  function getSignerStatus(sig: SignatureRecord, signer: SignatureRecord["proposal_signatories"][number]) {
+    const taeSigner = taeStatus?.signers?.find((s) => s.email?.toLowerCase() === signer.email?.toLowerCase());
+    if (taeSigner) return { label: taeSigner.statusLabel, signedAt: taeSigner.signedAt };
+    if (signer.status === "signed") return { label: "Assinado", signedAt: signer.signed_at };
+    if (signer.status === "rejected") return { label: "Rejeitado", signedAt: signer.signed_at };
+    return { label: "Pendente", signedAt: signer.signed_at };
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">

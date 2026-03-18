@@ -173,8 +173,36 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         .eq("id", proposal.id);
       if (statusError) throw statusError;
 
+      // 5. Call TAE edge function to actually send to TAE
+      toast({ title: "Dados salvos. Enviando ao TAE..." });
+      const { data: { session } } = await supabase.auth.getSession();
+      const taeRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-send-signature`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ signatureId: sigRecord.id }),
+        }
+      );
+      const taeData = await taeRes.json();
+
+      if (!taeRes.ok || taeData.logs?.some((l: any) => l.status === "error")) {
+        const errorMsg = taeData.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ")
+          || "Erro ao enviar para o TAE";
+        toast({
+          title: "Proposta salva, mas falha no envio ao TAE",
+          description: errorMsg,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Proposta enviada para assinatura no TAE com sucesso!" });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["proposals"] });
-      toast({ title: "Proposta enviada para assinatura!" });
       onOpenChange(false);
       setSignatories([]);
     } catch (err: any) {

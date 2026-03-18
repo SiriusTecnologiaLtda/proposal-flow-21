@@ -1101,11 +1101,31 @@ export default function ProposalCreate() {
                                   className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
+                                <button
+                                  onClick={() => toggleNotes(proc.id)}
+                                  className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                                  title="Comentário interno (Arquiteto ↔ ESN)"
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                </button>
                                 <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
                                 <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
+                              {/* Internal notes for process (Arquiteto ↔ ESN) */}
+                              {notesOpenIds.has(proc.id) && (
+                                <div className="px-6 pb-2 pt-1 bg-amber-50/50 dark:bg-amber-950/20 border-t border-amber-200/50 dark:border-amber-800/30">
+                                  <Label className="text-xs text-amber-700 dark:text-amber-400">💬 Comentário interno (Arquiteto ↔ ESN)</Label>
+                                  <Textarea
+                                    value={proc.notes || ""}
+                                    onChange={(e) => updateProcessNotes(proc.id, e.target.value)}
+                                    placeholder="Adicionar comentário interno sobre este processo..."
+                                    className="mt-1 min-h-[60px] text-xs bg-background"
+                                    rows={2}
+                                  />
+                                </div>
+                              )}
 
                               {/* Children (Level 2) */}
                               {isExpanded && (

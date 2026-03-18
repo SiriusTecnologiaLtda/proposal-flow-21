@@ -772,6 +772,51 @@ export default function ProposalsList() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Notification dialog (Arquiteto ↔ ESN) */}
+        <Dialog open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {notifType === "solicitar_ajuste" ? (
+                  <><MessageSquare className="h-5 w-5" /> Solicitar Ajuste ao Arquiteto</>
+                ) : (
+                  <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            {notifProposal && (
+              <div className="space-y-4">
+                <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
+                  <p><span className="font-medium text-muted-foreground">Proposta:</span> {notifProposal.number}</p>
+                  <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
+                  <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mensagem (opcional)</Label>
+                  <Textarea
+                    value={notifMessage}
+                    onChange={(e) => setNotifMessage(e.target.value)}
+                    placeholder={notifType === "solicitar_ajuste"
+                      ? "Descreva o que precisa ser ajustado no escopo..."
+                      : "Descreva o que foi ajustado e observações relevantes..."}
+                    rows={4}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNotifDialogOpen(false)} disabled={notifSending}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSendNotification} disabled={notifSending}>
+                {notifSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

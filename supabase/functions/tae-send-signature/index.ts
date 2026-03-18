@@ -139,8 +139,8 @@ Deno.serve(async (req) => {
 
     log(logs, "Dados", "ok", `Assinatura carregada — ${sigRecord.proposal_signatories?.length || 0} signatário(s)`);
 
-    // 4. Get official document
-    const { data: officialDoc, error: docErr } = await supabase
+    // 4. Get official document (fallback to latest "proposta" if none marked official)
+    let { data: officialDoc } = await supabase
       .from("proposal_documents")
       .select("*")
       .eq("proposal_id", sigRecord.proposal_id)
@@ -150,12 +150,24 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (docErr || !officialDoc) {
-      log(logs, "Documento", "error", "Nenhum documento oficial encontrado. Marque uma versão como oficial primeiro.");
+    if (!officialDoc) {
+      const { data: latestDoc } = await supabase
+        .from("proposal_documents")
+        .select("*")
+        .eq("proposal_id", sigRecord.proposal_id)
+        .eq("doc_type", "proposta")
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      officialDoc = latestDoc;
+    }
+
+    if (!officialDoc) {
+      log(logs, "Documento", "error", "Nenhum documento de proposta encontrado. Gere o documento primeiro.");
       return respondWithLogs(logs, {}, 400);
     }
 
-    log(logs, "Documento", "ok", `Doc oficial: ${officialDoc.file_name} (v${officialDoc.version})`);
+    log(logs, "Documento", "ok", `Documento: ${officialDoc.file_name} (v${officialDoc.version}, oficial: ${officialDoc.is_official})`);
 
     // 5. Get Google service account key
     const saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");

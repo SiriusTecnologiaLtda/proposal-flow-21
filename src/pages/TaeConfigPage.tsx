@@ -131,6 +131,34 @@ export default function TaeConfigPage() {
           </div>
         </div>
 
+        <div className="border-t border-border pt-4">
+          <h2 className="text-base font-semibold text-foreground mb-1">Usuário de Serviço</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Conta utilizada pela edge function para autenticar no TAE via Google Identity. A senha é armazenada como secret seguro.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">E-mail do Usuário de Serviço</Label>
+              <Input
+                placeholder="servico@empresa.com.br"
+                value={form.service_user_email}
+                onChange={(e) => setForm((f) => ({ ...f, service_user_email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Senha do Usuário de Serviço</Label>
+              <div className="flex items-center gap-2 h-10">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                  ● Configurada como secret seguro
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Gerenciada via Secrets do projeto (TAE_SERVICE_USER_PASSWORD).
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs">Observações</Label>
           <Textarea

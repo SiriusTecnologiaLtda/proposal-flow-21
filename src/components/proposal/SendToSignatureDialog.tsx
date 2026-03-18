@@ -344,8 +344,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                             value={sig.name}
                             onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
                             placeholder="Nome completo"
-                            readOnly={!sig.isNew}
-                            className={!sig.isNew ? "bg-muted" : ""}
+                            readOnly={!sig.isNew || sig.isLoggedUser}
+                            className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
                           />
                         </div>
                         <div className="space-y-1">
@@ -354,8 +354,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                             value={sig.email}
                             onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
                             placeholder="email@empresa.com"
-                            readOnly={!sig.isNew}
-                            className={!sig.isNew ? "bg-muted" : ""}
+                            readOnly={!sig.isNew || sig.isLoggedUser}
+                            className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
                           />
                         </div>
                         <div className="space-y-1">

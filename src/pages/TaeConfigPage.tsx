@@ -14,6 +14,8 @@ export default function TaeConfigPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string; latency_ms?: number } | null>(null);
 
   const { data: config, refetch } = useQuery({
     queryKey: ["tae_config"],

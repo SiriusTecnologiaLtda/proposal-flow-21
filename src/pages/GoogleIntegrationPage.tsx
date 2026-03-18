@@ -578,8 +578,7 @@ export default function GoogleIntegrationPage() {
                           <Badge className="bg-green-600/10 text-green-600 text-[10px]">Configurado</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
-                      <TableCell className="font-mono text-xs">{item.output_folder_id || item.drive_folder_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{item.output_folder_id || "—"}</TableCell>
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">

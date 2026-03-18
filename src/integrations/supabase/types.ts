@@ -428,6 +428,8 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          gmail_refresh_token: string | null
+          gmail_sender_email: string | null
           id: string
           sales_team_member_id: string | null
           updated_at: string
@@ -437,6 +439,8 @@ export type Database = {
           created_at?: string
           display_name: string
           email?: string | null
+          gmail_refresh_token?: string | null
+          gmail_sender_email?: string | null
           id?: string
           sales_team_member_id?: string | null
           updated_at?: string
@@ -446,6 +450,8 @@ export type Database = {
           created_at?: string
           display_name?: string
           email?: string | null
+          gmail_refresh_token?: string | null
+          gmail_sender_email?: string | null
           id?: string
           sales_team_member_id?: string | null
           updated_at?: string

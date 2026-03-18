@@ -19,6 +19,7 @@ interface Signatory {
   phone: string;
   role: string;
   isNew: boolean;
+  isLoggedUser?: boolean;
 }
 
 interface Props {

@@ -13,6 +13,7 @@ export default function SettingsPage() {
     { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de propostas", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
     { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de propostas", action: () => navigate("/configuracoes/tae"), icon: PenTool },
     { title: "Importar Dados", desc: "Importar clientes e templates de escopo via planilha Excel", action: () => navigate("/configuracoes/importar"), icon: Upload },
+    { title: "WhatsApp + IA", desc: "Configurar integração com WhatsApp para consulta e geração de propostas via chat inteligente", action: () => navigate("/configuracoes/whatsapp"), icon: MessageCircle },
   ];
 
   return (

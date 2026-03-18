@@ -30,39 +30,44 @@ Deno.serve(async (req) => {
 
     // TAE sends webhook payload as JSON
     const payload = await req.json();
-    console.log("[tae-webhook] Received payload:", JSON.stringify(payload));
+    console.log("[tae-webhook] Received FULL payload:", JSON.stringify(payload));
 
-    // TAE webhook payload structure varies by event, but typically contains:
-    // - idPublicacao or publicacaoId
-    // - idDocumento or documentoId
-    // - status (number)
-    // - assinantes / destinatarios (array)
+    // Normalize: TAE sends fields in varying cases (idDocumento, iddocumento, IdDocumento, etc.)
+    // Build a case-insensitive lookup of payload keys
+    const flatPayload: Record<string, any> = {};
+    for (const [k, v] of Object.entries(payload || {})) {
+      flatPayload[k.toLowerCase()] = v;
+    }
+    const flatData: Record<string, any> = {};
+    if (payload?.data && typeof payload.data === "object") {
+      for (const [k, v] of Object.entries(payload.data)) {
+        flatData[k.toLowerCase()] = v;
+      }
+    }
+
     const publicationId = String(
-      payload?.idPublicacao ||
-      payload?.publicacaoId ||
-      payload?.data?.idPublicacao ||
-      payload?.data?.publicacaoId ||
-      payload?.IdPublicacao ||
+      flatPayload["idpublicacao"] || flatPayload["publicacaoid"] ||
+      flatData["idpublicacao"] || flatData["publicacaoid"] ||
       ""
     ).trim();
 
     const documentId = String(
-      payload?.idDocumento ||
-      payload?.documentoId ||
-      payload?.data?.idDocumento ||
-      payload?.data?.documentoId ||
-      payload?.IdDocumento ||
+      flatPayload["iddocumento"] || flatPayload["documentoid"] ||
+      flatData["iddocumento"] || flatData["documentoid"] ||
       ""
     ).trim();
 
     const taeStatus: number | undefined =
-      payload?.status ??
-      payload?.data?.status ??
-      payload?.Status;
+      flatPayload["status"] ?? flatData["status"];
 
     console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}`);
 
     if (!publicationId && !documentId) {
+      // If we have a status but no IDs, try to find the most recent "sent" signature
+      if (taeStatus !== undefined) {
+        console.log("[tae-webhook] No IDs but have status, attempting to match recent sent signature...");
+        // Cannot reliably match without an ID, just log and ignore
+      }
       console.log("[tae-webhook] No publication or document ID found in payload, ignoring.");
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -110,11 +115,12 @@ Deno.serve(async (req) => {
     // Sync signer statuses
     // TAE may send: array of signers OR a single "assinante" string (email) from the Assinar event
     const signers = payload?.assinantes || payload?.destinatarios ||
-      payload?.data?.assinantes || payload?.data?.destinatarios || [];
+      payload?.data?.assinantes || payload?.data?.destinatarios ||
+      flatPayload["assinantes"] || flatPayload["destinatarios"] ||
+      flatData["assinantes"] || flatData["destinatarios"] || [];
 
-    // Handle single signer from "Assinar" event (assinante field = email string)
-    const singleSignerEmail = payload?.assinante || payload?.data?.assinante;
-    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura;
+    const singleSignerEmail = payload?.assinante || payload?.data?.assinante || flatPayload["assinante"] || flatData["assinante"];
+    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura || flatPayload["tipoassinatura"] || flatData["tipoassinatura"];
 
     if (singleSignerEmail && typeof singleSignerEmail === "string") {
       // This is from the "assinar" event — mark this specific signer as signed

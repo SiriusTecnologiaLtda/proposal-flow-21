@@ -187,15 +187,29 @@ Deno.serve(async (req) => {
       action: s.acao ?? s.tipoAssinatura,
     }));
 
+    // Sync local signatories based on TAE
+    for (const signer of signers) {
+      const nextStatus = signer.statusLabel === "Assinado"
+        ? "signed"
+        : signer.statusLabel === "Rejeitado"
+          ? "rejected"
+          : "pending";
+
+      await supabase
+        .from("proposal_signatories")
+        .update({ status: nextStatus, signed_at: signer.signedAt })
+        .eq("signature_id", signatureId)
+        .ilike("email", signer.email);
+    }
+
     // Update local status based on TAE
     let newLocalStatus = sigRecord.status;
     if (pubStatus === 2) {
       newLocalStatus = "completed";
       await supabase
         .from("proposal_signatures")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
         .eq("id", signatureId);
-      // Also update proposal status to "ganha"
       await supabase
         .from("proposals")
         .update({ status: "ganha" })
@@ -204,18 +218,22 @@ Deno.serve(async (req) => {
       newLocalStatus = "cancelled";
       await supabase
         .from("proposal_signatures")
-        .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
         .eq("id", signatureId);
-      // Revert proposal status to "proposta_gerada" so user can resend
       await supabase
         .from("proposals")
         .update({ status: "proposta_gerada" })
         .eq("id", sigRecord.proposal_id);
+    } else if (resolvedPublicationId && !sigRecord.tae_publication_id) {
+      await supabase
+        .from("proposal_signatures")
+        .update({ tae_publication_id: resolvedPublicationId })
+        .eq("id", signatureId);
     }
 
     return new Response(
       JSON.stringify({
-        taePublicationId,
+        taePublicationId: resolvedPublicationId,
         taeDocumentId: sigRecord.tae_document_id,
         status: pubStatus,
         statusLabel: pubStatusLabel,

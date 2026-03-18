@@ -32,8 +32,8 @@ async function getAccessTokenOAuth2(
 }
 
 function buildRawEmail(
+  fromName: string,
   from: string,
-  to: string,
   subject: string,
   htmlBody: string
 ): string {

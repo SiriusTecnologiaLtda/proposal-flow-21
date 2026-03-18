@@ -263,15 +263,12 @@ export default function ProposalCreate() {
 
   const availableTemplates = useMemo(() => {
     let templates = scopeTemplates;
-    if (product) {
-      templates = templates.filter((t) => t.product.toLowerCase() === product.toLowerCase() || t.product === "TOTVS");
-    }
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
-      templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+      templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q) || t.product.toLowerCase().includes(q));
     }
     return templates;
-  }, [product, scopeTemplates, templateSearch]);
+  }, [scopeTemplates, templateSearch]);
 
   // Get the current proposal type config for labels and rounding
   const currentProposalTypeConfig = useMemo(() => {

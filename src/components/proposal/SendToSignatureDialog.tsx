@@ -129,10 +129,11 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       toast({ title: "Contato já adicionado", variant: "destructive" });
       return;
     }
+    const id = newLocalId();
     setSignatories((prev) => [
       ...prev,
       {
-        id: newLocalId(),
+        id,
         contact_id: contact.id,
         name: contact.name,
         email: contact.email,
@@ -141,13 +142,15 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         isNew: false,
       },
     ]);
+    setPendingScrollId(id);
   }
 
   function addNewSignatory() {
+    const id = newLocalId();
     setSignatories((prev) => [
       ...prev,
       {
-        id: newLocalId(),
+        id,
         contact_id: null,
         name: "",
         email: "",
@@ -156,6 +159,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         isNew: true,
       },
     ]);
+    setPendingScrollId(id);
   }
 
   function removeSignatory(id: string) {

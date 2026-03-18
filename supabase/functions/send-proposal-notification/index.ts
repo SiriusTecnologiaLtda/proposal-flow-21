@@ -138,6 +138,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch user profile with gmail tokens
+    const { data: senderProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("display_name, email, gmail_refresh_token, gmail_sender_email")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError || !senderProfile) {
+      return new Response(
+        JSON.stringify({ error: "Perfil do usuário não encontrado" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!senderProfile.gmail_refresh_token) {
+      return new Response(
+        JSON.stringify({
+          error: "gmail_not_authorized",
+          message: "Você precisa autorizar o envio de emails pela sua conta Google antes de usar esta funcionalidade.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const senderName = senderProfile.display_name || user.email || "Usuário";
+    const senderEmail = senderProfile.gmail_sender_email || user.email || "noreply@example.com";
+
     // Fetch proposal
     const { data: proposal, error: propError } = await supabase
       .from("proposals")
@@ -154,24 +181,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine sender and recipient
+    // Determine recipient
     let recipientEmail: string | null = null;
     let recipientName: string | null = null;
-    let senderName: string | null = null;
     let subject: string;
     let bodyHtml: string;
 
     const clientName = (proposal as any).clients?.name || "N/A";
     const proposalNumber = proposal.number;
     const proposalProduct = proposal.product;
-
-    // Get sender profile name
-    const { data: senderProfile } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("user_id", user.id)
-      .single();
-    senderName = senderProfile?.display_name || user.email || "Usuário";
 
     if (type === "solicitar_ajuste") {
       const arq = (proposal as any).arquiteto;
@@ -248,36 +266,28 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- Send via Gmail API using OAuth2 from google_integrations ---
+    // Get OAuth client credentials from default google integration
     const { data: gInt, error: gIntErr } = await supabase
       .from("google_integrations")
-      .select("oauth_client_id, oauth_client_secret, oauth_refresh_token, sender_email, auth_type")
+      .select("oauth_client_id, oauth_client_secret")
       .eq("is_default", true)
       .single();
 
-    if (gIntErr || !gInt) {
+    if (gIntErr || !gInt || !gInt.oauth_client_id || !gInt.oauth_client_secret) {
       return new Response(
-        JSON.stringify({ error: "Integração Google não configurada (nenhuma padrão encontrada)" }),
+        JSON.stringify({ error: "Integração Google OAuth2 padrão não configurada." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!gInt.oauth_client_id || !gInt.oauth_client_secret || !gInt.oauth_refresh_token) {
-      return new Response(
-        JSON.stringify({ error: "Integração OAuth2 incompleta: Client ID, Client Secret e Refresh Token são necessários. Autorize a conexão na página de configuração do Google." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const senderEmail = gInt.sender_email || "noreply@example.com";
-
+    // Use the USER's refresh token
     const accessToken = await getAccessTokenOAuth2(
       gInt.oauth_client_id,
       gInt.oauth_client_secret,
-      gInt.oauth_refresh_token
+      senderProfile.gmail_refresh_token
     );
 
-    await sendGmail(accessToken, "Propostai", senderEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, senderName, senderEmail, recipientEmail!, subject!, bodyHtml!);
 
     return new Response(
       JSON.stringify({
@@ -285,6 +295,7 @@ Deno.serve(async (req) => {
         recipientName,
         recipientEmail,
         subject,
+        senderEmail,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

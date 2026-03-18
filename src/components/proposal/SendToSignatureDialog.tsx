@@ -293,7 +293,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2 -mx-6 px-6">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2 -mx-6 px-6">
           {/* Select from existing contacts */}
           <div className="space-y-2">
             <Label className="text-xs flex items-center gap-1.5">

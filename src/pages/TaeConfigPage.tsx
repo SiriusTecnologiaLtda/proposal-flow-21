@@ -148,7 +148,7 @@ export default function TaeConfigPage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Senha do Usuário de Serviço</Label>
               <div className="flex items-center gap-2 h-10">
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                   ● Configurada como secret seguro
                 </span>
               </div>

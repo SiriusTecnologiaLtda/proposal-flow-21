@@ -300,30 +300,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- Send via Gmail API using Service Account ---
-    const saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!saKeyRaw) {
+    // --- Send via Gmail API using Service Account from google_integrations ---
+    const { data: gInt, error: gIntErr } = await supabase
+      .from("google_integrations")
+      .select("service_account_key, auth_type")
+      .eq("is_default", true)
+      .single();
+
+    if (gIntErr || !gInt) {
       return new Response(
-        JSON.stringify({ error: "GOOGLE_SERVICE_ACCOUNT_KEY não configurada" }),
+        JSON.stringify({ error: "Integração Google não configurada (nenhuma padrão encontrada)" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     let saKey: any;
     try {
-      saKey = JSON.parse(saKeyRaw);
-    } catch (e) {
-      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:", saKeyRaw?.substring(0, 100));
+      saKey = JSON.parse(gInt.service_account_key || "{}");
+      if (!saKey.private_key || !saKey.client_email) {
+        throw new Error("private_key ou client_email ausente");
+      }
+    } catch (e: any) {
+      console.error("SA key parse error:", e.message);
       return new Response(
-        JSON.stringify({ error: "GOOGLE_SERVICE_ACCOUNT_KEY JSON inválido" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!saKey.private_key || !saKey.client_email) {
-      console.error("SA key missing fields. Keys found:", Object.keys(saKey).join(", "));
-      return new Response(
-        JSON.stringify({ error: "Service account key incompleta (faltam private_key ou client_email)" }),
+        JSON.stringify({ error: `Service Account inválida: ${e.message}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

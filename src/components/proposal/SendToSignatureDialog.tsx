@@ -66,7 +66,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   async function loadPreviousSignatories() {
     if (!proposal?.id) return;
-    // Find the most recent signature record for this proposal
     const { data: lastSig } = await supabase
       .from("proposal_signatures")
       .select("id, proposal_signatories(*)")
@@ -84,32 +83,31 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         phone: s.phone || "",
         role: s.role || "Signatário",
         isNew: false,
+        isLoggedUser: user?.email ? s.email.toLowerCase() === user.email.toLowerCase() : false,
       }));
       setSignatories(prev);
+      // Ensure logged user is always present
+      ensureLoggedUser(prev);
     } else {
-      // No previous signatories — auto-add logged-in user as Testemunha
-      addLoggedUserAsWitness();
+      ensureLoggedUser([]);
     }
   }
 
-  function addLoggedUserAsWitness() {
+  function ensureLoggedUser(existing: Signatory[]) {
     if (!user?.email) return;
-    setSignatories((prev) => {
-      // Don't duplicate if already present
-      if (prev.some((s) => s.email.toLowerCase() === user.email!.toLowerCase())) return prev;
-      return [
-        ...prev,
-        {
-          id: newLocalId(),
-          contact_id: null,
-          name: user.user_metadata?.display_name || user.email || "",
-          email: user.email || "",
-          phone: "",
-          role: "Testemunha",
-          isNew: true,
-        },
-      ];
-    });
+    const alreadyPresent = existing.some((s) => s.email.toLowerCase() === user.email!.toLowerCase());
+    if (alreadyPresent) return;
+    const loggedUserEntry: Signatory = {
+      id: newLocalId(),
+      contact_id: null,
+      name: user.user_metadata?.display_name || user.email || "",
+      email: user.email || "",
+      phone: "",
+      role: "Testemunha",
+      isNew: true,
+      isLoggedUser: true,
+    };
+    setSignatories((prev) => [loggedUserEntry, ...prev]);
   }
 
   function addSignatoryFromContact(contactId: string) {

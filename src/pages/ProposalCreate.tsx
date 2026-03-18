@@ -23,6 +23,7 @@ interface ScopeChild {
   description: string;
   hours: number;
   included: boolean;
+  notes?: string; // comentário impresso no escopo detalhado
 }
 
 interface ScopeProcess {
@@ -31,6 +32,7 @@ interface ScopeProcess {
   included: boolean;
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
+  notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 
 interface PaymentCondition {

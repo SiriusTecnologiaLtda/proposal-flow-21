@@ -1175,6 +1175,7 @@ export type Database = {
           environment: string
           id: string
           notes: string | null
+          service_user_email: string | null
           updated_at: string
         }
         Insert: {
@@ -1184,6 +1185,7 @@ export type Database = {
           environment?: string
           id?: string
           notes?: string | null
+          service_user_email?: string | null
           updated_at?: string
         }
         Update: {
@@ -1193,6 +1195,7 @@ export type Database = {
           environment?: string
           id?: string
           notes?: string | null
+          service_user_email?: string | null
           updated_at?: string
         }
         Relationships: []

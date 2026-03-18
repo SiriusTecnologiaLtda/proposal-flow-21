@@ -1,0 +1,1 @@
+ALTER TABLE public.tae_config ADD COLUMN IF NOT EXISTS service_user_email text DEFAULT '';

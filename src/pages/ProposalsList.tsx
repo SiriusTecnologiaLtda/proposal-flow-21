@@ -202,6 +202,49 @@ export default function ProposalsList() {
     setCancelSignatureId(null);
   }
 
+  const queryClient = useQueryClient();
+
+  async function handleRefreshSignatureStatus(proposal: any) {
+    // Find the latest "sent" signature for this proposal
+    const sigs = (proposal as any).proposal_signatures || [];
+    const activeSig = sigs.find((s: any) => s.status === "sent" && s.tae_publication_id);
+    if (!activeSig) {
+      toast({ title: "Nenhuma assinatura ativa encontrada para atualizar", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Consultando status no TAE..." });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-check-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ signatureId: activeSig.id }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Erro ao consultar TAE", description: data.error || "Erro desconhecido", variant: "destructive" });
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      if (data.localStatus === "completed") {
+        toast({ title: "✅ Assinatura finalizada! Proposta encerrada como Ganha." });
+      } else if (data.localStatus === "cancelled") {
+        toast({ title: "Assinatura cancelada/rejeitada. Proposta voltou para 'Proposta Gerada'.", variant: "destructive" });
+      } else {
+        toast({ title: `Status atualizado: ${data.statusLabel}` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro de rede", description: err.message, variant: "destructive" });
+    }
+  }
+
   function handleDuplicate(proposal: any) {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }

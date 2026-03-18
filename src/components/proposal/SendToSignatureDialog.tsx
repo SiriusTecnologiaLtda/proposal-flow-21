@@ -48,6 +48,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   useEffect(() => {
     if (open && clientId) {
       loadContacts();
+      loadPreviousSignatories();
     }
   }, [open, clientId]);
 

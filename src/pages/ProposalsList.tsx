@@ -115,24 +115,16 @@ export default function ProposalsList() {
       );
       const data = await res.json();
       if (res.ok && data.success) {
+        const body = notifMessage || "";
+        const mailto = `mailto:${data.recipientEmail}?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(body)}`;
+        window.open(mailto);
         toast({
-          title: "Notificação enviada!",
-          description: `Email enviado para ${data.recipientName} (${data.recipientEmail})`,
+          title: "Abrindo cliente de email",
+          description: `Destinatário: ${data.recipientName} (${data.recipientEmail})`,
         });
         setNotifDialogOpen(false);
       } else {
-        // If email service fails, offer mailto fallback
-        if (data.fallback) {
-          const mailto = `mailto:${data.fallback.to}?subject=${encodeURIComponent(data.fallback.subject)}&body=${encodeURIComponent(notifMessage || "")}`;
-          window.open(mailto);
-          toast({
-            title: "Falha no envio automático",
-            description: "Abrindo cliente de email como alternativa.",
-            variant: "destructive",
-          });
-        } else {
-          toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
-        }
+        toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
         setNotifDialogOpen(false);
       }
     } catch (err: any) {

@@ -32,10 +32,9 @@ function computeNetValue(proposal: any): number | null {
 }
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  rascunho: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
-  em_revisao: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
-  aprovada: { label: "Aprovada", className: "bg-success/15 text-success" },
-  enviada: { label: "Enviada", className: "bg-primary/15 text-primary" },
+  pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
+  proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
+  em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
   cancelada: { label: "Cancelada", className: "bg-destructive/15 text-destructive" },
 };
@@ -561,7 +560,7 @@ export default function Dashboard() {
         </CardHeader>
         <div className="divide-y divide-border">
           {proposals.slice(0, 10).map((proposal: any) => {
-            const status = statusMap[proposal.status] || statusMap.rascunho;
+            const status = statusMap[proposal.status] || statusMap.pendente;
             const clientName = proposal.clients?.name || "—";
             return (
               <Link

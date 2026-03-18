@@ -95,10 +95,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Save refresh token to the integration
+    // Save refresh token and sender email to the integration
     const { error: updateError } = await admin
       .from("google_integrations")
-      .update({ oauth_refresh_token: refreshToken })
+      .update({ oauth_refresh_token: refreshToken, sender_email: email || null })
       .eq("id", integrationId);
 
     if (updateError) {

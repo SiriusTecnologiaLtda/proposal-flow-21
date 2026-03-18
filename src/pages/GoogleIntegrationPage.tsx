@@ -55,7 +55,7 @@ const emptyForm = {
   oauth_client_secret: "",
 };
 
-const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
+const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send";
 const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
 
 const resolveOAuthBaseOrigin = () => {

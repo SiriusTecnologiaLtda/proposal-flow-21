@@ -65,7 +65,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
 
   useEffect(() => {
     if (open && proposalId) {
-      loadSignatures();
+      void loadSignatures(true);
       setTaeStatus(null);
     }
   }, [open, proposalId]);

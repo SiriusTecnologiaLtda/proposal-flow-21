@@ -426,8 +426,12 @@ async function runSalesTeamImport(file: File, clearBefore: boolean, qc: any, use
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
     if (dbLogId) await updateDbLog(dbLogId, finalRun);
   } catch (err: any) {
-    addImportLog(entity, "error", `Erro: ${err.message}`);
+    addImportLog(entity, "error", `Erro fatal: ${err.message}`);
     finishImportRun(entity, "error");
+    if (dbLogId) {
+      const errorRun = { ...run, status: "error" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun;
+      await updateDbLog(dbLogId, errorRun).catch(() => {});
+    }
   }
 }
 

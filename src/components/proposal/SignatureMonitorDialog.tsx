@@ -70,7 +70,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
     }
   }, [open, proposalId]);
 
-  async function loadSignatures() {
+  async function loadSignatures(autoSyncLatest = false) {
     if (!proposalId) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -78,7 +78,19 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
       .select("*, proposal_signatories(*)")
       .eq("proposal_id", proposalId)
       .order("sent_at", { ascending: false });
-    if (!error) setSignatures((data || []) as any);
+
+    if (!error) {
+      const nextSignatures = (data || []) as any;
+      setSignatures(nextSignatures);
+
+      if (autoSyncLatest && nextSignatures.length > 0) {
+        const latestSyncable = nextSignatures.find((sig: any) => sig.tae_publication_id || sig.tae_document_id);
+        if (latestSyncable) {
+          await checkTaeStatus(latestSyncable.id, false);
+        }
+      }
+    }
+
     setLoading(false);
   }
 

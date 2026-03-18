@@ -758,28 +758,37 @@ export type Database = {
       }
       proposal_types: {
         Row: {
+          analyst_label: string
           created_at: string
+          gp_label: string
           id: string
           mit_template_doc_id: string | null
           name: string
+          rounding_factor: number
           slug: string
           template_doc_id: string | null
           updated_at: string
         }
         Insert: {
+          analyst_label?: string
           created_at?: string
+          gp_label?: string
           id?: string
           mit_template_doc_id?: string | null
           name: string
+          rounding_factor?: number
           slug: string
           template_doc_id?: string | null
           updated_at?: string
         }
         Update: {
+          analyst_label?: string
           created_at?: string
+          gp_label?: string
           id?: string
           mit_template_doc_id?: string | null
           name?: string
+          rounding_factor?: number
           slug?: string
           template_doc_id?: string | null
           updated_at?: string

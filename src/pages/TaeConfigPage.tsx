@@ -76,6 +76,19 @@ export default function TaeConfigPage() {
     setSaving(false);
   }
 
+  async function handleTest() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-tae-connection");
+      if (error) throw error;
+      setTestResult(data);
+    } catch (err: any) {
+      setTestResult({ success: false, error: err.message || "Erro ao testar conexão" });
+    }
+    setTesting(false);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">

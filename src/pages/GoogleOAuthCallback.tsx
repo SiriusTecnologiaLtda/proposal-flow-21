@@ -7,21 +7,21 @@ function decodeOAuthState(rawState: string | null) {
 
   try {
     const parsed = JSON.parse(atob(rawState));
-    if (typeof parsed?.integrationId === "string") {
-      return {
-        integrationId: parsed.integrationId,
-        openerOrigin:
-          typeof parsed?.openerOrigin === "string"
-            ? parsed.openerOrigin
-            : window.location.origin,
-      };
-    }
+    return {
+      integrationId: typeof parsed?.integrationId === "string" ? parsed.integrationId : undefined,
+      flow: typeof parsed?.flow === "string" ? parsed.flow : "integration",
+      openerOrigin:
+        typeof parsed?.openerOrigin === "string"
+          ? parsed.openerOrigin
+          : window.location.origin,
+    };
   } catch {
     // Legacy plain-text state support
   }
 
   return {
     integrationId: rawState,
+    flow: "integration",
     openerOrigin: window.location.origin,
   };
 }
@@ -36,10 +36,11 @@ export default function GoogleOAuthCallback() {
     const decodedState = decodeOAuthState(rawState);
     const openerOrigin = decodedState?.openerOrigin ?? window.location.origin;
     const integrationId = decodedState?.integrationId ?? rawState;
+    const flow = decodedState?.flow ?? "integration";
 
     if (window.opener) {
       window.opener.postMessage(
-        { type: "google-oauth-callback", code, state: integrationId, error },
+        { type: "google-oauth-callback", code, state: integrationId, error, flow },
         openerOrigin
       );
       window.close();
@@ -50,6 +51,7 @@ export default function GoogleOAuthCallback() {
     if (code) params.set("code", code);
     if (integrationId) params.set("state", integrationId);
     if (error) params.set("error", error);
+    if (flow) params.set("flow", flow);
     window.location.href = `${openerOrigin}/configuracoes/google?${params.toString()}`;
   }, [searchParams]);
 

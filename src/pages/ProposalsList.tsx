@@ -472,9 +472,6 @@ export default function ProposalsList() {
                         {p.status === "em_assinatura" && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleRefreshSignatureStatus(p)}>
-                              <RefreshCw className="mr-2 h-3.5 w-3.5" />Atualizar Status da Assinatura
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                             </DropdownMenuItem>

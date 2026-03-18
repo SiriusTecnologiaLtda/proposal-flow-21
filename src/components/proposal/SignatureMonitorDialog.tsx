@@ -94,7 +94,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
     setLoading(false);
   }
 
-  async function checkTaeStatus(signatureId: string) {
+  async function checkTaeStatus(signatureId: string, refreshList = true) {
     setCheckingTae(true);
     setTaeStatus(null);
     try {
@@ -116,8 +116,9 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
         toast({ title: "Erro ao consultar TAE", description: data.error || "Erro desconhecido", variant: "destructive" });
       } else {
         setTaeStatus(data);
-        // Refresh local data
-        await loadSignatures();
+        if (refreshList) {
+          await loadSignatures(false);
+        }
       }
     } catch (err: any) {
       toast({ title: "Erro de rede", description: err.message, variant: "destructive" });

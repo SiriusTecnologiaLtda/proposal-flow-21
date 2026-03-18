@@ -390,34 +390,6 @@ Deno.serve(async (req) => {
       publishData?.data?.[0]?.id;
 
     log(logs, "TAE Publicação", "ok", `Publicação criada — ID: ${taePublicationId || "OK"}`);
-
-    // 10.5 Register webhook callback on TAE for this publication
-    if (taePublicationId) {
-      const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/tae-webhook`;
-      log(logs, "TAE Callback", "info", `Registrando callback: ${webhookUrl}`);
-      try {
-        const callbackRes = await fetch(
-          `${baseUrl}/signintegration/v1/Publicacoes/${taePublicationId}/CallBacks`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${taeToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ url: webhookUrl }),
-          }
-        );
-        const callbackBody = await callbackRes.text();
-        if (callbackRes.ok) {
-          log(logs, "TAE Callback", "ok", "Callback registrado com sucesso no TAE");
-        } else {
-          log(logs, "TAE Callback", "error", `Falha ao registrar callback (${callbackRes.status}): ${callbackBody.substring(0, 300)}`);
-        }
-      } catch (cbErr: any) {
-        log(logs, "TAE Callback", "error", `Erro ao registrar callback: ${cbErr.message}`);
-      }
-    }
-
     // 11. Update proposal_signatures with TAE IDs
     const updatePayload: any = {
       tae_document_id: String(taeDocumentId),

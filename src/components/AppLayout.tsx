@@ -36,10 +36,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("display_name, avatar_url")
+        .select("display_name, avatar_url, phone")
         .eq("user_id", user!.id)
         .maybeSingle();
-      return data;
+      return data as { display_name: string; avatar_url: string | null; phone: string | null } | null;
     },
   });
 

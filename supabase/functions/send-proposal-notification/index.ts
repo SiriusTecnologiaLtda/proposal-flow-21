@@ -32,14 +32,14 @@ async function getAccessTokenOAuth2(
 }
 
 function buildRawEmail(
+  fromName: string,
   from: string,
-  to: string,
   subject: string,
   htmlBody: string
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
   const rawLines = [
-    `From: ${from}`,
+    `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
@@ -58,12 +58,13 @@ function buildRawEmail(
 
 async function sendGmail(
   accessToken: string,
+  senderName: string,
   senderEmail: string,
   recipientEmail: string,
   subject: string,
   htmlBody: string
 ): Promise<void> {
-  const raw = buildRawEmail(senderEmail, recipientEmail, subject, htmlBody);
+  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody);
   const rawB64 = btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -275,7 +276,7 @@ Deno.serve(async (req) => {
       gInt.oauth_refresh_token
     );
 
-    await sendGmail(accessToken, senderEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, "Propostai", senderEmail, recipientEmail!, subject!, bodyHtml!);
 
     return new Response(
       JSON.stringify({

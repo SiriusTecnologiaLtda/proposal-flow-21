@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, RefreshCw } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,49 @@ export default function ProposalsList() {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setCancelSignatureId(null);
+  }
+
+  const queryClient = useQueryClient();
+
+  async function handleRefreshSignatureStatus(proposal: any) {
+    // Find the latest "sent" signature for this proposal
+    const sigs = (proposal as any).proposal_signatures || [];
+    const activeSig = sigs.find((s: any) => s.status === "sent" && s.tae_publication_id);
+    if (!activeSig) {
+      toast({ title: "Nenhuma assinatura ativa encontrada para atualizar", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Consultando status no TAE..." });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-check-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ signatureId: activeSig.id }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Erro ao consultar TAE", description: data.error || "Erro desconhecido", variant: "destructive" });
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      if (data.localStatus === "completed") {
+        toast({ title: "✅ Assinatura finalizada! Proposta encerrada como Ganha." });
+      } else if (data.localStatus === "cancelled") {
+        toast({ title: "Assinatura cancelada/rejeitada. Proposta voltou para 'Proposta Gerada'.", variant: "destructive" });
+      } else {
+        toast({ title: `Status atualizado: ${data.statusLabel}` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro de rede", description: err.message, variant: "destructive" });
+    }
   }
 
   function handleDuplicate(proposal: any) {
@@ -409,25 +453,35 @@ export default function ProposalsList() {
                         <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                           <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                         </DropdownMenuItem>
-                        {(p.status === "proposta_gerada" || p.status === "em_assinatura") && (
+                        {p.status === "proposta_gerada" && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
-                              <Send className="mr-2 h-3.5 w-3.5" />
-                              {p.status === "em_assinatura" ? "Reenviar para Assinatura" : "Enviar para Assinatura"}
+                              <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />
-                              {p.status === "em_assinatura" ? "Encerrar como Ganha (Manual)" : "Encerrar como Ganha"}
+                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
                             </DropdownMenuItem>
-                            {p.status === "em_assinatura" && (
-                              <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
-                                <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
-                              </DropdownMenuItem>
-                            )}
+                          </>
+                        )}
+                        {p.status === "em_assinatura" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleRefreshSignatureStatus(p)}>
+                              <RefreshCw className="mr-2 h-3.5 w-3.5" />Atualizar Status da Assinatura
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                              <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                              <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                            </DropdownMenuItem>
                           </>
                         )}
                         {!locked && (

@@ -171,6 +171,11 @@ Deno.serve(async (req) => {
         .from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .eq("id", signatureId);
+      // Revert proposal status to "proposta_gerada" so user can resend
+      await supabase
+        .from("proposals")
+        .update({ status: "proposta_gerada" })
+        .eq("id", sigRecord.proposal_id);
     }
 
     return new Response(

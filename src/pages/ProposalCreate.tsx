@@ -1396,14 +1396,15 @@ export default function ProposalCreate() {
         <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
           <ArrowLeft className="mr-2 h-4 w-4" />Anterior
         </Button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           {currentStep === 4 ? (
             <>
-              <Button variant="outline" onClick={() => handleSave("rascunho")} disabled={isSaving}>
-                Salvar Rascunho
-              </Button>
-              <Button onClick={() => handleSave("enviada")} disabled={isSaving}>
-                <Check className="mr-2 h-4 w-4" />{isEditing ? "Salvar Proposta" : "Gerar Proposta"}
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+                <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />
+                Gerar Proposta?
+              </label>
+              <Button onClick={() => handleSave(generateOnSave ? "proposta_gerada" : "pendente")} disabled={isSaving}>
+                <Check className="mr-2 h-4 w-4" />Confirmar
               </Button>
             </>
           ) : (

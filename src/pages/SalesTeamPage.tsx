@@ -194,9 +194,14 @@ export default function SalesTeamPage() {
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>
-                      <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button className="rounded p-1 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(member.id, member.name)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {member.email && <p>📧 {member.email}</p>}

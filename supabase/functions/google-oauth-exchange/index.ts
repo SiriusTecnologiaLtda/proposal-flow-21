@@ -95,18 +95,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Save refresh token and sender email to the integration
-    const { error: updateError } = await admin
-      .from("google_integrations")
-      .update({ oauth_refresh_token: refreshToken, sender_email: email || null })
-      .eq("id", integrationId);
-
-    if (updateError) {
-      return new Response(JSON.stringify({ error: `Erro ao salvar token: ${updateError.message}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Get user info to show which account was authorized
     let email = "";
     if (tokenData.access_token) {
@@ -120,6 +108,18 @@ Deno.serve(async (req) => {
           email = userInfo.email || "";
         }
       } catch { /* ignore */ }
+    }
+
+    // Save refresh token and sender email to the integration
+    const { error: updateError } = await admin
+      .from("google_integrations")
+      .update({ oauth_refresh_token: refreshToken, sender_email: email || null })
+      .eq("id", integrationId);
+
+    if (updateError) {
+      return new Response(JSON.stringify({ error: `Erro ao salvar token: ${updateError.message}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ 

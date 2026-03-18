@@ -274,7 +274,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                             )}
                           </div>
 
-                          {(sig.tae_publication_id || sig.tae_document_id) && (
+                          {!readOnly && (sig.tae_publication_id || sig.tae_document_id) && (
                             <Button
                               variant="outline"
                               size="sm"

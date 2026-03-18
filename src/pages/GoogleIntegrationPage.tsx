@@ -536,7 +536,6 @@ export default function GoogleIntegrationPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Pasta Templates</TableHead>
                   <TableHead>Pasta Documentos</TableHead>
                   {isAdmin && <TableHead className="w-40">Ações</TableHead>}
                 </TableRow>

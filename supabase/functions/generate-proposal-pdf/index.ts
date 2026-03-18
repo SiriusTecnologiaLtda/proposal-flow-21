@@ -972,31 +972,8 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
-      const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-      driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
-      outputFolderId = driveFolderId;
-
-      if (!serviceAccountKeyRaw) {
-        log(logs, "Carregar credenciais", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");
-        return respondWithLogs(logs, { error: "GOOGLE_SERVICE_ACCOUNT_KEY not configured" }, 500);
-      }
-      if (!driveFolderId) {
-        log(logs, "Carregar credenciais", "error", "GOOGLE_DRIVE_FOLDER_ID não configurado");
-        return respondWithLogs(logs, { error: "GOOGLE_DRIVE_FOLDER_ID not configured" }, 500);
-      }
-
-      try {
-        let raw = serviceAccountKeyRaw.trim();
-        if (raw.startsWith('"') || raw.startsWith("'")) {
-          try { raw = JSON.parse(raw); } catch { /* use as-is */ }
-        }
-        serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        log(logs, "Carregar credenciais", "ok", `Usando env (email: ${serviceAccountKey.client_email})`);
-      } catch (e) {
-        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave: ${e.message}`);
-        return respondWithLogs(logs, { error: e.message }, 500);
-      }
+      log(logs, "Carregar credenciais", "error", "Nenhuma integração Google configurada");
+      return respondWithLogs(logs, { error: "No Google integration configured" }, 500);
     }
 
     // ─── Fetch proposal data ────────────────────────────────────

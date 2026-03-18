@@ -26,6 +26,7 @@ import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
+import ProfilePage from "@/pages/ProfilePage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
@@ -60,6 +61,7 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />

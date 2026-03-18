@@ -12,6 +12,7 @@ interface Props {
   proposalNumber?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  readOnly?: boolean;
 }
 
 interface SignatureRecord {

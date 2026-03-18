@@ -658,6 +658,7 @@ export default function ProposalsList() {
           proposalNumber={monitorProposal?.number}
           open={!!monitorProposal}
           onOpenChange={(open) => !open && setMonitorProposal(null)}
+          readOnly={monitorProposal?.status === "ganha" || monitorProposal?.status === "cancelada"}
         />
         {/* Cancel Signature confirmation */}
         <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>

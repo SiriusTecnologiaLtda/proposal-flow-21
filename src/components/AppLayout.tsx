@@ -44,7 +44,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   });
 
   const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.email || "U";
-  const avatarUrl = (profile as any)?.avatar_url || "";
+  const avatarUrl = profile?.avatar_url || "";
   const initials = displayName.substring(0, 2).toUpperCase();
 
   const filteredNavItems = navItems.filter((item) =>

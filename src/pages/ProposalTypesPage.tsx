@@ -114,6 +114,9 @@ export default function ProposalTypesPage() {
       slug: item.slug,
       template_doc_id: item.template_doc_id || "",
       mit_template_doc_id: item.mit_template_doc_id || "",
+      analyst_label: item.analyst_label || "Analista de Implantação",
+      gp_label: item.gp_label || "Coordenador de Projeto",
+      rounding_factor: item.rounding_factor || 8,
     });
     setEditingId(item.id);
     setDialogOpen(true);

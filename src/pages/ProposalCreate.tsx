@@ -569,7 +569,7 @@ export default function ProposalCreate() {
     }
   }, [totalValue]);
 
-  async function handleSave(status: "rascunho" | "enviada") {
+  async function handleSave(status: string) {
     if (!proposalNumber || !clientId || !product || !proposalType) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;

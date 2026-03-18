@@ -183,6 +183,23 @@ export default function ProposalsList() {
     setWinId(null);
   }
 
+  async function handleCancelSignature() {
+    if (!cancelSignatureId) return;
+    try {
+      await updateStatus.mutateAsync({ id: cancelSignatureId, status: "proposta_gerada" });
+      // Update signature record
+      await supabase
+        .from("proposal_signatures")
+        .update({ status: "cancelled", cancelled_at: new Date().toISOString() } as any)
+        .eq("proposal_id", cancelSignatureId)
+        .eq("status", "pending");
+      toast({ title: "Processo de assinatura cancelado. Status voltou para Proposta Gerada." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setCancelSignatureId(null);
+  }
+
   function handleDuplicate(proposal: any) {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }

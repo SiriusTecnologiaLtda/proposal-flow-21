@@ -115,11 +115,12 @@ Deno.serve(async (req) => {
     // Sync signer statuses
     // TAE may send: array of signers OR a single "assinante" string (email) from the Assinar event
     const signers = payload?.assinantes || payload?.destinatarios ||
-      payload?.data?.assinantes || payload?.data?.destinatarios || [];
+      payload?.data?.assinantes || payload?.data?.destinatarios ||
+      flatPayload["assinantes"] || flatPayload["destinatarios"] ||
+      flatData["assinantes"] || flatData["destinatarios"] || [];
 
-    // Handle single signer from "Assinar" event (assinante field = email string)
-    const singleSignerEmail = payload?.assinante || payload?.data?.assinante;
-    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura;
+    const singleSignerEmail = payload?.assinante || payload?.data?.assinante || flatPayload["assinante"] || flatData["assinante"];
+    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura || flatPayload["tipoassinatura"] || flatData["tipoassinatura"];
 
     if (singleSignerEmail && typeof singleSignerEmail === "string") {
       // This is from the "assinar" event — mark this specific signer as signed

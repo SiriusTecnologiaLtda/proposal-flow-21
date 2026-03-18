@@ -28,8 +28,22 @@ export function canAccessRoute(
 ): boolean {
   if (role === "admin") return true;
   if (pathname === "/" || pathname === "") return allowedResources.includes("dashboard");
-  const segment = pathname.split("/").filter(Boolean)[0];
-  return allowedResources.includes(segment);
+
+  const segments = pathname.split("/").filter(Boolean);
+  const firstSegment = segments[0];
+
+  // For cadastros sub-routes, check the specific sub-resource
+  if (firstSegment === "cadastros" && segments.length >= 2) {
+    const subResource = `cadastros/${segments[1]}`;
+    return allowedResources.includes(subResource);
+  }
+
+  // For the cadastros hub itself, allow if user has access to ANY cadastro sub-resource
+  if (firstSegment === "cadastros") {
+    return allowedResources.some((r) => r.startsWith("cadastros/"));
+  }
+
+  return allowedResources.includes(firstSegment);
 }
 
 export const ROLE_LABELS: Record<AppRole, string> = {

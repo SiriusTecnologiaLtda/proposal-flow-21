@@ -295,7 +295,7 @@ export default function ProposalCreate() {
         }
       }
     }
-    return roundUp8(total);
+    return roundUpFactor(total);
   }, [scopeProcesses]);
 
   // Group scope processes by template for grouped display

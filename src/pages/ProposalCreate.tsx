@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits, useProposalDefaults } from "@/hooks/useSupabaseData";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -63,6 +65,14 @@ export default function ProposalCreate() {
   const { data: productsList = [] } = useProducts();
   const { data: units = [] } = useUnits();
   const { data: proposalDefaults } = useProposalDefaults();
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("*").order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);
@@ -694,8 +704,9 @@ export default function ProposalCreate() {
               <Select value={proposalType} onValueChange={setProposalType}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="projeto">Projeto</SelectItem>
-                  <SelectItem value="banco_de_horas">Banco de Horas</SelectItem>
+                  {proposalTypes.map((pt: any) => (
+                    <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

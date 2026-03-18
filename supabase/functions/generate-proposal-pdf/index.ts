@@ -926,8 +926,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let driveFolderId: string; // templates folder
-    let outputFolderId: string; // output folder for generated docs
+    let outputFolderId: string;
     let authType = "service_account";
     let serviceAccountKey: any = null;
     let oauthClientId = "";
@@ -955,7 +954,6 @@ Deno.serve(async (req) => {
     }
 
     if (integration) {
-      driveFolderId = integration.drive_folder_id;
       outputFolderId = integration.output_folder_id || integration.drive_folder_id;
       authType = integration.auth_type || "service_account";
 
@@ -974,31 +972,8 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      log(logs, "Carregar credenciais", "info", "Nenhuma integração no banco, usando variáveis de ambiente");
-      const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-      driveFolderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || "";
-      outputFolderId = driveFolderId;
-
-      if (!serviceAccountKeyRaw) {
-        log(logs, "Carregar credenciais", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");
-        return respondWithLogs(logs, { error: "GOOGLE_SERVICE_ACCOUNT_KEY not configured" }, 500);
-      }
-      if (!driveFolderId) {
-        log(logs, "Carregar credenciais", "error", "GOOGLE_DRIVE_FOLDER_ID não configurado");
-        return respondWithLogs(logs, { error: "GOOGLE_DRIVE_FOLDER_ID not configured" }, 500);
-      }
-
-      try {
-        let raw = serviceAccountKeyRaw.trim();
-        if (raw.startsWith('"') || raw.startsWith("'")) {
-          try { raw = JSON.parse(raw); } catch { /* use as-is */ }
-        }
-        serviceAccountKey = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        log(logs, "Carregar credenciais", "ok", `Usando env (email: ${serviceAccountKey.client_email})`);
-      } catch (e) {
-        log(logs, "Carregar credenciais", "error", `Falha ao parsear chave: ${e.message}`);
-        return respondWithLogs(logs, { error: e.message }, 500);
-      }
+      log(logs, "Carregar credenciais", "error", "Nenhuma integração Google configurada");
+      return respondWithLogs(logs, { error: "No Google integration configured" }, 500);
     }
 
     // ─── Fetch proposal data ────────────────────────────────────
@@ -1104,28 +1079,26 @@ Deno.serve(async (req) => {
       log(logs, "Quota do Drive", "error", `Falha ao consultar quota: ${e.message}`);
     }
 
-    // ─── Find template in Drive ─────────────────────────────────
-    log(logs, "Buscar template", "info", `Buscando template "${isProjeto ? "projeto" : "banco"}" na pasta ${driveFolderId}...`);
-    let templates: any[];
-    try {
-      templates = await listTemplates(accessToken, driveFolderId);
-    } catch (e: any) {
-      log(logs, "Buscar template", "error", `Falha ao listar templates: ${e.message}`);
-      return respondWithLogs(logs, { error: e.message }, 500);
+    // ─── Find template from proposal_types ────────────────────
+    log(logs, "Buscar template", "info", `Buscando template para tipo "${proposal.type}"...`);
+
+    // Look up template_doc_id from proposal_types table
+    const { data: proposalTypeRow } = await supabase
+      .from("proposal_types")
+      .select("template_doc_id")
+      .eq("slug", proposal.type)
+      .maybeSingle();
+
+    const templateDocId = proposalTypeRow?.template_doc_id;
+    if (!templateDocId) {
+      log(logs, "Buscar template", "error", `Nenhum template de proposta configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.`);
+      return respondWithLogs(logs, { error: `No proposal template configured for type "${proposal.type}"` }, 404);
     }
+    log(logs, "Buscar template", "ok", `Template ID: ${templateDocId}`);
 
-    const templateKeyword = isProjeto ? "projeto" : "banco";
-    const template = templates.find((t: any) => t.name.toLowerCase().includes(templateKeyword));
-
-    if (!template) {
-      log(logs, "Buscar template", "error", `Template "${templateKeyword}" não encontrado. Arquivos na pasta: ${templates.map((t: any) => t.name).join(", ") || "nenhum"}`);
-      return respondWithLogs(logs, { error: `Template "${templateKeyword}" not found in Drive folder` }, 404);
-    }
-    log(logs, "Buscar template", "ok", `Template encontrado: "${template.name}" (ID: ${template.id})`);
-
-    // ─── Template file info ─────────────────────────────────────
+    // ─── Template file info ─────────────────────────────────
     try {
-      const fileInfo = await getFileInfo(accessToken, template.id);
+      const fileInfo = await getFileInfo(accessToken, templateDocId);
       log(logs, "Info do Template", "ok", `Nome: ${fileInfo.name}\nTipo: ${fileInfo.mimeType}\nTamanho: ${fileInfo.size}`);
     } catch (e: any) {
       log(logs, "Info do Template", "info", `Não foi possível obter info do arquivo: ${e.message}`);
@@ -1145,7 +1118,7 @@ Deno.serve(async (req) => {
     log(logs, "Copiar template", "info", `Criando cópia do template no Drive (pasta output: ${outputFolderId})...`);
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, outputFolderId, folderInfo.driveId, logs);
+      newDocId = await copyFile(accessToken, templateDocId, newFileName, outputFolderId, folderInfo.driveId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha ao copiar template: ${e.message}`);

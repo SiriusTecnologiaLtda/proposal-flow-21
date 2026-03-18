@@ -21,6 +21,7 @@ import UnitsPage from "@/pages/UnitsPage";
 import ImportDataPage from "@/pages/ImportDataPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import UserManagementPage from "@/pages/UserManagementPage";
+import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
@@ -69,6 +70,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/integracoes" element={<GuardedRoute path="/configuracoes"><IntegrationsPage /></GuardedRoute>} />
         <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
+        <Route path="/configuracoes/tipos-proposta" element={<GuardedRoute path="/configuracoes"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

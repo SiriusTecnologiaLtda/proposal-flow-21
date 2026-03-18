@@ -253,8 +253,8 @@ export default function GoogleIntegrationPage() {
       const payload: any = {
         label: values.label,
         auth_type: values.auth_type,
-        drive_folder_id: values.drive_folder_id,
-        output_folder_id: values.output_folder_id || values.drive_folder_id,
+        drive_folder_id: values.drive_folder_id || "",
+        output_folder_id: values.output_folder_id || "",
       };
 
       if (values.auth_type === "service_account") {
@@ -347,8 +347,8 @@ export default function GoogleIntegrationPage() {
   }
 
   function handleSave() {
-    if (!form.label.trim() || !form.drive_folder_id.trim()) {
-      toast({ title: "Campos obrigatórios", description: "Preencha Nome e ID da Pasta.", variant: "destructive" });
+    if (!form.label.trim()) {
+      toast({ title: "Campos obrigatórios", description: "Preencha o Nome.", variant: "destructive" });
       return;
     }
 
@@ -536,7 +536,6 @@ export default function GoogleIntegrationPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Pasta Templates</TableHead>
                   <TableHead>Pasta Documentos</TableHead>
                   {isAdmin && <TableHead className="w-40">Ações</TableHead>}
                 </TableRow>
@@ -579,8 +578,7 @@ export default function GoogleIntegrationPage() {
                           <Badge className="bg-green-600/10 text-green-600 text-[10px]">Configurado</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{item.drive_folder_id}</TableCell>
-                      <TableCell className="font-mono text-xs">{item.output_folder_id || item.drive_folder_id}</TableCell>
+                      <TableCell className="font-mono text-xs">{item.output_folder_id || "—"}</TableCell>
                       {isAdmin && (
                         <TableCell>
                           <div className="flex gap-1">
@@ -631,14 +629,9 @@ export default function GoogleIntegrationPage() {
               <Input placeholder="Ex: Unidade Leste" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
             </div>
             <div>
-              <Label>Pasta de Templates (Google Drive ID)</Label>
-              <Input placeholder="Ex: 1JBh1YFS86MMe-M91kWeBchfh8xwQrFwB" value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} />
-              <p className="text-xs text-muted-foreground mt-1">Pasta onde estão os modelos de documento</p>
-            </div>
-            <div>
               <Label>Pasta de Documentos Gerados (Google Drive ID)</Label>
-              <Input placeholder="Mesmo ID ou pasta diferente" value={form.output_folder_id} onChange={(e) => setForm({ ...form, output_folder_id: e.target.value })} />
-              <p className="text-xs text-muted-foreground mt-1">Pasta onde os documentos gerados serão salvos. Se vazio, usa a pasta de templates.</p>
+              <Input placeholder="ID da pasta no Google Drive" value={form.output_folder_id} onChange={(e) => setForm({ ...form, output_folder_id: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Pasta onde os documentos gerados serão salvos</p>
             </div>
 
             <Tabs value={form.auth_type} onValueChange={(v) => setForm({ ...form, auth_type: v as "service_account" | "oauth2" })}>

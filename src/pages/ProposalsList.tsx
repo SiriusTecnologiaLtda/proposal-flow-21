@@ -395,68 +395,88 @@ export default function ProposalsList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
-                          <Eye className="mr-2 h-3.5 w-3.5" />
-                          Gerar Proposta
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
-                          <FileCheck className="mr-2 h-3.5 w-3.5" />
-                          Gerar MIT-065
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {!locked && (
-                          <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
-                            <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleDuplicate(p)}>
-                          <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
-                        </DropdownMenuItem>
-                        {p.status === "proposta_gerada" && (
+                        {/* Cancelada: somente Duplicar */}
+                        {p.status === "cancelada" ? (
                           <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
-                              <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
-                              <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                              <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
                           </>
-                        )}
-                        {p.status === "em_assinatura" && (
+                        ) : p.status === "ganha" ? (
                           <>
+                            {/* Ganha: somente Gerar MIT, Duplicar e Monitor */}
+                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                              <FileCheck className="mr-2 h-3.5 w-3.5" />
+                              Gerar MIT-065
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
-                              <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                              <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
-                              <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {p.status === "ganha" && (
-                          <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                             </DropdownMenuItem>
                           </>
-                        )}
-                        {!locked && (
+                        ) : (
                           <>
+                            {/* Pendente, proposta_gerada, em_assinatura */}
+                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
+                              <Eye className="mr-2 h-3.5 w-3.5" />
+                              Gerar Proposta
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                              <FileCheck className="mr-2 h-3.5 w-3.5" />
+                              Gerar MIT-065
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
-                              <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
+                            {!locked && (
+                              <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
+                                <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                              <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
-                              <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir
-                            </DropdownMenuItem>
+                            {p.status === "proposta_gerada" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
+                                  <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                                  <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                  <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {p.status === "em_assinatura" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                                  <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                  <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                                  <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {!locked && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
+                                  <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>

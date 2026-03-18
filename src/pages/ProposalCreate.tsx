@@ -1213,7 +1213,7 @@ export default function ProposalCreate() {
                     <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                   </tr>
                   <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Coordenador de Projeto</td>
+                    <td className="py-2 px-3 text-foreground">{gpLabel}</td>
                     <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>

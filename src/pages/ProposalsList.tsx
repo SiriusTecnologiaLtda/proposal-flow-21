@@ -892,12 +892,38 @@ export default function ProposalsList() {
                 )}
               </DialogTitle>
             </DialogHeader>
-            {notifProposal && (
+
+            {/* Gmail auth warning */}
+            {gmailAuthorized === false && (
+              <Alert variant="destructive" className="border-warning bg-warning/10">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="space-y-2">
+                  <p className="text-sm font-medium">Autorização de email necessária</p>
+                  <p className="text-xs text-muted-foreground">
+                    Para enviar notificações, você precisa autorizar o sistema a enviar emails pela sua conta Google ({user?.email}).
+                    O email será enviado em seu nome.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={startUserGmailAuth}
+                    disabled={gmailAuthLoading}
+                    className="mt-1"
+                  >
+                    {gmailAuthLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ExternalLink className="mr-2 h-3 w-3" />}
+                    Autorizar envio de email
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {notifProposal && gmailAuthorized && (
               <div className="space-y-4">
                 <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
                   <p><span className="font-medium text-muted-foreground">Proposta:</span> {notifProposal.number}</p>
                   <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
                   <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
+                  <p><span className="font-medium text-muted-foreground">Remetente:</span> {user?.email}</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Mensagem (opcional)</Label>
@@ -917,7 +943,7 @@ export default function ProposalsList() {
               <Button variant="outline" onClick={() => setNotifDialogOpen(false)} disabled={notifSending}>
                 Cancelar
               </Button>
-              <Button onClick={handleSendNotification} disabled={notifSending}>
+              <Button onClick={handleSendNotification} disabled={notifSending || !gmailAuthorized}>
                 {notifSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Enviar
               </Button>

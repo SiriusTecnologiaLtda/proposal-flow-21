@@ -219,7 +219,7 @@ export function useProposals() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proposals")
-        .select("*, clients(name, unit_id), sales_team!proposals_esn_id_fkey(name), proposal_scope_items(hours, included, parent_id), proposal_documents(id, doc_type), proposal_signatures(id, status, tae_publication_id)")
+        .select("*, clients(name, unit_id), sales_team!proposals_esn_id_fkey(name), proposal_scope_items(hours, included, parent_id), proposal_documents(id, doc_type), proposal_signatures(id, status, tae_publication_id, tae_document_id, sent_at, created_at)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;

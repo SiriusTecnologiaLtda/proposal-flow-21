@@ -358,7 +358,7 @@ export default function ProposalsList() {
                   <div className="flex items-center justify-end gap-1.5">
                     {p.status === "ganha" && (() => {
                       const sigs = (p as any).proposal_signatures || [];
-                      const hasTae = sigs.some((s: any) => s.status === "completed" && s.tae_publication_id);
+                      const hasTae = sigs.some((s: any) => s.status === "completed" && (s.tae_publication_id || s.tae_document_id));
                       return hasTae ? (
                         <Tooltip>
                           <TooltipTrigger asChild>

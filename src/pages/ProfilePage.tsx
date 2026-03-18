@@ -37,7 +37,7 @@ export default function ProfilePage() {
         .eq("user_id", user!.id)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as (typeof data & { phone?: string | null; avatar_url?: string | null }) | null;
     },
   });
 

@@ -611,6 +611,13 @@ export default function ProposalsList() {
           onOpenChange={(open) => !open && setSignatureProposal(null)}
         />
 
+        {/* Signature Monitor dialog */}
+        <SignatureMonitorDialog
+          proposalId={monitorProposal?.id || null}
+          proposalNumber={monitorProposal?.number}
+          open={!!monitorProposal}
+          onOpenChange={(open) => !open && setMonitorProposal(null)}
+        />
         {/* Cancel Signature confirmation */}
         <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>
           <AlertDialogContent>

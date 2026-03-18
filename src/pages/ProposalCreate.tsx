@@ -106,6 +106,7 @@ export default function ProposalCreate() {
   const [additionalAnalystRate, setAdditionalAnalystRate] = useState(280);
   const [additionalGpRate, setAdditionalGpRate] = useState(300);
   const [defaultsLoaded, setDefaultsLoaded] = useState(false);
+  const [generateOnSave, setGenerateOnSave] = useState(false);
 
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
@@ -568,7 +569,7 @@ export default function ProposalCreate() {
     }
   }, [totalValue]);
 
-  async function handleSave(status: "rascunho" | "enviada") {
+  async function handleSave(status: string) {
     if (!proposalNumber || !clientId || !product || !proposalType) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
@@ -645,8 +646,8 @@ export default function ProposalCreate() {
         await updateProposal.mutateAsync({ id, ...proposalData });
         toast({ title: "Proposta atualizada!" });
       } else {
-        await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
-        toast({ title: status === "rascunho" ? "Rascunho salvo!" : "Proposta gerada!" });
+        const result = await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
+        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gere o documento na lista de propostas." });
       }
       navigate("/propostas");
     } catch (err: any) {
@@ -1396,14 +1397,15 @@ export default function ProposalCreate() {
         <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
           <ArrowLeft className="mr-2 h-4 w-4" />Anterior
         </Button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           {currentStep === 4 ? (
             <>
-              <Button variant="outline" onClick={() => handleSave("rascunho")} disabled={isSaving}>
-                Salvar Rascunho
-              </Button>
-              <Button onClick={() => handleSave("enviada")} disabled={isSaving}>
-                <Check className="mr-2 h-4 w-4" />{isEditing ? "Salvar Proposta" : "Gerar Proposta"}
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+                <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />
+                Gerar Proposta?
+              </label>
+              <Button onClick={() => handleSave(generateOnSave ? "proposta_gerada" : "pendente")} disabled={isSaving}>
+                <Check className="mr-2 h-4 w-4" />Confirmar
               </Button>
             </>
           ) : (

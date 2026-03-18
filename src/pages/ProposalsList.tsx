@@ -21,12 +21,11 @@ interface LogEntry {
 }
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  rascunho: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
-  em_revisao: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
-  aprovada: { label: "Aprovada", className: "bg-success/15 text-success" },
-  enviada: { label: "Enviada", className: "bg-primary/15 text-primary" },
-  cancelada: { label: "Cancelada", className: "bg-destructive/15 text-destructive" },
+  pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
+  proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
+  em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
+  cancelada: { label: "Cancelada", className: "bg-destructive/15 text-destructive" },
 };
 
 const typeMap: Record<string, string> = {
@@ -219,7 +218,7 @@ export default function ProposalsList() {
     }
   }
 
-  const isCancelled = (status: string) => status === "cancelada";
+  const isLocked = (status: string) => ["em_assinatura", "ganha", "cancelada"].includes(status);
 
   function getDocCounts(proposal: any) {
     const docs = (proposal as any).proposal_documents || [];
@@ -262,16 +261,16 @@ export default function ProposalsList() {
           </div>
           <div className="divide-y divide-border">
             {filtered.map((p) => {
-              const status = statusMap[p.status] || statusMap.rascunho;
+              const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
               const netValue = computeNetValue(p, units);
-              const cancelled = isCancelled(p.status);
+              const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (
                 <div
                   key={p.id}
-                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-9 md:items-center md:gap-4 ${cancelled ? "opacity-60" : ""}`}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-9 md:items-center md:gap-4 ${locked ? "opacity-60" : ""}`}
                 >
                   <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -353,7 +352,7 @@ export default function ProposalsList() {
                           Gerar MIT-065
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {!cancelled && (
+                        {!locked && (
                           <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
                             <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
                           </DropdownMenuItem>
@@ -361,12 +360,14 @@ export default function ProposalsList() {
                         <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                           <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                         </DropdownMenuItem>
-                        {!cancelled && (
+                        {!locked && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
-                            </DropdownMenuItem>
+                            {p.status === "proposta_gerada" && (
+                              <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
                               <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
                             </DropdownMenuItem>

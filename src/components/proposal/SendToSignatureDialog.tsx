@@ -312,20 +312,30 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   {signatories.map((sig, idx) => (
                     <div
                       key={sig.id}
-                      className="rounded-lg border border-border p-3 space-y-2"
+                      className={`rounded-lg border p-3 space-y-2 ${sig.isLoggedUser ? "border-primary/40 bg-primary/5" : "border-border"}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">
-                          Signatário {idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}
+                          {sig.isLoggedUser ? (
+                            <span className="flex items-center gap-1 text-primary">
+                              <Lock className="h-3 w-3" /> Você (obrigatório)
+                            </span>
+                          ) : (
+                            <>Signatário {idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
+                          )}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => removeSignatory(sig.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                        {sig.isLoggedUser ? (
+                          <Lock className="h-4 w-4 text-muted-foreground/50" />
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => removeSignatory(sig.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         <div className="space-y-1">

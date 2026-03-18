@@ -755,13 +755,22 @@ export default function ProposalCreate() {
           <div className="space-y-3">
             <Label className="text-xs">Cliente</Label>
             {selectedClient ? (
-              <div className="flex items-center justify-between rounded-md border border-border bg-accent/50 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{selectedClient.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+              <>
+                <div className="flex items-center justify-between rounded-md border border-border bg-accent/50 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{selectedClient.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setClientId("")}>Alterar</Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setClientId("")}>Alterar</Button>
-              </div>
+                <ClientValidationAlerts warnings={clientWarnings} onEditClient={() => setQuickEditOpen(true)} />
+                <QuickEditClientDialog
+                  client={selectedClient}
+                  open={quickEditOpen}
+                  onOpenChange={setQuickEditOpen}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["clients"] })}
+                />
+              </>
             ) : (
               <div className="space-y-2">
                 <div className="relative">
@@ -782,6 +791,7 @@ export default function ProposalCreate() {
               </div>
             )}
           </div>
+
 
           {/* Sales Team */}
           <div className="grid gap-4 md:grid-cols-3">

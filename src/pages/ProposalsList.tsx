@@ -218,7 +218,7 @@ export default function ProposalsList() {
     }
   }
 
-  const isCancelled = (status: string) => status === "cancelada";
+  const isLocked = (status: string) => ["em_assinatura", "ganha", "cancelada"].includes(status);
 
   function getDocCounts(proposal: any) {
     const docs = (proposal as any).proposal_documents || [];

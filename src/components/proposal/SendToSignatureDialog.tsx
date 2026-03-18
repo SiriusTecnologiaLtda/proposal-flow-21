@@ -166,15 +166,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         .insert(signatoryRows as any);
       if (signatoryError) throw signatoryError;
 
-      // 4. Update proposal status to em_assinatura
-      const { error: statusError } = await supabase
-        .from("proposals")
-        .update({ status: "em_assinatura" } as any)
-        .eq("id", proposal.id);
-      if (statusError) throw statusError;
-
-      // 5. Call TAE edge function to actually send to TAE
-      toast({ title: "Dados salvos. Enviando ao TAE..." });
+      // 4. Call TAE edge function to actually send to TAE
+      toast({ title: "Enviando ao TAE..." });
       const { data: { session } } = await supabase.auth.getSession();
       const taeRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-send-signature`,
@@ -191,14 +184,24 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       const taeData = await taeRes.json();
 
       if (!taeRes.ok || taeData.logs?.some((l: any) => l.status === "error")) {
+        // TAE failed — cancel signature record, do NOT change proposal status
+        await supabase.from("proposal_signatures")
+          .update({ status: "cancelled", cancelled_at: new Date().toISOString() } as any)
+          .eq("id", sigRecord.id);
+
         const errorMsg = taeData.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ")
           || "Erro ao enviar para o TAE";
         toast({
-          title: "Proposta salva, mas falha no envio ao TAE",
+          title: "Falha no envio ao TAE",
           description: errorMsg,
           variant: "destructive",
         });
       } else {
+        // TAE succeeded — now update proposal status
+        await supabase
+          .from("proposals")
+          .update({ status: "em_assinatura" } as any)
+          .eq("id", proposal.id);
         toast({ title: "Proposta enviada para assinatura no TAE com sucesso!" });
       }
 

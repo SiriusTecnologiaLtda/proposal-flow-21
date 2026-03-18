@@ -1011,7 +1011,7 @@ Deno.serve(async (req) => {
       const { data } = await supabase.from("unit_info").select("*").limit(1).maybeSingle();
       unitInfo = data;
     }
-    log(logs, "Buscar unidade", "ok", `Unidade: ${unitInfo?.name || "padrão"} — Fator: ${unitInfo?.tax_factor || 0}%`);
+    log(logs, "Buscar unidade", "ok", `Unidade: ${unitInfo?.name || "padrão"} — Fator: ${unitInfo?.tax_factor || 0}`);
 
     // ─── Calculate values ───────────────────────────────────────
     log(logs, "Calcular valores", "info", "Processando escopo e valores...");

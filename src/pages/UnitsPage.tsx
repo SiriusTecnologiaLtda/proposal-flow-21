@@ -115,7 +115,7 @@ export default function UnitsPage() {
               {unit.email && <p>📧 {unit.email}</p>}
               {unit.phone && <p>📞 {unit.phone}</p>}
               {unit.contact && <p>👤 {unit.contact}</p>}
-              {Number(unit.tax_factor) > 0 && <p>💰 Fator Imposto: {unit.tax_factor}%</p>}
+              {Number(unit.tax_factor) > 0 && <p>💰 Fator Imposto: {Number(unit.tax_factor).toFixed(4)}</p>}
             </div>
           </div>
         ))}

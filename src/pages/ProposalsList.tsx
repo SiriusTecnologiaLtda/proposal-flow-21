@@ -115,16 +115,13 @@ export default function ProposalsList() {
       );
       const data = await res.json();
       if (res.ok && data.success) {
-        const body = notifMessage || "";
-        const mailto = `mailto:${data.recipientEmail}?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(body)}`;
-        window.open(mailto);
         toast({
-          title: "Abrindo cliente de email",
-          description: `Destinatário: ${data.recipientName} (${data.recipientEmail})`,
+          title: "Email enviado com sucesso",
+          description: `Notificação enviada para ${data.recipientName} (${data.recipientEmail})`,
         });
         setNotifDialogOpen(false);
       } else {
-        toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
+        toast({ title: "Erro ao enviar email", description: data.error || "Erro desconhecido", variant: "destructive" });
         setNotifDialogOpen(false);
       }
     } catch (err: any) {

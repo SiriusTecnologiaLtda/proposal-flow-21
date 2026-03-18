@@ -360,10 +360,10 @@ export default function LandingPage() {
                 ),
               },
             ].map((feat, i) => (
-              <FadeIn key={i} delay={i * 0.1}>
-                <div className="group rounded-2xl border border-border bg-card p-1 shadow-sm transition-shadow hover:shadow-lg">
+              <FadeIn key={i} delay={i * 0.1} className={i === 4 ? "md:col-span-2" : ""}>
+                <div className={`group rounded-2xl border border-border bg-card p-1 shadow-sm transition-shadow hover:shadow-lg ${i === 4 ? "md:grid md:grid-cols-2 md:items-center" : ""}`}>
                   <div className="p-6 pb-4">
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${i === 4 ? "bg-success/10 text-success group-hover:bg-success group-hover:text-white" : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"}`}>
                       <feat.icon className="h-5 w-5" />
                     </div>
                     <h3 className="text-lg font-bold text-foreground">{feat.title}</h3>

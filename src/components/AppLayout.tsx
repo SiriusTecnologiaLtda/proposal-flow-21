@@ -11,11 +11,8 @@ import { canAccessRoute } from "@/lib/permissions";
 const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/propostas", key: "propostas", label: "Propostas", icon: FileText },
-  { path: "/clientes", key: "clientes", label: "Clientes", icon: Users },
-  { path: "/unidades", key: "unidades", label: "Unidades", icon: Building },
+  { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
   { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
-  { path: "/produtos-categorias", key: "produtos-categorias", label: "Produtos & Categorias", icon: Package },
-  { path: "/time", key: "time", label: "Time de Vendas", icon: UserCog },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },
 ];
 

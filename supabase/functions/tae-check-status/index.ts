@@ -144,20 +144,46 @@ Deno.serve(async (req) => {
       try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
       pubData = statusData?.data || statusData;
     } else {
-      const docRes = await fetch(`${baseUrl}/documents/v2/publicacoes/documentos-empresa`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${taeToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ idDocumento: Number(taeDocumentId) }),
-      });
+      // Try GET endpoint to find publications by document ID
+      const docRes = await fetch(
+        `${baseUrl}/documents/v2/publicacoes?idDocumento=${encodeURIComponent(String(taeDocumentId))}`,
+        {
+          headers: {
+            Authorization: `Bearer ${taeToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
       const docRaw = await docRes.text();
+      console.log(`[tae-check-status] GET publicacoes?idDocumento=${taeDocumentId} → ${docRes.status}`, docRaw.substring(0, 300));
+
       if (!docRes.ok) {
-        return new Response(
-          JSON.stringify({ error: `Falha ao consultar documento TAE: ${docRes.status}`, details: docRaw.substring(0, 500) }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        // Fallback: try fetching the document directly
+        const docRes2 = await fetch(
+          `${baseUrl}/documents/v2/documentos/${taeDocumentId}`,
+          { headers: { Authorization: `Bearer ${taeToken}` } }
         );
+        const docRaw2 = await docRes2.text();
+        console.log(`[tae-check-status] GET documentos/${taeDocumentId} → ${docRes2.status}`, docRaw2.substring(0, 300));
+
+        if (!docRes2.ok) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao consultar documento TAE: ${docRes.status} / ${docRes2.status}`, details: docRaw.substring(0, 300) }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        let docData2: any;
+        try { docData2 = JSON.parse(docRaw2); } catch { docData2 = null; }
+        const doc2 = docData2?.data || docData2;
+        resolvedPublicationId = String(doc2?.idPublicacao || doc2?.publicacaoId || "").trim() || null;
+        pubData = doc2;
+      } else {
+        let docData: any;
+        try { docData = JSON.parse(docRaw); } catch { docData = null; }
+        const docItems = Array.isArray(docData?.data) ? docData.data : Array.isArray(docData) ? docData : [];
+        pubData = docItems.find((item: any) => String(item?.idDocumento || item?.documentoId || item?.id) === String(taeDocumentId)) || docItems[0] || null;
+        resolvedPublicationId = String(pubData?.idPublicacao || pubData?.publicacaoId || pubData?.id || "").trim() || null;
       }
 
       let docData: any;

@@ -296,7 +296,7 @@ export default function ProposalCreate() {
       }
     }
     return roundUpFactor(total);
-  }, [scopeProcesses]);
+  }, [scopeProcesses, roundingFactor]);
 
   // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {

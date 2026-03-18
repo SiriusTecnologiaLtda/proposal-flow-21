@@ -69,6 +69,8 @@ export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const deleteProposal = useDeleteProposal();
   const updateStatus = useUpdateProposalStatus();
   const navigate = useNavigate();
@@ -79,6 +81,111 @@ export default function ProposalsList() {
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
+
+  // Gmail auth state
+  const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);
+  const [gmailAuthLoading, setGmailAuthLoading] = useState(false);
+
+  // Check Gmail authorization on mount
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("gmail_refresh_token")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        setGmailAuthorized(!!data?.gmail_refresh_token);
+      });
+  }, [user]);
+
+  // Listen for Gmail OAuth callback
+  const handleGmailOAuthMessage = useCallback(
+    async (event: MessageEvent) => {
+      if (event.data?.type !== "google-oauth-callback" || event.data?.flow !== "user-gmail") return;
+      const { code, error } = event.data;
+      if (error || !code) {
+        toast({ title: "Autorização cancelada", description: error || "Nenhum código recebido", variant: "destructive" });
+        setGmailAuthLoading(false);
+        return;
+      }
+      try {
+        setGmailAuthLoading(true);
+        const session = (await supabase.auth.getSession()).data.session;
+        const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
+        const redirectUri = `${window.location.origin}${OAUTH_CALLBACK_PATH}`;
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/user-gmail-oauth-exchange`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ code, redirectUri }),
+          }
+        );
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setGmailAuthorized(true);
+          toast({ title: "Email autorizado!", description: data.message });
+        } else {
+          toast({ title: "Erro na autorização", description: data.error, variant: "destructive" });
+        }
+      } catch (err: any) {
+        toast({ title: "Erro", description: err.message, variant: "destructive" });
+      } finally {
+        setGmailAuthLoading(false);
+      }
+    },
+    [toast]
+  );
+
+  useEffect(() => {
+    window.addEventListener("message", handleGmailOAuthMessage);
+    return () => window.removeEventListener("message", handleGmailOAuthMessage);
+  }, [handleGmailOAuthMessage]);
+
+  function startUserGmailAuth() {
+    setGmailAuthLoading(true);
+    // Use the same OAuth client from default google integration
+    supabase
+      .from("google_integrations")
+      .select("oauth_client_id")
+      .eq("is_default", true)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data?.oauth_client_id) {
+          toast({ title: "Erro", description: "Integração Google OAuth2 padrão não configurada.", variant: "destructive" });
+          setGmailAuthLoading(false);
+          return;
+        }
+        const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
+        const redirectUri = `${window.location.origin}${OAUTH_CALLBACK_PATH}`;
+        const statePayload = btoa(JSON.stringify({ flow: "user-gmail", openerOrigin: window.location.origin }));
+        const params = new URLSearchParams({
+          client_id: data.oauth_client_id,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope: "https://www.googleapis.com/auth/gmail.send",
+          access_type: "offline",
+          prompt: "consent",
+          state: statePayload,
+          login_hint: user?.email || "",
+        });
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        const popup = window.open(authUrl, "gmail-user-oauth", `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+        if (!popup) {
+          window.open(authUrl, "_blank");
+          toast({ title: "Popup bloqueado", description: "Autorize na nova aba e volte.", variant: "default" });
+        }
+      });
+  }
 
   // Notification dialog state
   const [notifDialogOpen, setNotifDialogOpen] = useState(false);
@@ -116,10 +223,19 @@ export default function ProposalsList() {
         }
       );
       const data = await res.json();
+      if (data.error === "gmail_not_authorized") {
+        toast({
+          title: "Autorização necessária",
+          description: "Você precisa autorizar o envio de emails pela sua conta Google.",
+          variant: "destructive",
+        });
+        setNotifSending(false);
+        return;
+      }
       if (res.ok && data.success) {
         toast({
           title: "Email enviado com sucesso",
-          description: `Notificação enviada para ${data.recipientName} (${data.recipientEmail})`,
+          description: `Enviado de ${data.senderEmail} para ${data.recipientName} (${data.recipientEmail})`,
         });
         setNotifDialogOpen(false);
       } else {

@@ -704,6 +704,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
+      group_notes: groupNotes,
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

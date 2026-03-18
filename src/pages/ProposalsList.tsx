@@ -440,6 +440,14 @@ export default function ProposalsList() {
                             </DropdownMenuItem>
                           </>
                         )}
+                        {p.status === "ganha" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                              <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         {!locked && (
                           <>
                             <DropdownMenuSeparator />
@@ -650,6 +658,7 @@ export default function ProposalsList() {
           proposalNumber={monitorProposal?.number}
           open={!!monitorProposal}
           onOpenChange={(open) => !open && setMonitorProposal(null)}
+          readOnly={monitorProposal?.status === "ganha" || monitorProposal?.status === "cancelada"}
         />
         {/* Cancel Signature confirmation */}
         <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>

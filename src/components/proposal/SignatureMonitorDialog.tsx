@@ -12,6 +12,7 @@ interface Props {
   proposalNumber?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  readOnly?: boolean;
 }
 
 interface SignatureRecord {
@@ -62,7 +63,7 @@ function SignerIcon({ status }: { status: string }) {
   return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
 }
 
-export default function SignatureMonitorDialog({ proposalId, proposalNumber, open, onOpenChange }: Props) {
+export default function SignatureMonitorDialog({ proposalId, proposalNumber, open, onOpenChange, readOnly = false }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [signatures, setSignatures] = useState<SignatureRecord[]>([]);
@@ -273,7 +274,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                             )}
                           </div>
 
-                          {(sig.tae_publication_id || sig.tae_document_id) && (
+                          {!readOnly && (sig.tae_publication_id || sig.tae_document_id) && (
                             <Button
                               variant="outline"
                               size="sm"

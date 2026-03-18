@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, ArrowLeft, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProposalType {
   id: string;
@@ -23,9 +24,12 @@ interface ProposalType {
   slug: string;
   template_doc_id: string | null;
   mit_template_doc_id: string | null;
+  analyst_label: string;
+  gp_label: string;
+  rounding_factor: number;
 }
 
-const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "" };
+const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8 };
 
 export default function ProposalTypesPage() {
   const navigate = useNavigate();
@@ -56,6 +60,9 @@ export default function ProposalTypesPage() {
         slug: values.slug,
         template_doc_id: values.template_doc_id || null,
         mit_template_doc_id: values.mit_template_doc_id || null,
+        analyst_label: values.analyst_label || "Analista de Implantação",
+        gp_label: values.gp_label || "Coordenador de Projeto",
+        rounding_factor: values.rounding_factor || 8,
       };
       if (values.id) {
         const { error } = await supabase.from("proposal_types").update(payload).eq("id", values.id);
@@ -108,6 +115,9 @@ export default function ProposalTypesPage() {
       slug: item.slug,
       template_doc_id: item.template_doc_id || "",
       mit_template_doc_id: item.mit_template_doc_id || "",
+      analyst_label: item.analyst_label || "Analista de Implantação",
+      gp_label: item.gp_label || "Coordenador de Projeto",
+      rounding_factor: item.rounding_factor || 8,
     });
     setEditingId(item.id);
     setDialogOpen(true);
@@ -252,6 +262,35 @@ export default function ProposalTypesPage() {
               <p className="text-xs text-muted-foreground mt-1">
                 Template usado para gerar o documento MIT-065 deste tipo de proposta
               </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label>Label Recurso 1 (Analista)</Label>
+                <Input
+                  placeholder="Analista de Implantação"
+                  value={form.analyst_label}
+                  onChange={(e) => setForm({ ...form, analyst_label: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Label Recurso 2 (Coordenador)</Label>
+                <Input
+                  placeholder="Coordenador de Projeto"
+                  value={form.gp_label}
+                  onChange={(e) => setForm({ ...form, gp_label: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Fator de Arredondamento (horas)</Label>
+                <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">4 horas</SelectItem>
+                    <SelectItem value="8">8 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Arredonda horas para o múltiplo mais próximo</p>
+              </div>
             </div>
           </div>
           <DialogFooter>

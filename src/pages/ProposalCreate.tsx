@@ -271,9 +271,18 @@ export default function ProposalCreate() {
     return templates;
   }, [product, scopeTemplates, templateSearch]);
 
-  // Round up to nearest multiple of 8
-  function roundUp8(val: number) {
-    return Math.ceil(val / 8) * 8;
+  // Get the current proposal type config for labels and rounding
+  const currentProposalTypeConfig = useMemo(() => {
+    return proposalTypes.find((pt: any) => pt.slug === proposalType) || null;
+  }, [proposalType, proposalTypes]);
+
+  const analystLabel = currentProposalTypeConfig?.analyst_label || "Analista de Implantação";
+  const gpLabel = currentProposalTypeConfig?.gp_label || "Coordenador de Projeto";
+  const roundingFactor = currentProposalTypeConfig?.rounding_factor || 8;
+
+  // Round up to nearest multiple of rounding factor
+  function roundUpFactor(val: number) {
+    return Math.ceil(val / roundingFactor) * roundingFactor;
   }
 
   // Calculate total hours from included children only (rounded to multiple of 8)
@@ -286,8 +295,8 @@ export default function ProposalCreate() {
         }
       }
     }
-    return roundUp8(total);
-  }, [scopeProcesses]);
+    return roundUpFactor(total);
+  }, [scopeProcesses, roundingFactor]);
 
   // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
@@ -330,7 +339,7 @@ export default function ProposalCreate() {
     });
   }
 
-  const gpHours = roundUp8(Math.ceil(totalHours * (gpPercentage / 100)));
+  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
   // Get tax factor from client's unit
@@ -1163,7 +1172,7 @@ export default function ProposalCreate() {
                       <div className="flex items-center gap-2">
                         <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} className="flex-1" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUp8(Math.ceil(totalHours * (accompAnalyst / 100)))}h
+                          = {roundUpFactor(Math.ceil(totalHours * (accompAnalyst / 100)))}h
                         </span>
                       </div>
                     </div>
@@ -1172,7 +1181,7 @@ export default function ProposalCreate() {
                       <div className="flex items-center gap-2">
                         <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUp8(Math.ceil(totalHours * (accompGP / 100)))}h
+                          = {roundUpFactor(Math.ceil(totalHours * (accompGP / 100)))}h
                         </span>
                       </div>
                     </div>
@@ -1197,14 +1206,14 @@ export default function ProposalCreate() {
                 </thead>
                 <tbody>
                   <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Analista de Implantação</td>
+                    <td className="py-2 px-3 text-foreground">{analystLabel}</td>
                     <td className="py-2 px-3 text-center text-foreground">{totalHours}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {(totalHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                   </tr>
                   <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">Coordenador de Projeto</td>
+                    <td className="py-2 px-3 text-foreground">{gpLabel}</td>
                     <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
@@ -1366,7 +1375,7 @@ export default function ProposalCreate() {
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Dados Gerais</h3>
                 <div className="grid gap-1 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">Nº Proposta:</span> <span className="font-medium">{proposalNumber || "—"}</span></p>
-                  <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{proposalType === "projeto" ? "Projeto" : proposalType === "banco_de_horas" ? "Banco de Horas" : "—"}</span></p>
+                  <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{currentProposalTypeConfig?.name || proposalType || "—"}</span></p>
                   <p><span className="text-muted-foreground">Produto:</span> <span className="font-medium">{product || "—"}</span></p>
                   <p><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{selectedClient?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>

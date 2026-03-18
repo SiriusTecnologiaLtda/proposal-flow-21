@@ -339,7 +339,7 @@ export default function ProposalCreate() {
     });
   }
 
-  const gpHours = roundUp8(Math.ceil(totalHours * (gpPercentage / 100)));
+  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
   // Get tax factor from client's unit

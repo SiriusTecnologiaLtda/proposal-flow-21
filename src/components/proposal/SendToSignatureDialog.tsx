@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,18 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const [signatories, setSignatories] = useState<Signatory[]>([]);
   const [sending, setSending] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [pendingScrollId, setPendingScrollId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pendingScrollId && scrollRef.current) {
+      const el = scrollRef.current.querySelector(`[data-sig-id="${pendingScrollId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setPendingScrollId(null);
+      }
+    }
+  }, [signatories, pendingScrollId]);
 
   const clientId = proposal?.client_id;
 
@@ -117,10 +129,11 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       toast({ title: "Contato já adicionado", variant: "destructive" });
       return;
     }
+    const id = newLocalId();
     setSignatories((prev) => [
       ...prev,
       {
-        id: newLocalId(),
+        id,
         contact_id: contact.id,
         name: contact.name,
         email: contact.email,
@@ -129,13 +142,15 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         isNew: false,
       },
     ]);
+    setPendingScrollId(id);
   }
 
   function addNewSignatory() {
+    const id = newLocalId();
     setSignatories((prev) => [
       ...prev,
       {
-        id: newLocalId(),
+        id,
         contact_id: null,
         name: "",
         email: "",
@@ -144,6 +159,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         isNew: true,
       },
     ]);
+    setPendingScrollId(id);
   }
 
   function removeSignatory(id: string) {
@@ -277,7 +293,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2 -mx-6 px-6">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2 -mx-6 px-6">
           {/* Select from existing contacts */}
           <div className="space-y-2">
             <Label className="text-xs flex items-center gap-1.5">
@@ -311,6 +327,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                 {signatories.map((sig, idx) => (
                   <div
                     key={sig.id}
+                    data-sig-id={sig.id}
                     className={`rounded-lg border p-3 space-y-2 ${sig.isLoggedUser ? "border-primary/40 bg-primary/5" : "border-border"}`}
                   >
                     <div className="flex items-center justify-between">

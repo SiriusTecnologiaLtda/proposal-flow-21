@@ -1,0 +1,1 @@
+ALTER TABLE public.google_integrations ADD COLUMN IF NOT EXISTS sender_email text;

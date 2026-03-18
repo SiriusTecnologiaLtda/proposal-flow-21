@@ -6,81 +6,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// --- Gmail via Service Account helpers ---
+// --- OAuth2 Gmail helpers ---
 
-function base64url(data: Uint8Array): string {
-  let b64 = btoa(String.fromCharCode(...data));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function strToUint8(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
-}
-
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemBody = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
-  const binaryDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-  return crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-}
-
-async function createSignedJwt(
-  serviceAccountEmail: string,
-  privateKey: string,
-  impersonateEmail: string
+async function getAccessTokenOAuth2(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string
 ): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: serviceAccountEmail,
-    sub: impersonateEmail,
-    scope: "https://www.googleapis.com/auth/gmail.send",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
-
-  const headerB64 = base64url(strToUint8(JSON.stringify(header)));
-  const payloadB64 = base64url(strToUint8(JSON.stringify(payload)));
-  const signingInput = `${headerB64}.${payloadB64}`;
-
-  const key = await importPrivateKey(privateKey);
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    strToUint8(signingInput)
-  );
-
-  const signatureB64 = base64url(new Uint8Array(signature));
-  return `${signingInput}.${signatureB64}`;
-}
-
-async function getAccessToken(
-  serviceAccountEmail: string,
-  privateKey: string,
-  impersonateEmail: string
-): Promise<string> {
-  const jwt = await createSignedJwt(serviceAccountEmail, privateKey, impersonateEmail);
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
     }),
   });
   const data = await res.json();
   if (!res.ok || !data.access_token) {
-    console.error("Token error:", JSON.stringify(data));
-    throw new Error(`Failed to get access token: ${data.error_description || data.error || "unknown"}`);
+    console.error("OAuth2 token refresh error:", JSON.stringify(data));
+    throw new Error(`Falha ao obter access token: ${data.error_description || data.error || "unknown"}`);
   }
   return data.access_token;
 }
@@ -300,10 +246,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- Send via Gmail API using Service Account from google_integrations ---
+    // --- Send via Gmail API using OAuth2 from google_integrations ---
     const { data: gInt, error: gIntErr } = await supabase
       .from("google_integrations")
-      .select("service_account_key, auth_type")
+      .select("oauth_client_id, oauth_client_secret, oauth_refresh_token, sender_email, auth_type")
       .eq("is_default", true)
       .single();
 
@@ -314,30 +260,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    let saKey: any;
-    try {
-      saKey = JSON.parse(gInt.service_account_key || "{}");
-      if (!saKey.private_key || !saKey.client_email) {
-        throw new Error("private_key ou client_email ausente");
-      }
-    } catch (e: any) {
-      console.error("SA key parse error:", e.message);
+    if (!gInt.oauth_client_id || !gInt.oauth_client_secret || !gInt.oauth_refresh_token) {
       return new Response(
-        JSON.stringify({ error: `Service Account inválida: ${e.message}` }),
+        JSON.stringify({ error: "Integração OAuth2 incompleta: Client ID, Client Secret e Refresh Token são necessários. Autorize a conexão na página de configuração do Google." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const senderEmail = saKey.client_email;
-    const impersonateEmail = Deno.env.get("GMAIL_SENDER_EMAIL") || senderEmail;
+    const senderEmail = gInt.sender_email || "noreply@example.com";
 
-    const accessToken = await getAccessToken(
-      saKey.client_email,
-      saKey.private_key,
-      impersonateEmail
+    const accessToken = await getAccessTokenOAuth2(
+      gInt.oauth_client_id,
+      gInt.oauth_client_secret,
+      gInt.oauth_refresh_token
     );
 
-    await sendGmail(accessToken, impersonateEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, senderEmail, recipientEmail!, subject!, bodyHtml!);
 
     return new Response(
       JSON.stringify({

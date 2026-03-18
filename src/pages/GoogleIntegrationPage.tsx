@@ -32,6 +32,7 @@ interface GoogleIntegration {
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   oauth_refresh_token: string | null;
+  sender_email: string | null;
   is_default: boolean;
   created_at: string;
   updated_at: string;
@@ -54,7 +55,7 @@ const emptyForm = {
   oauth_client_secret: "",
 };
 
-const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
+const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send";
 const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
 
 const resolveOAuthBaseOrigin = () => {
@@ -535,6 +536,7 @@ export default function GoogleIntegrationPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo Auth</TableHead>
+                  <TableHead>Conta Google</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Pasta Documentos</TableHead>
                   {isAdmin && <TableHead className="w-40">Ações</TableHead>}
@@ -564,6 +566,9 @@ export default function GoogleIntegrationPage() {
                         }`}>
                           {authLabel(item.auth_type)}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.sender_email || "—"}
                       </TableCell>
                       <TableCell>
                         {isOAuth ? (
@@ -669,7 +674,13 @@ export default function GoogleIntegrationPage() {
                     <li>Salve a conexão</li>
                     <li>Clique no botão <LogIn className="inline h-3 w-3" /> na tabela para autorizar com o Google</li>
                     <li>O refresh token será obtido automaticamente</li>
+                    <li>O email da conta autorizada será salvo como remetente</li>
                   </ol>
+                  <p className="mt-2 font-medium">Escopos autorizados:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Google Drive (geração de documentos)</li>
+                    <li>Gmail Send (envio de notificações)</li>
+                  </ul>
                 </div>
               </TabsContent>
 

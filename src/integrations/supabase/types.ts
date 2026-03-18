@@ -280,6 +280,7 @@ export type Database = {
           oauth_client_secret: string | null
           oauth_refresh_token: string | null
           output_folder_id: string | null
+          sender_email: string | null
           service_account_key: string | null
           updated_at: string
         }
@@ -294,6 +295,7 @@ export type Database = {
           oauth_client_secret?: string | null
           oauth_refresh_token?: string | null
           output_folder_id?: string | null
+          sender_email?: string | null
           service_account_key?: string | null
           updated_at?: string
         }
@@ -308,6 +310,7 @@ export type Database = {
           oauth_client_secret?: string | null
           oauth_refresh_token?: string | null
           output_folder_id?: string | null
+          sender_email?: string | null
           service_account_key?: string | null
           updated_at?: string
         }

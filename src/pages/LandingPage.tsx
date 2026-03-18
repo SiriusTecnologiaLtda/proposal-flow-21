@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, LayoutTemplate, PenTool, BarChart3, Shield,
   Clock, AlertTriangle, CheckCircle2, ArrowRight, Star,
-  Zap, Users, TrendingUp, ChevronRight, Rocket,
+  Zap, Users, TrendingUp, ChevronRight, Rocket, MessageCircle, Mic, Smartphone, Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

@@ -1104,28 +1104,26 @@ Deno.serve(async (req) => {
       log(logs, "Quota do Drive", "error", `Falha ao consultar quota: ${e.message}`);
     }
 
-    // ─── Find template in Drive ─────────────────────────────────
-    log(logs, "Buscar template", "info", `Buscando template "${isProjeto ? "projeto" : "banco"}" na pasta ${driveFolderId}...`);
-    let templates: any[];
-    try {
-      templates = await listTemplates(accessToken, driveFolderId);
-    } catch (e: any) {
-      log(logs, "Buscar template", "error", `Falha ao listar templates: ${e.message}`);
-      return respondWithLogs(logs, { error: e.message }, 500);
+    // ─── Find template from proposal_types ────────────────────
+    log(logs, "Buscar template", "info", `Buscando template para tipo "${proposal.type}"...`);
+
+    // Look up template_doc_id from proposal_types table
+    const { data: proposalTypeRow } = await supabase
+      .from("proposal_types")
+      .select("template_doc_id")
+      .eq("slug", proposal.type)
+      .maybeSingle();
+
+    const templateDocId = proposalTypeRow?.template_doc_id;
+    if (!templateDocId) {
+      log(logs, "Buscar template", "error", `Nenhum template de proposta configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.`);
+      return respondWithLogs(logs, { error: `No proposal template configured for type "${proposal.type}"` }, 404);
     }
+    log(logs, "Buscar template", "ok", `Template ID: ${templateDocId}`);
 
-    const templateKeyword = isProjeto ? "projeto" : "banco";
-    const template = templates.find((t: any) => t.name.toLowerCase().includes(templateKeyword));
-
-    if (!template) {
-      log(logs, "Buscar template", "error", `Template "${templateKeyword}" não encontrado. Arquivos na pasta: ${templates.map((t: any) => t.name).join(", ") || "nenhum"}`);
-      return respondWithLogs(logs, { error: `Template "${templateKeyword}" not found in Drive folder` }, 404);
-    }
-    log(logs, "Buscar template", "ok", `Template encontrado: "${template.name}" (ID: ${template.id})`);
-
-    // ─── Template file info ─────────────────────────────────────
+    // ─── Template file info ─────────────────────────────────
     try {
-      const fileInfo = await getFileInfo(accessToken, template.id);
+      const fileInfo = await getFileInfo(accessToken, templateDocId);
       log(logs, "Info do Template", "ok", `Nome: ${fileInfo.name}\nTipo: ${fileInfo.mimeType}\nTamanho: ${fileInfo.size}`);
     } catch (e: any) {
       log(logs, "Info do Template", "info", `Não foi possível obter info do arquivo: ${e.message}`);

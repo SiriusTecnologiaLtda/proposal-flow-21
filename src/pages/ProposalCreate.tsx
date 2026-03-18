@@ -752,7 +752,7 @@ export default function ProposalCreate() {
             <div className="space-y-1.5">
               <Label className="text-xs">Produto</Label>
               <Select value={product} onValueChange={setProduct}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="product"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {productsList.map((p) => (
                     <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>

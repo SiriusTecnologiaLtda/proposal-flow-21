@@ -1375,7 +1375,7 @@ export default function ProposalCreate() {
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Dados Gerais</h3>
                 <div className="grid gap-1 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">Nº Proposta:</span> <span className="font-medium">{proposalNumber || "—"}</span></p>
-                  <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{proposalType === "projeto" ? "Projeto" : proposalType === "banco_de_horas" ? "Banco de Horas" : "—"}</span></p>
+                  <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{currentProposalTypeConfig?.name || proposalType || "—"}</span></p>
                   <p><span className="text-muted-foreground">Produto:</span> <span className="font-medium">{product || "—"}</span></p>
                   <p><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{selectedClient?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>

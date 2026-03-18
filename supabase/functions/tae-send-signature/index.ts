@@ -330,7 +330,6 @@ Deno.serve(async (req) => {
         tipoAutenticacao: 1,
         notificaEnvio: true,
         tipoEnvioDocumento: 1,
-        tipoEnvioCodigo: 1,
       }));
 
     const observadores = signatories
@@ -347,9 +346,13 @@ Deno.serve(async (req) => {
       .eq("id", sigRecord.proposal_id)
       .single();
 
-    const subject = proposal
-      ? `Proposta ${proposal.number} — ${(proposal as any).clients?.name || ""}`
+    // Sanitize: remove characters not accepted by TAE (only allow: _@.,()!?:+-%$ and alphanumeric)
+    const sanitize = (str: string) => str.replace(/[—–""'']/g, "-").replace(/[^\w\s@.,()!?:+\-%$]/g, "");
+
+    const subjectRaw = proposal
+      ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}`
       : "Documento para assinatura";
+    const subject = sanitize(subjectRaw);
 
     const publishBody = {
       idDocumento: taeDocumentId,
@@ -358,7 +361,7 @@ Deno.serve(async (req) => {
       utilizaWorkflow: false,
       publicacaoOpcoes: {
         assuntoMensagem: subject,
-        corpoMensagem: `Prezado(a), segue documento para sua assinatura: ${subject}`,
+        corpoMensagem: sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`),
         permiteRejeitarDocumento: true,
         intervaloLembrete: 3,
       },

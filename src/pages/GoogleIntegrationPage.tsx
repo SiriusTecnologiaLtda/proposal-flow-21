@@ -567,6 +567,9 @@ export default function GoogleIntegrationPage() {
                           {authLabel(item.auth_type)}
                         </span>
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.sender_email || "—"}
+                      </TableCell>
                       <TableCell>
                         {isOAuth ? (
                           hasRefreshToken ? (

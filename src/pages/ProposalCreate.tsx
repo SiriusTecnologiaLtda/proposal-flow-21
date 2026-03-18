@@ -1181,7 +1181,7 @@ export default function ProposalCreate() {
                       <div className="flex items-center gap-2">
                         <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUp8(Math.ceil(totalHours * (accompGP / 100)))}h
+                          = {roundUpFactor(Math.ceil(totalHours * (accompGP / 100)))}h
                         </span>
                       </div>
                     </div>

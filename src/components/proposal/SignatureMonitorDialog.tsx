@@ -45,6 +45,7 @@ interface TaeStatus {
     name: string;
     statusLabel: string;
     signedAt: string | null;
+    action?: string | null;
   }>;
 }
 
@@ -64,12 +65,12 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
 
   useEffect(() => {
     if (open && proposalId) {
-      loadSignatures();
+      void loadSignatures(true);
       setTaeStatus(null);
     }
   }, [open, proposalId]);
 
-  async function loadSignatures() {
+  async function loadSignatures(autoSyncLatest = false) {
     if (!proposalId) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -77,11 +78,23 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
       .select("*, proposal_signatories(*)")
       .eq("proposal_id", proposalId)
       .order("sent_at", { ascending: false });
-    if (!error) setSignatures((data || []) as any);
+
+    if (!error) {
+      const nextSignatures = (data || []) as any;
+      setSignatures(nextSignatures);
+
+      if (autoSyncLatest && nextSignatures.length > 0) {
+        const latestSyncable = nextSignatures.find((sig: any) => sig.tae_publication_id || sig.tae_document_id);
+        if (latestSyncable) {
+          await checkTaeStatus(latestSyncable.id, false);
+        }
+      }
+    }
+
     setLoading(false);
   }
 
-  async function checkTaeStatus(signatureId: string) {
+  async function checkTaeStatus(signatureId: string, refreshList = true) {
     setCheckingTae(true);
     setTaeStatus(null);
     try {
@@ -103,8 +116,9 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
         toast({ title: "Erro ao consultar TAE", description: data.error || "Erro desconhecido", variant: "destructive" });
       } else {
         setTaeStatus(data);
-        // Refresh local data
-        await loadSignatures();
+        if (refreshList) {
+          await loadSignatures(false);
+        }
       }
     } catch (err: any) {
       toast({ title: "Erro de rede", description: err.message, variant: "destructive" });
@@ -118,6 +132,14 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
   }
 
   const latestSig = signatures[0];
+
+  function getSignerStatus(sig: SignatureRecord, signer: SignatureRecord["proposal_signatories"][number]) {
+    const taeSigner = taeStatus?.signers?.find((s) => s.email?.toLowerCase() === signer.email?.toLowerCase());
+    if (taeSigner) return { label: taeSigner.statusLabel, signedAt: taeSigner.signedAt };
+    if (signer.status === "signed") return { label: "Assinado", signedAt: signer.signed_at };
+    if (signer.status === "rejected") return { label: "Rejeitado", signedAt: signer.signed_at };
+    return { label: "Pendente", signedAt: signer.signed_at };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -261,18 +283,24 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                     </span>
                     <ScrollArea className="max-h-48">
                       <div className="space-y-1">
-                        {(sig.proposal_signatories || []).map((s) => (
-                          <div key={s.id} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 bg-muted/50">
-                            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <span className="font-medium text-foreground">{s.name}</span>
-                            <span className="text-muted-foreground">{s.email}</span>
-                            {s.role && (
+                        {(sig.proposal_signatories || []).map((s) => {
+                          const signerStatus = getSignerStatus(sig, s);
+                          return (
+                            <div key={s.id} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 bg-muted/50">
+                              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="font-medium text-foreground">{s.name}</span>
+                              <span className="text-muted-foreground">{s.email}</span>
                               <Badge variant="outline" className="text-[10px] ml-auto">
-                                {s.role}
+                                {signerStatus.label}
                               </Badge>
-                            )}
-                          </div>
-                        ))}
+                              {s.role && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {s.role}
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   </div>

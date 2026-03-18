@@ -327,6 +327,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                 {signatories.map((sig, idx) => (
                   <div
                     key={sig.id}
+                    data-sig-id={sig.id}
                     className={`rounded-lg border p-3 space-y-2 ${sig.isLoggedUser ? "border-primary/40 bg-primary/5" : "border-border"}`}
                   >
                     <div className="flex items-center justify-between">

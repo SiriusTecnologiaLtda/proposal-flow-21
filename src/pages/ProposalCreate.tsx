@@ -330,7 +330,7 @@ export default function ProposalCreate() {
     return units.find((u) => u.id === selectedClient.unit_id) || null;
   }, [selectedClient, units]);
   const taxFactor = clientUnit?.tax_factor || 0;
-  const totalValueGross = totalValue * (1 + taxFactor / 100);
+  const totalValueGross = taxFactor > 0 ? totalValue / taxFactor : totalValue;
 
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {

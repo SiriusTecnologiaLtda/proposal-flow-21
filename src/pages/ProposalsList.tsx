@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
@@ -75,6 +77,70 @@ export default function ProposalsList() {
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
+
+  // Notification dialog state
+  const [notifDialogOpen, setNotifDialogOpen] = useState(false);
+  const [notifType, setNotifType] = useState<"solicitar_ajuste" | "notificar_esn">("solicitar_ajuste");
+  const [notifProposal, setNotifProposal] = useState<any>(null);
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifSending, setNotifSending] = useState(false);
+
+  function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
+    setNotifProposal(proposal);
+    setNotifType(type);
+    setNotifMessage("");
+    setNotifDialogOpen(true);
+  }
+
+  async function handleSendNotification() {
+    if (!notifProposal) return;
+    setNotifSending(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            proposalId: notifProposal.id,
+            type: notifType,
+            message: notifMessage,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: "Notificação enviada!",
+          description: `Email enviado para ${data.recipientName} (${data.recipientEmail})`,
+        });
+        setNotifDialogOpen(false);
+      } else {
+        // If email service fails, offer mailto fallback
+        if (data.fallback) {
+          const mailto = `mailto:${data.fallback.to}?subject=${encodeURIComponent(data.fallback.subject)}&body=${encodeURIComponent(notifMessage || "")}`;
+          window.open(mailto);
+          toast({
+            title: "Falha no envio automático",
+            description: "Abrindo cliente de email como alternativa.",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
+        }
+        setNotifDialogOpen(false);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
+    } finally {
+      setNotifSending(false);
+    }
+  }
 
   // Console dialog state
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -429,6 +495,17 @@ export default function ProposalsList() {
                               <FileCheck className="mr-2 h-3.5 w-3.5" />
                               Gerar MIT-065
                             </DropdownMenuItem>
+                            {p.arquiteto_id && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Ajuste ao Arquiteto
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openNotifDialog(p, "notificar_esn")}>
+                                  <Mail className="mr-2 h-3.5 w-3.5" />Notificar ESN (Ajuste Concluído)
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             {!locked && (
                               <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
@@ -695,6 +772,51 @@ export default function ProposalsList() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Notification dialog (Arquiteto ↔ ESN) */}
+        <Dialog open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {notifType === "solicitar_ajuste" ? (
+                  <><MessageSquare className="h-5 w-5" /> Solicitar Ajuste ao Arquiteto</>
+                ) : (
+                  <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            {notifProposal && (
+              <div className="space-y-4">
+                <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
+                  <p><span className="font-medium text-muted-foreground">Proposta:</span> {notifProposal.number}</p>
+                  <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
+                  <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mensagem (opcional)</Label>
+                  <Textarea
+                    value={notifMessage}
+                    onChange={(e) => setNotifMessage(e.target.value)}
+                    placeholder={notifType === "solicitar_ajuste"
+                      ? "Descreva o que precisa ser ajustado no escopo..."
+                      : "Descreva o que foi ajustado e observações relevantes..."}
+                    rows={4}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNotifDialogOpen(false)} disabled={notifSending}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSendNotification} disabled={notifSending}>
+                {notifSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

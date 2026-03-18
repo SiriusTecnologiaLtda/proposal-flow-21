@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, LayoutTemplate, PenTool, BarChart3, Shield,
   Clock, AlertTriangle, CheckCircle2, ArrowRight, Star,
-  Zap, Users, TrendingUp, ChevronRight, Rocket,
+  Zap, Users, TrendingUp, ChevronRight, Rocket, MessageCircle, Mic, Smartphone, Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -317,11 +317,53 @@ export default function LandingPage() {
                   </div>
                 ),
               },
+              {
+                icon: MessageCircle,
+                title: "WhatsApp com IA Embarcada",
+                desc: "Crie propostas direto pelo WhatsApp — por texto ou áudio. A inteligência artificial interpreta sua solicitação, monta o escopo e gera a proposta automaticamente. Total mobilidade para o vendedor em campo.",
+                mockup: (
+                  <div className="space-y-2 p-4">
+                    <div className="flex flex-col gap-2">
+                      {/* Phone mockup with chat bubbles */}
+                      <div className="flex items-start gap-2">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success/20">
+                          <Bot className="h-3 w-3 text-success" />
+                        </div>
+                        <div className="rounded-lg rounded-tl-none bg-muted/80 px-3 py-2">
+                          <p className="text-[10px] text-foreground">Olá! Sou o assistente ProposalFlow. Como posso ajudar?</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-end gap-2">
+                        <div className="rounded-lg rounded-tr-none bg-primary/10 px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <Mic className="h-3 w-3 text-primary" />
+                            <p className="text-[10px] text-primary font-medium">🎤 0:12</p>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 italic">"Preciso de uma proposta de implantação RM para a empresa ABC..."</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success/20">
+                          <Bot className="h-3 w-3 text-success" />
+                        </div>
+                        <div className="rounded-lg rounded-tl-none bg-muted/80 px-3 py-2">
+                          <p className="text-[10px] text-foreground">✅ Proposta criada! Cliente: ABC Ltda | Produto: RM | 144h estimadas</p>
+                          <p className="text-[9px] text-primary font-medium mt-1 cursor-pointer">📄 Ver proposta →</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg bg-success/5 border border-success/20 px-3 py-2">
+                      <Smartphone className="h-3.5 w-3.5 text-success" />
+                      <span className="text-[10px] font-medium text-success">100% mobile — venda de qualquer lugar</span>
+                    </div>
+                  </div>
+                ),
+              },
             ].map((feat, i) => (
-              <FadeIn key={i} delay={i * 0.1}>
-                <div className="group rounded-2xl border border-border bg-card p-1 shadow-sm transition-shadow hover:shadow-lg">
+              <FadeIn key={i} delay={i * 0.1} className={i === 4 ? "md:col-span-2" : ""}>
+                <div className={`group rounded-2xl border border-border bg-card p-1 shadow-sm transition-shadow hover:shadow-lg ${i === 4 ? "md:grid md:grid-cols-2 md:items-center" : ""}`}>
                   <div className="p-6 pb-4">
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${i === 4 ? "bg-success/10 text-success group-hover:bg-success group-hover:text-white" : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"}`}>
                       <feat.icon className="h-5 w-5" />
                     </div>
                     <h3 className="text-lg font-bold text-foreground">{feat.title}</h3>

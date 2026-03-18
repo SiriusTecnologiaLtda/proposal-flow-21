@@ -70,6 +70,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/integracoes" element={<GuardedRoute path="/configuracoes"><IntegrationsPage /></GuardedRoute>} />
         <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
+        <Route path="/configuracoes/tipos-proposta" element={<GuardedRoute path="/configuracoes"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

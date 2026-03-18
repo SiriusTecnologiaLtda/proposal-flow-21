@@ -704,8 +704,9 @@ export default function ProposalCreate() {
               <Select value={proposalType} onValueChange={setProposalType}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="projeto">Projeto</SelectItem>
-                  <SelectItem value="banco_de_horas">Banco de Horas</SelectItem>
+                  {proposalTypes.map((pt: any) => (
+                    <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

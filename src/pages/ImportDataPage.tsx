@@ -174,25 +174,32 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
     if (!ok) { finishImportRun(entity, "error"); return; }
   }
 
-  dbLogId = await createDbLog(run, userId);
-
   addImportLog(entity, "info", `Lendo "${file.name}"...`);
   try {
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data);
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-    const dataRows = rows.slice(1).filter(r => r[0] && r[1] && r[2]);
-    updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} registros encontrados.`);
+    const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const allDataRows = rawRows.slice(1);
+    const totalRowsInFile = allDataRows.length;
+    const dataRows = allDataRows.filter(r => r[0] && r[1] && r[2]);
+    const invalidRows = totalRowsInFile - dataRows.length;
+
+    updateImportStats(entity, { totalRows: totalRowsInFile });
+    addImportLog(entity, "info", `Planilha: ${totalRowsInFile} linhas totais, ${dataRows.length} válidas, ${invalidRows} sem campos obrigatórios.`);
+
+    // Create DB log early with total rows from file
+    run.totalRows = totalRowsInFile;
+    dbLogId = await createDbLog(run, userId);
 
     if (dataRows.length === 0) {
       addImportLog(entity, "error", "Nenhum registro válido encontrado na planilha.");
       finishImportRun(entity, "error");
-      if (dbLogId) await updateDbLog(dbLogId, { ...run, status: "error", totalRows: 0, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun);
+      if (dbLogId) await updateDbLog(dbLogId, { ...run, status: "error", totalRows: totalRowsInFile, skipped: invalidRows, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun);
       return;
     }
 
+    // ── Load lookup maps ────────────────────────────────────────
     const { data: units } = await supabase.from("unit_info").select("id, code, name");
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, role");
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
@@ -207,9 +214,25 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
     const esnMap = new Map((salesTeam || []).filter(s => s.role === "esn").map(s => [s.code.toLowerCase(), s.id]));
     const gsnMap = new Map((salesTeam || []).filter(s => s.role === "gsn").map(s => [s.code.toLowerCase(), s.id]));
 
-    let imported = 0, errors = 0;
+    // ── Load ALL existing CNPJs from DB (paginated) ─────────────
+    addImportLog(entity, "info", "Carregando CNPJs existentes da base...");
+    const existingCnpjs = new Set<string>();
+    let dbOffset = 0;
+    const DB_PAGE = 1000;
+    while (true) {
+      const { data: chunk } = await supabase.from("clients").select("cnpj").range(dbOffset, dbOffset + DB_PAGE - 1);
+      if (!chunk || chunk.length === 0) break;
+      for (const c of chunk) {
+        if (c.cnpj) existingCnpjs.add(c.cnpj.trim());
+      }
+      if (chunk.length < DB_PAGE) break;
+      dbOffset += DB_PAGE;
+    }
+    addImportLog(entity, "info", `${existingCnpjs.size} clientes já cadastrados na base.`);
+
+    // ── Process rows ────────────────────────────────────────────
+    let imported = 0, skipped = 0, errors = 0;
     const BATCH_SIZE = 50;
-    const DB_LOG_INTERVAL = 100; // update DB log every N rows
 
     for (let batchStart = 0; batchStart < dataRows.length; batchStart += BATCH_SIZE) {
       const batch = dataRows.slice(batchStart, batchStart + BATCH_SIZE);
@@ -222,6 +245,12 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
         const name = String(r[1] || "").trim();
         const cnpj = String(r[2] || "").trim();
         if (!code || !name || !cnpj) { errors++; addImportLog(entity, "error", `Linha ${lineNum}: campos obrigatórios ausentes.`); continue; }
+
+        // Skip if CNPJ already exists in DB
+        if (existingCnpjs.has(cnpj)) {
+          skipped++;
+          continue;
+        }
 
         const storeCode = String(r[3] || "").trim();
         validPayloads.push({
@@ -242,36 +271,36 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
         const { error: batchErr, data: insData } = await supabase.from("clients").insert(validPayloads).select("id");
         if (batchErr) {
           // Fallback: try row by row
-          addImportLog(entity, "info", `Lote ${Math.floor(batchStart / BATCH_SIZE) + 1} falhou em batch, tentando individual...`);
           for (const payload of validPayloads) {
             const { error } = await supabase.from("clients").insert(payload);
             if (error) { errors++; addImportLog(entity, "error", `(${payload.code}/${payload.store_code}): ${error.message}`); }
-            else { imported++; }
+            else { imported++; existingCnpjs.add(payload.cnpj); }
           }
         } else {
           imported += insData?.length || validPayloads.length;
+          for (const p of validPayloads) existingCnpjs.add(p.cnpj);
         }
       }
 
-      updateImportStats(entity, { imported, errors });
+      updateImportStats(entity, { imported, errors, skipped: skipped + invalidRows });
 
       // Periodically persist progress to DB
-      if (dbLogId && (batchStart + BATCH_SIZE) % DB_LOG_INTERVAL < BATCH_SIZE) {
-        const progressRun = { ...run, imported, errors, totalRows: dataRows.length, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
+      if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
+        const progressRun = { ...run, imported, errors, skipped: skipped + invalidRows, totalRows: totalRowsInFile, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
         await updateDbLog(dbLogId, progressRun).catch(() => {});
       }
     }
 
+    const totalSkipped = skipped + invalidRows;
     const finalStatus = errors > 0 && imported === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus);
-    const finalRun = { ...run, imported, errors, totalRows: dataRows.length, status: finalStatus as any, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
-    addImportLog(entity, "ok", buildSummaryMessage(finalRun));
+    const finalRun = { ...run, imported, errors, skipped: totalSkipped, totalRows: totalRowsInFile, status: finalStatus as any, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
+    addImportLog(entity, "ok", `✅ Concluído — Planilha: ${totalRowsInFile} linhas | Inseridos: ${imported} | Já existentes (CNPJ): ${skipped} | Inválidos: ${invalidRows} | Erros: ${errors} | Tempo: ${formatDuration(finalRun.durationMs || 0)}`);
     if (imported > 0) qc.invalidateQueries({ queryKey: ["clients"] });
-    if (dbLogId) await updateDbLog(dbLogId, { ...finalRun, durationMs: Date.now() - run.startedAt } as ImportRun);
+    if (dbLogId) await updateDbLog(dbLogId, finalRun as ImportRun);
   } catch (err: any) {
     addImportLog(entity, "error", `Erro fatal: ${err.message}`);
     finishImportRun(entity, "error");
-    // CRITICAL: persist error state to DB
     if (dbLogId) {
       const errorRun = { ...run, status: "error" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun;
       await updateDbLog(dbLogId, errorRun).catch(() => {});

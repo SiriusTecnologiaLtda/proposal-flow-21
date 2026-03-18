@@ -383,7 +383,11 @@ Deno.serve(async (req) => {
 
     let publishData: any;
     try { publishData = JSON.parse(publishRaw); } catch { publishData = { raw: publishRaw }; }
-    const taePublicationId = publishData?.data?.id || publishData?.id || publishData?.data?.[0]?.id;
+    const taePublicationId =
+      publishData?.data?.id ||
+      publishData?.id ||
+      (typeof publishData?.data === "number" || typeof publishData?.data === "string" ? String(publishData.data) : null) ||
+      publishData?.data?.[0]?.id;
 
     log(logs, "TAE Publicação", "ok", `Publicação criada — ID: ${taePublicationId || "OK"}`);
 

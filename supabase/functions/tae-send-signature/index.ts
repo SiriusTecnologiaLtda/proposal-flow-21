@@ -278,10 +278,12 @@ Deno.serve(async (req) => {
       log(logs, "TAE Login", "error", `Falha no login TAE (${loginRes.status}): ${loginBody.substring(0, 300)}`);
       return respondWithLogs(logs, {}, 500);
     }
-    const loginData = await loginRes.json();
-    const taeToken = loginData.access_token || loginData.token;
+    const loginBody = await loginRes.text();
+    let loginData: any;
+    try { loginData = JSON.parse(loginBody); } catch { loginData = {}; }
+    const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
     if (!taeToken) {
-      log(logs, "TAE Login", "error", "Token não retornado pelo TAE");
+      log(logs, "TAE Login", "error", `Token não retornado pelo TAE. Resposta: ${loginBody.substring(0, 500)}`);
       return respondWithLogs(logs, {}, 500);
     }
     log(logs, "TAE Login", "ok", "Login TAE realizado com sucesso");

@@ -45,6 +45,7 @@ interface TaeStatus {
     name: string;
     statusLabel: string;
     signedAt: string | null;
+    action?: string | null;
   }>;
 }
 

@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RefreshCw, Mail, Clock, CheckCircle2, XCircle, AlertCircle, FileText, Copy } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, RefreshCw, Mail, Clock, CheckCircle2, XCircle, AlertCircle, FileText, Copy, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,28 +49,36 @@ interface TaeStatus {
   }>;
 }
 
-const localStatusMap: Record<string, { label: string; className: string }> = {
-  pending: { label: "Pendente (local)", className: "bg-muted text-muted-foreground" },
-  sent: { label: "Enviado ao TAE", className: "bg-primary/15 text-primary" },
-  completed: { label: "Finalizado", className: "bg-green-500/15 text-green-600" },
-  cancelled: { label: "Cancelado", className: "bg-destructive/15 text-destructive" },
+const localStatusMap: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
+  pending: { label: "Pendente", className: "bg-muted text-muted-foreground", icon: Clock },
+  sent: { label: "Enviado ao TAE", className: "bg-primary/15 text-primary", icon: Mail },
+  completed: { label: "Finalizado", className: "bg-green-500/15 text-green-600", icon: CheckCircle2 },
+  cancelled: { label: "Cancelado", className: "bg-destructive/15 text-destructive", icon: XCircle },
 };
+
+function SignerIcon({ status }: { status: string }) {
+  if (status === "signed" || status === "Assinado") return <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />;
+  if (status === "rejected" || status === "Rejeitado") return <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />;
+  return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+}
 
 export default function SignatureMonitorDialog({ proposalId, proposalNumber, open, onOpenChange }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [signatures, setSignatures] = useState<SignatureRecord[]>([]);
-  const [taeStatus, setTaeStatus] = useState<TaeStatus | null>(null);
-  const [checkingTae, setCheckingTae] = useState(false);
+  const [taeStatuses, setTaeStatuses] = useState<Record<string, TaeStatus>>({});
+  const [checkingTaeId, setCheckingTaeId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && proposalId) {
-      void loadSignatures(true);
-      setTaeStatus(null);
+      void loadSignatures();
+      setTaeStatuses({});
+      setExpandedIds(new Set());
     }
   }, [open, proposalId]);
 
-  async function loadSignatures(autoSyncLatest = false) {
+  async function loadSignatures() {
     if (!proposalId) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -79,24 +87,18 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
       .eq("proposal_id", proposalId)
       .order("sent_at", { ascending: false });
 
-    if (!error) {
-      const nextSignatures = (data || []) as any;
-      setSignatures(nextSignatures);
-
-      if (autoSyncLatest && nextSignatures.length > 0) {
-        const latestSyncable = nextSignatures.find((sig: any) => sig.tae_publication_id || sig.tae_document_id);
-        if (latestSyncable) {
-          await checkTaeStatus(latestSyncable.id, false);
-        }
+    if (!error && data) {
+      setSignatures(data as any);
+      // Auto-expand latest
+      if (data.length > 0) {
+        setExpandedIds(new Set([data[0].id]));
       }
     }
-
     setLoading(false);
   }
 
-  async function checkTaeStatus(signatureId: string, refreshList = true) {
-    setCheckingTae(true);
-    setTaeStatus(null);
+  async function checkTaeStatus(sig: SignatureRecord) {
+    setCheckingTaeId(sig.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
@@ -108,22 +110,29 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             Authorization: `Bearer ${session?.access_token}`,
           },
-          body: JSON.stringify({ signatureId }),
+          body: JSON.stringify({ signatureId: sig.id }),
         }
       );
       const data = await res.json();
       if (!res.ok) {
         toast({ title: "Erro ao consultar TAE", description: data.error || "Erro desconhecido", variant: "destructive" });
       } else {
-        setTaeStatus(data);
-        if (refreshList) {
-          await loadSignatures(false);
-        }
+        setTaeStatuses((prev) => ({ ...prev, [sig.id]: data }));
+        await loadSignatures();
       }
     } catch (err: any) {
       toast({ title: "Erro de rede", description: err.message, variant: "destructive" });
     }
-    setCheckingTae(false);
+    setCheckingTaeId(null);
+  }
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function copyToClipboard(text: string) {
@@ -131,14 +140,30 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
     toast({ title: "Copiado!" });
   }
 
-  const latestSig = signatures[0];
+  function getSignerDisplayStatus(sig: SignatureRecord, signer: SignatureRecord["proposal_signatories"][number]) {
+    const tae = taeStatuses[sig.id];
+    const taeSigner = tae?.signers?.find((s) => s.email?.toLowerCase() === signer.email?.toLowerCase());
+    if (taeSigner) return taeSigner.statusLabel;
+    if (signer.status === "signed") return "Assinado";
+    if (signer.status === "rejected") return "Rejeitado";
+    return "Pendente";
+  }
 
-  function getSignerStatus(sig: SignatureRecord, signer: SignatureRecord["proposal_signatories"][number]) {
-    const taeSigner = taeStatus?.signers?.find((s) => s.email?.toLowerCase() === signer.email?.toLowerCase());
-    if (taeSigner) return { label: taeSigner.statusLabel, signedAt: taeSigner.signedAt };
-    if (signer.status === "signed") return { label: "Assinado", signedAt: signer.signed_at };
-    if (signer.status === "rejected") return { label: "Rejeitado", signedAt: signer.signed_at };
-    return { label: "Pendente", signedAt: signer.signed_at };
+  function getSignerSignedAt(sig: SignatureRecord, signer: SignatureRecord["proposal_signatories"][number]) {
+    const tae = taeStatuses[sig.id];
+    const taeSigner = tae?.signers?.find((s) => s.email?.toLowerCase() === signer.email?.toLowerCase());
+    return taeSigner?.signedAt || signer.signed_at;
+  }
+
+  // Count signed/total for summary
+  function getSignerSummary(sig: SignatureRecord) {
+    const signers = sig.proposal_signatories || [];
+    const total = signers.length;
+    const signed = signers.filter((s) => {
+      const status = getSignerDisplayStatus(sig, s);
+      return status === "Assinado";
+    }).length;
+    return { signed, total };
   }
 
   return (
@@ -154,7 +179,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-2">
+        <div className="flex-1 overflow-y-auto space-y-3 py-2">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -164,147 +189,179 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
               Nenhum envio de assinatura encontrado para esta proposta.
             </p>
           ) : (
-            signatures.map((sig) => {
+            signatures.map((sig, idx) => {
               const statusInfo = localStatusMap[sig.status] || localStatusMap.pending;
+              const StatusIconComp = statusInfo.icon;
+              const isExpanded = expandedIds.has(sig.id);
+              const tae = taeStatuses[sig.id];
+              const { signed, total } = getSignerSummary(sig);
+              const isLatest = idx === 0;
+
               return (
-                <div key={sig.id} className="rounded-lg border border-border p-4 space-y-3">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
-                        {sig.tae_publication_id && (
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            PUB: {sig.tae_publication_id}
+                <Collapsible key={sig.id} open={isExpanded} onOpenChange={() => toggleExpanded(sig.id)}>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    {/* Card header - always visible */}
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+
+                        <StatusIconComp className="h-4 w-4 shrink-0" />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={statusInfo.className + " text-xs"}>
+                              {statusInfo.label}
+                            </Badge>
+                            {isLatest && signatures.length > 1 && (
+                              <Badge variant="outline" className="text-[10px]">Mais recente</Badge>
+                            )}
+                            {tae && (
+                              <Badge
+                                variant={tae.status === 2 ? "default" : tae.status === 4 || tae.status === 7 ? "destructive" : "secondary"}
+                                className="text-[10px]"
+                              >
+                                TAE: {tae.statusLabel}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(sig.sent_at).toLocaleDateString("pt-BR")} às{" "}
+                            {new Date(sig.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {signed}/{total}
                           </span>
+                        </div>
+                      </button>
+                    </CollapsibleTrigger>
+
+                    {/* Expanded content */}
+                    <CollapsibleContent>
+                      <div className="border-t border-border px-4 py-3 space-y-3 bg-muted/20">
+                        {/* Action bar */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {sig.tae_document_id && (
+                              <button
+                                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                                onClick={() => copyToClipboard(sig.tae_document_id!)}
+                                title="Copiar Doc ID"
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span className="font-mono">Doc: {sig.tae_document_id.substring(0, 8)}…</span>
+                                <Copy className="h-2.5 w-2.5" />
+                              </button>
+                            )}
+                            {sig.tae_publication_id && (
+                              <button
+                                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                                onClick={() => copyToClipboard(sig.tae_publication_id!)}
+                                title="Copiar Pub ID"
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span className="font-mono">Pub: {sig.tae_publication_id.substring(0, 8)}…</span>
+                                <Copy className="h-2.5 w-2.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          {(sig.tae_publication_id || sig.tae_document_id) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={(e) => { e.stopPropagation(); checkTaeStatus(sig); }}
+                              disabled={checkingTaeId === sig.id}
+                            >
+                              {checkingTaeId === sig.id ? (
+                                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-1.5 h-3 w-3" />
+                              )}
+                              Sincronizar TAE
+                            </Button>
+                          )}
+
+                          {!sig.tae_publication_id && !sig.tae_document_id && (
+                            <Badge variant="outline" className="text-xs">
+                              <AlertCircle className="mr-1 h-3 w-3" />
+                              Não enviado ao TAE
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Signatories list */}
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Signatários ({total})
+                          </span>
+                          <div className="space-y-1">
+                            {(sig.proposal_signatories || []).map((signer) => {
+                              const displayStatus = getSignerDisplayStatus(sig, signer);
+                              const signedAt = getSignerSignedAt(sig, signer);
+                              return (
+                                <div
+                                  key={signer.id}
+                                  className="flex items-center gap-2 text-xs rounded-md px-3 py-2 bg-background border border-border/50"
+                                >
+                                  <SignerIcon status={displayStatus} />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium text-foreground">{signer.name}</span>
+                                    <span className="text-muted-foreground ml-1.5">{signer.email}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {signer.role && (
+                                      <Badge variant="outline" className="text-[10px]">{signer.role}</Badge>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[10px] ${
+                                        displayStatus === "Assinado"
+                                          ? "border-green-500/30 text-green-600"
+                                          : displayStatus === "Rejeitado"
+                                          ? "border-destructive/30 text-destructive"
+                                          : ""
+                                      }`}
+                                    >
+                                      {displayStatus}
+                                    </Badge>
+                                    {signedAt && (
+                                      <span className="text-muted-foreground text-[10px]">
+                                        {new Date(signedAt).toLocaleDateString("pt-BR")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Completion/cancellation info */}
+                        {sig.completed_at && (
+                          <p className="text-xs text-green-600">
+                            ✅ Finalizado em {new Date(sig.completed_at).toLocaleDateString("pt-BR")} às{" "}
+                            {new Date(sig.completed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                        {sig.cancelled_at && (
+                          <p className="text-xs text-destructive">
+                            ❌ Cancelado em {new Date(sig.cancelled_at).toLocaleDateString("pt-BR")} às{" "}
+                            {new Date(sig.cancelled_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Enviado em {new Date(sig.sent_at).toLocaleDateString("pt-BR")} às{" "}
-                        {new Date(sig.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {sig.tae_document_id && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          title="Copiar ID do documento TAE"
-                          onClick={() => copyToClipboard(sig.tae_document_id!)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      {sig.tae_publication_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => checkTaeStatus(sig.id)}
-                          disabled={checkingTae}
-                        >
-                          {checkingTae ? (
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                          )}
-                          Atualizar Status
-                        </Button>
-                      )}
-                      {!sig.tae_publication_id && sig.status === "pending" && (
-                        <Badge variant="outline" className="text-xs">
-                          <AlertCircle className="mr-1 h-3 w-3" />
-                          Não enviado ao TAE
-                        </Badge>
-                      )}
-                    </div>
+                    </CollapsibleContent>
                   </div>
-
-                  {/* TAE IDs */}
-                  {(sig.tae_document_id || sig.tae_publication_id) && (
-                    <div className="grid gap-2 sm:grid-cols-2 text-xs">
-                      {sig.tae_document_id && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <FileText className="h-3 w-3 shrink-0" />
-                          <span>Doc ID: <span className="font-mono text-foreground">{sig.tae_document_id}</span></span>
-                        </div>
-                      )}
-                      {sig.tae_publication_id && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <FileText className="h-3 w-3 shrink-0" />
-                          <span>Pub ID: <span className="font-mono text-foreground">{sig.tae_publication_id}</span></span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* TAE live status */}
-                  {taeStatus && taeStatus.taePublicationId === sig.tae_publication_id && (
-                    <div className="rounded-md bg-accent/50 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">Status TAE:</span>
-                        <Badge variant={taeStatus.status === 2 ? "default" : taeStatus.status === 7 || taeStatus.status === 4 ? "destructive" : "secondary"}>
-                          {taeStatus.statusLabel}
-                        </Badge>
-                      </div>
-                      {taeStatus.signers.length > 0 && (
-                        <div className="space-y-1.5">
-                          <span className="text-xs font-medium text-muted-foreground">Signatários no TAE:</span>
-                          {taeStatus.signers.map((s, i) => (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              {s.statusLabel === "Assinado" ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                              ) : s.statusLabel === "Rejeitado" ? (
-                                <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                              ) : (
-                                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              )}
-                              <span className="text-foreground">{s.name || s.email}</span>
-                              <span className="text-muted-foreground">({s.email})</span>
-                              <Badge variant="outline" className="text-[10px] ml-auto">
-                                {s.statusLabel}
-                              </Badge>
-                              {s.signedAt && (
-                                <span className="text-muted-foreground text-[10px]">
-                                  {new Date(s.signedAt).toLocaleDateString("pt-BR")}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Local signatories */}
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Signatários ({sig.proposal_signatories?.length || 0})
-                    </span>
-                    <ScrollArea className="max-h-48">
-                      <div className="space-y-1">
-                        {(sig.proposal_signatories || []).map((s) => {
-                          const signerStatus = getSignerStatus(sig, s);
-                          return (
-                            <div key={s.id} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 bg-muted/50">
-                              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="font-medium text-foreground">{s.name}</span>
-                              <span className="text-muted-foreground">{s.email}</span>
-                              <Badge variant="outline" className="text-[10px] ml-auto">
-                                {signerStatus.label}
-                              </Badge>
-                              {s.role && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  {s.role}
-                                </Badge>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </div>
+                </Collapsible>
               );
             })
           )}

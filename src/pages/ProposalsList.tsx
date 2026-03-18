@@ -382,29 +382,25 @@ export default function ProposalsList() {
                         <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                           <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                         </DropdownMenuItem>
-                        {p.status === "proposta_gerada" && (
+                        {(p.status === "proposta_gerada" || p.status === "em_assinatura") && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
-                              <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
+                              <Send className="mr-2 h-3.5 w-3.5" />
+                              {p.status === "em_assinatura" ? "Reenviar para Assinatura" : "Enviar para Assinatura"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {p.status === "em_assinatura" && (
-                          <>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
+                              <Trophy className="mr-2 h-3.5 w-3.5" />
+                              {p.status === "em_assinatura" ? "Encerrar como Ganha (Manual)" : "Encerrar como Ganha"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
-                              <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
-                            </DropdownMenuItem>
+                            {p.status === "em_assinatura" && (
+                              <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                                <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                              </DropdownMenuItem>
+                            )}
                           </>
                         )}
                         {!locked && (

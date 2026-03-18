@@ -85,7 +85,30 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         isNew: false,
       }));
       setSignatories(prev);
+    } else {
+      // No previous signatories — auto-add logged-in user as Testemunha
+      addLoggedUserAsWitness();
     }
+  }
+
+  function addLoggedUserAsWitness() {
+    if (!user?.email) return;
+    setSignatories((prev) => {
+      // Don't duplicate if already present
+      if (prev.some((s) => s.email.toLowerCase() === user.email!.toLowerCase())) return prev;
+      return [
+        ...prev,
+        {
+          id: newLocalId(),
+          contact_id: null,
+          name: user.user_metadata?.display_name || user.email || "",
+          email: user.email || "",
+          phone: "",
+          role: "Testemunha",
+          isNew: true,
+        },
+      ];
+    });
   }
 
   function addSignatoryFromContact(contactId: string) {

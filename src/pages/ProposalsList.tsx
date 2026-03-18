@@ -352,7 +352,7 @@ export default function ProposalsList() {
                           Gerar MIT-065
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {!cancelled && (
+                        {!locked && (
                           <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>
                             <Edit2 className="mr-2 h-3.5 w-3.5" />Editar
                           </DropdownMenuItem>
@@ -360,12 +360,14 @@ export default function ProposalsList() {
                         <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                           <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                         </DropdownMenuItem>
-                        {!cancelled && (
+                        {!locked && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                              <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
-                            </DropdownMenuItem>
+                            {p.status === "proposta_gerada" && (
+                              <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
                               <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
                             </DropdownMenuItem>

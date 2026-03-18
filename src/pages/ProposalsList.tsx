@@ -376,7 +376,7 @@ export default function ProposalsList() {
     setCancelSignatureId(null);
   }
 
-  const queryClient = useQueryClient();
+  // queryClient already declared above
 
   function handleDuplicate(proposal: any) {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);

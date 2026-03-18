@@ -97,6 +97,8 @@ Deno.serve(async (req) => {
           success: false,
           error: `Login falhou (HTTP ${loginRes.status})`,
           details: loginBody.substring(0, 500),
+          debug_url: loginUrl,
+          debug_email: serviceEmail,
           latency_ms: loginMs,
         }),
         {

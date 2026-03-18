@@ -226,7 +226,12 @@ Deno.serve(async (req) => {
 
     // 6. Export PDF from Google Drive
     log(logs, "Google Drive", "info", "Exportando documento como PDF...");
-    const googleToken = await getGoogleAccessToken(saKey);
+    let googleToken: string;
+    if ((globalThis as any).__googleOAuthToken) {
+      googleToken = (globalThis as any).__googleOAuthToken;
+    } else {
+      googleToken = await getGoogleAccessToken(saKey);
+    }
     const exportUrl = `https://www.googleapis.com/drive/v3/files/${officialDoc.doc_id}/export?mimeType=application/pdf`;
     const pdfRes = await fetch(exportUrl, {
       headers: { Authorization: `Bearer ${googleToken}` },

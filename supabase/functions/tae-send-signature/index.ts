@@ -383,11 +383,15 @@ Deno.serve(async (req) => {
 
     let publishData: any;
     try { publishData = JSON.parse(publishRaw); } catch { publishData = { raw: publishRaw }; }
+    console.log("[tae-send-signature] Publish response:", JSON.stringify(publishData).substring(0, 500));
     const taePublicationId =
       publishData?.data?.id ||
+      publishData?.data?.idPublicacao ||
+      publishData?.idPublicacao ||
       publishData?.id ||
       (typeof publishData?.data === "number" || typeof publishData?.data === "string" ? String(publishData.data) : null) ||
-      publishData?.data?.[0]?.id;
+      publishData?.data?.[0]?.id ||
+      publishData?.data?.[0]?.idPublicacao;
 
     log(logs, "TAE Publicação", "ok", `Publicação criada — ID: ${taePublicationId || "OK"}`);
     // 11. Update proposal_signatures with TAE IDs

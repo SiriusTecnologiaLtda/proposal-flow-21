@@ -463,6 +463,11 @@ export default function ProposalCreate() {
     setScopeProcesses((prev) => prev.map((p) => p.id === processId ? { ...p, description: desc } : p));
   }
 
+  // Update process notes (internal comment)
+  function updateProcessNotes(processId: string, notes: string) {
+    setScopeProcesses((prev) => prev.map((p) => p.id === processId ? { ...p, notes } : p));
+  }
+
   // Update child description
   function updateChildDescription(processId: string, childId: string, desc: string) {
     setScopeProcesses((prev) =>
@@ -471,6 +476,26 @@ export default function ProposalCreate() {
         return { ...p, children: p.children.map((c) => c.id === childId ? { ...c, description: desc } : c) };
       })
     );
+  }
+
+  // Update child notes (printable comment)
+  function updateChildNotes(processId: string, childId: string, notes: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return { ...p, children: p.children.map((c) => c.id === childId ? { ...c, notes } : c) };
+      })
+    );
+  }
+
+  // Toggle notes visibility
+  function toggleNotes(itemId: string) {
+    setNotesOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   }
 
   // Add new process

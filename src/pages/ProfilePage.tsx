@@ -56,8 +56,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || "");
-      setPhone((profile as any).phone || "");
-      setAvatarUrl((profile as any).avatar_url || "");
+      setPhone(profile.phone || "");
+      setAvatarUrl(profile.avatar_url || "");
     }
   }, [profile]);
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, ExternalLink } from "lucide-react";
+import { ArrowLeft, Save, ExternalLink, Zap, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ export default function TaeConfigPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string; latency_ms?: number } | null>(null);
 
   const { data: config, refetch } = useQuery({
     queryKey: ["tae_config"],
@@ -72,6 +74,19 @@ export default function TaeConfigPage() {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     }
     setSaving(false);
+  }
+
+  async function handleTest() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-tae-connection");
+      if (error) throw error;
+      setTestResult(data);
+    } catch (err: any) {
+      setTestResult({ success: false, error: err.message || "Erro ao testar conexão" });
+    }
+    setTesting(false);
   }
 
   return (
@@ -169,10 +184,25 @@ export default function TaeConfigPage() {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Salvando..." : "Salvar Configuração"}
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Salvando..." : "Salvar Configuração"}
+          </Button>
+          <Button variant="outline" onClick={handleTest} disabled={testing}>
+            {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+            {testing ? "Testando..." : "Testar Conexão"}
+          </Button>
+          {testResult && (
+            <div className={`flex items-center gap-1.5 text-xs font-medium ${testResult.success ? "text-primary" : "text-destructive"}`}>
+              {testResult.success ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              <span>{testResult.success ? testResult.message : testResult.error}</span>
+              {testResult.latency_ms != null && (
+                <span className="text-muted-foreground">({testResult.latency_ms}ms)</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-6 space-y-4">

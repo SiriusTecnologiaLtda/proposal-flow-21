@@ -116,6 +116,47 @@ export type Database = {
         }
         Relationships: []
       }
+      client_contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_edit_logs: {
         Row: {
           changes: Json
@@ -1099,12 +1140,11 @@ export type Database = {
     Enums: {
       app_role: "admin" | "vendedor" | "arquiteto" | "gsn"
       proposal_status:
-        | "rascunho"
-        | "em_revisao"
-        | "aprovada"
-        | "enviada"
-        | "cancelada"
+        | "pendente"
+        | "proposta_gerada"
+        | "em_assinatura"
         | "ganha"
+        | "cancelada"
       proposal_type: "projeto" | "banco_de_horas"
       sales_role: "esn" | "gsn" | "arquiteto"
       scope_type: "detalhado" | "macro"
@@ -1237,12 +1277,11 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "vendedor", "arquiteto", "gsn"],
       proposal_status: [
-        "rascunho",
-        "em_revisao",
-        "aprovada",
-        "enviada",
-        "cancelada",
+        "pendente",
+        "proposta_gerada",
+        "em_assinatura",
         "ganha",
+        "cancelada",
       ],
       proposal_type: ["projeto", "banco_de_horas"],
       sales_role: ["esn", "gsn", "arquiteto"],

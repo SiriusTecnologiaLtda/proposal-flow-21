@@ -573,6 +573,36 @@ export type Database = {
           },
         ]
       }
+      proposal_types: {
+        Row: {
+          created_at: string
+          id: string
+          mit_template_doc_id: string | null
+          name: string
+          slug: string
+          template_doc_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mit_template_doc_id?: string | null
+          name: string
+          slug: string
+          template_doc_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mit_template_doc_id?: string | null
+          name?: string
+          slug?: string
+          template_doc_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proposals: {
         Row: {
           accomp_analyst: number

@@ -1011,7 +1011,7 @@ Deno.serve(async (req) => {
       const { data } = await supabase.from("unit_info").select("*").limit(1).maybeSingle();
       unitInfo = data;
     }
-    log(logs, "Buscar unidade", "ok", `Unidade: ${unitInfo?.name || "padrão"} — Fator: ${unitInfo?.tax_factor || 0}%`);
+    log(logs, "Buscar unidade", "ok", `Unidade: ${unitInfo?.name || "padrão"} — Fator: ${unitInfo?.tax_factor || 0}`);
 
     // ─── Calculate values ───────────────────────────────────────
     log(logs, "Calcular valores", "info", "Processando escopo e valores...");
@@ -1035,7 +1035,7 @@ Deno.serve(async (req) => {
     const totalHours = totalAnalystHours + gpHours;
     const totalValueNet = totalHours * hourlyRate;
     const taxFactor = unitInfo?.tax_factor || 0;
-    const totalValueGross = totalValueNet * (1 + taxFactor / 100);
+    const totalValueGross = taxFactor > 0 ? totalValueNet / taxFactor : totalValueNet;
     const accompAnalyst = Number(proposal.accomp_analyst) || 0;
     const accompGP = Number(proposal.accomp_gp) || 0;
     const accompAnalystHours = roundUp8(Math.ceil(totalAnalystHours * (accompAnalyst / 100)));

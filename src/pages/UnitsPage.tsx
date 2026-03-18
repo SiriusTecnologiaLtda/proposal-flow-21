@@ -53,7 +53,7 @@ export default function UnitsPage() {
     { id: "phone", label: "Telefone", type: "text" },
     { id: "address", label: "Endereço", type: "text" },
     { id: "city", label: "Cidade", type: "text" },
-    { id: "tax_factor", label: "Fator Imposto (%)", type: "number" },
+    { id: "tax_factor", label: "Fator Imposto", type: "number", step: "0.0001" },
   ];
 
   return (
@@ -115,7 +115,7 @@ export default function UnitsPage() {
               {unit.email && <p>📧 {unit.email}</p>}
               {unit.phone && <p>📞 {unit.phone}</p>}
               {unit.contact && <p>👤 {unit.contact}</p>}
-              {Number(unit.tax_factor) > 0 && <p>💰 Fator Imposto: {unit.tax_factor}%</p>}
+              {Number(unit.tax_factor) > 0 && <p>💰 Fator Imposto: {Number(unit.tax_factor).toFixed(4)}</p>}
             </div>
           </div>
         ))}

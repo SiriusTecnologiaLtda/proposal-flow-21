@@ -32,6 +32,7 @@ interface GoogleIntegration {
   oauth_client_id: string | null;
   oauth_client_secret: string | null;
   oauth_refresh_token: string | null;
+  sender_email: string | null;
   is_default: boolean;
   created_at: string;
   updated_at: string;

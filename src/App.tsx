@@ -60,18 +60,26 @@ function ProtectedRoutes() {
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />
-        <Route path="/clientes" element={<GuardedRoute path="/clientes"><ClientsList /></GuardedRoute>} />
-        <Route path="/unidades" element={<GuardedRoute path="/unidades"><UnitsPage /></GuardedRoute>} />
+        <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
+        <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros"><ClientsList /></GuardedRoute>} />
+        <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros"><UnitsPage /></GuardedRoute>} />
+        <Route path="/cadastros/time" element={<GuardedRoute path="/cadastros"><SalesTeamPage /></GuardedRoute>} />
+        <Route path="/cadastros/produtos" element={<GuardedRoute path="/cadastros"><ProductsCategoriesPage /></GuardedRoute>} />
+        <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros"><ProductsCategoriesPage /></GuardedRoute>} />
+        <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros"><ProposalTypesPage /></GuardedRoute>} />
+        {/* Legacy routes redirect */}
+        <Route path="/clientes" element={<Navigate to="/cadastros/clientes" replace />} />
+        <Route path="/unidades" element={<Navigate to="/cadastros/unidades" replace />} />
+        <Route path="/produtos-categorias" element={<Navigate to="/cadastros/produtos" replace />} />
+        <Route path="/time" element={<Navigate to="/cadastros/time" replace />} />
         <Route path="/templates" element={<GuardedRoute path="/templates"><ScopeTemplatesPage /></GuardedRoute>} />
-        <Route path="/produtos-categorias" element={<GuardedRoute path="/produtos-categorias"><ProductsCategoriesPage /></GuardedRoute>} />
-        <Route path="/time" element={<GuardedRoute path="/time"><SalesTeamPage /></GuardedRoute>} />
         <Route path="/configuracoes" element={<GuardedRoute path="/configuracoes"><SettingsPage /></GuardedRoute>} />
         <Route path="/configuracoes/parametros" element={<GuardedRoute path="/configuracoes"><ProposalDefaultsPage /></GuardedRoute>} />
         <Route path="/configuracoes/google" element={<GuardedRoute path="/configuracoes"><GoogleIntegrationPage /></GuardedRoute>} />
         <Route path="/configuracoes/integracoes" element={<GuardedRoute path="/configuracoes"><IntegrationsPage /></GuardedRoute>} />
         <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
-        <Route path="/configuracoes/tipos-proposta" element={<GuardedRoute path="/configuracoes"><ProposalTypesPage /></GuardedRoute>} />
+        <Route path="/configuracoes/tipos-proposta" element={<Navigate to="/cadastros/tipos-proposta" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

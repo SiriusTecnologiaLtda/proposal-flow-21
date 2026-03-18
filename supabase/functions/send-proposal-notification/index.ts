@@ -300,20 +300,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- Send via Gmail API using Service Account ---
-    const saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!saKeyRaw) {
+    // --- Send via Gmail API using Service Account from google_integrations ---
+    const { data: gInt, error: gIntErr } = await supabase
+      .from("google_integrations")
+      .select("service_account_key, auth_type")
+      .eq("is_default", true)
+      .single();
+
+    if (gIntErr || !gInt) {
       return new Response(
-        JSON.stringify({ error: "GOOGLE_SERVICE_ACCOUNT_KEY não configurada" }),
+        JSON.stringify({ error: "Integração Google não configurada (nenhuma padrão encontrada)" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const saKey = JSON.parse(saKeyRaw);
-    const senderEmail = saKey.client_email; // proposta-bot@...
+    let saKey: any;
+    try {
+      saKey = JSON.parse(gInt.service_account_key || "{}");
+      if (!saKey.private_key || !saKey.client_email) {
+        throw new Error("private_key ou client_email ausente");
+      }
+    } catch (e: any) {
+      console.error("SA key parse error:", e.message);
+      return new Response(
+        JSON.stringify({ error: `Service Account inválida: ${e.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // For domain-wide delegation, we impersonate the service account's own email
-    // If you need to impersonate a real user, set an env var GMAIL_SENDER_EMAIL
+    const senderEmail = saKey.client_email;
     const impersonateEmail = Deno.env.get("GMAIL_SENDER_EMAIL") || senderEmail;
 
     const accessToken = await getAccessToken(

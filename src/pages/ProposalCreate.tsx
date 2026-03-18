@@ -647,7 +647,7 @@ export default function ProposalCreate() {
         toast({ title: "Proposta atualizada!" });
       } else {
         await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
-        toast({ title: status === "rascunho" ? "Rascunho salvo!" : "Proposta gerada!" });
+        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta gerada!" });
       }
       navigate("/propostas");
     } catch (err: any) {

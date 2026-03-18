@@ -84,6 +84,17 @@ export default function SalesTeamPage() {
     }
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Deseja realmente excluir "${name}"?`)) return;
+    const { error } = await supabase.from("sales_team").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Membro excluído!" });
+      qc.invalidateQueries({ queryKey: ["sales_team"] });
+    }
+  };
+
   const grouped = salesTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
     (acc[m.role] = acc[m.role] || []).push(m);
     return acc;

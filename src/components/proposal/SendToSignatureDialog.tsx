@@ -48,6 +48,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   useEffect(() => {
     if (open && clientId) {
       loadContacts();
+      loadPreviousSignatories();
     }
   }, [open, clientId]);
 
@@ -60,6 +61,31 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       .order("name");
     if (!error) setContacts(data || []);
     setLoadingContacts(false);
+  }
+
+  async function loadPreviousSignatories() {
+    if (!proposal?.id) return;
+    // Find the most recent signature record for this proposal
+    const { data: lastSig } = await supabase
+      .from("proposal_signatures")
+      .select("id, proposal_signatories(*)")
+      .eq("proposal_id", proposal.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastSig?.proposal_signatories?.length) {
+      const prev = (lastSig.proposal_signatories as any[]).map((s: any) => ({
+        id: newLocalId(),
+        contact_id: s.contact_id || null,
+        name: s.name,
+        email: s.email,
+        phone: s.phone || "",
+        role: s.role || "Signatário",
+        isNew: false,
+      }));
+      setSignatories(prev);
+    }
   }
 
   function addSignatoryFromContact(contactId: string) {

@@ -1135,7 +1135,7 @@ export default function ProposalCreate() {
                                 <button
                                   onClick={() => toggleNotes(proc.id)}
                                   className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
-                                  title="Comentário interno (Arquiteto ↔ ESN)"
+                                  title="Comentário do processo (impresso no escopo detalhado)"
                                 >
                                   <MessageSquare className="h-3.5 w-3.5" />
                                 </button>
@@ -1144,14 +1144,14 @@ export default function ProposalCreate() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-                              {/* Internal notes for process (Arquiteto ↔ ESN) */}
+                              {/* Printable notes for process */}
                               {notesOpenIds.has(proc.id) && (
-                                <div className="px-6 pb-2 pt-1 bg-amber-50/50 dark:bg-amber-950/20 border-t border-amber-200/50 dark:border-amber-800/30">
-                                  <Label className="text-xs text-amber-700 dark:text-amber-400">💬 Comentário interno (Arquiteto ↔ ESN)</Label>
+                                <div className="px-6 pb-2 pt-1 bg-muted/30 border-t border-border">
+                                  <Label className="text-xs text-muted-foreground">📝 Comentário do processo (impresso no escopo detalhado)</Label>
                                   <Textarea
                                     value={proc.notes || ""}
                                     onChange={(e) => updateProcessNotes(proc.id, e.target.value)}
-                                    placeholder="Adicionar comentário interno sobre este processo..."
+                                    placeholder="Adicionar comentário sobre este processo..."
                                     className="mt-1 min-h-[60px] text-xs bg-background"
                                     rows={2}
                                   />

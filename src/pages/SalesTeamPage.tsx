@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserCog, Plus, Edit2 } from "lucide-react";
+import { UserCog, Plus, Edit2, Trash2 } from "lucide-react";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,17 @@ export default function SalesTeamPage() {
       setDialogOpen(false);
       setForm(emptyForm);
       setEditingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Deseja realmente excluir "${name}"?`)) return;
+    const { error } = await supabase.from("sales_team").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Membro excluído!" });
+      qc.invalidateQueries({ queryKey: ["sales_team"] });
     }
   };
 
@@ -183,9 +194,14 @@ export default function SalesTeamPage() {
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>
-                      <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button className="rounded p-1 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(member.id, member.name)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {member.email && <p>📧 {member.email}</p>}

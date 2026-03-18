@@ -570,8 +570,38 @@ export default function ProposalCreate() {
   }, [totalValue]);
 
   async function handleSave(status: string) {
-    if (!proposalNumber || !clientId || !product || !proposalType) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+    const missing: string[] = [];
+    if (!proposalNumber) missing.push("Número da Proposta");
+    if (!clientId) missing.push("Cliente");
+    if (!product) missing.push("Produto");
+    if (!proposalType) missing.push("Tipo de Proposta");
+
+    if (missing.length > 0) {
+      toast({
+        title: "Campos obrigatórios não preenchidos",
+        description: missing.join(", "),
+        variant: "destructive",
+      });
+      // Navigate to step 1 where these fields are
+      setCurrentStep(1);
+      // Focus first missing field
+      setTimeout(() => {
+        const fieldMap: Record<string, string> = {
+          "Número da Proposta": "proposalNumber",
+          "Cliente": "clientSearch",
+          "Produto": "product",
+          "Tipo de Proposta": "proposalType",
+        };
+        const firstMissing = missing[0];
+        const elId = fieldMap[firstMissing];
+        if (elId) {
+          const el = document.getElementById(elId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.focus();
+          }
+        }
+      }, 100);
       return;
     }
 

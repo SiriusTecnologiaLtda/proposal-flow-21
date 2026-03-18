@@ -171,10 +171,25 @@ export default function TaeConfigPage() {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Salvando..." : "Salvar Configuração"}
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Salvando..." : "Salvar Configuração"}
+          </Button>
+          <Button variant="outline" onClick={handleTest} disabled={testing}>
+            {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+            {testing ? "Testando..." : "Testar Conexão"}
+          </Button>
+          {testResult && (
+            <div className={`flex items-center gap-1.5 text-xs font-medium ${testResult.success ? "text-primary" : "text-destructive"}`}>
+              {testResult.success ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              <span>{testResult.success ? testResult.message : testResult.error}</span>
+              {testResult.latency_ms != null && (
+                <span className="text-muted-foreground">({testResult.latency_ms}ms)</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-6 space-y-4">

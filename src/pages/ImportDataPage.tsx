@@ -82,6 +82,19 @@ function formatDuration(ms: number): string {
   return `${Math.floor(s / 60)}min ${s % 60}s`;
 }
 
+// ─── Reconcile stale "running" logs on load ─────────────────────
+// If a log has been "running" for more than 30 min, mark it as interrupted
+const STALE_MINUTES = 30;
+
+async function reconcileStaleLogs() {
+  const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
+  await supabase.from("import_logs").update({
+    status: "interrupted",
+    finished_at: new Date().toISOString(),
+    summary: "Execução interrompida (timeout — navegador fechado ou perda de conexão)",
+  } as any).eq("status", "running").lt("started_at", cutoff);
+}
+
 // ─── Clear helpers ──────────────────────────────────────────────
 
 async function clearClients(entity: ImportEntity) {

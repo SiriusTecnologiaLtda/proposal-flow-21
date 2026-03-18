@@ -672,13 +672,46 @@ export default function ProposalCreate() {
     };
 
     try {
+      let savedId: string | undefined;
       if (isEditing) {
         await updateProposal.mutateAsync({ id, ...proposalData });
+        savedId = id;
         toast({ title: "Proposta atualizada!" });
       } else {
         const result = await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
-        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gere o documento na lista de propostas." });
+        savedId = (result as any)?.id;
+        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
+
+      // If "Gerar Proposta" was checked, actually trigger document generation
+      if (status === "proposta_gerada" && savedId) {
+        try {
+          const session = (await supabase.auth.getSession()).data.session;
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ proposalId: savedId }),
+            }
+          );
+          const data = await res.json();
+          const hasError = data?.logs?.some((l: any) => l.status === "error");
+          if (res.ok && !hasError && data?.docUrl) {
+            toast({ title: "Documento gerado com sucesso!" });
+          } else {
+            const errorMsg = data?.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ") || "Erro na geração";
+            toast({ title: "Proposta salva, mas houve erro na geração do documento", description: errorMsg, variant: "destructive" });
+          }
+        } catch (genErr: any) {
+          toast({ title: "Proposta salva, mas falha ao gerar documento", description: genErr.message, variant: "destructive" });
+        }
+      }
+
       navigate("/propostas");
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });

@@ -598,6 +598,29 @@ export default function ProposalsList() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Send to Signature dialog */}
+        <SendToSignatureDialog
+          proposal={signatureProposal}
+          open={!!signatureProposal}
+          onOpenChange={(open) => !open && setSignatureProposal(null)}
+        />
+
+        {/* Cancel Signature confirmation */}
+        <AlertDialog open={!!cancelSignatureId} onOpenChange={(open) => !open && setCancelSignatureId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar processo de assinatura?</AlertDialogTitle>
+              <AlertDialogDescription>O processo de assinatura será cancelado e o status da proposta voltará para "Proposta Gerada".</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Voltar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancelSignature} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Confirmar Cancelamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

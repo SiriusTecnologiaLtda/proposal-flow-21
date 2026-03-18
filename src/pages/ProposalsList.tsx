@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
+import SignatureMonitorDialog from "@/components/proposal/SignatureMonitorDialog";
 
 interface LogEntry {
   step: string;

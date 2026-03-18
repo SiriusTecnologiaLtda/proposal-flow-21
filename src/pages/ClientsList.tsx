@@ -1,12 +1,27 @@
-import { useState } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: string | null;
+  isNew?: boolean;
+}
 
 export default function ClientsList() {
   const [search, setSearch] = useState("");
@@ -16,72 +31,118 @@ export default function ClientsList() {
   const { data: salesTeam = [] } = useSalesTeam();
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
+
+  // Detail/edit panel state
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("dados");
+
+  // Contacts state
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
+  const [savingContacts, setSavingContacts] = useState(false);
 
   const emptyForm = {
-    name: "",
-    code: "",
-    cnpj: "",
-    contact: "",
-    email: "",
-    phone: "",
-    address: "",
-    state_registration: "",
-    unit_id: "",
-    esn_id: "",
-    gsn_id: "",
+    name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
+    address: "", state_registration: "", store_code: "",
+    unit_id: "", esn_id: "", gsn_id: "",
   };
   const [form, setForm] = useState(emptyForm);
 
-  const filtered = clients.filter(
-    (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search) || c.cnpj.includes(search)
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === selectedClientId) || null,
+    [clients, selectedClientId]
   );
 
-  const esnMembers = salesTeam.filter((m) => m.role === "esn");
-  const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
+  const filtered = useMemo(
+    () => clients.filter(
+      (c) => c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.code.toLowerCase().includes(search.toLowerCase()) ||
+        c.cnpj.includes(search)
+    ),
+    [clients, search]
+  );
 
-  const openNewDialog = () => {
-    setEditingId(null);
+  const esnMembers = useMemo(() => salesTeam.filter((m) => m.role === "esn"), [salesTeam]);
+  const gsnMembers = useMemo(() => salesTeam.filter((m) => m.role === "gsn"), [salesTeam]);
+
+  // Load contacts when selecting a client
+  useEffect(() => {
+    if (!selectedClientId || isCreating) {
+      setContacts([]);
+      return;
+    }
+    loadContacts(selectedClientId);
+  }, [selectedClientId]);
+
+  async function loadContacts(clientId: string) {
+    setContactsLoading(true);
+    const { data, error } = await supabase
+      .from("client_contacts")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("name");
+    if (!error && data) {
+      setContacts(data.map((c) => ({
+        id: c.id, name: c.name, email: c.email,
+        phone: c.phone, role: c.role,
+      })));
+    }
+    setContactsLoading(false);
+  }
+
+  // Populate form when selecting existing client
+  useEffect(() => {
+    if (selectedClient && !isCreating) {
+      setForm({
+        name: selectedClient.name || "",
+        code: selectedClient.code || "",
+        cnpj: selectedClient.cnpj || "",
+        contact: selectedClient.contact || "",
+        email: selectedClient.email || "",
+        phone: selectedClient.phone || "",
+        address: selectedClient.address || "",
+        state_registration: selectedClient.state_registration || "",
+        store_code: (selectedClient as any).store_code || "",
+        unit_id: selectedClient.unit_id || "",
+        esn_id: selectedClient.esn_id || "",
+        gsn_id: selectedClient.gsn_id || "",
+      });
+    }
+  }, [selectedClient, isCreating]);
+
+  function openNew() {
+    setSelectedClientId(null);
+    setIsCreating(true);
     setForm(emptyForm);
-    setDialogOpen(true);
-  };
+    setActiveTab("dados");
+  }
 
-  const openEditDialog = (client: any) => {
-    setEditingId(client.id);
-    setForm({
-      name: client.name || "",
-      code: client.code || "",
-      cnpj: client.cnpj || "",
-      contact: client.contact || "",
-      email: client.email || "",
-      phone: client.phone || "",
-      address: client.address || "",
-      state_registration: client.state_registration || "",
-      unit_id: client.unit_id || "",
-      esn_id: client.esn_id || "",
-      gsn_id: client.gsn_id || "",
-    });
-    setDialogOpen(true);
-  };
+  function openClient(client: any) {
+    setIsCreating(false);
+    setSelectedClientId(client.id);
+    setActiveTab("dados");
+  }
 
-  const handleSave = () => {
+  function closeDetail() {
+    setSelectedClientId(null);
+    setIsCreating(false);
+  }
+
+  async function handleSave() {
     const missing: string[] = [];
     if (!form.name) missing.push("Razão Social");
     if (!form.code) missing.push("Código");
     if (!form.cnpj) missing.push("CNPJ");
-
     if (missing.length > 0) {
-      toast({ title: "Campos obrigatórios não preenchidos", description: missing.join(", "), variant: "destructive" });
-      setTimeout(() => {
-        const el = document.getElementById(missing[0] === "Razão Social" ? "name" : missing[0] === "Código" ? "code" : "cnpj");
-        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus(); }
-      }, 100);
+      toast({ title: "Campos obrigatórios", description: missing.join(", "), variant: "destructive" });
       return;
     }
-
     setSaving(true);
     const payload = {
       ...form,
@@ -89,205 +150,511 @@ export default function ClientsList() {
       esn_id: form.esn_id || null,
       gsn_id: form.gsn_id || null,
     };
+    try {
+      if (isCreating) {
+        await new Promise<void>((resolve, reject) =>
+          createClient.mutate(payload, {
+            onSuccess: () => resolve(),
+            onError: (e: any) => reject(e),
+          })
+        );
+        toast({ title: "Cliente criado com sucesso!" });
+        closeDetail();
+      } else if (selectedClientId) {
+        await new Promise<void>((resolve, reject) =>
+          updateClient.mutate({ id: selectedClientId, ...payload }, {
+            onSuccess: () => resolve(),
+            onError: (e: any) => reject(e),
+          })
+        );
+        toast({ title: "Cliente atualizado!" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
 
-    const done = () => setSaving(false);
+  // Contact CRUD
+  function addContact() {
+    setContacts((prev) => [
+      ...prev,
+      { id: `new-${Date.now()}`, name: "", email: "", phone: "", role: "Signatário", isNew: true },
+    ]);
+    setTimeout(() => {
+      const el = document.getElementById("contact-name-last");
+      if (el) el.focus();
+    }, 100);
+  }
 
-    if (editingId) {
-      updateClient.mutate(
-        { id: editingId, ...payload },
-        {
-          onSuccess: () => {
-            toast({ title: "Cliente atualizado!" });
-            setDialogOpen(false);
-            setForm(emptyForm);
-            setEditingId(null);
-            done();
-          },
-          onError: (err: any) => {
-            toast({ title: "Erro", description: err.message, variant: "destructive" });
-            done();
-          },
-        }
-      );
+  function updateContact(id: string, field: keyof Contact, value: string) {
+    setContacts((prev) => prev.map((c) => c.id === id ? { ...c, [field]: value } : c));
+  }
+
+  async function handleDeleteContact() {
+    if (!deleteContactId) return;
+    const contact = contacts.find((c) => c.id === deleteContactId);
+    if (contact?.isNew) {
+      setContacts((prev) => prev.filter((c) => c.id !== deleteContactId));
+    } else {
+      const { error } = await supabase.from("client_contacts").delete().eq("id", deleteContactId);
+      if (error) {
+        toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      } else {
+        setContacts((prev) => prev.filter((c) => c.id !== deleteContactId));
+        toast({ title: "Contato excluído" });
+      }
+    }
+    setDeleteContactId(null);
+  }
+
+  async function handleSaveContacts() {
+    if (!selectedClientId) return;
+    const invalid = contacts.filter((c) => !c.name || !c.email);
+    if (invalid.length > 0) {
+      toast({ title: "Preencha nome e email de todos os contatos", variant: "destructive" });
       return;
     }
-
-    createClient.mutate(payload, {
-      onSuccess: () => {
-        toast({ title: "Cliente criado!" });
-        setDialogOpen(false);
-        setForm(emptyForm);
-        done();
-      },
-      onError: (err: any) => {
-        toast({ title: "Erro", description: err.message, variant: "destructive" });
-        done();
-      },
-    });
-  };
+    setSavingContacts(true);
+    try {
+      // Upsert: insert new, update existing
+      for (const contact of contacts) {
+        if (contact.isNew) {
+          const { error } = await supabase.from("client_contacts").insert({
+            client_id: selectedClientId,
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone || null,
+            role: contact.role || null,
+          });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("client_contacts").update({
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone || null,
+            role: contact.role || null,
+          }).eq("id", contact.id);
+          if (error) throw error;
+        }
+      }
+      toast({ title: "Contatos salvos!" });
+      await loadContacts(selectedClientId);
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar contatos", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingContacts(false);
+    }
+  }
 
   const getUnitName = (c: any) => c.unit_info?.name || "—";
   const getEsnName = (c: any) => c.esn?.name || "—";
-  const getGsnName = (c: any) => c.gsn?.name || "—";
+
+  const showDetail = selectedClientId || isCreating;
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Clientes</h1>
           <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-border">
-            <button onClick={() => setViewMode("card")} className={`p-1.5 ${viewMode === "card" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+          <div className="flex rounded-md border border-border overflow-hidden">
+            <button onClick={() => setViewMode("card")} className={`p-2 transition-colors ${viewMode === "card" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
               <LayoutGrid className="h-4 w-4" />
             </button>
-            <button onClick={() => setViewMode("list")} className={`p-1.5 ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={() => setViewMode("list")} className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
               <List className="h-4 w-4" />
             </button>
           </div>
-          <Button onClick={openNewDialog}>
-            <Plus className="mr-2 h-4 w-4" />Novo Cliente
+          <Button onClick={openNew} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />Novo Cliente
           </Button>
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
-            <DialogDescription>
-              {editingId ? "Atualize os dados do cliente." : "Preencha os dados do novo cliente."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            {[
-              { id: "name", label: "Razão Social *" },
-              { id: "code", label: "Código *" },
-              { id: "cnpj", label: "CNPJ *" },
-              { id: "contact", label: "Contato" },
-              { id: "email", label: "E-mail" },
-              { id: "phone", label: "Telefone" },
-              { id: "address", label: "Endereço" },
-              { id: "state_registration", label: "Inscrição Estadual" },
-            ].map((field) => (
-              <div key={field.id} className="grid gap-1">
-                <Label htmlFor={field.id} className="text-xs">{field.label}</Label>
-                <Input id={field.id} placeholder={field.label.replace(" *", "")} value={(form as any)[field.id]} onChange={(e) => setForm((f) => ({ ...f, [field.id]: e.target.value }))} />
-              </div>
-            ))}
+      {/* Search */}
+      {!showDetail && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, código ou CNPJ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
-            <div className="grid gap-1">
-              <Label className="text-xs">Unidade</Label>
-              <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-1">
-              <Label className="text-xs">Executivo de Vendas (ESN)</Label>
-              <Select value={form.esn_id} onValueChange={(v) => setForm((f) => ({ ...f, esn_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione o ESN" /></SelectTrigger>
-                <SelectContent>
-                  {esnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-1">
-              <Label className="text-xs">Gerente de Vendas (GSN)</Label>
-              <Select value={form.gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, gsn_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                <SelectContent>
-                  {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button className="mt-2" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : editingId ? "Salvar alterações" : "Salvar Cliente"}
+      {/* DETAIL / EDIT VIEW */}
+      {showDetail ? (
+        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+          {/* Back button & title */}
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeDetail} className="shrink-0">
+              <ChevronLeft className="h-5 w-5" />
             </Button>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-foreground truncate">
+                {isCreating ? "Novo Cliente" : form.name || "Cliente"}
+              </h2>
+              {!isCreating && selectedClient && (
+                <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+              )}
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por nome, código ou CNPJ..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-      </div>
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="dados" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" />Dados Cadastrais
+              </TabsTrigger>
+              {!isCreating && (
+                <TabsTrigger value="contatos" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  Contatos
+                  {contacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
+                      {contacts.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
+            </TabsList>
 
-      {viewMode === "card" && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((client) => (
-            <div
-              key={client.id}
-              onClick={() => openEditDialog(client)}
-              className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Building2 className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
-                    <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
+            {/* TAB: Dados Cadastrais */}
+            <TabsContent value="dados" className="mt-4">
+              <div className="rounded-lg border border-border bg-card">
+                {/* Identificação */}
+                <div className="p-5">
+                  <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-primary" />Identificação
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField id="name" label="Razão Social *" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+                    <FormField id="code" label="Código *" value={form.code} onChange={(v) => setForm((f) => ({ ...f, code: v }))} />
+                    <FormField id="cnpj" label="CNPJ *" value={form.cnpj} onChange={(v) => setForm((f) => ({ ...f, cnpj: v }))} />
+                    <FormField id="state_registration" label="Inscrição Estadual" value={form.state_registration} onChange={(v) => setForm((f) => ({ ...f, state_registration: v }))} />
+                    <FormField id="store_code" label="Loja" value={form.store_code} onChange={(v) => setForm((f) => ({ ...f, store_code: v }))} />
                   </div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); openEditDialog(client); }} className="rounded p-1 text-muted-foreground hover:text-foreground">
-                  <Edit2 className="h-3.5 w-3.5" />
-                </button>
+
+                <Separator />
+
+                {/* Contato principal */}
+                <div className="p-5">
+                  <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+                    <UserCircle className="h-4 w-4 text-primary" />Contato Principal
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField id="contact" label="Nome do Contato" value={form.contact} onChange={(v) => setForm((f) => ({ ...f, contact: v }))} />
+                    <FormField id="email" label="E-mail" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} type="email" />
+                    <FormField id="phone" label="Telefone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Endereço */}
+                <div className="p-5">
+                  <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />Endereço
+                  </h3>
+                  <div className="grid gap-4">
+                    <FormField id="address" label="Endereço Completo" value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Vínculos */}
+                <div className="p-5">
+                  <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />Vínculos
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Unidade</Label>
+                      <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Executivo (ESN)</Label>
+                      <Select value={form.esn_id} onValueChange={(v) => setForm((f) => ({ ...f, esn_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {esnMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Gerente (GSN)</Label>
+                      <Select value={form.gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, gsn_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {gsnMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
+                  <Button variant="outline" onClick={closeDetail} size="sm">
+                    <X className="mr-1.5 h-3.5 w-3.5" />Cancelar
+                  </Button>
+                  <Button onClick={handleSave} disabled={saving} size="sm">
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                    {saving ? "Salvando..." : isCreating ? "Criar Cliente" : "Salvar"}
+                  </Button>
+                </div>
               </div>
-              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                {client.email && <p>📧 {client.email}</p>}
-                {client.phone && <p>📞 {client.phone}</p>}
-                {client.contact && <p>👤 {client.contact}</p>}
-                <p>🏢 {getUnitName(client)}</p>
-                <p>📊 ESN: {getEsnName(client)} · GSN: {getGsnName(client)}</p>
+            </TabsContent>
+
+            {/* TAB: Contatos (Signatários) */}
+            {!isCreating && (
+              <TabsContent value="contatos" className="mt-4">
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center justify-between p-4 border-b border-border">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Contatos / Signatários</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Contatos utilizados para envio de propostas para assinatura eletrônica (TAE)
+                      </p>
+                    </div>
+                    <Button onClick={addContact} size="sm" variant="outline">
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />Novo Contato
+                    </Button>
+                  </div>
+
+                  {contactsLoading ? (
+                    <div className="p-8 text-center text-sm text-muted-foreground">Carregando contatos...</div>
+                  ) : contacts.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Users className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                      <p className="mt-2 text-sm text-muted-foreground">Nenhum contato cadastrado</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Adicione contatos que serão usados como signatários nas propostas
+                      </p>
+                      <Button onClick={addContact} size="sm" variant="outline" className="mt-4">
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />Adicionar Contato
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {contacts.map((contact, idx) => (
+                        <div key={contact.id} className="p-4 hover:bg-muted/30 transition-colors">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                            <div className="space-y-1 lg:col-span-1">
+                              <Label className="text-xs text-muted-foreground">Nome *</Label>
+                              <Input
+                                id={idx === contacts.length - 1 ? "contact-name-last" : undefined}
+                                value={contact.name}
+                                onChange={(e) => updateContact(contact.id, "name", e.target.value)}
+                                placeholder="Nome do contato"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1 lg:col-span-1">
+                              <Label className="text-xs text-muted-foreground">Email *</Label>
+                              <Input
+                                value={contact.email}
+                                onChange={(e) => updateContact(contact.id, "email", e.target.value)}
+                                placeholder="email@empresa.com"
+                                type="email"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1 lg:col-span-1">
+                              <Label className="text-xs text-muted-foreground">Telefone</Label>
+                              <Input
+                                value={contact.phone || ""}
+                                onChange={(e) => updateContact(contact.id, "phone", e.target.value)}
+                                placeholder="(00) 00000-0000"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1 lg:col-span-1">
+                              <Label className="text-xs text-muted-foreground">Papel</Label>
+                              <Select value={contact.role || ""} onValueChange={(v) => updateContact(contact.id, "role", v)}>
+                                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Papel" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Signatário">Signatário</SelectItem>
+                                  <SelectItem value="Testemunha">Testemunha</SelectItem>
+                                  <SelectItem value="Aprovador">Aprovador</SelectItem>
+                                  <SelectItem value="Observador">Observador</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-end lg:col-span-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteContactId(contact.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {contact.isNew && (
+                            <Badge variant="secondary" className="mt-2 text-xs">Novo</Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {contacts.length > 0 && (
+                    <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
+                      <Button
+                        onClick={handleSaveContacts}
+                        disabled={savingContacts}
+                        size="sm"
+                      >
+                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        {savingContacts ? "Salvando..." : "Salvar Contatos"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
+        </div>
+      ) : (
+        <>
+          {/* LIST VIEWS */}
+          {viewMode === "card" && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((client) => (
+                <div
+                  key={client.id}
+                  onClick={() => openClient(client)}
+                  className="group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{client.code} · {client.cnpj}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {client.email && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{client.email}</span>
+                      </div>
+                    )}
+                    {client.phone && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3 shrink-0" /><span className="truncate">{client.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{getUnitName(client)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && (
+                <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
+                  Nenhum cliente encontrado.
+                </div>
+              )}
+            </div>
+          )}
+
+          {viewMode === "list" && (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-6 md:gap-4">
+                <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente</span>
+                <span className="text-xs font-medium text-muted-foreground">Unidade</span>
+                <span className="text-xs font-medium text-muted-foreground">ESN</span>
+                <span className="text-xs font-medium text-muted-foreground">Email</span>
+                <span className="text-xs font-medium text-muted-foreground">Telefone</span>
+              </div>
+              <div className="divide-y divide-border">
+                {filtered.map((client) => (
+                  <div
+                    key={client.id}
+                    onClick={() => openClient(client)}
+                    className="cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4"
+                  >
+                    <div className="col-span-2 flex items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Building2 className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
+                        <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-foreground truncate">{getUnitName(client)}</p>
+                    <p className="text-sm text-foreground truncate">{getEsnName(client)}</p>
+                    <p className="text-sm text-muted-foreground truncate">{client.email || "—"}</p>
+                    <p className="text-sm text-muted-foreground truncate">{client.phone || "—"}</p>
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="px-4 py-12 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {viewMode === "list" && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-6 md:gap-4">
-            <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente</span>
-            <span className="text-xs font-medium text-muted-foreground">Unidade</span>
-            <span className="text-xs font-medium text-muted-foreground">ESN</span>
-            <span className="text-xs font-medium text-muted-foreground">GSN</span>
-            <span className="text-xs font-medium text-muted-foreground">Contato</span>
-          </div>
-          <div className="divide-y divide-border">
-            {filtered.map((client) => (
-              <div
-                key={client.id}
-                onClick={() => openEditDialog(client)}
-                className="cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4"
-              >
-                <div className="col-span-2 flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Building2 className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
-                    <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-foreground truncate">{getUnitName(client)}</p>
-                <p className="text-sm text-foreground truncate">{getEsnName(client)}</p>
-                <p className="text-sm text-foreground truncate">{getGsnName(client)}</p>
-                <p className="text-sm text-muted-foreground truncate">{client.email || "—"}</p>
-              </div>
-            ))}
-            {filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>}
-          </div>
-        </div>
-      )}
+      {/* Delete contact confirmation */}
+      <AlertDialog open={!!deleteContactId} onOpenChange={(open) => !open && setDeleteContactId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este contato será removido permanentemente. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteContact} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// Reusable form field component
+function FormField({ id, label, value, onChange, type = "text" }: {
+  id: string; label: string; value: string;
+  onChange: (v: string) => void; type?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={label.replace(" *", "")}
+        className="h-9"
+      />
     </div>
   );
 }

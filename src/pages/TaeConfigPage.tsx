@@ -206,6 +206,27 @@ export default function TaeConfigPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        <h2 className="text-base font-semibold text-foreground">Webhook (Callback Automático)</h2>
+        <p className="text-xs text-muted-foreground">
+          Ao enviar uma proposta para assinatura, o sistema registra automaticamente um callback no TAE. 
+          Quando o status da assinatura muda (assinado, rejeitado, finalizado), o TAE notifica automaticamente o sistema.
+        </p>
+        <div className="space-y-1.5">
+          <Label className="text-xs">URL do Webhook</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              className="bg-muted font-mono text-xs"
+              value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-webhook`}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            URL registrada automaticamente como callback em cada publicação. Não é necessário configurar manualmente no TAE.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-6 space-y-4">
         <h2 className="text-base font-semibold text-foreground">Fluxo de Integração</h2>
         <div className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-start gap-2">
@@ -222,7 +243,11 @@ export default function TaeConfigPage() {
           </div>
           <div className="flex items-start gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">4</span>
-            <p>Monitoramento do status de assinatura (GET /v2/publicacoes/{"{id}"})</p>
+            <p>Registro do callback webhook (POST /v1/Publicacoes/{"{id}"}/CallBacks)</p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">5</span>
+            <p>TAE notifica automaticamente via webhook quando status muda → atualiza proposta no sistema</p>
           </div>
         </div>
 

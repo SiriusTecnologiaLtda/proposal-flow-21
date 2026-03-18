@@ -116,6 +116,8 @@ export default function ProposalCreate() {
   const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
 
   // Load existing proposal data for editing or duplicating

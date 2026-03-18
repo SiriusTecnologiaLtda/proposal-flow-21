@@ -485,28 +485,21 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, { error: e.message }, 500);
     }
 
-    // ─── Find MIT template ──────────────────────────────────────
-    log(logs, "Buscar template MIT", "info", `Buscando template "MIT" ou "065" ou "Transição" na pasta ${driveFolderId}...`);
-    let templates: any[];
-    try {
-      templates = await listTemplates(accessToken, driveFolderId);
-    } catch (e: any) {
-      log(logs, "Buscar template MIT", "error", `Falha: ${e.message}`);
-      return respondWithLogs(logs, { error: e.message }, 500);
-    }
+    // ─── Find MIT template from proposal_types ────────────────
+    log(logs, "Buscar template MIT", "info", `Buscando template MIT para tipo "${proposal.type}"...`);
 
-    // Search for MIT template by keywords
-    const mitKeywords = ["mit", "065", "transição", "transicao", "comercial"];
-    const template = templates.find((t: any) => {
-      const name = t.name.toLowerCase();
-      return mitKeywords.some(kw => name.includes(kw));
-    });
+    const { data: proposalTypeRow } = await supabase
+      .from("proposal_types")
+      .select("mit_template_doc_id")
+      .eq("slug", proposal.type)
+      .maybeSingle();
 
-    if (!template) {
-      log(logs, "Buscar template MIT", "error", `Template MIT/065/Transição não encontrado. Arquivos na pasta: ${templates.map((t: any) => t.name).join(", ") || "nenhum"}`);
-      return respondWithLogs(logs, { error: "Template MIT-065 não encontrado na pasta de templates" }, 404);
+    const templateDocId = proposalTypeRow?.mit_template_doc_id;
+    if (!templateDocId) {
+      log(logs, "Buscar template MIT", "error", `Nenhum template MIT configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.`);
+      return respondWithLogs(logs, { error: `No MIT template configured for type "${proposal.type}"` }, 404);
     }
-    log(logs, "Buscar template MIT", "ok", `Template encontrado: "${template.name}" (ID: ${template.id})`);
+    log(logs, "Buscar template MIT", "ok", `Template MIT ID: ${templateDocId}`);
 
     // ─── Version check ──────────────────────────────────────────
     const mitBaseName = `MIT-065 ${proposal.number} - ${client?.name || "Cliente"}`;

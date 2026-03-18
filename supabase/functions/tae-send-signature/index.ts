@@ -169,17 +169,69 @@ Deno.serve(async (req) => {
 
     log(logs, "Documento", "ok", `Documento: ${officialDoc.file_name} (v${officialDoc.version}, oficial: ${officialDoc.is_official})`);
 
-    // 5. Get Google service account key
-    const saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!saKeyRaw) {
-      log(logs, "Google", "error", "GOOGLE_SERVICE_ACCOUNT_KEY não configurado");
-      return respondWithLogs(logs, {}, 500);
+    // 5. Get Google credentials from google_integrations table
+    const { data: gIntegration } = await supabase
+      .from("google_integrations")
+      .select("*")
+      .eq("is_default", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (!gIntegration) {
+      // fallback: any integration
+      const { data: anyInt } = await supabase
+        .from("google_integrations")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      if (!anyInt) {
+        log(logs, "Google", "error", "Nenhuma integração Google configurada");
+        return respondWithLogs(logs, {}, 500);
+      }
+      Object.assign(gIntegration || {}, anyInt);
     }
-    const saKey = JSON.parse(saKeyRaw);
+
+    let saKey: any = null;
+    const gInt = gIntegration!;
+    if (gInt.auth_type === "oauth2") {
+      // Use OAuth2 refresh token to get access token
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: gInt.oauth_client_id || "",
+          client_secret: gInt.oauth_client_secret || "",
+          refresh_token: gInt.oauth_refresh_token || "",
+          grant_type: "refresh_token",
+        }),
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenData.access_token) {
+        log(logs, "Google", "error", `Falha ao obter token OAuth2: ${JSON.stringify(tokenData)}`);
+        return respondWithLogs(logs, {}, 500);
+      }
+      // Store token for later use
+      (globalThis as any).__googleOAuthToken = tokenData.access_token;
+      log(logs, "Google", "ok", "Token OAuth2 obtido");
+    } else {
+      try {
+        saKey = JSON.parse(gInt.service_account_key || "{}");
+        if (!saKey.private_key) throw new Error("private_key ausente");
+        log(logs, "Google", "ok", `Service Account: ${saKey.client_email}`);
+      } catch (e: any) {
+        log(logs, "Google", "error", `Falha ao parsear chave SA: ${e.message}`);
+        return respondWithLogs(logs, {}, 500);
+      }
+    }
 
     // 6. Export PDF from Google Drive
     log(logs, "Google Drive", "info", "Exportando documento como PDF...");
-    const googleToken = await getGoogleAccessToken(saKey);
+    let googleToken: string;
+    if ((globalThis as any).__googleOAuthToken) {
+      googleToken = (globalThis as any).__googleOAuthToken;
+    } else {
+      googleToken = await getGoogleAccessToken(saKey);
+    }
     const exportUrl = `https://www.googleapis.com/drive/v3/files/${officialDoc.doc_id}/export?mimeType=application/pdf`;
     const pdfRes = await fetch(exportUrl, {
       headers: { Authorization: `Bearer ${googleToken}` },

@@ -350,8 +350,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let driveFolderId: string;
     let outputFolderId: string;
+    let authType = "service_account";
     let authType = "service_account";
     let serviceAccountKey: any = null;
     let oauthClientId = "";

@@ -1287,6 +1287,72 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_config: {
+        Row: {
+          ai_model: string
+          ai_system_prompt: string | null
+          enabled: boolean
+          id: string
+          max_context_messages: number
+          twilio_phone_number: string | null
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          ai_model?: string
+          ai_system_prompt?: string | null
+          enabled?: boolean
+          id?: string
+          max_context_messages?: number
+          twilio_phone_number?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          ai_model?: string
+          ai_system_prompt?: string | null
+          enabled?: boolean
+          id?: string
+          max_context_messages?: number
+          twilio_phone_number?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          ai_response: string | null
+          created_at: string
+          direction: string
+          id: string
+          message_text: string
+          phone_number: string
+          twilio_sid: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_response?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          message_text: string
+          phone_number: string
+          twilio_sid?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_response?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          message_text?: string
+          phone_number?: string
+          twilio_sid?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

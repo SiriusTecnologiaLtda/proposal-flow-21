@@ -144,56 +144,80 @@ Deno.serve(async (req) => {
       try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
       pubData = statusData?.data || statusData;
     } else {
-      // Try GET endpoint to find publications by document ID
-      const docRes = await fetch(
-        `${baseUrl}/documents/v2/publicacoes?idDocumento=${encodeURIComponent(String(taeDocumentId))}`,
-        {
-          headers: {
-            Authorization: `Bearer ${taeToken}`,
-            "Content-Type": "application/json",
-          },
+      // No publication ID — try multiple TAE endpoints to find publication info
+      console.log(`[tae-check-status] No publication ID, trying to resolve from document ${taeDocumentId}`);
+
+      // Try 1: GET /documents/v1/documentos/{id} (v1 endpoint)
+      let resolved = false;
+      for (const endpoint of [
+        `${baseUrl}/documents/v1/documentos/${taeDocumentId}`,
+        `${baseUrl}/documents/v2/documentos/${taeDocumentId}`,
+        `${baseUrl}/documents/v1/publicacoes?idDocumento=${taeDocumentId}`,
+      ]) {
+        if (resolved) break;
+        console.log(`[tae-check-status] Trying: ${endpoint}`);
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${taeToken}` },
+        });
+        const raw = await res.text();
+        console.log(`[tae-check-status] → ${res.status} ${raw.substring(0, 500)}`);
+        
+        if (res.ok && raw) {
+          let parsed: any;
+          try { parsed = JSON.parse(raw); } catch { continue; }
+          const data = parsed?.data || parsed;
+          
+          // Could be a single object or array
+          const items = Array.isArray(data) ? data : [data];
+          const match = items.find((item: any) => 
+            String(item?.idDocumento || item?.documentoId || "") === String(taeDocumentId)
+          ) || items[0];
+          
+          if (match) {
+            resolvedPublicationId = String(
+              match?.idPublicacao || match?.publicacaoId || 
+              match?.publicacao?.id || ""
+            ).trim() || null;
+            
+            // If this item has status/signers info, use it as pubData
+            if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {
+              pubData = match;
+              resolved = true;
+            } else if (resolvedPublicationId) {
+              // Got publication ID, fetch its details
+              const pubRes = await fetch(`${baseUrl}/documents/v2/publicacoes/${resolvedPublicationId}`, {
+                headers: { Authorization: `Bearer ${taeToken}` },
+              });
+              if (pubRes.ok) {
+                const pubRaw = await pubRes.text();
+                try {
+                  const pubParsed = JSON.parse(pubRaw);
+                  pubData = pubParsed?.data || pubParsed;
+                  resolved = true;
+                } catch { /* continue */ }
+              }
+            }
+          }
         }
-      );
-      const docRaw = await docRes.text();
-      console.log(`[tae-check-status] GET publicacoes?idDocumento=${taeDocumentId} → ${docRes.status}`, docRaw.substring(0, 300));
-
-      if (!docRes.ok) {
-        // Fallback: try fetching the document directly
-        const docRes2 = await fetch(
-          `${baseUrl}/documents/v2/documentos/${taeDocumentId}`,
-          { headers: { Authorization: `Bearer ${taeToken}` } }
-        );
-        const docRaw2 = await docRes2.text();
-        console.log(`[tae-check-status] GET documentos/${taeDocumentId} → ${docRes2.status}`, docRaw2.substring(0, 300));
-
-        if (!docRes2.ok) {
-          return new Response(
-            JSON.stringify({ error: `Falha ao consultar documento TAE: ${docRes.status} / ${docRes2.status}`, details: docRaw.substring(0, 300) }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        let docData2: any;
-        try { docData2 = JSON.parse(docRaw2); } catch { docData2 = null; }
-        const doc2 = docData2?.data || docData2;
-        resolvedPublicationId = String(doc2?.idPublicacao || doc2?.publicacaoId || "").trim() || null;
-        pubData = doc2;
-      } else {
-        let docData: any;
-        try { docData = JSON.parse(docRaw); } catch { docData = null; }
-        const docItems = Array.isArray(docData?.data) ? docData.data : Array.isArray(docData) ? docData : [];
-        pubData = docItems.find((item: any) => String(item?.idDocumento || item?.documentoId || item?.id) === String(taeDocumentId)) || docItems[0] || null;
-        resolvedPublicationId = String(pubData?.idPublicacao || pubData?.publicacaoId || pubData?.id || "").trim() || null;
       }
 
-      let docData: any;
-      try { docData = JSON.parse(docRaw); } catch { docData = null; }
-      const docItems = Array.isArray(docData?.data) ? docData.data : Array.isArray(docData) ? docData : [];
-      pubData = docItems.find((item: any) => String(item?.idDocumento || item?.documentoId || item?.id) === String(taeDocumentId)) || docItems[0] || null;
-      resolvedPublicationId = String(pubData?.idPublicacao || pubData?.publicacaoId || pubData?.id || "").trim() || null;
+      if (!resolved && !pubData) {
+        return new Response(
+          JSON.stringify({
+            error: "Não foi possível localizar a publicação no TAE. O documento pode ainda não ter sido publicado.",
+            taeDocumentId,
+            suggestion: "Tente enviar novamente para assinatura.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       if (resolvedPublicationId) {
-        await supabase
+        const adminSupabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await adminSupabase
           .from("proposal_signatures")
           .update({ tae_publication_id: resolvedPublicationId })
           .eq("id", signatureId);

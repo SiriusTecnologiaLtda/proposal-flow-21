@@ -206,9 +206,11 @@ export default function ProposalsList() {
   const queryClient = useQueryClient();
 
   async function handleRefreshSignatureStatus(proposal: any) {
-    // Find the latest "sent" signature for this proposal
-    const sigs = (proposal as any).proposal_signatures || [];
-    const activeSig = sigs.find((s: any) => s.status === "sent" && s.tae_publication_id);
+    const sigs = ((proposal as any).proposal_signatures || [])
+      .filter((s: any) => s.tae_publication_id)
+      .sort((a: any, b: any) => new Date(b.created_at || b.sent_at || 0).getTime() - new Date(a.created_at || a.sent_at || 0).getTime());
+
+    const activeSig = sigs.find((s: any) => ["sent", "pending"].includes(s.status)) || sigs[0];
     if (!activeSig) {
       toast({ title: "Nenhuma assinatura ativa encontrada para atualizar", variant: "destructive" });
       return;

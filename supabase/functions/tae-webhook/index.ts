@@ -108,9 +108,26 @@ Deno.serve(async (req) => {
     }
 
     // Sync signer statuses
+    // TAE may send: array of signers OR a single "assinante" string (email) from the Assinar event
     const signers = payload?.assinantes || payload?.destinatarios ||
       payload?.data?.assinantes || payload?.data?.destinatarios || [];
 
+    // Handle single signer from "Assinar" event (assinante field = email string)
+    const singleSignerEmail = payload?.assinante || payload?.data?.assinante;
+    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura;
+
+    if (singleSignerEmail && typeof singleSignerEmail === "string") {
+      // This is from the "assinar" event — mark this specific signer as signed
+      const nextStatus = taeStatus === 4 || taeStatus === 7 ? "rejected" : "signed";
+      console.log(`[tae-webhook] Single signer event: ${singleSignerEmail} → ${nextStatus}`);
+      await supabase
+        .from("proposal_signatories")
+        .update({ status: nextStatus, signed_at: new Date().toISOString() })
+        .eq("signature_id", sigRecord.id)
+        .ilike("email", singleSignerEmail);
+    }
+
+    // Handle array of signers (from finalizar event or detailed payload)
     for (const signer of signers) {
       const email = signer.email || signer.emailDestinatario;
       if (!email) continue;

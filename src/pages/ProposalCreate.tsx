@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ interface ScopeChild {
   description: string;
   hours: number;
   included: boolean;
+  notes?: string; // comentário impresso no escopo detalhado
 }
 
 interface ScopeProcess {
@@ -31,6 +32,7 @@ interface ScopeProcess {
   included: boolean;
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
+  notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 
 interface PaymentCondition {
@@ -111,6 +113,7 @@ export default function ProposalCreate() {
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
+  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
 
   // Template search/selection
   const [templateSearch, setTemplateSearch] = useState("");
@@ -189,6 +192,7 @@ export default function ProposalCreate() {
             description: item.description,
             included: item.included,
             templateId: item.template_id || undefined,
+            notes: item.notes || "",
             children: [],
           };
           parentMap.set(item.id, proc);
@@ -202,6 +206,7 @@ export default function ProposalCreate() {
               description: child.description,
               hours: child.hours,
               included: child.included,
+              notes: child.notes || "",
             });
           }
         }
@@ -261,15 +266,12 @@ export default function ProposalCreate() {
 
   const availableTemplates = useMemo(() => {
     let templates = scopeTemplates;
-    if (product) {
-      templates = templates.filter((t) => t.product.toLowerCase() === product.toLowerCase() || t.product === "TOTVS");
-    }
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
-      templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+      templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q) || t.product.toLowerCase().includes(q));
     }
     return templates;
-  }, [product, scopeTemplates, templateSearch]);
+  }, [scopeTemplates, templateSearch]);
 
   // Get the current proposal type config for labels and rounding
   const currentProposalTypeConfig = useMemo(() => {
@@ -461,6 +463,11 @@ export default function ProposalCreate() {
     setScopeProcesses((prev) => prev.map((p) => p.id === processId ? { ...p, description: desc } : p));
   }
 
+  // Update process notes (internal comment)
+  function updateProcessNotes(processId: string, notes: string) {
+    setScopeProcesses((prev) => prev.map((p) => p.id === processId ? { ...p, notes } : p));
+  }
+
   // Update child description
   function updateChildDescription(processId: string, childId: string, desc: string) {
     setScopeProcesses((prev) =>
@@ -469,6 +476,26 @@ export default function ProposalCreate() {
         return { ...p, children: p.children.map((c) => c.id === childId ? { ...c, description: desc } : c) };
       })
     );
+  }
+
+  // Update child notes (printable comment)
+  function updateChildNotes(processId: string, childId: string, notes: string) {
+    setScopeProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id !== processId) return p;
+        return { ...p, children: p.children.map((c) => c.id === childId ? { ...c, notes } : c) };
+      })
+    );
+  }
+
+  // Toggle notes visibility
+  function toggleNotes(itemId: string) {
+    setNotesOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   }
 
   // Add new process
@@ -619,17 +646,16 @@ export default function ProposalCreate() {
     let sortOrder = 0;
     for (const proc of scopeProcesses) {
       const parentSortOrder = sortOrder++;
-      // Save parent as a scope item with hours = sum
       allScopeItems.push({
         description: proc.description,
         included: proc.included,
         hours: processHours(proc),
         phase: 1,
-        notes: "",
+        notes: proc.notes || "",
         sort_order: parentSortOrder,
         template_id: proc.templateId || null,
         parent_id: null,
-        _local_id: proc.id, // for linking children
+        _local_id: proc.id,
       });
 
       for (const child of proc.children) {
@@ -638,10 +664,10 @@ export default function ProposalCreate() {
           included: child.included,
           hours: child.hours,
           phase: 1,
-          notes: "",
+          notes: child.notes || "",
           sort_order: sortOrder++,
           template_id: proc.templateId || null,
-          parent_id: proc.id, // will be resolved server-side
+          parent_id: proc.id,
           _local_id: child.id,
           _parent_local_id: proc.id,
         });
@@ -1075,40 +1101,81 @@ export default function ProposalCreate() {
                                   className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
+                                <button
+                                  onClick={() => toggleNotes(proc.id)}
+                                  className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                                  title="Comentário interno (Arquiteto ↔ ESN)"
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                </button>
                                 <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
                                 <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
+                              {/* Internal notes for process (Arquiteto ↔ ESN) */}
+                              {notesOpenIds.has(proc.id) && (
+                                <div className="px-6 pb-2 pt-1 bg-amber-50/50 dark:bg-amber-950/20 border-t border-amber-200/50 dark:border-amber-800/30">
+                                  <Label className="text-xs text-amber-700 dark:text-amber-400">💬 Comentário interno (Arquiteto ↔ ESN)</Label>
+                                  <Textarea
+                                    value={proc.notes || ""}
+                                    onChange={(e) => updateProcessNotes(proc.id, e.target.value)}
+                                    placeholder="Adicionar comentário interno sobre este processo..."
+                                    className="mt-1 min-h-[60px] text-xs bg-background"
+                                    rows={2}
+                                  />
+                                </div>
+                              )}
 
                               {/* Children (Level 2) */}
                               {isExpanded && (
                                 <div className="bg-muted/20">
                                   {proc.children.map((child, childIdx) => (
-                                    <div key={child.id} className={`flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 transition-colors ${child.included && proc.included ? "" : "opacity-60"}`}>
-                                      <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
-                                      <Input
-                                        value={child.description}
-                                        onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
-                                        placeholder="Descrição do item"
-                                        className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
-                                      />
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        value={child.hours}
-                                        onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
-                                        className="h-7 w-16 text-center text-xs"
-                                        disabled={!child.included || !proc.included}
-                                      />
-                                      <Switch
-                                        checked={child.included}
-                                        onCheckedChange={() => toggleChild(proc.id, child.id)}
-                                        disabled={!proc.included}
-                                      />
-                                      <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
+                                    <div key={child.id}>
+                                      <div className={`flex items-center gap-2 border-t border-border/50 px-3 py-1.5 pl-14 transition-colors ${child.included && proc.included ? "" : "opacity-60"}`}>
+                                        <span className="shrink-0 text-xs text-muted-foreground w-6">{procIdx + 1}.{childIdx + 1}</span>
+                                        <Input
+                                          value={child.description}
+                                          onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
+                                          placeholder="Descrição do item"
+                                          className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                                        />
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          value={child.hours}
+                                          onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
+                                          className="h-7 w-16 text-center text-xs"
+                                          disabled={!child.included || !proc.included}
+                                        />
+                                        <button
+                                          onClick={() => toggleNotes(child.id)}
+                                          className={`shrink-0 rounded p-1 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                                          title="Comentário (impresso no escopo)"
+                                        >
+                                          <MessageSquare className="h-3.5 w-3.5" />
+                                        </button>
+                                        <Switch
+                                          checked={child.included}
+                                          onCheckedChange={() => toggleChild(proc.id, child.id)}
+                                          disabled={!proc.included}
+                                        />
+                                        <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                      {notesOpenIds.has(child.id) && (
+                                        <div className="px-14 pb-2 pt-1 bg-accent/30 border-t border-border/30">
+                                          <Label className="text-xs text-muted-foreground">📝 Comentário (impresso no escopo detalhado)</Label>
+                                          <Textarea
+                                            value={child.notes || ""}
+                                            onChange={(e) => updateChildNotes(proc.id, child.id, e.target.value)}
+                                            placeholder="Adicionar comentário para o escopo detalhado..."
+                                            className="mt-1 min-h-[50px] text-xs bg-background"
+                                            rows={2}
+                                          />
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                   <button

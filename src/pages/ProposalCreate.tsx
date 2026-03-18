@@ -92,6 +92,10 @@ export default function ProposalCreate() {
   const [clientSearch, setClientSearch] = useState("");
   const [esnId, setEsnId] = useState<string>("");
   const [arquitetoId, setArquitetoId] = useState<string>("");
+  const [esnSearch, setEsnSearch] = useState("");
+  const [arquitetoSearch, setArquitetoSearch] = useState("");
+  const [esnPopoverOpen, setEsnPopoverOpen] = useState(false);
+  const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
   const [scopeType, setScopeType] = useState<string>("detalhado");
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);

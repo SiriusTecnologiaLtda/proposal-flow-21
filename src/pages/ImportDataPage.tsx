@@ -167,13 +167,14 @@ async function updateDbLog(dbLogId: string, run: ImportRun) {
 async function runClientImport(file: File, clearBefore: boolean, qc: any, userId?: string) {
   const entity: ImportEntity = "clients";
   const run = startImportRun(entity, file.name, clearBefore);
+  let dbLogId: string | undefined;
 
   if (clearBefore) {
     const ok = await clearClients(entity);
     if (!ok) { finishImportRun(entity, "error"); return; }
   }
 
-  const dbLogId = await createDbLog(run, userId);
+  dbLogId = await createDbLog(run, userId);
 
   addImportLog(entity, "info", `Lendo "${file.name}"...`);
   try {
@@ -184,6 +185,13 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
     const dataRows = rows.slice(1).filter(r => r[0] && r[1] && r[2]);
     updateImportStats(entity, { totalRows: dataRows.length });
     addImportLog(entity, "info", `${dataRows.length} registros encontrados.`);
+
+    if (dataRows.length === 0) {
+      addImportLog(entity, "error", "Nenhum registro válido encontrado na planilha.");
+      finishImportRun(entity, "error");
+      if (dbLogId) await updateDbLog(dbLogId, { ...run, status: "error", totalRows: 0, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun);
+      return;
+    }
 
     const { data: units } = await supabase.from("unit_info").select("id, code, name");
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, role");
@@ -200,41 +208,74 @@ async function runClientImport(file: File, clearBefore: boolean, qc: any, userId
     const gsnMap = new Map((salesTeam || []).filter(s => s.role === "gsn").map(s => [s.code.toLowerCase(), s.id]));
 
     let imported = 0, errors = 0;
-    for (let i = 0; i < dataRows.length; i++) {
-      const r = dataRows[i];
-      const code = String(r[0] || "").trim();
-      const name = String(r[1] || "").trim();
-      const cnpj = String(r[2] || "").trim();
-      if (!code || !name || !cnpj) { errors++; addImportLog(entity, "error", `Linha ${i+2}: campos obrigatórios ausentes.`); updateImportStats(entity, { errors }); continue; }
+    const BATCH_SIZE = 50;
+    const DB_LOG_INTERVAL = 100; // update DB log every N rows
 
-      const storeCode = String(r[3] || "").trim();
-      const payload: any = {
-        code, name, cnpj,
-        store_code: storeCode || "",
-        state_registration: String(r[4] || "").trim() || null,
-        contact: String(r[5] || "").trim() || null,
-        email: String(r[6] || "").trim() || null,
-        phone: String(r[7] || "").trim() || null,
-        address: String(r[8] || "").trim() || null,
-        unit_id: findUnitId(String(r[9] || "")),
-        esn_id: r[10] ? (esnMap.get(String(r[10]).trim().toLowerCase()) || null) : null,
-        gsn_id: r[11] ? (gsnMap.get(String(r[11]).trim().toLowerCase()) || null) : null,
-      };
+    for (let batchStart = 0; batchStart < dataRows.length; batchStart += BATCH_SIZE) {
+      const batch = dataRows.slice(batchStart, batchStart + BATCH_SIZE);
+      const validPayloads: any[] = [];
 
-      const { error } = await supabase.from("clients").insert(payload);
-      if (error) { errors++; addImportLog(entity, "error", `Linha ${i+2} (${code}): ${error.message}`); }
-      else { imported++; }
+      for (let j = 0; j < batch.length; j++) {
+        const r = batch[j];
+        const lineNum = batchStart + j + 2;
+        const code = String(r[0] || "").trim();
+        const name = String(r[1] || "").trim();
+        const cnpj = String(r[2] || "").trim();
+        if (!code || !name || !cnpj) { errors++; addImportLog(entity, "error", `Linha ${lineNum}: campos obrigatórios ausentes.`); continue; }
+
+        const storeCode = String(r[3] || "").trim();
+        validPayloads.push({
+          code, name, cnpj,
+          store_code: storeCode || "",
+          state_registration: String(r[4] || "").trim() || null,
+          contact: String(r[5] || "").trim() || null,
+          email: String(r[6] || "").trim() || null,
+          phone: String(r[7] || "").trim() || null,
+          address: String(r[8] || "").trim() || null,
+          unit_id: findUnitId(String(r[9] || "")),
+          esn_id: r[10] ? (esnMap.get(String(r[10]).trim().toLowerCase()) || null) : null,
+          gsn_id: r[11] ? (gsnMap.get(String(r[11]).trim().toLowerCase()) || null) : null,
+        });
+      }
+
+      if (validPayloads.length > 0) {
+        const { error: batchErr, data: insData } = await supabase.from("clients").insert(validPayloads).select("id");
+        if (batchErr) {
+          // Fallback: try row by row
+          addImportLog(entity, "info", `Lote ${Math.floor(batchStart / BATCH_SIZE) + 1} falhou em batch, tentando individual...`);
+          for (const payload of validPayloads) {
+            const { error } = await supabase.from("clients").insert(payload);
+            if (error) { errors++; addImportLog(entity, "error", `(${payload.code}/${payload.store_code}): ${error.message}`); }
+            else { imported++; }
+          }
+        } else {
+          imported += insData?.length || validPayloads.length;
+        }
+      }
+
       updateImportStats(entity, { imported, errors });
+
+      // Periodically persist progress to DB
+      if (dbLogId && (batchStart + BATCH_SIZE) % DB_LOG_INTERVAL < BATCH_SIZE) {
+        const progressRun = { ...run, imported, errors, totalRows: dataRows.length, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
+        await updateDbLog(dbLogId, progressRun).catch(() => {});
+      }
     }
 
-    finishImportRun(entity, errors > 0 && imported === 0 ? "error" : "success");
-    const finalRun = { ...run, imported, errors, totalRows: dataRows.length, status: "success" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
+    const finalStatus = errors > 0 && imported === 0 ? "error" : "success";
+    finishImportRun(entity, finalStatus);
+    const finalRun = { ...run, imported, errors, totalRows: dataRows.length, status: finalStatus as any, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
     addImportLog(entity, "ok", buildSummaryMessage(finalRun));
     if (imported > 0) qc.invalidateQueries({ queryKey: ["clients"] });
-    if (dbLogId) await updateDbLog(dbLogId, { ...finalRun, durationMs: Date.now() - run.startedAt });
+    if (dbLogId) await updateDbLog(dbLogId, { ...finalRun, durationMs: Date.now() - run.startedAt } as ImportRun);
   } catch (err: any) {
-    addImportLog(entity, "error", `Erro: ${err.message}`);
+    addImportLog(entity, "error", `Erro fatal: ${err.message}`);
     finishImportRun(entity, "error");
+    // CRITICAL: persist error state to DB
+    if (dbLogId) {
+      const errorRun = { ...run, status: "error" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun;
+      await updateDbLog(dbLogId, errorRun).catch(() => {});
+    }
   }
 }
 

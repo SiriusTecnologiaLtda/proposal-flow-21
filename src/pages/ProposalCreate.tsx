@@ -148,6 +148,7 @@ export default function ProposalCreate() {
       setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
       setAdditionalGpRate(existingProposal.additional_gp_rate);
       setExpectedCloseDate(existingProposal.expected_close_date || "");
+      setGroupNotes((existingProposal as any).group_notes || {});
       setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items

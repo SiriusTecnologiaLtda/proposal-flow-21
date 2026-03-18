@@ -40,6 +40,7 @@ export default function TaeConfigPage() {
         base_url: config.base_url || "https://totvssign.staging.totvs.app",
         application_id: config.application_id || "",
         company_cnpj: config.company_cnpj || "",
+        service_user_email: config.service_user_email || "",
         notes: config.notes || "",
       });
     }

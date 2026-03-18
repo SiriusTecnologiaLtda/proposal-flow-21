@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
     console.log("[tae-webhook] Received FULL payload:", JSON.stringify(payload));
 
     // Normalize: TAE sends fields in varying cases (idDocumento, iddocumento, IdDocumento, etc.)
-    // Build a case-insensitive lookup of payload keys
     const flatPayload: Record<string, any> = {};
     for (const [k, v] of Object.entries(payload || {})) {
       flatPayload[k.toLowerCase()] = v;
@@ -60,19 +59,11 @@ Deno.serve(async (req) => {
     const taeStatus: number | undefined =
       flatPayload["status"] ?? flatData["status"];
 
-    console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}`);
+    // Extract signer info from payload (TAE body param: assinante → [ASSINANTE])
+    const singleSignerEmail = flatPayload["assinante"] || flatData["assinante"] ||
+      payload?.assinante || payload?.data?.assinante;
 
-    if (!publicationId && !documentId) {
-      // If we have a status but no IDs, try to find the most recent "sent" signature
-      if (taeStatus !== undefined) {
-        console.log("[tae-webhook] No IDs but have status, attempting to match recent sent signature...");
-        // Cannot reliably match without an ID, just log and ignore
-      }
-      console.log("[tae-webhook] No publication or document ID found in payload, ignoring.");
-      return new Response(JSON.stringify({ ok: true, ignored: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}, assinante=${singleSignerEmail || "(none)"}`);
 
     // Find the matching proposal_signatures record
     let sigRecord: any = null;
@@ -95,6 +86,32 @@ Deno.serve(async (req) => {
       sigRecord = data;
     }
 
+    // Fallback: if no IDs in payload, try to match the most recent "sent" signature
+    // This handles TAE sending split payloads (status-only without document ID)
+    if (!sigRecord && !publicationId && !documentId) {
+      if (taeStatus !== undefined || singleSignerEmail) {
+        console.log("[tae-webhook] No IDs in payload, searching for most recent sent signature...");
+        const { data } = await supabase
+          .from("proposal_signatures")
+          .select("*")
+          .eq("status", "sent")
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          sigRecord = data;
+          console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
+        }
+      }
+
+      if (!sigRecord) {
+        console.log("[tae-webhook] No matching signature record found, ignoring.");
+        return new Response(JSON.stringify({ ok: true, ignored: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (!sigRecord) {
       console.log("[tae-webhook] No matching signature record found, ignoring.");
       return new Response(JSON.stringify({ ok: true, ignored: true, reason: "no matching record" }), {
@@ -112,28 +129,32 @@ Deno.serve(async (req) => {
         .eq("id", sigRecord.id);
     }
 
-    // Sync signer statuses
-    // TAE may send: array of signers OR a single "assinante" string (email) from the Assinar event
+    // Handle single signer (from "assinar" event with body param assinante → [ASSINANTE])
+    if (singleSignerEmail && typeof singleSignerEmail === "string") {
+      const cleanEmail = singleSignerEmail.trim();
+      if (cleanEmail) {
+        const nextStatus = taeStatus === 4 || taeStatus === 7 ? "rejected" : "signed";
+        console.log(`[tae-webhook] Single signer event: ${cleanEmail} → ${nextStatus}`);
+        const { data: updated, error: updateErr } = await supabase
+          .from("proposal_signatories")
+          .update({ status: nextStatus, signed_at: new Date().toISOString() })
+          .eq("signature_id", sigRecord.id)
+          .ilike("email", cleanEmail)
+          .select();
+        if (updateErr) {
+          console.log(`[tae-webhook] Error updating signatory: ${updateErr.message}`);
+        } else {
+          console.log(`[tae-webhook] Updated ${updated?.length || 0} signatory(ies) for ${cleanEmail}`);
+        }
+      }
+    }
+
+    // Handle array of signers (from finalizar event or detailed payload)
     const signers = payload?.assinantes || payload?.destinatarios ||
       payload?.data?.assinantes || payload?.data?.destinatarios ||
       flatPayload["assinantes"] || flatPayload["destinatarios"] ||
       flatData["assinantes"] || flatData["destinatarios"] || [];
 
-    const singleSignerEmail = payload?.assinante || payload?.data?.assinante || flatPayload["assinante"] || flatData["assinante"];
-    const tipoAssinatura = payload?.tipoAssinatura || payload?.data?.tipoAssinatura || flatPayload["tipoassinatura"] || flatData["tipoassinatura"];
-
-    if (singleSignerEmail && typeof singleSignerEmail === "string") {
-      // This is from the "assinar" event — mark this specific signer as signed
-      const nextStatus = taeStatus === 4 || taeStatus === 7 ? "rejected" : "signed";
-      console.log(`[tae-webhook] Single signer event: ${singleSignerEmail} → ${nextStatus}`);
-      await supabase
-        .from("proposal_signatories")
-        .update({ status: nextStatus, signed_at: new Date().toISOString() })
-        .eq("signature_id", sigRecord.id)
-        .ilike("email", singleSignerEmail);
-    }
-
-    // Handle array of signers (from finalizar event or detailed payload)
     for (const signer of signers) {
       const email = signer.email || signer.emailDestinatario;
       if (!email) continue;
@@ -153,7 +174,7 @@ Deno.serve(async (req) => {
         .ilike("email", email);
     }
 
-    // Update proposal status based on TAE status
+    // Update proposal/signature status based on TAE status
     if (taeStatus === 2) {
       // Finalizado → completed / ganha
       await supabase
@@ -189,7 +210,7 @@ Deno.serve(async (req) => {
 
       console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → proposta_gerada`);
     } else if (taeStatus === 1) {
-      // Assinado parcialmente - update signature status
+      // Assinado parcialmente
       console.log(`[tae-webhook] Signature ${sigRecord.id} → partially signed`);
     }
 

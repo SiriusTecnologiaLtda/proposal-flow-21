@@ -26,6 +26,7 @@ import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
+import ProfilePage from "@/pages/ProfilePage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";

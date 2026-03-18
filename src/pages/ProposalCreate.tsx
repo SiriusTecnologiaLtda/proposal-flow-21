@@ -741,7 +741,7 @@ export default function ProposalCreate() {
             <div className="space-y-1.5">
               <Label className="text-xs">Tipo de Proposta</Label>
               <Select value={proposalType} onValueChange={setProposalType}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="proposalType"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {proposalTypes.map((pt: any) => (
                     <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>

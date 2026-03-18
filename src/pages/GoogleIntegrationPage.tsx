@@ -347,8 +347,8 @@ export default function GoogleIntegrationPage() {
   }
 
   function handleSave() {
-    if (!form.label.trim() || !form.drive_folder_id.trim()) {
-      toast({ title: "Campos obrigatórios", description: "Preencha Nome e ID da Pasta.", variant: "destructive" });
+    if (!form.label.trim()) {
+      toast({ title: "Campos obrigatórios", description: "Preencha o Nome.", variant: "destructive" });
       return;
     }
 

@@ -21,6 +21,8 @@ import UnitsPage from "@/pages/UnitsPage";
 import ImportDataPage from "@/pages/ImportDataPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import UserManagementPage from "@/pages/UserManagementPage";
+import RolePermissionsPage from "@/pages/RolePermissionsPage";
+import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import LoginPage from "@/pages/LoginPage";

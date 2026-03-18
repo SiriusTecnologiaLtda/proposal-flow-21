@@ -513,7 +513,7 @@ Deno.serve(async (req) => {
     log(logs, "Copiar template", "info", "Criando cópia...");
     let newDocId: string;
     try {
-      newDocId = await copyFile(accessToken, template.id, newFileName, outputFolderId, folderInfo.driveId, logs);
+      newDocId = await copyFile(accessToken, templateDocId, newFileName, outputFolderId, folderInfo.driveId, logs);
       log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
     } catch (e: any) {
       log(logs, "Copiar template", "error", `Falha: ${e.message}`);

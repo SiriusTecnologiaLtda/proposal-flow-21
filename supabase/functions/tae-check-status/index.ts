@@ -124,22 +124,56 @@ Deno.serve(async (req) => {
     const loginData = await loginRes.json();
     const taeToken = loginData.access_token || loginData.token;
 
-    // Get publication status from TAE
-    const statusRes = await fetch(`${baseUrl}/documents/v2/publicacoes/${taePublicationId}`, {
-      headers: { Authorization: `Bearer ${taeToken}` },
-    });
-    const statusRaw = await statusRes.text();
-    if (!statusRes.ok) {
-      return new Response(
-        JSON.stringify({ error: `Falha ao consultar TAE: ${statusRes.status}`, details: statusRaw.substring(0, 500) }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Get publication status from TAE (fallback to document when publication id is missing)
+    let resolvedPublicationId = taePublicationId;
+    let pubData: any = null;
+
+    if (resolvedPublicationId) {
+      const statusRes = await fetch(`${baseUrl}/documents/v2/publicacoes/${resolvedPublicationId}`, {
+        headers: { Authorization: `Bearer ${taeToken}` },
+      });
+      const statusRaw = await statusRes.text();
+      if (!statusRes.ok) {
+        return new Response(
+          JSON.stringify({ error: `Falha ao consultar TAE: ${statusRes.status}`, details: statusRaw.substring(0, 500) }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let statusData: any;
+      try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
+      pubData = statusData?.data || statusData;
+    } else {
+      const docRes = await fetch(`${baseUrl}/documents/v2/publicacoes/documentos-empresa`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${taeToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idDocumento: Number(taeDocumentId) }),
+      });
+      const docRaw = await docRes.text();
+      if (!docRes.ok) {
+        return new Response(
+          JSON.stringify({ error: `Falha ao consultar documento TAE: ${docRes.status}`, details: docRaw.substring(0, 500) }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let docData: any;
+      try { docData = JSON.parse(docRaw); } catch { docData = null; }
+      const docItems = Array.isArray(docData?.data) ? docData.data : Array.isArray(docData) ? docData : [];
+      pubData = docItems.find((item: any) => String(item?.idDocumento || item?.documentoId || item?.id) === String(taeDocumentId)) || docItems[0] || null;
+      resolvedPublicationId = String(pubData?.idPublicacao || pubData?.publicacaoId || pubData?.id || "").trim() || null;
+
+      if (resolvedPublicationId) {
+        await supabase
+          .from("proposal_signatures")
+          .update({ tae_publication_id: resolvedPublicationId })
+          .eq("id", signatureId);
+      }
     }
 
-    let statusData: any;
-    try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
-
-    const pubData = statusData?.data || statusData;
     const pubStatus = pubData?.status;
     const pubStatusLabel = TAE_STATUS_MAP[pubStatus] ?? `Desconhecido (${pubStatus})`;
 

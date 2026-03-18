@@ -43,6 +43,18 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const [signatories, setSignatories] = useState<Signatory[]>([]);
   const [sending, setSending] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [pendingScrollId, setPendingScrollId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pendingScrollId && scrollRef.current) {
+      const el = scrollRef.current.querySelector(`[data-sig-id="${pendingScrollId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setPendingScrollId(null);
+      }
+    }
+  }, [signatories, pendingScrollId]);
 
   const clientId = proposal?.client_id;
 

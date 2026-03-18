@@ -262,6 +262,35 @@ export default function ProposalTypesPage() {
                 Template usado para gerar o documento MIT-065 deste tipo de proposta
               </p>
             </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label>Label Recurso 1 (Analista)</Label>
+                <Input
+                  placeholder="Analista de Implantação"
+                  value={form.analyst_label}
+                  onChange={(e) => setForm({ ...form, analyst_label: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Label Recurso 2 (Coordenador)</Label>
+                <Input
+                  placeholder="Coordenador de Projeto"
+                  value={form.gp_label}
+                  onChange={(e) => setForm({ ...form, gp_label: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Fator de Arredondamento (horas)</Label>
+                <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">4 horas</SelectItem>
+                    <SelectItem value="8">8 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Arredonda horas para o múltiplo mais próximo</p>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>

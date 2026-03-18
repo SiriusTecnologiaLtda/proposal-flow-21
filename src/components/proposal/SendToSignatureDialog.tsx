@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, UserPlus, Users, Send } from "lucide-react";
+import { Plus, Trash2, UserPlus, Users, Send, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ interface Signatory {
   phone: string;
   role: string;
   isNew: boolean;
+  isLoggedUser?: boolean;
 }
 
 interface Props {
@@ -65,7 +66,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   async function loadPreviousSignatories() {
     if (!proposal?.id) return;
-    // Find the most recent signature record for this proposal
     const { data: lastSig } = await supabase
       .from("proposal_signatures")
       .select("id, proposal_signatories(*)")
@@ -83,32 +83,31 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         phone: s.phone || "",
         role: s.role || "Signatário",
         isNew: false,
+        isLoggedUser: user?.email ? s.email.toLowerCase() === user.email.toLowerCase() : false,
       }));
       setSignatories(prev);
+      // Ensure logged user is always present
+      ensureLoggedUser(prev);
     } else {
-      // No previous signatories — auto-add logged-in user as Testemunha
-      addLoggedUserAsWitness();
+      ensureLoggedUser([]);
     }
   }
 
-  function addLoggedUserAsWitness() {
+  function ensureLoggedUser(existing: Signatory[]) {
     if (!user?.email) return;
-    setSignatories((prev) => {
-      // Don't duplicate if already present
-      if (prev.some((s) => s.email.toLowerCase() === user.email!.toLowerCase())) return prev;
-      return [
-        ...prev,
-        {
-          id: newLocalId(),
-          contact_id: null,
-          name: user.user_metadata?.display_name || user.email || "",
-          email: user.email || "",
-          phone: "",
-          role: "Testemunha",
-          isNew: true,
-        },
-      ];
-    });
+    const alreadyPresent = existing.some((s) => s.email.toLowerCase() === user.email!.toLowerCase());
+    if (alreadyPresent) return;
+    const loggedUserEntry: Signatory = {
+      id: newLocalId(),
+      contact_id: null,
+      name: user.user_metadata?.display_name || user.email || "",
+      email: user.email || "",
+      phone: "",
+      role: "Testemunha",
+      isNew: true,
+      isLoggedUser: true,
+    };
+    setSignatories((prev) => [loggedUserEntry, ...prev]);
   }
 
   function addSignatoryFromContact(contactId: string) {
@@ -148,7 +147,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   function removeSignatory(id: string) {
-    setSignatories((prev) => prev.filter((s) => s.id !== id));
+    setSignatories((prev) => prev.filter((s) => s.id !== id || s.isLoggedUser));
   }
 
   function updateSignatory(id: string, field: string, value: string) {
@@ -313,20 +312,30 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   {signatories.map((sig, idx) => (
                     <div
                       key={sig.id}
-                      className="rounded-lg border border-border p-3 space-y-2"
+                      className={`rounded-lg border p-3 space-y-2 ${sig.isLoggedUser ? "border-primary/40 bg-primary/5" : "border-border"}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">
-                          Signatário {idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}
+                          {sig.isLoggedUser ? (
+                            <span className="flex items-center gap-1 text-primary">
+                              <Lock className="h-3 w-3" /> Você (obrigatório)
+                            </span>
+                          ) : (
+                            <>Signatário {idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
+                          )}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => removeSignatory(sig.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                        {sig.isLoggedUser ? (
+                          <Lock className="h-4 w-4 text-muted-foreground/50" />
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => removeSignatory(sig.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         <div className="space-y-1">
@@ -335,8 +344,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                             value={sig.name}
                             onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
                             placeholder="Nome completo"
-                            readOnly={!sig.isNew}
-                            className={!sig.isNew ? "bg-muted" : ""}
+                            readOnly={!sig.isNew || sig.isLoggedUser}
+                            className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
                           />
                         </div>
                         <div className="space-y-1">
@@ -345,8 +354,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                             value={sig.email}
                             onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
                             placeholder="email@empresa.com"
-                            readOnly={!sig.isNew}
-                            className={!sig.isNew ? "bg-muted" : ""}
+                            readOnly={!sig.isNew || sig.isLoggedUser}
+                            className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
                           />
                         </div>
                         <div className="space-y-1">

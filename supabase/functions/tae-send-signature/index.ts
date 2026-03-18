@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
     let uploadData: any;
     try { uploadData = JSON.parse(uploadBody); } catch { uploadData = { raw: uploadBody }; }
-    const taeDocumentId = uploadData?.data?.id || uploadData?.id || uploadData?.data?.[0]?.id;
+    const taeDocumentId = uploadData?.data?.id || uploadData?.id || (typeof uploadData?.data === "number" || typeof uploadData?.data === "string" ? String(uploadData.data) : null) || uploadData?.data?.[0]?.id;
     if (!taeDocumentId) {
       log(logs, "TAE Upload", "error", `ID do documento não retornado: ${uploadBody.substring(0, 300)}`);
       return respondWithLogs(logs, {}, 500);

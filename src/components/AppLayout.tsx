@@ -24,12 +24,27 @@ interface AppLayoutProps { children: React.ReactNode; }
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { role, allowedResources } = useUserRole();
 
-  const displayName = user?.user_metadata?.display_name || user?.email || "U";
+  const { data: profile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.email || "U";
+  const avatarUrl = (profile as any)?.avatar_url || "";
   const initials = displayName.substring(0, 2).toUpperCase();
 
   const filteredNavItems = navItems.filter((item) =>

@@ -75,10 +75,11 @@ Deno.serve(async (req) => {
     }
 
     const taePublicationId = sigRecord.tae_publication_id;
-    if (!taePublicationId) {
+    const taeDocumentId = sigRecord.tae_document_id;
+    if (!taePublicationId && !taeDocumentId) {
       return new Response(
         JSON.stringify({
-          error: "Publicação TAE não encontrada. O documento pode não ter sido enviado ao TAE.",
+          error: "Publicação/documento TAE não encontrado. O documento pode não ter sido enviado ao TAE.",
           sigRecord,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

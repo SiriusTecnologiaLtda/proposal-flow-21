@@ -736,7 +736,7 @@ export default function ProposalCreate() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Número da Proposta (OPP)</Label>
-              <Input placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} />
+              <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tipo de Proposta</Label>

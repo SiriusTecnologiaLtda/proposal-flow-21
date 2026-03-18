@@ -59,6 +59,9 @@ export default function ProposalTypesPage() {
         slug: values.slug,
         template_doc_id: values.template_doc_id || null,
         mit_template_doc_id: values.mit_template_doc_id || null,
+        analyst_label: values.analyst_label || "Analista de Implantação",
+        gp_label: values.gp_label || "Coordenador de Projeto",
+        rounding_factor: values.rounding_factor || 8,
       };
       if (values.id) {
         const { error } = await supabase.from("proposal_types").update(payload).eq("id", values.id);

@@ -249,6 +249,10 @@ export default function ProposalCreate() {
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);
+  const clientWarnings = useMemo(() => {
+    if (!selectedClient) return [];
+    return getClientWarnings(selectedClient, salesTeam, user?.email || undefined);
+  }, [selectedClient, salesTeam, user?.email]);
 
   const filteredClients = clients.filter((c) =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.code.includes(clientSearch)

@@ -1,0 +1,1 @@
+ALTER TABLE public.proposals ADD COLUMN group_notes jsonb DEFAULT '{}'::jsonb;

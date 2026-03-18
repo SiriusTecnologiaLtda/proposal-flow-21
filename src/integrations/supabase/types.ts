@@ -810,6 +810,7 @@ export type Database = {
           esn_id: string | null
           expected_close_date: string | null
           gp_percentage: number
+          group_notes: Json | null
           gsn_id: string | null
           hourly_rate: number
           id: string
@@ -839,6 +840,7 @@ export type Database = {
           esn_id?: string | null
           expected_close_date?: string | null
           gp_percentage?: number
+          group_notes?: Json | null
           gsn_id?: string | null
           hourly_rate?: number
           id?: string
@@ -868,6 +870,7 @@ export type Database = {
           esn_id?: string | null
           expected_close_date?: string | null
           gp_percentage?: number
+          group_notes?: Json | null
           gsn_id?: string | null
           hourly_rate?: number
           id?: string

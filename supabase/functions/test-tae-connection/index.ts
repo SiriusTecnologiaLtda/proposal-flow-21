@@ -76,14 +76,14 @@ Deno.serve(async (req) => {
     const baseUrl = config.base_url;
 
     // Step 1: Login to TAE Identity API
-    const loginUrl = `${baseUrl}/identityintegration/api/v3/auth/login`;
+    const loginUrl = `${baseUrl}/identityintegration/v3/auth/login`;
     const loginStart = Date.now();
 
     const loginRes = await fetch(loginUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        login: serviceEmail,
+        userName: serviceEmail,
         password: servicePassword,
       }),
     });

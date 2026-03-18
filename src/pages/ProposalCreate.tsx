@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup } from "@/components/ui/command";
 import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits, useProposalDefaults } from "@/hooks/useSupabaseData";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +92,10 @@ export default function ProposalCreate() {
   const [clientSearch, setClientSearch] = useState("");
   const [esnId, setEsnId] = useState<string>("");
   const [arquitetoId, setArquitetoId] = useState<string>("");
+  const [esnSearch, setEsnSearch] = useState("");
+  const [arquitetoSearch, setArquitetoSearch] = useState("");
+  const [esnPopoverOpen, setEsnPopoverOpen] = useState(false);
+  const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
   const [scopeType, setScopeType] = useState<string>("detalhado");
   const [hourlyRate, setHourlyRate] = useState(250);
   const [gpPercentage, setGpPercentage] = useState(20);
@@ -254,6 +260,16 @@ export default function ProposalCreate() {
       setDefaultsLoaded(true);
     }
   }, [proposalDefaults, isEditing, isDuplicating, defaultsLoaded]);
+
+  // Auto-detect ESN from logged user email for new proposals
+  useEffect(() => {
+    if (!isEditing && !isDuplicating && !esnId && user?.email && salesTeam.length > 0) {
+      const match = salesTeam.find(
+        (m) => m.role === "esn" && m.email && m.email.toLowerCase() === user.email!.toLowerCase()
+      );
+      if (match) setEsnId(match.id);
+    }
+  }, [user?.email, salesTeam, isEditing, isDuplicating, esnId]);
 
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
@@ -901,31 +917,63 @@ export default function ProposalCreate() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Executivo de Vendas (ESN)</Label>
-              <Select value={esnId} onValueChange={setEsnId}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {salesTeam.filter((m) => m.role === "esn").map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+                    {esnId ? (() => { const m = salesTeam.find(s => s.id === esnId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar ESN..." value={esnSearch} onValueChange={setEsnSearch} />
+                    <CommandList>
+                      <CommandEmpty>Nenhum ESN encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {salesTeam.filter((m) => m.role === "esn" && (`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(esnSearch.toLowerCase())).map((m) => (
+                          <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setEsnId(m.id); setEsnPopoverOpen(false); setEsnSearch(""); }}>
+                            <Check className={`mr-2 h-4 w-4 ${esnId === m.id ? "opacity-100" : "opacity-0"}`} />
+                            {m.code} - {m.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Gerente de Vendas (GSN)</Label>
-              <div className="flex h-9 items-center rounded-md border border-border bg-muted px-3 text-sm text-muted-foreground">
+              <div className="flex h-10 items-center rounded-md border border-border bg-muted px-3 text-sm text-muted-foreground">
                 {autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Arquiteto de Solução</Label>
-              <Select value={arquitetoId} onValueChange={setArquitetoId}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {salesTeam.filter((m) => m.role === "arquiteto").map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+                    {arquitetoId ? (() => { const m = salesTeam.find(s => s.id === arquitetoId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar Arquiteto..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
+                    <CommandList>
+                      <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {salesTeam.filter((m) => m.role === "arquiteto" && (`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())).map((m) => (
+                          <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setArquitetoId(m.id); setArquitetoPopoverOpen(false); setArquitetoSearch(""); }}>
+                            <Check className={`mr-2 h-4 w-4 ${arquitetoId === m.id ? "opacity-100" : "opacity-0"}`} />
+                            {m.code} - {m.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>

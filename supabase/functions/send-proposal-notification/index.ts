@@ -39,7 +39,7 @@ function buildRawEmail(
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
   const rawLines = [
-    `From: ${from}`,
+    `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, Users, LayoutTemplate, UserCog, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Building, Package,
+  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -11,11 +11,8 @@ import { canAccessRoute } from "@/lib/permissions";
 const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/propostas", key: "propostas", label: "Propostas", icon: FileText },
-  { path: "/clientes", key: "clientes", label: "Clientes", icon: Users },
-  { path: "/unidades", key: "unidades", label: "Unidades", icon: Building },
+  { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
   { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
-  { path: "/produtos-categorias", key: "produtos-categorias", label: "Produtos & Categorias", icon: Package },
-  { path: "/time", key: "time", label: "Time de Vendas", icon: UserCog },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },
 ];
 

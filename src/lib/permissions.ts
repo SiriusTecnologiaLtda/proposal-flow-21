@@ -9,11 +9,8 @@ export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn";
 export const RESOURCE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   propostas: "Propostas",
-  clientes: "Clientes",
-  unidades: "Unidades",
+  cadastros: "Cadastros",
   templates: "Templates de Escopo",
-  "produtos-categorias": "Produtos & Categorias",
-  time: "Time de Vendas",
   configuracoes: "Configurações",
 };
 

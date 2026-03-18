@@ -271,9 +271,18 @@ export default function ProposalCreate() {
     return templates;
   }, [product, scopeTemplates, templateSearch]);
 
-  // Round up to nearest multiple of 8
-  function roundUp8(val: number) {
-    return Math.ceil(val / 8) * 8;
+  // Get the current proposal type config for labels and rounding
+  const currentProposalTypeConfig = useMemo(() => {
+    return proposalTypes.find((pt: any) => pt.slug === proposalType) || null;
+  }, [proposalType, proposalTypes]);
+
+  const analystLabel = currentProposalTypeConfig?.analyst_label || "Analista de Implantação";
+  const gpLabel = currentProposalTypeConfig?.gp_label || "Coordenador de Projeto";
+  const roundingFactor = currentProposalTypeConfig?.rounding_factor || 8;
+
+  // Round up to nearest multiple of rounding factor
+  function roundUpFactor(val: number) {
+    return Math.ceil(val / roundingFactor) * roundingFactor;
   }
 
   // Calculate total hours from included children only (rounded to multiple of 8)

@@ -261,6 +261,16 @@ export default function ProposalCreate() {
     }
   }, [proposalDefaults, isEditing, isDuplicating, defaultsLoaded]);
 
+  // Auto-detect ESN from logged user email for new proposals
+  useEffect(() => {
+    if (!isEditing && !isDuplicating && !esnId && user?.email && salesTeam.length > 0) {
+      const match = salesTeam.find(
+        (m) => m.role === "esn" && m.email && m.email.toLowerCase() === user.email!.toLowerCase()
+      );
+      if (match) setEsnId(match.id);
+    }
+  }, [user?.email, salesTeam, isEditing, isDuplicating, esnId]);
+
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);

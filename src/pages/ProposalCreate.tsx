@@ -113,6 +113,7 @@ export default function ProposalCreate() {
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
+  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
 
   // Template search/selection
   const [templateSearch, setTemplateSearch] = useState("");

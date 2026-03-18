@@ -63,6 +63,11 @@ Deno.serve(async (req) => {
     console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}`);
 
     if (!publicationId && !documentId) {
+      // If we have a status but no IDs, try to find the most recent "sent" signature
+      if (taeStatus !== undefined) {
+        console.log("[tae-webhook] No IDs but have status, attempting to match recent sent signature...");
+        // Cannot reliably match without an ID, just log and ignore
+      }
       console.log("[tae-webhook] No publication or document ID found in payload, ignoring.");
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

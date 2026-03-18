@@ -147,7 +147,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   function removeSignatory(id: string) {
-    setSignatories((prev) => prev.filter((s) => s.id !== id));
+    setSignatories((prev) => prev.filter((s) => s.id !== id || s.isLoggedUser));
   }
 
   function updateSignatory(id: string, field: string, value: string) {

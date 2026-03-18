@@ -265,7 +265,7 @@ export default function ProposalsList() {
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
               const netValue = computeNetValue(p, units);
-              const cancelled = isCancelled(p.status);
+              const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (
                 <div

@@ -53,7 +53,7 @@ export default function UnitsPage() {
     { id: "phone", label: "Telefone", type: "text" },
     { id: "address", label: "Endereço", type: "text" },
     { id: "city", label: "Cidade", type: "text" },
-    { id: "tax_factor", label: "Fator Imposto (%)", type: "number" },
+    { id: "tax_factor", label: "Fator Imposto", type: "number", step: "0.0001" },
   ];
 
   return (

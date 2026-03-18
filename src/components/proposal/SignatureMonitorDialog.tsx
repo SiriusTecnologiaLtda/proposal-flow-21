@@ -283,18 +283,24 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                     </span>
                     <ScrollArea className="max-h-48">
                       <div className="space-y-1">
-                        {(sig.proposal_signatories || []).map((s) => (
-                          <div key={s.id} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 bg-muted/50">
-                            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <span className="font-medium text-foreground">{s.name}</span>
-                            <span className="text-muted-foreground">{s.email}</span>
-                            {s.role && (
+                        {(sig.proposal_signatories || []).map((s) => {
+                          const signerStatus = getSignerStatus(sig, s);
+                          return (
+                            <div key={s.id} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 bg-muted/50">
+                              <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="font-medium text-foreground">{s.name}</span>
+                              <span className="text-muted-foreground">{s.email}</span>
                               <Badge variant="outline" className="text-[10px] ml-auto">
-                                {s.role}
+                                {signerStatus.label}
                               </Badge>
-                            )}
-                          </div>
-                        ))}
+                              {s.role && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {s.role}
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   </div>

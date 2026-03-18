@@ -116,6 +116,41 @@ export type Database = {
         }
         Relationships: []
       }
+      client_edit_logs: {
+        Row: {
+          changes: Json
+          client_id: string
+          context: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          changes?: Json
+          client_id: string
+          context?: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          changes?: Json
+          client_id?: string
+          context?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_edit_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null

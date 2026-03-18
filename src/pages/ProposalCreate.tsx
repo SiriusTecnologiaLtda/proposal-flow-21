@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits, useProposalDefaults } from "@/hooks/useSupabaseData";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
+import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
 
 // Two-level scope item for proposal
 interface ScopeChild {
@@ -114,6 +116,8 @@ export default function ProposalCreate() {
   const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
 
   // Load existing proposal data for editing or duplicating
@@ -245,6 +249,10 @@ export default function ProposalCreate() {
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);
+  const clientWarnings = useMemo(() => {
+    if (!selectedClient) return [];
+    return getClientWarnings(selectedClient, salesTeam, user?.email || undefined);
+  }, [selectedClient, salesTeam, user?.email]);
 
   const filteredClients = clients.filter((c) =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.code.includes(clientSearch)
@@ -747,13 +755,22 @@ export default function ProposalCreate() {
           <div className="space-y-3">
             <Label className="text-xs">Cliente</Label>
             {selectedClient ? (
-              <div className="flex items-center justify-between rounded-md border border-border bg-accent/50 px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{selectedClient.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+              <>
+                <div className="flex items-center justify-between rounded-md border border-border bg-accent/50 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{selectedClient.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setClientId("")}>Alterar</Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setClientId("")}>Alterar</Button>
-              </div>
+                <ClientValidationAlerts warnings={clientWarnings} onEditClient={() => setQuickEditOpen(true)} />
+                <QuickEditClientDialog
+                  client={selectedClient}
+                  open={quickEditOpen}
+                  onOpenChange={setQuickEditOpen}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["clients"] })}
+                />
+              </>
             ) : (
               <div className="space-y-2">
                 <div className="relative">
@@ -774,6 +791,7 @@ export default function ProposalCreate() {
               </div>
             )}
           </div>
+
 
           {/* Sales Team */}
           <div className="grid gap-4 md:grid-cols-3">

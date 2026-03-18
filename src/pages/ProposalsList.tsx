@@ -261,7 +261,7 @@ export default function ProposalsList() {
           </div>
           <div className="divide-y divide-border">
             {filtered.map((p) => {
-              const status = statusMap[p.status] || statusMap.rascunho;
+              const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
               const netValue = computeNetValue(p, units);

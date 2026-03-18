@@ -339,8 +339,12 @@ async function runTemplateImport(file: File, clearBefore: boolean, qc: any, user
     if (imported > 0) { qc.invalidateQueries({ queryKey: ["scope_templates"] }); qc.invalidateQueries({ queryKey: ["scope_template_items"] }); }
     if (dbLogId) await updateDbLog(dbLogId, finalRun);
   } catch (err: any) {
-    addImportLog(entity, "error", `Erro: ${err.message}`);
+    addImportLog(entity, "error", `Erro fatal: ${err.message}`);
     finishImportRun(entity, "error");
+    if (dbLogId) {
+      const errorRun = { ...run, status: "error" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun;
+      await updateDbLog(dbLogId, errorRun).catch(() => {});
+    }
   }
 }
 

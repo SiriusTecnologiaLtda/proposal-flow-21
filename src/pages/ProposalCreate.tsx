@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProposal, useUpdateProposal, useProposal, useUnits, useProposalDefaults } from "@/hooks/useSupabaseData";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
+import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
 
 // Two-level scope item for proposal
 interface ScopeChild {

@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
         .eq("id", signatureId);
       await supabase
         .from("proposals")
-        .update({ status: "ganha" })
+        .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
         .eq("id", sigRecord.proposal_id);
     } else if (pubStatus === 4 || pubStatus === 7) {
       newLocalStatus = "cancelled";

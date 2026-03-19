@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("proposals")
-        .update({ status: "ganha" })
+        .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
         .eq("id", sigRecord.proposal_id);
 
       console.log(`[tae-webhook] Signature ${sigRecord.id} → completed, proposal → ganha`);

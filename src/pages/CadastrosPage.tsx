@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Building, UserCog, Package, Tag, FileText, ChevronRight } from "lucide-react";
+import { Users, Building, UserCog, Package, Tag, FileText, Target, ChevronRight } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canAccessRoute } from "@/lib/permissions";
 

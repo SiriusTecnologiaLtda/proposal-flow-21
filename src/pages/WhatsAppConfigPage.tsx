@@ -83,6 +83,7 @@ REGRAS DE RESPOSTA:
 - Use emojis moderadamente (📊 📋 ✅ 💰 📈).
 - Quando o usuário pedir para criar uma proposta, colete: cliente, produto, tipo (projeto/banco de horas) e escopo desejado.`;
 
+export default function WhatsAppConfigPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();

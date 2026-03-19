@@ -1369,6 +1369,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_client_esn: {
+        Args: { _esn_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "vendedor" | "arquiteto" | "gsn"

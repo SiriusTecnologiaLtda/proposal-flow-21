@@ -76,6 +76,7 @@ function ProtectedRoutes() {
         <Route path="/cadastros/produtos" element={<GuardedRoute path="/cadastros/produtos"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
+        <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
         {/* Legacy routes redirect */}
         <Route path="/clientes" element={<Navigate to="/cadastros/clientes" replace />} />
         <Route path="/unidades" element={<Navigate to="/cadastros/unidades" replace />} />

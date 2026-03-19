@@ -10,6 +10,7 @@ const cards = [
   { title: "Produtos", desc: "Produtos disponíveis para templates e propostas", path: "/cadastros/produtos", resource: "cadastros/produtos", icon: Package },
   { title: "Categorias", desc: "Categorias de escopo para templates", path: "/cadastros/categorias", resource: "cadastros/categorias", icon: Tag },
   { title: "Tipos de Proposta", desc: "Tipos e templates Google Docs vinculados", path: "/cadastros/tipos-proposta", resource: "cadastros/tipos-proposta", icon: FileText },
+  { title: "Metas de Vendas", desc: "Metas mensais por ESN — Receita SCS", path: "/cadastros/metas", resource: "cadastros/metas", icon: Target },
 ];
 
 export default function CadastrosPage() {

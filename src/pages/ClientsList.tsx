@@ -482,8 +482,8 @@ export default function ClientsList() {
                     <div className="divide-y divide-border">
                       {contacts.map((contact, idx) => (
                         <div key={contact.id} className="p-4 hover:bg-muted/30 transition-colors">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            <div className="space-y-1 lg:col-span-1">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                            <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Nome *</Label>
                               <Input
                                 id={idx === contacts.length - 1 ? "contact-name-last" : undefined}
@@ -493,7 +493,7 @@ export default function ClientsList() {
                                 className="h-8 text-sm"
                               />
                             </div>
-                            <div className="space-y-1 lg:col-span-1">
+                            <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Email *</Label>
                               <Input
                                 value={contact.email}
@@ -503,7 +503,7 @@ export default function ClientsList() {
                                 className="h-8 text-sm"
                               />
                             </div>
-                            <div className="space-y-1 lg:col-span-1">
+                            <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Telefone</Label>
                               <Input
                                 value={contact.phone || ""}
@@ -512,10 +512,27 @@ export default function ClientsList() {
                                 className="h-8 text-sm"
                               />
                             </div>
-                            <div className="space-y-1 lg:col-span-1">
-                              <Label className="text-xs text-muted-foreground">Papel</Label>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Departamento</Label>
+                              <Input
+                                value={contact.department || ""}
+                                onChange={(e) => updateContact(contact.id, "department", e.target.value)}
+                                placeholder="Ex: TI, Comercial"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Cargo</Label>
+                              <Input
+                                value={contact.position || ""}
+                                onChange={(e) => updateContact(contact.id, "position", e.target.value)}
+                                placeholder="Ex: Diretor, Gerente"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="flex items-end gap-1">
                               <Select value={contact.role || ""} onValueChange={(v) => updateContact(contact.id, "role", v)}>
-                                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Papel" /></SelectTrigger>
+                                <SelectTrigger className="h-8 text-sm flex-1"><SelectValue placeholder="Papel" /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="Signatário">Signatário</SelectItem>
                                   <SelectItem value="Testemunha">Testemunha</SelectItem>
@@ -523,12 +540,33 @@ export default function ClientsList() {
                                   <SelectItem value="Observador">Observador</SelectItem>
                                 </SelectContent>
                               </Select>
-                            </div>
-                            <div className="flex items-end lg:col-span-1">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-8 w-8 shrink-0 ${contact.notes ? "text-primary" : "text-muted-foreground"}`}
+                                    title="Comentário"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72" align="end">
+                                  <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">Comentário</Label>
+                                    <Textarea
+                                      value={contact.notes || ""}
+                                      onChange={(e) => updateContact(contact.id, "notes", e.target.value)}
+                                      placeholder="Observações sobre este contato..."
+                                      className="min-h-[80px] text-sm"
+                                    />
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="h-8 w-8 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => setDeleteContactId(contact.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -538,6 +576,7 @@ export default function ClientsList() {
                           {contact.isNew && (
                             <Badge variant="secondary" className="mt-2 text-xs">Novo</Badge>
                           )}
+                        </div>
                         </div>
                       ))}
                     </div>

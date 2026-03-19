@@ -352,7 +352,6 @@ Deno.serve(async (req) => {
 
     let outputFolderId: string;
     let authType = "service_account";
-    let authType = "service_account";
     let serviceAccountKey: any = null;
     let oauthClientId = "";
     let oauthClientSecret = "";

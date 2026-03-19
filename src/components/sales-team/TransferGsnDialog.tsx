@@ -55,24 +55,31 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
     setSearchTarget("");
     setLoading(true);
 
-    const linkedEsns = salesTeam.filter((m) => m.role === "esn" && m.linked_gsn_id === member.id);
+    // Filter ESNs by same unit as GSN
+    const linkedEsns = salesTeam.filter(
+      (m) => m.role === "esn" && m.linked_gsn_id === member.id &&
+        (!member.unit_id || m.unit_id === member.unit_id)
+    );
     setEsnMembers(linkedEsns.map((m) => ({ id: m.id, name: m.name, code: m.code })));
     setSelectedEsns(new Set(linkedEsns.map((m) => m.id)));
 
-    supabase
+    // Filter clients by same unit as GSN
+    let query = supabase
       .from("clients")
       .select("id, name, code, cnpj")
-      .eq("gsn_id", member.id)
-      .order("name")
-      .then(({ data, error }) => {
-        setLoading(false);
-        if (error) {
-          toast({ title: "Erro ao carregar clientes", description: error.message, variant: "destructive" });
-          return;
-        }
-        const list = data || [];
-        setClients(list);
-        setSelectedClients(new Set(list.map((c) => c.id)));
+      .eq("gsn_id", member.id);
+    if (member.unit_id) {
+      query = query.eq("unit_id", member.unit_id);
+    }
+    query.order("name").then(({ data, error }) => {
+      setLoading(false);
+      if (error) {
+        toast({ title: "Erro ao carregar clientes", description: error.message, variant: "destructive" });
+        return;
+      }
+      const list = data || [];
+      setClients(list);
+      setSelectedClients(new Set(list.map((c) => c.id)));
       });
   }, [open, member.id, salesTeam]);
 

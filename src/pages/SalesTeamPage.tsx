@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft } from "lucide-react";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
+import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";

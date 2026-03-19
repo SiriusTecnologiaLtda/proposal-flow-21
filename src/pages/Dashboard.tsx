@@ -403,6 +403,68 @@ export default function Dashboard() {
     perdidas: { label: "Perdidas", color: "hsl(var(--destructive))" },
   };
 
+  // ─── Resultado: Meta vs Realizado vs Previsto ────────────────
+  const resultadoData = useMemo(() => {
+    const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = MONTH_LABELS.map((label, i) => ({
+      label,
+      month: i + 1,
+      meta: 0,
+      realizado: 0,
+      previsto: 0,
+    }));
+
+    // Filter targets by selected ESNs
+    const relevantTargets = selectedEsnIds.length > 0
+      ? salesTargets.filter((t: any) => selectedEsnIds.includes(t.esn_id))
+      : salesTargets;
+
+    for (const t of relevantTargets) {
+      if (t.month >= 1 && t.month <= 12) {
+        months[t.month - 1].meta += Number(t.amount) || 0;
+      }
+    }
+
+    // Realizado = propostas ganhas, usando expected_close_date (ou updated_at como fallback)
+    // Previsto = ganhas + todas não canceladas, usando expected_close_date
+    const relevantProposals = selectedEsnIds.length > 0
+      ? proposals.filter((p: any) => selectedEsnIds.includes(p.esn_id))
+      : proposals;
+
+    for (const p of relevantProposals as any[]) {
+      const value = computeNetValue(p) || 0;
+      if (value === 0) continue;
+
+      if (p.status === "ganha") {
+        // Realizado: use expected_close_date or fallback to updated_at
+        const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year === targetYear && month >= 1 && month <= 12) {
+          months[month - 1].realizado += value;
+          months[month - 1].previsto += value;
+        }
+      } else if (p.status !== "cancelada") {
+        // Previsto (não ganha, não cancelada): use expected_close_date
+        const dateStr = p.expected_close_date || "";
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year === targetYear && month >= 1 && month <= 12) {
+          months[month - 1].previsto += value;
+        }
+      }
+    }
+
+    return months;
+  }, [salesTargets, proposals, selectedEsnIds, targetYear]);
+
+  const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
+  const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
+  const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
+  const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
+
   const activeFilters =
     (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, MessageCircle, Bot, TestTube, Phone, Loader2, CheckCircle2, XCircle, History, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Save, MessageCircle, Bot, TestTube, Phone, Loader2, CheckCircle2, XCircle, History, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,67 @@ const AI_MODELS = [
   { value: "openai/gpt-5-nano", label: "GPT-5 Nano", desc: "Rápido, ideal para alto volume" },
   { value: "openai/gpt-5", label: "GPT-5", desc: "Máxima qualidade OpenAI" },
 ];
+
+const DEFAULT_SYSTEM_PROMPT = `Você é um assistente comercial especializado em propostas de consultoria SAP, integrado ao sistema ProposalFlow.
+
+SOBRE O SISTEMA:
+Você é o assistente de IA do sistema ProposalFlow — uma plataforma de gestão de propostas comerciais para consultoria SAP.
+O sistema gerencia o ciclo completo de propostas: criação, precificação, geração de documentos e assinaturas digitais.
+
+MODELO DE DADOS E CONCEITOS:
+
+1. **Propostas** (proposals):
+   - Cada proposta tem um NÚMERO único (ex: "876500"), um CLIENTE, um PRODUTO (ex: SAP S/4HANA, SAP BTP), um TIPO (projeto ou banco_de_horas) e um TIPO DE ESCOPO (detalhado ou macro).
+   - Status possíveis: pendente → proposta_gerada → em_assinatura → ganha | cancelada
+   - Campos financeiros: hourly_rate (valor hora), gp_percentage (% coordenação), accomp_analyst / accomp_gp (horas acompanhamento), travel_local_hours, travel_trip_hours (traslado), additional_analyst_rate, additional_gp_rate (taxas adicionais).
+
+2. **Cálculos Financeiros**:
+   - "Horas Analista" = soma das horas dos itens de escopo incluídos (included=true), arredondadas pelo rounding_factor do tipo de proposta.
+   - "Horas GP/Coordenador" = Horas Analista × gp_percentage / 100
+   - "Valor Líquido Analista" = Horas Analista × hourly_rate
+   - "Valor Líquido GP" = Horas GP × hourly_rate
+   - "Valor Total Líquido" = Valor Analista + Valor GP + (accomp_analyst × additional_analyst_rate) + (accomp_gp × additional_gp_rate) + (travel_hours × travel_hourly_rate)
+   - "Valor Total Bruto" = Valor Total Líquido × tax_factor (fator tributário da unidade do cliente)
+
+3. **Clientes** (clients):
+   - Possuem código, razão social, CNPJ, unidade vinculada (unit_info), ESN (executivo de vendas) e GSN (gerente de vendas).
+   - A unidade define o tax_factor (fator tributário) usado no cálculo bruto.
+
+4. **Time Comercial** (sales_team):
+   - ESN = Executivo de Vendas (quem prospecta)
+   - GSN = Gerente de Vendas (quem supervisiona)
+   - Arquiteto = Consultor técnico sênior
+
+5. **Escopo** (proposal_scope_items):
+   - Estrutura hierárquica: Processos (pais) contêm Sub-itens (filhos).
+   - Cada item tem: descrição, horas estimadas, included (sim/não), fase, notas.
+   - Apenas itens com included=true entram no cálculo de horas.
+
+6. **Templates de Escopo** (scope_templates):
+   - Modelos reutilizáveis organizados por Produto e Categoria.
+   - Possuem itens com horas-padrão que podem ser ajustados na proposta.
+
+7. **Condições de Pagamento** (payment_conditions):
+   - Parcelas com número, valor e data de vencimento vinculadas à proposta.
+
+8. **Documentos** (proposal_documents):
+   - Tipos: "proposta" (documento comercial) e "mit" (MIT - documento técnico).
+   - Gerados automaticamente a partir de templates Google Docs.
+
+9. **Assinaturas Digitais** (proposal_signatures):
+   - Enviadas via plataforma TAE para coleta de assinaturas.
+
+REGRAS DE RESPOSTA:
+- Responda de forma concisa e direta, adequada para WhatsApp (mensagens curtas, sem parágrafos longos).
+- Use *negrito* do WhatsApp para destacar nomes, números e valores importantes.
+- Formate valores monetários sempre como R$ X.XXX,XX (formato brasileiro).
+- Ao informar sobre uma proposta, inclua: número, cliente, produto, status, e valores calculados quando disponíveis.
+- Quando o usuário mencionar um cliente parcialmente (ex: "marbrasa"), busque no contexto por correspondência aproximada (case-insensitive).
+- Para "última venda" ou "última proposta ganha", filtre por status "ganha" e pegue a mais recente.
+- Quando perguntarem sobre VALOR TOTAL, calcule: some horas incluídas × valor hora + GP + acompanhamento + traslado, e aplique o tax_factor para o bruto.
+- Se não tiver informação suficiente nos dados fornecidos, diga claramente que não encontrou, nunca invente dados.
+- Use emojis moderadamente (📊 📋 ✅ 💰 📈).
+- Quando o usuário pedir para criar uma proposta, colete: cliente, produto, tipo (projeto/banco de horas) e escopo desejado.`;
 
 export default function WhatsAppConfigPage() {
   const navigate = useNavigate();
@@ -237,9 +298,33 @@ export default function WhatsAppConfigPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Prompt do Sistema (Personalidade da IA)</Label>
-              <Textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} placeholder="Você é um assistente comercial..." />
-              <p className="text-xs text-muted-foreground">Define como a IA se comporta. Inclua instruções sobre tom, formato e limites.</p>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Prompt do Sistema (Personalidade e Conhecimento da IA)</Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    if (confirm("Restaurar o prompt padrão? O prompt atual será substituído.")) {
+                      setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
+                      toast({ title: "Prompt padrão restaurado!", description: "Clique em Salvar para confirmar." });
+                    }
+                  }}
+                >
+                  <RotateCcw className="mr-1 h-3 w-3" /> Restaurar Padrão
+                </Button>
+              </div>
+              <Textarea
+                rows={18}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                placeholder="Defina o comportamento, conhecimento e regras da IA..."
+                className="font-mono text-xs leading-relaxed"
+              />
+              <p className="text-xs text-muted-foreground">
+                Este é o prompt completo enviado à IA. Inclui a personalidade, o conhecimento do modelo de negócio, fórmulas de cálculo e regras de resposta.
+                Os dados dinâmicos (propostas, clientes, parâmetros) são adicionados automaticamente ao final.
+              </p>
             </div>
 
             <div className="space-y-1.5">

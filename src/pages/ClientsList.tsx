@@ -702,10 +702,9 @@ export default function ClientsList() {
                 {filtered.map((client) => (
                   <div
                     key={client.id}
-                    onClick={() => openClient(client)}
-                    className="cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4"
+                    className="group cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-7 md:items-center md:gap-4"
                   >
-                    <div className="col-span-2 flex items-center gap-3">
+                    <div className="col-span-2 flex items-center gap-3" onClick={() => openClient(client)}>
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Building2 className="h-3.5 w-3.5" />
                       </div>
@@ -714,10 +713,21 @@ export default function ClientsList() {
                         <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-foreground truncate">{getUnitName(client)}</p>
-                    <p className="text-sm text-foreground truncate">{getEsnName(client)}</p>
-                    <p className="text-sm text-muted-foreground truncate">{client.email || "—"}</p>
-                    <p className="text-sm text-muted-foreground truncate">{client.phone || "—"}</p>
+                    <p className="text-sm text-foreground truncate" onClick={() => openClient(client)}>{getUnitName(client)}</p>
+                    <p className="text-sm text-foreground truncate" onClick={() => openClient(client)}>{getEsnName(client)}</p>
+                    <p className="text-sm text-muted-foreground truncate" onClick={() => openClient(client)}>{client.email || "—"}</p>
+                    <p className="text-sm text-muted-foreground truncate" onClick={() => openClient(client)}>{client.phone || "—"}</p>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                        title="Transferir ESN"
+                        onClick={(e) => { e.stopPropagation(); setTransferClient(client); setTransferEsnId(""); setTransferSearch(""); }}
+                      >
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {filtered.length === 0 && (

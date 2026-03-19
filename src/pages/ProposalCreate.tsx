@@ -132,6 +132,43 @@ export default function ProposalCreate() {
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [groupNotesOpenIds, setGroupNotesOpenIds] = useState<Set<string>>(new Set());
 
+  async function writeProposalLog(entry: {
+    stage: string;
+    severity?: "info" | "error" | "warn";
+    action?: string;
+    proposalId?: string | null;
+    errorMessage?: string | null;
+    errorCode?: string | null;
+    payload?: Record<string, any>;
+    metadata?: Record<string, any>;
+  }) {
+    const session = (await supabase.auth.getSession()).data.session;
+    const authUser = session?.user;
+    if (!authUser) return;
+
+    await supabase.from("proposal_process_logs").insert({
+      stage: entry.stage,
+      severity: entry.severity || "info",
+      action: entry.action || (isEditing ? "proposal_update" : "proposal_create"),
+      proposal_id: entry.proposalId || null,
+      client_id: clientId || null,
+      user_id: authUser.id,
+      user_email: authUser.email || user?.email || null,
+      user_name: (user?.user_metadata?.display_name as string | undefined) || authUser.email || null,
+      proposal_number: proposalNumber || null,
+      error_message: entry.errorMessage || null,
+      error_code: entry.errorCode || null,
+      payload: entry.payload || {},
+      metadata: entry.metadata || {},
+      error_details: {
+        route: window.location.pathname,
+        is_editing: isEditing,
+        is_duplicating: isDuplicating,
+        generate_on_save: generateOnSave,
+      },
+    });
+  }
+
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
     if (existingProposal && !loaded) {
@@ -746,15 +783,38 @@ export default function ProposalCreate() {
         return;
       }
       const authenticatedUserId = freshSession.user.id;
+      const logPayload = {
+        number: proposalNumber,
+        type: proposalType,
+        product,
+        status,
+        client_id: clientId || null,
+        esn_id: esnId || null,
+        gsn_id: autoGsn?.id || null,
+        arquiteto_id: arquitetoId || null,
+        scope_items_count: allScopeItems.length,
+        payment_rows_count: paymentRows.length,
+      };
+
+      await writeProposalLog({
+        stage: isEditing ? "save_started" : "create_started",
+        payload: logPayload,
+        metadata: {
+          authenticated_user_id: authenticatedUserId,
+          context_user_id: user?.id || null,
+        },
+      });
 
       let savedId: string | undefined;
       if (isEditing) {
         await updateProposal.mutateAsync({ id, ...proposalData });
         savedId = id;
+        await writeProposalLog({ stage: "save_success", proposalId: savedId, payload: logPayload });
         toast({ title: "Proposta atualizada!" });
       } else {
         const result = await createProposal.mutateAsync({ ...proposalData, created_by: authenticatedUserId });
         savedId = (result as any)?.id;
+        await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
 
@@ -764,6 +824,7 @@ export default function ProposalCreate() {
       // If "Gerar Proposta" was checked, trigger document generation in background
       if (status === "proposta_gerada" && savedId) {
         try {
+          await writeProposalLog({ stage: "document_generation_started", proposalId: savedId, payload: { proposal_id: savedId } });
           const session = (await supabase.auth.getSession()).data.session;
           const res = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
@@ -780,16 +841,58 @@ export default function ProposalCreate() {
           const data = await res.json();
           const hasError = data?.logs?.some((l: any) => l.status === "error");
           if (res.ok && !hasError && data?.docUrl) {
+            await writeProposalLog({
+              stage: "document_generation_success",
+              proposalId: savedId,
+              metadata: { doc_url: data.docUrl, logs_count: data?.logs?.length || 0 },
+            });
             toast({ title: "Documento gerado com sucesso!" });
           } else {
             const errorMsg = data?.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ") || "Erro na geração";
+            await writeProposalLog({
+              stage: "document_generation_error",
+              severity: "error",
+              proposalId: savedId,
+              errorMessage: errorMsg,
+              payload: { response: data },
+              metadata: { http_status: res.status },
+            });
             toast({ title: "Proposta salva, mas houve erro na geração do documento", description: errorMsg, variant: "destructive" });
           }
         } catch (genErr: any) {
+          await writeProposalLog({
+            stage: "document_generation_error",
+            severity: "error",
+            proposalId: savedId,
+            errorMessage: genErr.message,
+            errorCode: genErr.code,
+          });
           toast({ title: "Proposta salva, mas falha ao gerar documento", description: genErr.message, variant: "destructive" });
         }
       }
     } catch (err: any) {
+      await writeProposalLog({
+        stage: isEditing ? "save_error" : "create_error",
+        severity: "error",
+        errorMessage: err.message,
+        errorCode: err.code,
+        payload: {
+          number: proposalNumber,
+          type: proposalType,
+          product,
+          status,
+          client_id: clientId || null,
+          esn_id: esnId || null,
+          gsn_id: autoGsn?.id || null,
+          arquiteto_id: arquitetoId || null,
+          scope_items_count: allScopeItems.length,
+          payment_rows_count: paymentRows.length,
+        },
+        metadata: {
+          auth_context_user_id: user?.id || null,
+          error_name: err.name || null,
+        },
+      });
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     }
   }

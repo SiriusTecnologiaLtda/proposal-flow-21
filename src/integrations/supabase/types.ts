@@ -612,6 +612,81 @@ export type Database = {
           },
         ]
       }
+      proposal_process_logs: {
+        Row: {
+          action: string
+          client_id: string | null
+          created_at: string
+          error_code: string | null
+          error_details: Json
+          error_message: string | null
+          id: string
+          metadata: Json
+          occurred_at: string
+          payload: Json
+          proposal_id: string | null
+          proposal_number: string | null
+          severity: string
+          stage: string
+          user_email: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action?: string
+          client_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_details?: Json
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          payload?: Json
+          proposal_id?: string | null
+          proposal_number?: string | null
+          severity?: string
+          stage: string
+          user_email?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          client_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_details?: Json
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          payload?: Json
+          proposal_id?: string | null
+          proposal_number?: string | null
+          severity?: string
+          stage?: string
+          user_email?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_process_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_process_logs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_scope_items: {
         Row: {
           description: string

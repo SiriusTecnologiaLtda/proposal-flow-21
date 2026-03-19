@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";

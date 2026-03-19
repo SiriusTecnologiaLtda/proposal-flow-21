@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { UserCog, Plus, Edit2, Trash2 } from "lucide-react";
+import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft } from "lucide-react";
+import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export default function SalesTeamPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferMember, setTransferMember] = useState<any>(null);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
@@ -195,6 +197,15 @@ export default function SalesTeamPage() {
                         </div>
                       </div>
                       <div className="flex gap-1">
+                        {role === "esn" && (
+                          <button
+                            className="rounded p-1 text-muted-foreground hover:text-primary"
+                            title="Transferir contas"
+                            onClick={() => setTransferMember(member)}
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
@@ -218,6 +229,13 @@ export default function SalesTeamPage() {
           </div>
         );
       })}
+      {transferMember && (
+        <TransferAccountsDialog
+          member={transferMember}
+          open={!!transferMember}
+          onOpenChange={(v) => !v && setTransferMember(null)}
+        />
+      )}
     </div>
   );
 }

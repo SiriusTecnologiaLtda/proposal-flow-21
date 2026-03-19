@@ -27,6 +27,7 @@ import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
 import WhatsAppConfigPage from "@/pages/WhatsAppConfigPage";
+import ProposalLogsPage from "@/pages/ProposalLogsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";

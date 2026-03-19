@@ -746,6 +746,61 @@ export default function ClientsList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer client ESN dialog */}
+      <AlertDialog open={!!transferClient} onOpenChange={(open) => { if (!open) { setTransferClient(null); setTransferEsnId(""); setTransferSearch(""); } }}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4" />Transferir Cliente
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Transferir <strong>{transferClient?.name}</strong> para outro Executivo de Vendas (ESN).
+              {transferClient?.esn && (
+                <span className="block mt-1">ESN atual: <strong>{transferClient.esn.code} - {transferClient.esn.name}</strong></span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Buscar ESN de destino</Label>
+              <Input
+                placeholder="Nome, código ou email..."
+                value={transferSearch}
+                onChange={(e) => setTransferSearch(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              {filteredEsnForTransfer.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground text-center">Nenhum ESN encontrado</p>
+              ) : (
+                filteredEsnForTransfer.map((esn) => (
+                  <div
+                    key={esn.id}
+                    onClick={() => setTransferEsnId(esn.id)}
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${transferEsnId === esn.id ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{esn.code} - {esn.name}</p>
+                      <p className="text-xs text-muted-foreground">{esn.email || "Sem email"} · {(esn as any).unit_info?.name || "Sem unidade"}</p>
+                    </div>
+                    {transferEsnId === esn.id && (
+                      <Badge variant="default" className="shrink-0 text-xs">Selecionado</Badge>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={handleTransferClient} disabled={!transferEsnId || transferring} size="sm">
+              {transferring ? "Transferindo..." : "Confirmar Transferência"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

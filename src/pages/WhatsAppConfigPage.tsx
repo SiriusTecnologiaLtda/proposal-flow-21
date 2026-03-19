@@ -8,9 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import WhatsAppMessagesViewer from "@/components/whatsapp/WhatsAppMessagesViewer";
 
 const AI_MODELS = [
   { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rápido)", desc: "Balanceado: velocidade e qualidade" },

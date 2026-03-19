@@ -64,6 +64,20 @@ export default function WhatsAppConfigPage() {
     },
   });
 
+  const { data: recentMessages, refetch: refetchMessages } = useQuery({
+    queryKey: ["whatsapp_messages_log"],
+    enabled: showLogs,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("whatsapp_messages" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   useEffect(() => {
     if (config) {
       setEnabled(config.enabled ?? false);

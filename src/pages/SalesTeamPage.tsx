@@ -197,6 +197,15 @@ export default function SalesTeamPage() {
                         </div>
                       </div>
                       <div className="flex gap-1">
+                        {role === "esn" && (
+                          <button
+                            className="rounded p-1 text-muted-foreground hover:text-primary"
+                            title="Transferir contas"
+                            onClick={() => setTransferMember(member)}
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button className="rounded p-1 text-muted-foreground hover:text-foreground" onClick={() => openEdit(member)}>
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>

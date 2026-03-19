@@ -608,40 +608,46 @@ Deno.serve(async (req) => {
 
     // ─── Share document with involved team members ──────────────
     try {
-      const emails: string[] = [];
-      if (esn?.email) emails.push(esn.email);
-      if (gsn?.email) emails.push(gsn.email);
-      if (arq?.email) emails.push(arq.email);
+      const rawEmails: string[] = [];
+      if (esn?.email) rawEmails.push(esn.email);
+      if (gsn?.email) rawEmails.push(gsn.email);
+      if (arq?.email) rawEmails.push(arq.email);
       const authHeaderShare = req.headers.get("Authorization")?.replace("Bearer ", "");
       if (authHeaderShare) {
         const { data: { user: authUser } } = await supabase.auth.getUser(authHeaderShare);
-        if (authUser?.email && !emails.includes(authUser.email)) emails.push(authUser.email);
+        if (authUser?.email) rawEmails.push(authUser.email);
       }
-      const uniqueEmails = [...new Set(emails.map(e => e.toLowerCase()))];
-      if (uniqueEmails.length > 0) {
-        log(logs, "Compartilhar", "info", `Compartilhando com ${uniqueEmails.length} pessoa(s): ${uniqueEmails.join(", ")}`);
-        for (const email of uniqueEmails) {
-          try {
-            const permResp = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${newDocId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`,
-              {
-                method: "POST",
-                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ type: "user", role: "writer", emailAddress: email }),
-              }
-            );
-            if (!permResp.ok) {
-              const permErr = await permResp.text();
-              log(logs, "Compartilhar", "info", `Não foi possível compartilhar com ${email}: ${permErr}`);
+      const sanitize = (e: string) => e.trim().toLowerCase().replace(/[.\s]+$/, "");
+      const uniqueEmails = [...new Set(rawEmails.map(sanitize).filter(e => e.includes("@")))];
+      
+      log(logs, "Compartilhar", "info", `E-mails brutos: [${rawEmails.join(", ")}]\nE-mails sanitizados: [${uniqueEmails.join(", ")}]`);
+      
+      const shareResults: string[] = [];
+      for (const email of uniqueEmails) {
+        try {
+          const permResp = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${newDocId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "user", role: "writer", emailAddress: email }),
             }
-          } catch (permE: any) {
-            log(logs, "Compartilhar", "info", `Erro ao compartilhar com ${email}: ${permE.message}`);
+          );
+          const permBody = await permResp.text();
+          if (permResp.ok) {
+            shareResults.push(`✅ ${email} — OK`);
+          } else {
+            shareResults.push(`❌ ${email} — HTTP ${permResp.status}: ${permBody}`);
+            log(logs, "Compartilhar", "error", `Falha ao compartilhar com ${email}: HTTP ${permResp.status} — ${permBody}`);
           }
+        } catch (permE: any) {
+          shareResults.push(`❌ ${email} — Exception: ${permE.message}`);
+          log(logs, "Compartilhar", "error", `Exceção ao compartilhar com ${email}: ${permE.message}`);
         }
-        log(logs, "Compartilhar", "ok", "Permissões atribuídas");
       }
+      log(logs, "Compartilhar", "ok", `Resultado:\n${shareResults.join("\n")}`);
     } catch (e: any) {
-      log(logs, "Compartilhar", "info", `Não foi possível compartilhar: ${e.message}`);
+      log(logs, "Compartilhar", "error", `Falha geral no compartilhamento: ${e.message}`);
     }
 
     // ─── Save document record ───────────────────────────────────

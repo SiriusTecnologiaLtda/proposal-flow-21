@@ -257,6 +257,18 @@ export default function ProposalCreate() {
       setTravelHourlyRate(proposalDefaults.travel_hourly_rate);
       setAdditionalAnalystRate(proposalDefaults.additional_analyst_rate);
       setAdditionalGpRate(proposalDefaults.additional_gp_rate);
+
+      // Default expected close date = last day of current month
+      const now = new Date();
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setExpectedCloseDate(lastDay.toISOString().split("T")[0]);
+
+      // Default first payment due date = 30 days from today
+      const due30 = new Date();
+      due30.setDate(due30.getDate() + 30);
+      const due30Str = due30.toISOString().split("T")[0];
+      setFirstDueDate(due30Str);
+
       setDefaultsLoaded(true);
     }
   }, [proposalDefaults, isEditing, isDuplicating, defaultsLoaded]);

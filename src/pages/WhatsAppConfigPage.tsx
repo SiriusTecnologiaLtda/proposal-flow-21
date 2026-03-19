@@ -99,6 +99,7 @@ export default function WhatsAppConfigPage() {
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState("config");
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["whatsapp_config"],

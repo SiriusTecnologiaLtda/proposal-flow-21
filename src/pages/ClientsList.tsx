@@ -1,18 +1,21 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface Contact {
   id: string;

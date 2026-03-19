@@ -39,7 +39,8 @@ export default function ClientsList() {
   const updateClient = useUpdateClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const { role } = useUserRole();
 
   // Detail/edit panel state
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);

@@ -34,6 +34,7 @@ export default function SalesTeamPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferMember, setTransferMember] = useState<any>(null);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 

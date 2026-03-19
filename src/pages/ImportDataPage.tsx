@@ -632,6 +632,274 @@ function ImportCard({
   );
 }
 
+// ─── Sales Targets Import ───────────────────────────────────────
+
+async function runSalesTargetsImport(file: File, year: number, qc: any, userId?: string) {
+  const entity: ImportEntity = "sales_targets";
+  const run = startImportRun(entity, file.name, false);
+  let dbLogId: string | undefined;
+
+  addImportLog(entity, "info", `Lendo "${file.name}" — aba "BASE DE DADOS - Time Comercial"...`);
+  try {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data);
+    const sheetName = wb.SheetNames.find(s => s.includes("BASE DE DADOS - Time Comercial"));
+    if (!sheetName) {
+      addImportLog(entity, "error", `Aba "BASE DE DADOS - Time Comercial" não encontrada. Abas disponíveis: ${wb.SheetNames.join(", ")}`);
+      finishImportRun(entity, "error");
+      return;
+    }
+    const ws = wb.Sheets[sheetName];
+    const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    // Skip header rows (row 0 = instructions, row 1 = column names)
+    const dataRows = rawRows.slice(2);
+
+    // Filter: Col G (index 6) = "ESN" AND Col J (index 9) = "SCS"
+    const esnScsRows = dataRows.filter(r => {
+      const level = String(r[6] || "").trim().toUpperCase();
+      const revenue = String(r[9] || "").trim().toUpperCase();
+      return level === "ESN" && revenue === "SCS";
+    });
+
+    addImportLog(entity, "info", `${dataRows.length} linhas totais, ${esnScsRows.length} linhas ESN + Receita SCS filtradas.`);
+    updateImportStats(entity, { totalRows: esnScsRows.length });
+
+    if (esnScsRows.length === 0) {
+      addImportLog(entity, "error", "Nenhuma linha ESN com Receita SCS encontrada.");
+      finishImportRun(entity, "error");
+      return;
+    }
+
+    run.totalRows = esnScsRows.length;
+    dbLogId = await createDbLog(run, userId);
+
+    // Load ESN code -> id map
+    const { data: salesTeam } = await supabase.from("sales_team").select("id, code, role");
+    const esnMap = new Map<string, string>();
+    for (const s of (salesTeam || [])) {
+      if (s.role === "esn") esnMap.set(s.code.trim().toLowerCase(), s.id);
+    }
+
+    let imported = 0, updated = 0, errors = 0, skipped = 0;
+
+    for (let i = 0; i < esnScsRows.length; i++) {
+      const r = esnScsRows[i];
+      const esnCode = String(r[5] || "").trim().toLowerCase(); // Col F (index 5)
+      const esnId = esnMap.get(esnCode);
+
+      if (!esnId) {
+        errors++;
+        addImportLog(entity, "error", `ESN código "${r[5]}" (${r[4]}) não encontrado na base.`);
+        updateImportStats(entity, { imported, updated, errors, skipped });
+        continue;
+      }
+
+      // Process months: columns O-Z = index 14-25 = months 1-12
+      for (let m = 0; m < 12; m++) {
+        const colIdx = 14 + m;
+        const rawVal = r[colIdx];
+        const amount = Number(rawVal) || 0;
+
+        if (amount === 0) {
+          skipped++;
+          continue;
+        }
+
+        const month = m + 1;
+
+        // Upsert: try update first, then insert
+        const { data: existing } = await supabase
+          .from("sales_targets")
+          .select("id")
+          .eq("esn_id", esnId)
+          .eq("year", year)
+          .eq("month", month)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("sales_targets")
+            .update({ amount })
+            .eq("id", existing.id);
+          if (error) { errors++; addImportLog(entity, "error", `${r[4]} mês ${month}: ${error.message}`); }
+          else { updated++; }
+        } else {
+          const { error } = await supabase
+            .from("sales_targets")
+            .insert({ esn_id: esnId, year, month, amount });
+          if (error) { errors++; addImportLog(entity, "error", `${r[4]} mês ${month}: ${error.message}`); }
+          else { imported++; }
+        }
+      }
+
+      updateImportStats(entity, { imported, updated, errors, skipped });
+
+      // Periodic DB persist
+      if (dbLogId && i % 10 === 0) {
+        const progressRun = { ...run, imported, updated, errors, skipped, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
+        await updateDbLog(dbLogId, progressRun).catch(() => {});
+      }
+    }
+
+    const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
+    finishImportRun(entity, finalStatus);
+    const finalRun = { ...run, imported, updated, errors, skipped, status: finalStatus as any, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
+    addImportLog(entity, "ok", `✅ Concluído — ${esnScsRows.length} ESNs processados | Inseridos: ${imported} | Atualizados: ${updated} | Zerados/ignorados: ${skipped} | Erros: ${errors} | Tempo: ${formatDuration(finalRun.durationMs || 0)}`);
+    if (dbLogId) await updateDbLog(dbLogId, finalRun as ImportRun);
+  } catch (err: any) {
+    addImportLog(entity, "error", `Erro fatal: ${err.message}`);
+    finishImportRun(entity, "error");
+    if (dbLogId) {
+      const errorRun = { ...run, status: "error" as const, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt } as ImportRun;
+      await updateDbLog(dbLogId, errorRun).catch(() => {});
+    }
+  }
+}
+
+// ─── Metas Import Card ─────────────────────────────────────────
+
+function MetasImportCard({ importFn }: { importFn: (file: File, year: number) => void }) {
+  const entity: ImportEntity = "sales_targets";
+  const fileRef = useRef<HTMLInputElement>(null);
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [showLog, setShowLog] = useState(false);
+  const { getImport } = useImportStore();
+  const run = getImport(entity);
+
+  const isRunning = run?.status === "running";
+  const isFinished = run && run.status !== "running";
+  const progress = run && run.totalRows > 0 ? ((run.imported + run.updated + run.errors) / run.totalRows * 100) : 0;
+
+  useEffect(() => {
+    if (isRunning) setShowLog(true);
+  }, [isRunning]);
+
+  const statusBadge = () => {
+    if (!run) return null;
+    if (run.status === "running") return <Badge variant="secondary" className="gap-1 text-xs animate-pulse"><Loader2 className="h-3 w-3 animate-spin" />Processando</Badge>;
+    if (run.status === "success") return <Badge className="gap-1 text-xs bg-emerald-500/15 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
+    if (run.status === "error") return <Badge variant="destructive" className="gap-1 text-xs"><XCircle className="h-3 w-3" />Erro</Badge>;
+    return null;
+  };
+
+  const years = Array.from({ length: 5 }, (_, i) => String(currentYear - 1 + i));
+
+  return (
+    <Card className={`transition-all duration-300 ${isRunning ? "ring-2 ring-primary/30 shadow-lg" : ""}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${isRunning ? "bg-primary text-primary-foreground" : "bg-primary/10"}`}>
+              {isRunning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Target className="h-5 w-5 text-primary" />}
+            </div>
+            <div>
+              <CardTitle className="text-base">Metas de Vendas</CardTitle>
+              <CardDescription>Importar metas mensais por ESN (SCS)</CardDescription>
+            </div>
+          </div>
+          {statusBadge()}
+        </div>
+        {isRunning && run && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{run.imported + run.updated + run.errors} / {run.totalRows} ESNs</span>
+              <span>{progress.toFixed(0)}%</span>
+            </div>
+            <Progress value={progress} className="h-1.5" />
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isFinished && run && (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-muted-foreground">Inseridos:</span>
+                <span className="font-medium">{run.imported}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground">Atualizados:</span>
+                <span className="font-medium">{run.updated}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-destructive" />
+                <span className="text-muted-foreground">Erros:</span>
+                <span className="font-medium">{run.errors}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Tempo:</span>
+                <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano da meta:</Label>
+          <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isRunning}>
+            <SelectTrigger className="w-[100px] h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          Aba "BASE DE DADOS - Time Comercial" · Filtra nível ESN + Receita SCS · Colunas O–Z (jan–dez) · Atualiza metas existentes automaticamente.
+        </p>
+
+        <div className="flex gap-2">
+          <Button size="sm" disabled={isRunning} onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-1.5 h-3.5 w-3.5" /> Importar Metas
+          </Button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) importFn(file, Number(selectedYear));
+            e.target.value = "";
+          }} />
+        </div>
+
+        {run && run.logs.length > 0 && (
+          <div>
+            <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
+              {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Log ({run.logs.length} entradas)
+            </button>
+            {showLog && (
+              <ScrollArea className="mt-2 h-40 rounded-md border border-border bg-muted/20 p-2">
+                <div className="space-y-0.5 font-mono text-[11px]">
+                  {run.logs.map((entry, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />}
+                      {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                      {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
+                      <span className={entry.status === "ok" ? "text-emerald-600 dark:text-emerald-400" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                        {entry.message}
+                      </span>
+                    </div>
+                  ))}
+                  {isRunning && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processando...
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── History Dialog ─────────────────────────────────────────────
 
 function ImportHistory() {

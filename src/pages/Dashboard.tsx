@@ -1,14 +1,19 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
+  BarChart3, Percent, UserCheck,
 } from "lucide-react";
-import { useProposals, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
@@ -224,9 +229,26 @@ function KpiCard({
 
 // ─── Dashboard ────────────────────────────────────────────────
 export default function Dashboard() {
+  const { user } = useAuth();
   const { role } = useUserRole();
   const { data: proposals = [] } = useProposals();
   const { data: salesTeam = [] } = useSalesTeam();
+  const { data: clients = [] } = useClients();
+
+  // Get current user's profile to find their sales_team_member_id
+  const { data: myProfile } = useQuery({
+    queryKey: ["my-profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*, sales_team_member_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Filters
   const [periodPreset, setPeriodPreset] = useState("this_year");
@@ -267,9 +289,13 @@ export default function Dashboard() {
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
   const lostProposals = filteredProposals.filter((p: any) => p.status === "cancelada");
+  const pendingProposals = filteredProposals.filter((p: any) =>
+    p.status === "pendente" || p.status === "proposta_gerada" || p.status === "em_assinatura"
+  );
 
   const wonValue = wonProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
   const lostValue = lostProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
+  const pendingValue = pendingProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
   const avgTicket = wonProposals.length > 0 ? wonValue / wonProposals.length : 0;
 
   const avgLifecycleDays = useMemo(() => {
@@ -281,6 +307,61 @@ export default function Dashboard() {
     }, 0);
     return Math.round(totalDays / wonProposals.length);
   }, [wonProposals]);
+
+  // ─── Performance KPIs (role-based) ───────────────────────────
+  const mySalesTeamId = myProfile?.sales_team_member_id || null;
+  const mySalesTeamMember = salesTeam.find((m) => m.id === mySalesTeamId);
+
+  const myClients = useMemo(() => {
+    if (!mySalesTeamId) {
+      if (role === "admin") return clients;
+      return [];
+    }
+    const memberRole = mySalesTeamMember?.role;
+
+    if (memberRole === "esn") {
+      // ESN: clients where esn_id matches
+      return clients.filter((c: any) => c.esn_id === mySalesTeamId);
+    }
+    if (memberRole === "gsn") {
+      // GSN: clients whose ESN is linked to this GSN
+      const linkedEsnIds = salesTeam
+        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
+        .map((m) => m.id);
+      return clients.filter((c: any) => linkedEsnIds.includes(c.esn_id) || c.gsn_id === mySalesTeamId);
+    }
+    if (memberRole === "arquiteto") {
+      // Arquiteto: clients that had any proposal with this arquiteto
+      const clientIdsWithArquiteto = new Set(
+        proposals
+          .filter((p: any) => p.arquiteto_id === mySalesTeamId)
+          .map((p: any) => p.client_id)
+      );
+      return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
+    }
+    return [];
+  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, proposals, role]);
+
+  const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
+
+  // Penetração: % of my clients that have at least one won proposal
+  const penetrationRate = useMemo(() => {
+    if (myClients.length === 0) return 0;
+    const clientsWithWon = new Set(
+      proposals
+        .filter((p: any) => p.status === "ganha" && myClientIds.has(p.client_id))
+        .map((p: any) => p.client_id)
+    );
+    return (clientsWithWon.size / myClients.length) * 100;
+  }, [myClients, proposals, myClientIds]);
+
+  // Taxa de Conversão: won / total proposals (all statuses)
+  const conversionRate = useMemo(() => {
+    // Use all proposals visible to user (already RLS-filtered)
+    if (proposals.length === 0) return 0;
+    const won = proposals.filter((p: any) => p.status === "ganha").length;
+    return (won / proposals.length) * 100;
+  }, [proposals]);
 
   // Monthly chart (unfiltered)
   const monthlyData = useMemo(() => {
@@ -471,125 +552,191 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* ─── KPI Cards ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard
-          icon={TrendingUp}
-          label="Propostas Ganhas"
-          value={wonProposals.length}
-          colorClass="text-success"
-          bgClass="bg-success/15"
-          delay={0}
-        />
-        <KpiCard
-          icon={Target}
-          label="Valor Ganho"
-          value={formatCurrency(wonValue)}
-          colorClass="text-success"
-          bgClass="bg-success/15"
-          delay={0.05}
-        />
-        <KpiCard
-          icon={TrendingDown}
-          label="Propostas Perdidas"
-          value={lostProposals.length}
-          colorClass="text-destructive"
-          bgClass="bg-destructive/15"
-          delay={0.1}
-        />
-        <KpiCard
-          icon={Target}
-          label="Valor Perdido"
-          value={formatCurrency(lostValue)}
-          colorClass="text-destructive"
-          bgClass="bg-destructive/15"
-          delay={0.15}
-        />
-        <KpiCard
-          icon={FileText}
-          label="Ticket Médio"
-          value={formatCurrency(avgTicket)}
-          subValue="por proposta ganha"
-          colorClass="text-primary"
-          bgClass="bg-primary/15"
-          delay={0.2}
-        />
-        <KpiCard
-          icon={Clock}
-          label="Tempo Médio"
-          value={`${avgLifecycleDays}d`}
-          subValue="abertura → ganho"
-          colorClass="text-warning"
-          bgClass="bg-warning/15"
-          delay={0.25}
-        />
-      </div>
+      {/* ─── Tabs ────────────────────────────────────────────── */}
+      <Tabs defaultValue="propostas" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="propostas">Propostas</TabsTrigger>
+          <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
+        </TabsList>
 
-      {/* ─── Monthly Chart ───────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            Ganhas vs Perdidas — Últimos 12 Meses
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[280px] w-full">
-            <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Legend />
-              <Bar dataKey="ganhas" name="Ganhas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="perdidas" name="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+        {/* ═══ TAB: Propostas ═══ */}
+        <TabsContent value="propostas" className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+            <KpiCard
+              icon={TrendingUp}
+              label="Propostas Ganhas"
+              value={wonProposals.length}
+              colorClass="text-success"
+              bgClass="bg-success/15"
+              delay={0}
+            />
+            <KpiCard
+              icon={Target}
+              label="Valor Ganho"
+              value={formatCurrency(wonValue)}
+              colorClass="text-success"
+              bgClass="bg-success/15"
+              delay={0.05}
+            />
+            <KpiCard
+              icon={TrendingDown}
+              label="Propostas Perdidas"
+              value={lostProposals.length}
+              colorClass="text-destructive"
+              bgClass="bg-destructive/15"
+              delay={0.1}
+            />
+            <KpiCard
+              icon={Target}
+              label="Valor Perdido"
+              value={formatCurrency(lostValue)}
+              colorClass="text-destructive"
+              bgClass="bg-destructive/15"
+              delay={0.15}
+            />
+            <KpiCard
+              icon={FileText}
+              label="Propostas Pendentes"
+              value={pendingProposals.length}
+              colorClass="text-warning"
+              bgClass="bg-warning/15"
+              delay={0.2}
+            />
+            <KpiCard
+              icon={Target}
+              label="Valor Pendente"
+              value={formatCurrency(pendingValue)}
+              colorClass="text-warning"
+              bgClass="bg-warning/15"
+              delay={0.25}
+            />
+          </div>
 
-      {/* ─── Recent Proposals ────────────────────────────────── */}
-      <Card>
-        <CardHeader className="border-b border-border pb-3">
-          <CardTitle className="text-sm font-semibold">Propostas Recentes</CardTitle>
-        </CardHeader>
-        <div className="divide-y divide-border">
-          {proposals.slice(0, 10).map((proposal: any) => {
-            const status = statusMap[proposal.status] || statusMap.pendente;
-            const clientName = proposal.clients?.name || "—";
-            return (
-              <Link
-                key={proposal.id}
-                to={`/propostas/${proposal.id}`}
-                className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{proposal.number}</p>
-                    <p className="text-xs text-muted-foreground">{clientName}</p>
-                  </div>
+          {/* Monthly Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">
+                Ganhas vs Perdidas — Últimos 12 Meses
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                <BarChart data={monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar dataKey="ganhas" name="Ganhas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="perdidas" name="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Recent Proposals */}
+          <Card>
+            <CardHeader className="border-b border-border pb-3">
+              <CardTitle className="text-sm font-semibold">Propostas Recentes</CardTitle>
+            </CardHeader>
+            <div className="divide-y divide-border">
+              {proposals.slice(0, 10).map((proposal: any) => {
+                const status = statusMap[proposal.status] || statusMap.pendente;
+                const clientName = proposal.clients?.name || "—";
+                return (
+                  <Link
+                    key={proposal.id}
+                    to={`/propostas/${proposal.id}`}
+                    className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{proposal.number}</p>
+                        <p className="text-xs text-muted-foreground">{clientName}</p>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </Link>
+                );
+              })}
+              {proposals.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  Nenhuma proposta ainda. Crie sua primeira proposta!
                 </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                  {status.label}
-                </span>
-              </Link>
-            );
-          })}
-          {proposals.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Nenhuma proposta ainda. Crie sua primeira proposta!
+              )}
             </div>
-          )}
-        </div>
-      </Card>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ TAB: Indicadores de Performance ═══ */}
+        <TabsContent value="performance" className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+            <KpiCard
+              icon={Users}
+              label="Quantidade de Clientes"
+              value={myClients.length}
+              subValue={
+                role === "admin"
+                  ? "todos os clientes"
+                  : mySalesTeamMember
+                  ? `clientes do ${mySalesTeamMember.role?.toUpperCase()}`
+                  : "vincule seu perfil ao time de vendas"
+              }
+              colorClass="text-primary"
+              bgClass="bg-primary/15"
+              delay={0}
+            />
+            <KpiCard
+              icon={Percent}
+              label="Penetração"
+              value={`${penetrationRate.toFixed(1)}%`}
+              subValue="clientes com proposta ganha"
+              colorClass="text-success"
+              bgClass="bg-success/15"
+              delay={0.05}
+            />
+            <KpiCard
+              icon={UserCheck}
+              label="Taxa de Conversão"
+              value={`${conversionRate.toFixed(1)}%`}
+              subValue="ganhas / total de propostas"
+              colorClass="text-primary"
+              bgClass="bg-primary/15"
+              delay={0.1}
+            />
+            <KpiCard
+              icon={BarChart3}
+              label="Ticket Médio"
+              value={formatCurrency(avgTicket)}
+              subValue="por proposta ganha"
+              colorClass="text-primary"
+              bgClass="bg-primary/15"
+              delay={0.15}
+            />
+            <KpiCard
+              icon={Clock}
+              label="Tempo Médio"
+              value={`${avgLifecycleDays}d`}
+              subValue="abertura → ganho"
+              colorClass="text-warning"
+              bgClass="bg-warning/15"
+              delay={0.2}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

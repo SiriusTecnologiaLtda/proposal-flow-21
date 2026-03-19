@@ -108,9 +108,12 @@ export default function ClientsList() {
       .eq("client_id", clientId)
       .order("name");
     if (!error && data) {
-      setContacts(data.map((c) => ({
+      setContacts(data.map((c: any) => ({
         id: c.id, name: c.name, email: c.email,
         phone: c.phone, role: c.role,
+        department: c.department || "",
+        position: c.position || "",
+        notes: c.notes || "",
       })));
     }
     setContactsLoading(false);

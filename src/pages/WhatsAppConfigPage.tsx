@@ -237,9 +237,33 @@ export default function WhatsAppConfigPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Prompt do Sistema (Personalidade da IA)</Label>
-              <Textarea rows={5} value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} placeholder="Você é um assistente comercial..." />
-              <p className="text-xs text-muted-foreground">Define como a IA se comporta. Inclua instruções sobre tom, formato e limites.</p>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Prompt do Sistema (Personalidade e Conhecimento da IA)</Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    if (confirm("Restaurar o prompt padrão? O prompt atual será substituído.")) {
+                      setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
+                      toast({ title: "Prompt padrão restaurado!", description: "Clique em Salvar para confirmar." });
+                    }
+                  }}
+                >
+                  <RotateCcw className="mr-1 h-3 w-3" /> Restaurar Padrão
+                </Button>
+              </div>
+              <Textarea
+                rows={18}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                placeholder="Defina o comportamento, conhecimento e regras da IA..."
+                className="font-mono text-xs leading-relaxed"
+              />
+              <p className="text-xs text-muted-foreground">
+                Este é o prompt completo enviado à IA. Inclui a personalidade, o conhecimento do modelo de negócio, fórmulas de cálculo e regras de resposta.
+                Os dados dinâmicos (propostas, clientes, parâmetros) são adicionados automaticamente ao final.
+              </p>
             </div>
 
             <div className="space-y-1.5">

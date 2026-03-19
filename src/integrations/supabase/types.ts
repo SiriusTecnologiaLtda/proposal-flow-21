@@ -120,30 +120,39 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          department: string | null
           email: string
           id: string
           name: string
+          notes: string | null
           phone: string | null
+          position: string | null
           role: string | null
           updated_at: string
         }
         Insert: {
           client_id: string
           created_at?: string
+          department?: string | null
           email: string
           id?: string
           name: string
+          notes?: string | null
           phone?: string | null
+          position?: string | null
           role?: string | null
           updated_at?: string
         }
         Update: {
           client_id?: string
           created_at?: string
+          department?: string | null
           email?: string
           id?: string
           name?: string
+          notes?: string | null
           phone?: string | null
+          position?: string | null
           role?: string | null
           updated_at?: string
         }

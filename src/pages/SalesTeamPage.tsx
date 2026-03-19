@@ -238,6 +238,13 @@ export default function SalesTeamPage() {
           onOpenChange={(v) => !v && setTransferMember(null)}
         />
       )}
+      {transferGsnMember && (
+        <TransferGsnDialog
+          member={transferGsnMember}
+          open={!!transferGsnMember}
+          onOpenChange={(v) => !v && setTransferGsnMember(null)}
+        />
+      )}
     </div>
   );
 }

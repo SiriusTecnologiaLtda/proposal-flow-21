@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
-  BarChart3, Percent, UserCheck,
+  BarChart3, Percent, UserCheck, Trophy,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RechartsTooltip, Line, ComposedChart } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -256,6 +256,24 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
   const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
 
+  // Fetch sales targets for the selected year
+  const targetYear = useMemo(() => {
+    if (dateFrom) return Number(dateFrom.substring(0, 4));
+    return new Date().getFullYear();
+  }, [dateFrom]);
+
+  const { data: salesTargets = [] } = useQuery({
+    queryKey: ["sales-targets-dashboard", targetYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_targets")
+        .select("*")
+        .eq("year", targetYear);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
 
@@ -384,6 +402,68 @@ export default function Dashboard() {
     ganhas: { label: "Ganhas", color: "hsl(var(--success))" },
     perdidas: { label: "Perdidas", color: "hsl(var(--destructive))" },
   };
+
+  // ─── Resultado: Meta vs Realizado vs Previsto ────────────────
+  const resultadoData = useMemo(() => {
+    const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = MONTH_LABELS.map((label, i) => ({
+      label,
+      month: i + 1,
+      meta: 0,
+      realizado: 0,
+      previsto: 0,
+    }));
+
+    // Filter targets by selected ESNs
+    const relevantTargets = selectedEsnIds.length > 0
+      ? salesTargets.filter((t: any) => selectedEsnIds.includes(t.esn_id))
+      : salesTargets;
+
+    for (const t of relevantTargets) {
+      if (t.month >= 1 && t.month <= 12) {
+        months[t.month - 1].meta += Number(t.amount) || 0;
+      }
+    }
+
+    // Realizado = propostas ganhas, usando expected_close_date (ou updated_at como fallback)
+    // Previsto = ganhas + todas não canceladas, usando expected_close_date
+    const relevantProposals = selectedEsnIds.length > 0
+      ? proposals.filter((p: any) => selectedEsnIds.includes(p.esn_id))
+      : proposals;
+
+    for (const p of relevantProposals as any[]) {
+      const value = computeNetValue(p) || 0;
+      if (value === 0) continue;
+
+      if (p.status === "ganha") {
+        // Realizado: use expected_close_date or fallback to updated_at
+        const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year === targetYear && month >= 1 && month <= 12) {
+          months[month - 1].realizado += value;
+          months[month - 1].previsto += value;
+        }
+      } else if (p.status !== "cancelada") {
+        // Previsto (não ganha, não cancelada): use expected_close_date
+        const dateStr = p.expected_close_date || "";
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year === targetYear && month >= 1 && month <= 12) {
+          months[month - 1].previsto += value;
+        }
+      }
+    }
+
+    return months;
+  }, [salesTargets, proposals, selectedEsnIds, targetYear]);
+
+  const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
+  const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
+  const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
+  const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
 
   const activeFilters =
     (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
@@ -553,6 +633,7 @@ export default function Dashboard() {
       <Tabs defaultValue="propostas" className="space-y-6">
         <TabsList>
           <TabsTrigger value="propostas">Propostas</TabsTrigger>
+          <TabsTrigger value="resultado">Resultado</TabsTrigger>
           <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
         </TabsList>
 
@@ -677,7 +758,65 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
 
-        {/* ═══ TAB: Indicadores de Performance ═══ */}
+        {/* ═══ TAB: Resultado ═══ */}
+        <TabsContent value="resultado" className="space-y-6">
+          {/* KPI summary */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <KpiCard icon={Target} label="Meta Total" value={formatCurrency(totalMeta)} subValue={`Ano ${targetYear}`} colorClass="text-primary" bgClass="bg-primary/15" delay={0} />
+            <KpiCard icon={TrendingUp} label="Realizado" value={formatCurrency(totalRealizado)} subValue="propostas ganhas" colorClass="text-success" bgClass="bg-success/15" delay={0.05} />
+            <KpiCard icon={Trophy} label="Atingimento" value={`${atingimentoPercent.toFixed(1)}%`} subValue="realizado / meta" colorClass={atingimentoPercent >= 100 ? "text-success" : "text-warning"} bgClass={atingimentoPercent >= 100 ? "bg-success/15" : "bg-warning/15"} delay={0.1} />
+            <KpiCard icon={BarChart3} label="Previsto" value={formatCurrency(totalPrevisto)} subValue="ganhas + pipeline ativo" colorClass="text-primary" bgClass="bg-primary/15" delay={0.15} />
+          </div>
+
+          {/* Meta vs Realizado Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Meta vs Realizado — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={resultadoData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
+                    <Bar dataKey="realizado" name="Realizado" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Meta vs Previsto Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Meta vs Previsto — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={resultadoData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
+                    <Bar dataKey="previsto" name="Previsto" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Line dataKey="realizado" name="Realizado" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Previsto = propostas ganhas + propostas em andamento (pendente, gerada, em assinatura), usando a data de previsão de fechamento.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="performance" className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
             <KpiCard

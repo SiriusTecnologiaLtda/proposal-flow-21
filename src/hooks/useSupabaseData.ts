@@ -364,7 +364,12 @@ export function useUpdateProposalStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { data, error } = await supabase.from("proposals").update({ status } as any).eq("id", id).select().single();
+      const updates: any = { status };
+      // When winning a proposal, set expected_close_date to today
+      if (status === "ganha") {
+        updates.expected_close_date = new Date().toISOString().substring(0, 10);
+      }
+      const { data, error } = await supabase.from("proposals").update(updates).eq("id", id).select().single();
       if (error) throw error;
       return data;
     },

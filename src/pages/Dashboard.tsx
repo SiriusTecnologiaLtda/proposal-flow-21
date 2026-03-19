@@ -250,6 +250,24 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch sales targets for the selected year
+  const targetYear = useMemo(() => {
+    if (dateFrom) return Number(dateFrom.substring(0, 4));
+    return new Date().getFullYear();
+  }, [dateFrom]);
+
+  const { data: salesTargets = [] } = useQuery({
+    queryKey: ["sales-targets-dashboard", targetYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_targets")
+        .select("*")
+        .eq("year", targetYear);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Filters
   const [periodPreset, setPeriodPreset] = useState("this_year");
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);

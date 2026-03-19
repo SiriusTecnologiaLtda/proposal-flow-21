@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, ThumbsUp, Plus, Check, X, Clock, Rocket, Send, MessageSquarePlus } from "lucide-react";
+import { Lightbulb, ThumbsUp, Check, X, Clock, Rocket, Send, MessageSquarePlus, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,17 @@ export default function FeatureRequestsPanel() {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["feature-requests"],
@@ -52,12 +64,10 @@ export default function FeatureRequestsPanel() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch votes in bulk
       const { data: votes } = await supabase
         .from("feature_request_votes")
         .select("feature_request_id, user_id");
 
-      // Fetch author profiles
       const authorIds = [...new Set((items || []).map((i: any) => i.created_by))];
       const { data: profiles } = await supabase
         .from("profiles")
@@ -128,8 +138,16 @@ export default function FeatureRequestsPanel() {
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
-  // Sort: pending first, then by votes desc
-  const sorted = [...requests].sort((a, b) => {
+  const filtered = requests.filter((r) => {
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q) || r.author_name.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
     const order = ["pending", "accepted", "implemented", "rejected"];
     const diff = order.indexOf(a.status) - order.indexOf(b.status);
     if (diff !== 0) return diff;
@@ -166,6 +184,31 @@ export default function FeatureRequestsPanel() {
         </SheetHeader>
 
         <Separator />
+
+        {/* Search & Filter */}
+        <div className="px-6 pt-4 pb-2 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar sugestões..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pending">Pendente</SelectItem>
+              <SelectItem value="accepted">Aceito</SelectItem>
+              <SelectItem value="rejected">Recusado</SelectItem>
+              <SelectItem value="implemented">Implementado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
           {/* New suggestion form */}
@@ -210,12 +253,15 @@ export default function FeatureRequestsPanel() {
             <div className="text-center text-sm text-muted-foreground py-8">Carregando...</div>
           ) : sorted.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground py-8">
-              Nenhuma sugestão ainda. Seja o primeiro!
+              {search || statusFilter !== "all" ? "Nenhuma sugestão encontrada com esses filtros." : "Nenhuma sugestão ainda. Seja o primeiro!"}
             </div>
           ) : (
             sorted.map((req) => {
               const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
               const StatusIcon = cfg.icon;
+              const isExpanded = expandedIds.has(req.id);
+              const hasLongDesc = req.description && req.description.length > 120;
+
               return (
                 <div
                   key={req.id}
@@ -225,7 +271,6 @@ export default function FeatureRequestsPanel() {
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    {/* Vote button */}
                     <button
                       onClick={() => voteMutation.mutate({ requestId: req.id, hasVoted: req.user_voted })}
                       disabled={voteMutation.isPending}
@@ -249,7 +294,23 @@ export default function FeatureRequestsPanel() {
                         </Badge>
                       </div>
                       {req.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{req.description}</p>
+                        <div className="mt-1">
+                          <p className={cn("text-xs text-muted-foreground whitespace-pre-wrap", !isExpanded && hasLongDesc && "line-clamp-2")}>
+                            {req.description}
+                          </p>
+                          {hasLongDesc && (
+                            <button
+                              onClick={() => toggleExpand(req.id)}
+                              className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline"
+                            >
+                              {isExpanded ? (
+                                <>Ver menos <ChevronUp className="h-3 w-3" /></>
+                              ) : (
+                                <>Ver tudo <ChevronDown className="h-3 w-3" /></>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       )}
                       <p className="text-[10px] text-muted-foreground/70 mt-1.5">
                         por {req.author_name} · {new Date(req.created_at).toLocaleDateString("pt-BR")}
@@ -262,7 +323,6 @@ export default function FeatureRequestsPanel() {
                     </div>
                   </div>
 
-                  {/* Admin actions */}
                   {isAdmin && req.status !== "implemented" && (
                     <div className="flex items-center gap-1.5 pt-1 pl-[56px]">
                       {req.status !== "accepted" && (

@@ -132,6 +132,43 @@ export default function ProposalCreate() {
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [groupNotesOpenIds, setGroupNotesOpenIds] = useState<Set<string>>(new Set());
 
+  async function writeProposalLog(entry: {
+    stage: string;
+    severity?: "info" | "error" | "warn";
+    action?: string;
+    proposalId?: string | null;
+    errorMessage?: string | null;
+    errorCode?: string | null;
+    payload?: Record<string, any>;
+    metadata?: Record<string, any>;
+  }) {
+    const session = (await supabase.auth.getSession()).data.session;
+    const authUser = session?.user;
+    if (!authUser) return;
+
+    await supabase.from("proposal_process_logs").insert({
+      stage: entry.stage,
+      severity: entry.severity || "info",
+      action: entry.action || (isEditing ? "proposal_update" : "proposal_create"),
+      proposal_id: entry.proposalId || null,
+      client_id: clientId || null,
+      user_id: authUser.id,
+      user_email: authUser.email || user?.email || null,
+      user_name: (user?.user_metadata?.display_name as string | undefined) || authUser.email || null,
+      proposal_number: proposalNumber || null,
+      error_message: entry.errorMessage || null,
+      error_code: entry.errorCode || null,
+      payload: entry.payload || {},
+      metadata: entry.metadata || {},
+      error_details: {
+        route: window.location.pathname,
+        is_editing: isEditing,
+        is_duplicating: isDuplicating,
+        generate_on_save: generateOnSave,
+      },
+    });
+  }
+
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
     if (existingProposal && !loaded) {

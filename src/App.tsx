@@ -25,6 +25,7 @@ import RolePermissionsPage from "@/pages/RolePermissionsPage";
 import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
+import SalesTargetsPage from "@/pages/SalesTargetsPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
 import WhatsAppConfigPage from "@/pages/WhatsAppConfigPage";
 import ProposalLogsPage from "@/pages/ProposalLogsPage";
@@ -75,6 +76,7 @@ function ProtectedRoutes() {
         <Route path="/cadastros/produtos" element={<GuardedRoute path="/cadastros/produtos"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
+        <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
         {/* Legacy routes redirect */}
         <Route path="/clientes" element={<Navigate to="/cadastros/clientes" replace />} />
         <Route path="/unidades" element={<Navigate to="/cadastros/unidades" replace />} />

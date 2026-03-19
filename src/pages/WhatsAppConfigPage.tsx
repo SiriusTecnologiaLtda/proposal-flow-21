@@ -442,6 +442,8 @@ export default function WhatsAppConfigPage() {
           </div>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,6 +53,10 @@ export default function ClientsList() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [savingContacts, setSavingContacts] = useState(false);
+  const [transferClient, setTransferClient] = useState<any>(null);
+  const [transferEsnId, setTransferEsnId] = useState("");
+  const [transferSearch, setTransferSearch] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   const emptyForm = {
     name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
@@ -279,6 +283,33 @@ export default function ClientsList() {
 
   const getUnitName = (c: any) => c.unit_info?.name || "—";
   const getEsnName = (c: any) => c.esn?.name || "—";
+
+  async function handleTransferClient() {
+    if (!transferClient || !transferEsnId) return;
+    setTransferring(true);
+    try {
+      const { error } = await supabase.from("clients").update({ esn_id: transferEsnId }).eq("id", transferClient.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast({ title: "Cliente transferido com sucesso!" });
+      setTransferClient(null);
+      setTransferEsnId("");
+      setTransferSearch("");
+    } catch (err: any) {
+      toast({ title: "Erro ao transferir", description: err.message, variant: "destructive" });
+    } finally {
+      setTransferring(false);
+    }
+  }
+
+  const filteredEsnForTransfer = useMemo(() => {
+    return esnMembers.filter((m) => {
+      if (transferClient && m.id === transferClient.esn_id) return false;
+      if (!transferSearch) return true;
+      const s = transferSearch.toLowerCase();
+      return m.name.toLowerCase().includes(s) || m.code.toLowerCase().includes(s) || (m.email?.toLowerCase().includes(s));
+    });
+  }, [esnMembers, transferSearch, transferClient]);
 
   const showDetail = selectedClientId || isCreating;
 
@@ -606,11 +637,10 @@ export default function ClientsList() {
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  onClick={() => openClient(client)}
                   className="group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex items-start gap-3 min-w-0 flex-1" onClick={() => openClient(client)}>
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Building2 className="h-4 w-4" />
                       </div>
@@ -619,8 +649,17 @@ export default function ClientsList() {
                         <p className="text-xs text-muted-foreground mt-0.5">{client.code} · {client.cnpj}</p>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                      title="Transferir ESN"
+                      onClick={(e) => { e.stopPropagation(); setTransferClient(client); setTransferEsnId(""); setTransferSearch(""); }}
+                    >
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <div className="mt-3 space-y-1.5">
+                  <div className="mt-3 space-y-1.5" onClick={() => openClient(client)}>
                     {client.email && (
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{client.email}</span>
@@ -631,8 +670,13 @@ export default function ClientsList() {
                         <Phone className="h-3 w-3 shrink-0" /><span className="truncate">{client.phone}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{getUnitName(client)}</span>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{getUnitName(client)}</span>
+                      </div>
+                      {client.esn && (
+                        <span className="text-xs text-muted-foreground truncate ml-2">ESN: {client.esn.code}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -647,7 +691,7 @@ export default function ClientsList() {
 
           {viewMode === "list" && (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-6 md:gap-4">
+              <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-7 md:gap-4">
                 <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente</span>
                 <span className="text-xs font-medium text-muted-foreground">Unidade</span>
                 <span className="text-xs font-medium text-muted-foreground">ESN</span>
@@ -658,10 +702,9 @@ export default function ClientsList() {
                 {filtered.map((client) => (
                   <div
                     key={client.id}
-                    onClick={() => openClient(client)}
-                    className="cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-6 md:items-center md:gap-4"
+                    className="group cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-7 md:items-center md:gap-4"
                   >
-                    <div className="col-span-2 flex items-center gap-3">
+                    <div className="col-span-2 flex items-center gap-3" onClick={() => openClient(client)}>
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Building2 className="h-3.5 w-3.5" />
                       </div>
@@ -670,10 +713,21 @@ export default function ClientsList() {
                         <p className="text-xs text-muted-foreground">{client.code} · {client.cnpj}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-foreground truncate">{getUnitName(client)}</p>
-                    <p className="text-sm text-foreground truncate">{getEsnName(client)}</p>
-                    <p className="text-sm text-muted-foreground truncate">{client.email || "—"}</p>
-                    <p className="text-sm text-muted-foreground truncate">{client.phone || "—"}</p>
+                    <p className="text-sm text-foreground truncate" onClick={() => openClient(client)}>{getUnitName(client)}</p>
+                    <p className="text-sm text-foreground truncate" onClick={() => openClient(client)}>{getEsnName(client)}</p>
+                    <p className="text-sm text-muted-foreground truncate" onClick={() => openClient(client)}>{client.email || "—"}</p>
+                    <p className="text-sm text-muted-foreground truncate" onClick={() => openClient(client)}>{client.phone || "—"}</p>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                        title="Transferir ESN"
+                        onClick={(e) => { e.stopPropagation(); setTransferClient(client); setTransferEsnId(""); setTransferSearch(""); }}
+                      >
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {filtered.length === 0 && (
@@ -699,6 +753,61 @@ export default function ClientsList() {
             <AlertDialogAction onClick={handleDeleteContact} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Transfer client ESN dialog */}
+      <AlertDialog open={!!transferClient} onOpenChange={(open) => { if (!open) { setTransferClient(null); setTransferEsnId(""); setTransferSearch(""); } }}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4" />Transferir Cliente
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Transferir <strong>{transferClient?.name}</strong> para outro Executivo de Vendas (ESN).
+              {transferClient?.esn && (
+                <span className="block mt-1">ESN atual: <strong>{transferClient.esn.code} - {transferClient.esn.name}</strong></span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Buscar ESN de destino</Label>
+              <Input
+                placeholder="Nome, código ou email..."
+                value={transferSearch}
+                onChange={(e) => setTransferSearch(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
+              {filteredEsnForTransfer.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground text-center">Nenhum ESN encontrado</p>
+              ) : (
+                filteredEsnForTransfer.map((esn) => (
+                  <div
+                    key={esn.id}
+                    onClick={() => setTransferEsnId(esn.id)}
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${transferEsnId === esn.id ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{esn.code} - {esn.name}</p>
+                      <p className="text-xs text-muted-foreground">{esn.email || "Sem email"} · {(esn as any).unit_info?.name || "Sem unidade"}</p>
+                    </div>
+                    {transferEsnId === esn.id && (
+                      <Badge variant="default" className="shrink-0 text-xs">Selecionado</Badge>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={handleTransferClient} disabled={!transferEsnId || transferring} size="sm">
+              {transferring ? "Transferindo..." : "Confirmar Transferência"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

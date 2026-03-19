@@ -758,7 +758,65 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
 
-        {/* ═══ TAB: Indicadores de Performance ═══ */}
+        {/* ═══ TAB: Resultado ═══ */}
+        <TabsContent value="resultado" className="space-y-6">
+          {/* KPI summary */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <KpiCard icon={Target} label="Meta Total" value={formatCurrency(totalMeta)} subValue={`Ano ${targetYear}`} colorClass="text-primary" bgClass="bg-primary/15" delay={0} />
+            <KpiCard icon={TrendingUp} label="Realizado" value={formatCurrency(totalRealizado)} subValue="propostas ganhas" colorClass="text-success" bgClass="bg-success/15" delay={0.05} />
+            <KpiCard icon={Trophy} label="Atingimento" value={`${atingimentoPercent.toFixed(1)}%`} subValue="realizado / meta" colorClass={atingimentoPercent >= 100 ? "text-success" : "text-warning"} bgClass={atingimentoPercent >= 100 ? "bg-success/15" : "bg-warning/15"} delay={0.1} />
+            <KpiCard icon={BarChart3} label="Previsto" value={formatCurrency(totalPrevisto)} subValue="ganhas + pipeline ativo" colorClass="text-primary" bgClass="bg-primary/15" delay={0.15} />
+          </div>
+
+          {/* Meta vs Realizado Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Meta vs Realizado — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={resultadoData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
+                    <Bar dataKey="realizado" name="Realizado" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Meta vs Previsto Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Meta vs Previsto — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={resultadoData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
+                    <Bar dataKey="previsto" name="Previsto" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Line dataKey="realizado" name="Realizado" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Previsto = propostas ganhas + propostas em andamento (pendente, gerada, em assinatura), usando a data de previsão de fechamento.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="performance" className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
             <KpiCard

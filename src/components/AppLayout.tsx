@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User,
 } from "lucide-react";
+import FeatureRequestsPanel from "@/components/FeatureRequestsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canAccessRoute } from "@/lib/permissions";

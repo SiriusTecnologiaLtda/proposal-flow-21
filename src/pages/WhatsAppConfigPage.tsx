@@ -258,14 +258,69 @@ export default function WhatsAppConfigPage() {
                 <Label className="text-xs">Telefone de Teste (opcional)</Label>
                 <Input placeholder="whatsapp:+5511999999999" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} />
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
                 <Button onClick={handleTest} disabled={testing} variant="outline">
                   {testing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <TestTube className="mr-1 h-4 w-4" />}
                   Enviar Mensagem de Teste
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowLogs(!showLogs); if (!showLogs) refetchMessages(); }}
+                >
+                  <History className="mr-1 h-4 w-4" />
+                  Histórico / Logs
+                  {showLogs ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
+                </Button>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">Simula uma mensagem recebida e mostra a resposta da IA nos logs. Útil para validar prompt e modelo.</p>
+
+            {showLogs && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-medium text-foreground">Últimas Mensagens</h3>
+                  <Button size="sm" variant="ghost" onClick={() => refetchMessages()} className="text-xs h-7">
+                    Atualizar
+                  </Button>
+                </div>
+                {!recentMessages || recentMessages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma mensagem registrada ainda.</p>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto rounded-md border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          <th className="text-left p-2 font-medium text-muted-foreground">Data</th>
+                          <th className="text-left p-2 font-medium text-muted-foreground">Telefone</th>
+                          <th className="text-left p-2 font-medium text-muted-foreground">Direção</th>
+                          <th className="text-left p-2 font-medium text-muted-foreground">Mensagem</th>
+                          <th className="text-left p-2 font-medium text-muted-foreground">Resposta IA</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {recentMessages.map((msg: any) => (
+                          <tr key={msg.id} className="hover:bg-muted/30">
+                            <td className="p-2 whitespace-nowrap text-muted-foreground">
+                              {new Date(msg.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </td>
+                            <td className="p-2 whitespace-nowrap font-mono">{msg.phone_number?.replace("whatsapp:", "")}</td>
+                            <td className="p-2">
+                              <Badge variant={msg.direction === "inbound" ? "default" : "secondary"} className="text-[10px]">
+                                {msg.direction === "inbound" ? "⬇ Entrada" : "⬆ Saída"}
+                              </Badge>
+                            </td>
+                            <td className="p-2 max-w-[200px] truncate" title={msg.message_text}>{msg.message_text}</td>
+                            <td className="p-2 max-w-[250px] truncate text-muted-foreground" title={msg.ai_response || ""}>
+                              {msg.ai_response || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Setup Instructions */}

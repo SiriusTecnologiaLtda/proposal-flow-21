@@ -607,6 +607,44 @@ Deno.serve(async (req) => {
     const docUrl = `https://docs.google.com/document/d/${newDocId}/edit`;
     log(logs, "Concluído", "ok", `MIT-065 gerado com sucesso: ${newFileName}`);
 
+    // ─── Share document with involved team members ──────────────
+    try {
+      const emails: string[] = [];
+      if (esn?.email) emails.push(esn.email);
+      if (gsn?.email) emails.push(gsn.email);
+      if (arq?.email) emails.push(arq.email);
+      const authHeaderShare = req.headers.get("Authorization")?.replace("Bearer ", "");
+      if (authHeaderShare) {
+        const { data: { user: authUser } } = await supabase.auth.getUser(authHeaderShare);
+        if (authUser?.email && !emails.includes(authUser.email)) emails.push(authUser.email);
+      }
+      const uniqueEmails = [...new Set(emails.map(e => e.toLowerCase()))];
+      if (uniqueEmails.length > 0) {
+        log(logs, "Compartilhar", "info", `Compartilhando com ${uniqueEmails.length} pessoa(s): ${uniqueEmails.join(", ")}`);
+        for (const email of uniqueEmails) {
+          try {
+            const permResp = await fetch(
+              `https://www.googleapis.com/drive/v3/files/${newDocId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`,
+              {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ type: "user", role: "writer", emailAddress: email }),
+              }
+            );
+            if (!permResp.ok) {
+              const permErr = await permResp.text();
+              log(logs, "Compartilhar", "info", `Não foi possível compartilhar com ${email}: ${permErr}`);
+            }
+          } catch (permE: any) {
+            log(logs, "Compartilhar", "info", `Erro ao compartilhar com ${email}: ${permE.message}`);
+          }
+        }
+        log(logs, "Compartilhar", "ok", "Permissões atribuídas");
+      }
+    } catch (e: any) {
+      log(logs, "Compartilhar", "info", `Não foi possível compartilhar: ${e.message}`);
+    }
+
     // ─── Save document record ───────────────────────────────────
     try {
       const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");

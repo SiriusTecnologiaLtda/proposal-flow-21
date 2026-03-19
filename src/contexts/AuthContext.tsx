@@ -46,6 +46,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(!!data);
     };
 
+    const autoAssignRole = async (userId: string, email: string) => {
+      // Check if user already has a role
+      const { data: existingRole } = await supabase
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (existingRole) return; // already has a role
+
+      // Match email against sales_team
+      const { data: member } = await supabase
+        .from("sales_team")
+        .select("role")
+        .ilike("email", email)
+        .maybeSingle();
+      if (!member) return;
+
+      // Map sales_role to app_role
+      const roleMap: Record<string, string> = {
+        esn: "vendedor",
+        gsn: "gsn",
+        arquiteto: "arquiteto",
+      };
+      const appRole = roleMap[member.role];
+      if (!appRole) return;
+
+      await supabase.from("user_roles").insert({ user_id: userId, role: appRole });
+    };
+
     const applySession = (nextSession: Session | null) => {
       if (!isMounted) return;
 
@@ -54,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (nextSession?.user) {
         void loadAdminRole(nextSession.user.id);
+        void autoAssignRole(nextSession.user.id, nextSession.user.email || "");
       } else {
         setIsAdmin(false);
       }

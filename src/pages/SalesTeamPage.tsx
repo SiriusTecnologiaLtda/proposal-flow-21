@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft } from "lucide-react";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
+import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export default function SalesTeamPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [transferMember, setTransferMember] = useState<any>(null);
+  const [transferGsnMember, setTransferGsnMember] = useState<any>(null);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
@@ -197,11 +199,11 @@ export default function SalesTeamPage() {
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        {role === "esn" && (
+                        {(role === "esn" || role === "gsn") && (
                           <button
                             className="rounded p-1 text-muted-foreground hover:text-primary"
-                            title="Transferir contas"
-                            onClick={() => setTransferMember(member)}
+                            title={role === "gsn" ? "Transferir contas e ESNs" : "Transferir contas"}
+                            onClick={() => role === "gsn" ? setTransferGsnMember(member) : setTransferMember(member)}
                           >
                             <ArrowRightLeft className="h-3.5 w-3.5" />
                           </button>
@@ -234,6 +236,13 @@ export default function SalesTeamPage() {
           member={transferMember}
           open={!!transferMember}
           onOpenChange={(v) => !v && setTransferMember(null)}
+        />
+      )}
+      {transferGsnMember && (
+        <TransferGsnDialog
+          member={transferGsnMember}
+          open={!!transferGsnMember}
+          onOpenChange={(v) => !v && setTransferGsnMember(null)}
         />
       )}
     </div>

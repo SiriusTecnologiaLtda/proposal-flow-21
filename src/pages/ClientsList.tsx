@@ -66,14 +66,27 @@ export default function ClientsList() {
     [clients, selectedClientId]
   );
 
-  const filtered = useMemo(
-    () => clients.filter(
+  // Find the ESN member linked to current user (by email)
+  const userEsnMemberId = useMemo(() => {
+    if (role === "admin" || role === "gsn" || role === "arquiteto") return null;
+    if (!user?.email) return null;
+    const member = salesTeam.find((m) => m.role === "esn" && m.email?.toLowerCase() === user.email?.toLowerCase());
+    return member?.id || null;
+  }, [role, user, salesTeam]);
+
+  const filtered = useMemo(() => {
+    let list = clients;
+    // ESN (vendedor) only sees their assigned clients
+    if (role === "vendedor" && userEsnMemberId) {
+      list = list.filter((c) => c.esn_id === userEsnMemberId);
+    }
+    return list.filter(
       (c) => c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.code.toLowerCase().includes(search.toLowerCase()) ||
         c.cnpj.includes(search)
-    ),
-    [clients, search]
-  );
+    );
+  }, [clients, search, role, userEsnMemberId]);
+
 
   const esnMembers = useMemo(() => salesTeam.filter((m) => m.role === "esn"), [salesTeam]);
   const gsnMembers = useMemo(() => salesTeam.filter((m) => m.role === "gsn"), [salesTeam]);

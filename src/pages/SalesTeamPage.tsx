@@ -229,6 +229,13 @@ export default function SalesTeamPage() {
           </div>
         );
       })}
+      {transferMember && (
+        <TransferAccountsDialog
+          member={transferMember}
+          open={!!transferMember}
+          onOpenChange={(v) => !v && setTransferMember(null)}
+        />
+      )}
     </div>
   );
 }

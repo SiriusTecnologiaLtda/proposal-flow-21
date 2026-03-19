@@ -1099,6 +1099,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_targets: {
+        Row: {
+          amount: number
+          created_at: string
+          esn_id: string
+          id: string
+          month: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          esn_id: string
+          id?: string
+          month: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          esn_id?: string
+          id?: string
+          month?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_targets_esn_id_fkey"
+            columns: ["esn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_team: {
         Row: {
           code: string

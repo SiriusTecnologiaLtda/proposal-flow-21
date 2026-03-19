@@ -727,13 +727,21 @@ export default function ProposalCreate() {
     };
 
     try {
+      // Refresh session to ensure valid JWT before saving
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      if (!freshSession?.user) {
+        toast({ title: "Sessão expirada", description: "Faça login novamente para salvar.", variant: "destructive" });
+        return;
+      }
+      const authenticatedUserId = freshSession.user.id;
+
       let savedId: string | undefined;
       if (isEditing) {
         await updateProposal.mutateAsync({ id, ...proposalData });
         savedId = id;
         toast({ title: "Proposta atualizada!" });
       } else {
-        const result = await createProposal.mutateAsync({ ...proposalData, created_by: user!.id });
+        const result = await createProposal.mutateAsync({ ...proposalData, created_by: authenticatedUserId });
         savedId = (result as any)?.id;
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
-  member: { id: string; name: string; code: string };
+  member: { id: string; name: string; code: string; unit_id?: string | null };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

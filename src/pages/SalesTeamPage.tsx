@@ -199,11 +199,11 @@ export default function SalesTeamPage() {
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        {role === "esn" && (
+                        {(role === "esn" || role === "gsn") && (
                           <button
                             className="rounded p-1 text-muted-foreground hover:text-primary"
-                            title="Transferir contas"
-                            onClick={() => setTransferMember(member)}
+                            title={role === "gsn" ? "Transferir contas e ESNs" : "Transferir contas"}
+                            onClick={() => role === "gsn" ? setTransferGsnMember(member) : setTransferMember(member)}
                           >
                             <ArrowRightLeft className="h-3.5 w-3.5" />
                           </button>

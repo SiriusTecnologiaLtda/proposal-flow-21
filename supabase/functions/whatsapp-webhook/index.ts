@@ -256,68 +256,137 @@ function escapeXml(str: string): string {
 }
 
 async function buildProposalContext(supabase: any, userMessage: string, phone: string): Promise<string> {
-  const lowerMsg = userMessage.toLowerCase();
+  const lowerMsg = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const parts: string[] = [];
 
-  // Try to find user by phone
+  // 1. Identify user by phone
+  const cleanPhone = phone.replace("whatsapp:", "");
   const { data: profile } = await supabase
     .from("profiles")
-    .select("user_id, display_name, email, sales_team_member_id")
-    .or(`phone.eq.${phone},phone.eq.${phone.replace("whatsapp:", "")}`)
+    .select("user_id, display_name, email, sales_team_member_id, phone")
+    .or(`phone.eq.${phone},phone.eq.${cleanPhone}`)
     .maybeSingle();
 
   if (profile) {
-    parts.push(`Usuário identificado: ${profile.display_name} (${profile.email})`);
-  }
-
-  // If asking about proposals, fetch relevant data
-  if (lowerMsg.includes("proposta") || lowerMsg.includes("valor") || lowerMsg.includes("histórico") || lowerMsg.includes("status")) {
-    const { data: proposals } = await supabase
-      .from("proposals")
-      .select("number, status, product, type, hourly_rate, created_at, client_id, clients(name)")
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (proposals && proposals.length > 0) {
-      parts.push("PROPOSTAS RECENTES:");
-      for (const p of proposals) {
-        parts.push(`- ${p.number}: ${p.clients?.name || "?"} | ${p.product} | Status: ${p.status} | Tipo: ${p.type} | Valor/h: R$${p.hourly_rate}`);
+    parts.push(`👤 USUÁRIO: ${profile.display_name} (${profile.email})`);
+    if (profile.sales_team_member_id) {
+      const { data: member } = await supabase
+        .from("sales_team")
+        .select("name, code, role, unit_id, unit_info(name)")
+        .eq("id", profile.sales_team_member_id)
+        .maybeSingle();
+      if (member) {
+        parts.push(`   Perfil comercial: ${member.code} - ${member.name} (${member.role?.toUpperCase()}) | Unidade: ${member.unit_info?.name || "N/A"}`);
       }
     }
   }
 
-  // If asking about clients
-  if (lowerMsg.includes("cliente")) {
-    const { data: clients } = await supabase
-      .from("clients")
-      .select("name, code, cnpj, email")
-      .order("name")
-      .limit(15);
+  // 2. Always load proposal defaults
+  const { data: defaults } = await supabase.from("proposal_defaults").select("*").limit(1).single();
+  if (defaults) {
+    parts.push(`\n⚙️ PARÂMETROS PADRÃO: Hora técnica R$${fmt(defaults.hourly_rate)} | GP ${defaults.gp_percentage}% | Acomp. Analista ${defaults.accomp_analyst_percentage}% | Acomp. GP ${defaults.accomp_gp_percentage}% | Traslado local ${defaults.travel_local_hours}h | Viagem ${defaults.travel_trip_hours}h | Hora traslado R$${fmt(defaults.travel_hourly_rate)}`);
+  }
 
-    if (clients && clients.length > 0) {
-      parts.push("CLIENTES CADASTRADOS:");
-      for (const c of clients) {
-        parts.push(`- ${c.code}: ${c.name} (CNPJ: ${c.cnpj})`);
-      }
+  // 3. Always load recent proposals with full financial data
+  const { data: proposals } = await supabase
+    .from("proposals")
+    .select("id, number, status, product, type, scope_type, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, additional_analyst_rate, additional_gp_rate, travel_hourly_rate, travel_local_hours, travel_trip_hours, num_companies, created_at, updated_at, date_validity, expected_close_date, negotiation, description, client_id, esn_id, gsn_id, clients(name, code, cnpj, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code), proposal_scope_items(hours, included, parent_id, description), payment_conditions(installment, amount, due_date)")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (proposals && proposals.length > 0) {
+    parts.push("\n📋 PROPOSTAS RECENTES (últimas 20):");
+    for (const p of proposals) {
+      const includedItems = (p.proposal_scope_items || []).filter((i: any) => i.included);
+      const totalAnalystHours = includedItems.reduce((sum: number, i: any) => sum + (i.hours || 0), 0);
+      const gpHours = totalAnalystHours * (p.gp_percentage || 0) / 100;
+      const totalHours = totalAnalystHours + gpHours;
+      const analystValue = totalAnalystHours * (p.hourly_rate || 0);
+      const gpValue = gpHours * (p.hourly_rate || 0);
+      const accompValue = (p.accomp_analyst || 0) * (p.additional_analyst_rate || 0) + (p.accomp_gp || 0) * (p.additional_gp_rate || 0);
+      const travelHours = (p.travel_local_hours || 0) + (p.travel_trip_hours || 0);
+      const travelValue = travelHours * (p.travel_hourly_rate || 0);
+      const netTotal = analystValue + gpValue + accompValue + travelValue;
+      const taxFactor = p.clients?.unit_info?.tax_factor || 1;
+      const grossTotal = netTotal * taxFactor * (p.num_companies || 1);
+
+      const payments = (p.payment_conditions || []).sort((a: any, b: any) => a.installment - b.installment);
+      const paymentInfo = payments.length > 0
+        ? `${payments.length}x (${payments.map((pm: any) => `R$${fmt(pm.amount)}`).join(" + ")})`
+        : "sem parcelas";
+
+      const statusLabel: Record<string, string> = {
+        pendente: "⏳ Pendente",
+        proposta_gerada: "📄 Proposta Gerada",
+        em_assinatura: "✍️ Em Assinatura",
+        ganha: "✅ Ganha",
+        cancelada: "❌ Cancelada",
+      };
+
+      parts.push(`\n  📌 Proposta *${p.number}*:`);
+      parts.push(`     Cliente: *${p.clients?.name || "?"}* (${p.clients?.code || "?"}) | Unidade: ${p.clients?.unit_info?.name || "?"}`);
+      parts.push(`     Produto: ${p.product} | Tipo: ${p.type} | Escopo: ${p.scope_type}`);
+      parts.push(`     Status: ${statusLabel[p.status] || p.status}`);
+      parts.push(`     ESN: ${p.sales_team?.name || "N/A"}`);
+      parts.push(`     Valor/hora: R$${fmt(p.hourly_rate)} | GP: ${p.gp_percentage}%`);
+      parts.push(`     Horas Analista: ${totalAnalystHours}h | Horas GP: ${gpHours.toFixed(1)}h | Total: ${totalHours.toFixed(1)}h`);
+      parts.push(`     💰 Valor Líquido: R$${fmt(netTotal)} | Bruto: R$${fmt(grossTotal)} (tax_factor: ${taxFactor})`);
+      parts.push(`     Pagamento: ${paymentInfo}`);
+      if (p.negotiation) parts.push(`     Negociação: ${p.negotiation}`);
+      if (p.expected_close_date) parts.push(`     Previsão fechamento: ${p.expected_close_date}`);
+      parts.push(`     Criada em: ${new Date(p.created_at).toLocaleDateString("pt-BR")}`);
     }
   }
 
-  // If asking to create a proposal, provide available products and templates
-  if (lowerMsg.includes("criar") || lowerMsg.includes("gerar") || lowerMsg.includes("nova proposta")) {
+  // 4. Always load client list
+  const { data: clients } = await supabase
+    .from("clients")
+    .select("name, code, cnpj, email, contact, unit_id, unit_info(name), esn:sales_team!clients_esn_id_fkey(name, code), gsn:sales_team!clients_gsn_id_fkey(name, code)")
+    .order("name")
+    .limit(50);
+
+  if (clients && clients.length > 0) {
+    parts.push(`\n🏢 CLIENTES CADASTRADOS (${clients.length}):`);
+    for (const c of clients) {
+      parts.push(`  - ${c.code}: *${c.name}* | CNPJ: ${c.cnpj} | Unidade: ${c.unit_info?.name || "N/A"} | ESN: ${c.esn?.name || "-"} | GSN: ${c.gsn?.name || "-"}`);
+    }
+  }
+
+  // 5. Load products and templates when creating
+  const needsCreation = lowerMsg.includes("criar") || lowerMsg.includes("gerar") || lowerMsg.includes("nova proposta") || lowerMsg.includes("novo orcamento");
+  if (needsCreation) {
     const { data: products } = await supabase.from("products").select("name");
-    const { data: templates } = await supabase.from("scope_templates").select("name, product, category");
-    const { data: defaults } = await supabase.from("proposal_defaults").select("*").limit(1).single();
+    const { data: templates } = await supabase.from("scope_templates").select("name, product, category").order("product");
 
     if (products) {
-      parts.push("PRODUTOS DISPONÍVEIS: " + products.map((p: any) => p.name).join(", "));
+      parts.push("\n📦 PRODUTOS: " + products.map((p: any) => p.name).join(", "));
     }
     if (templates) {
-      parts.push("TEMPLATES DE ESCOPO: " + templates.map((t: any) => `${t.name} (${t.product}/${t.category})`).join(", "));
-    }
-    if (defaults) {
-      parts.push(`PARÂMETROS PADRÃO: Hora R$${defaults.hourly_rate}, GP ${defaults.gp_percentage}%, Traslado Local ${defaults.travel_local_hours}h, Viagem ${defaults.travel_trip_hours}h`);
+      parts.push("📝 TEMPLATES DE ESCOPO:");
+      for (const t of templates) {
+        parts.push(`  - ${t.name} (${t.product} / ${t.category})`);
+      }
     }
   }
 
-  return parts.length > 0 ? parts.join("\n") : "Nenhum contexto específico carregado. O usuário pode perguntar sobre propostas, clientes, valores ou solicitar a geração de uma nova proposta.";
+  // 6. Units
+  const { data: units } = await supabase.from("unit_info").select("name, code, tax_factor, city").order("name");
+  if (units && units.length > 0) {
+    parts.push(`\n🏛️ UNIDADES: ${units.map((u: any) => `${u.name} (tax: ${u.tax_factor})`).join(" | ")}`);
+  }
+
+  // 7. Proposal types
+  const { data: proposalTypes } = await supabase.from("proposal_types").select("name, slug, analyst_label, gp_label, rounding_factor");
+  if (proposalTypes && proposalTypes.length > 0) {
+    parts.push(`\n📐 TIPOS DE PROPOSTA:`);
+    for (const pt of proposalTypes) {
+      parts.push(`  - ${pt.name} (${pt.slug}): Analista="${pt.analyst_label}" | GP="${pt.gp_label}" | Arredondamento: ${pt.rounding_factor}h`);
+    }
+  }
+
+  return parts.join("\n");
+}
+
+function fmt(value: number): string {
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

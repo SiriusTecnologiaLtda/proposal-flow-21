@@ -207,11 +207,28 @@ export default function WhatsAppConfigPage() {
           </h1>
           <p className="text-sm text-muted-foreground">Configure a integração com WhatsApp via Twilio e o modelo de IA para respostas inteligentes</p>
         </div>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading}>
-          <Save className="mr-1 h-4 w-4" /> Salvar
-        </Button>
+        {activeTab === "config" && (
+          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading}>
+            <Save className="mr-1 h-4 w-4" /> Salvar
+          </Button>
+        )}
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="config" className="gap-1.5">
+            <Bot className="h-4 w-4" /> Configurações
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-1.5">
+            <Mail className="h-4 w-4" /> Mensagens
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="messages" className="mt-4">
+          <WhatsAppMessagesViewer />
+        </TabsContent>
+
+        <TabsContent value="config" className="mt-4">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : (

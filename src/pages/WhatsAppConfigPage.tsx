@@ -35,6 +35,7 @@ export default function WhatsAppConfigPage() {
   const [maxContext, setMaxContext] = useState(20);
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["whatsapp_config"],

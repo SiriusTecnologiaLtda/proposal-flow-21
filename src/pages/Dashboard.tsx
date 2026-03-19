@@ -320,48 +320,45 @@ export default function Dashboard() {
     const memberRole = mySalesTeamMember?.role;
 
     if (memberRole === "esn") {
-      // ESN: clients where esn_id matches
       return clients.filter((c: any) => c.esn_id === mySalesTeamId);
     }
     if (memberRole === "gsn") {
-      // GSN: clients whose ESN is linked to this GSN
       const linkedEsnIds = salesTeam
         .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
         .map((m) => m.id);
       return clients.filter((c: any) => linkedEsnIds.includes(c.esn_id) || c.gsn_id === mySalesTeamId);
     }
     if (memberRole === "arquiteto") {
-      // Arquiteto: clients that had any proposal with this arquiteto
+      // Use filteredProposals so arquiteto client count respects filters
       const clientIdsWithArquiteto = new Set(
-        proposals
+        filteredProposals
           .filter((p: any) => p.arquiteto_id === mySalesTeamId)
           .map((p: any) => p.client_id)
       );
       return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
     }
     return [];
-  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, proposals, role]);
+  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, filteredProposals, role]);
 
   const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
 
-  // Penetração: % of my clients that have at least one won proposal
+  // Penetração: % of my clients that have at least one won proposal (filtered)
   const penetrationRate = useMemo(() => {
     if (myClients.length === 0) return 0;
     const clientsWithWon = new Set(
-      proposals
+      filteredProposals
         .filter((p: any) => p.status === "ganha" && myClientIds.has(p.client_id))
         .map((p: any) => p.client_id)
     );
     return (clientsWithWon.size / myClients.length) * 100;
-  }, [myClients, proposals, myClientIds]);
+  }, [myClients, filteredProposals, myClientIds]);
 
-  // Taxa de Conversão: won / total proposals (all statuses)
+  // Taxa de Conversão: won / total filtered proposals
   const conversionRate = useMemo(() => {
-    // Use all proposals visible to user (already RLS-filtered)
-    if (proposals.length === 0) return 0;
-    const won = proposals.filter((p: any) => p.status === "ganha").length;
-    return (won / proposals.length) * 100;
-  }, [proposals]);
+    if (filteredProposals.length === 0) return 0;
+    const won = filteredProposals.filter((p: any) => p.status === "ganha").length;
+    return (won / filteredProposals.length) * 100;
+  }, [filteredProposals]);
 
   // Monthly chart (unfiltered)
   const monthlyData = useMemo(() => {

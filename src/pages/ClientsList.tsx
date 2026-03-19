@@ -250,6 +250,9 @@ export default function ClientsList() {
             email: contact.email,
             phone: contact.phone || null,
             role: contact.role || null,
+            department: contact.department || "",
+            position: contact.position || "",
+            notes: contact.notes || "",
           });
           if (error) throw error;
         } else {
@@ -258,6 +261,9 @@ export default function ClientsList() {
             email: contact.email,
             phone: contact.phone || null,
             role: contact.role || null,
+            department: contact.department || "",
+            position: contact.position || "",
+            notes: contact.notes || "",
           }).eq("id", contact.id);
           if (error) throw error;
         }

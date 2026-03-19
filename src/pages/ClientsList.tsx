@@ -53,6 +53,10 @@ export default function ClientsList() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
   const [savingContacts, setSavingContacts] = useState(false);
+  const [transferClient, setTransferClient] = useState<any>(null);
+  const [transferEsnId, setTransferEsnId] = useState("");
+  const [transferSearch, setTransferSearch] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   const emptyForm = {
     name: "", code: "", cnpj: "", contact: "", email: "", phone: "",

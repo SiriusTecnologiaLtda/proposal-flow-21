@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-export type ImportEntity = "clients" | "templates" | "sales_team";
+export type ImportEntity = "clients" | "templates" | "sales_team" | "sales_targets";
 
 export interface ImportLogEntry {
   status: "ok" | "error" | "info";

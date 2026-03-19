@@ -23,6 +23,9 @@ interface Contact {
   email: string;
   phone: string | null;
   role: string | null;
+  department: string | null;
+  position: string | null;
+  notes: string | null;
   isNew?: boolean;
 }
 

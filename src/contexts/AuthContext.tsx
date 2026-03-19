@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const appRole = roleMap[member.role];
       if (!appRole) return;
 
-      await supabase.from("user_roles").insert({ user_id: userId, role: appRole });
+      await supabase.from("user_roles").insert({ user_id: userId, role: appRole as any });
     };
 
     const applySession = (nextSession: Session | null) => {

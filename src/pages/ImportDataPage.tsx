@@ -1034,6 +1034,9 @@ export default function ImportDataPage() {
           clearFn={clearSalesTeam}
           importFn={(file, clear) => runSalesTeamImport(file, clear, qc, user?.id)}
         />
+        <MetasImportCard
+          importFn={(file, year) => runSalesTargetsImport(file, year, qc, user?.id)}
+        />
       </div>
     </div>
   );

@@ -250,6 +250,12 @@ export default function Dashboard() {
     },
   });
 
+  // Filters
+  const [periodPreset, setPeriodPreset] = useState("this_year");
+  const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
+  const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
+  const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
+
   // Fetch sales targets for the selected year
   const targetYear = useMemo(() => {
     if (dateFrom) return Number(dateFrom.substring(0, 4));
@@ -267,12 +273,6 @@ export default function Dashboard() {
       return data || [];
     },
   });
-
-  // Filters
-  const [periodPreset, setPeriodPreset] = useState("this_year");
-  const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
-  const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
-  const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
 
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");

@@ -691,7 +691,7 @@ export default function ClientsList() {
 
           {viewMode === "list" && (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-6 md:gap-4">
+              <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-7 md:gap-4">
                 <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente</span>
                 <span className="text-xs font-medium text-muted-foreground">Unidade</span>
                 <span className="text-xs font-medium text-muted-foreground">ESN</span>

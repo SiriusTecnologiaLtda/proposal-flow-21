@@ -577,7 +577,6 @@ export default function ClientsList() {
                             <Badge variant="secondary" className="mt-2 text-xs">Novo</Badge>
                           )}
                         </div>
-                        </div>
                       ))}
                     </div>
                   )}

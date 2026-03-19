@@ -203,7 +203,7 @@ export default function ClientsList() {
   function addContact() {
     setContacts((prev) => [
       ...prev,
-      { id: `new-${Date.now()}`, name: "", email: "", phone: "", role: "Signatário", isNew: true },
+      { id: `new-${Date.now()}`, name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "", isNew: true },
     ]);
     setTimeout(() => {
       const el = document.getElementById("contact-name-last");

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, MessageCircle, Bot, TestTube, Phone, Loader2, CheckCircle2, XCircle, History, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { ArrowLeft, Save, MessageCircle, Bot, TestTube, Phone, Loader2, CheckCircle2, XCircle, History, ChevronDown, ChevronUp, RotateCcw, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,9 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import WhatsAppMessagesViewer from "@/components/whatsapp/WhatsAppMessagesViewer";
 
 const AI_MODELS = [
   { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rápido)", desc: "Balanceado: velocidade e qualidade" },
@@ -97,6 +99,7 @@ export default function WhatsAppConfigPage() {
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState("config");
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["whatsapp_config"],
@@ -204,11 +207,28 @@ export default function WhatsAppConfigPage() {
           </h1>
           <p className="text-sm text-muted-foreground">Configure a integração com WhatsApp via Twilio e o modelo de IA para respostas inteligentes</p>
         </div>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading}>
-          <Save className="mr-1 h-4 w-4" /> Salvar
-        </Button>
+        {activeTab === "config" && (
+          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading}>
+            <Save className="mr-1 h-4 w-4" /> Salvar
+          </Button>
+        )}
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="config" className="gap-1.5">
+            <Bot className="h-4 w-4" /> Configurações
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-1.5">
+            <Mail className="h-4 w-4" /> Mensagens
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="messages" className="mt-4">
+          <WhatsAppMessagesViewer />
+        </TabsContent>
+
+        <TabsContent value="config" className="mt-4">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : (
@@ -422,6 +442,8 @@ export default function WhatsAppConfigPage() {
           </div>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

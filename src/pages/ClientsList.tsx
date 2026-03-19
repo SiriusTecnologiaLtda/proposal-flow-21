@@ -637,11 +637,10 @@ export default function ClientsList() {
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  onClick={() => openClient(client)}
                   className="group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex items-start gap-3 min-w-0 flex-1" onClick={() => openClient(client)}>
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Building2 className="h-4 w-4" />
                       </div>
@@ -650,8 +649,17 @@ export default function ClientsList() {
                         <p className="text-xs text-muted-foreground mt-0.5">{client.code} · {client.cnpj}</p>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                      title="Transferir ESN"
+                      onClick={(e) => { e.stopPropagation(); setTransferClient(client); setTransferEsnId(""); setTransferSearch(""); }}
+                    >
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <div className="mt-3 space-y-1.5">
+                  <div className="mt-3 space-y-1.5" onClick={() => openClient(client)}>
                     {client.email && (
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{client.email}</span>
@@ -662,8 +670,13 @@ export default function ClientsList() {
                         <Phone className="h-3 w-3 shrink-0" /><span className="truncate">{client.phone}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{getUnitName(client)}</span>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{getUnitName(client)}</span>
+                      </div>
+                      {client.esn && (
+                        <span className="text-xs text-muted-foreground truncate ml-2">ESN: {client.esn.code}</span>
+                      )}
                     </div>
                   </div>
                 </div>

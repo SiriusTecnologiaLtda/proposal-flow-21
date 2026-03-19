@@ -246,74 +246,65 @@ export function useProposal(id: string | undefined) {
 async function insertHierarchicalScopeItems(scopeItems: any[], proposalId: string) {
   if (!scopeItems || scopeItems.length === 0) return;
 
-  // First insert parents (parent_id === null)
-  const parents = scopeItems.filter((i: any) => !i.parent_id && !i._parent_local_id);
-  const children = scopeItems.filter((i: any) => i._parent_local_id);
+  const localIdToRealId = new Map<string, string>();
 
-  // Insert parents and get their real IDs
-  const parentRows = parents.map((item: any) => ({
-    proposal_id: proposalId,
-    description: item.description,
-    included: item.included,
-    hours: item.hours,
-    phase: item.phase || 1,
-    notes: item.notes || "",
-    sort_order: item.sort_order,
-    template_id: item.template_id || null,
-    parent_id: null,
-  }));
+  const rows = scopeItems.map((item: any) => {
+    const realId = item.id?.startsWith?.("local_") ? crypto.randomUUID() : item.id || crypto.randomUUID();
+    localIdToRealId.set(item._local_id || item.id, realId);
+    return {
+      id: realId,
+      proposal_id: proposalId,
+      description: item.description,
+      included: item.included,
+      hours: item.hours,
+      phase: item.phase || 1,
+      notes: item.notes || "",
+      sort_order: item.sort_order,
+      template_id: item.template_id || null,
+      parent_id: item._parent_local_id ? null : item.parent_id || null,
+    };
+  });
 
-  if (parentRows.length > 0) {
-    const { data: insertedParents, error: parentError } = await supabase
-      .from("proposal_scope_items")
-      .insert(parentRows)
-      .select();
-    if (parentError) throw parentError;
+  const normalizedRows = rows.map((row: any, index: number) => {
+    const source = scopeItems[index];
+    return {
+      ...row,
+      parent_id: source._parent_local_id
+        ? localIdToRealId.get(source._parent_local_id) || null
+        : row.parent_id,
+    };
+  });
 
-    // Map local IDs to real IDs for children
-    const localIdToRealId = new Map<string, string>();
-    parents.forEach((p: any, i: number) => {
-      if (insertedParents && insertedParents[i]) {
-        localIdToRealId.set(p._local_id, insertedParents[i].id);
-      }
-    });
-
-    // Insert children with real parent IDs
-    if (children.length > 0) {
-      const childRows = children.map((item: any) => ({
-        proposal_id: proposalId,
-        description: item.description,
-        included: item.included,
-        hours: item.hours,
-        phase: item.phase || 1,
-        notes: item.notes || "",
-        sort_order: item.sort_order,
-        template_id: item.template_id || null,
-        parent_id: localIdToRealId.get(item._parent_local_id) || null,
-      }));
-      const { error: childError } = await supabase.from("proposal_scope_items").insert(childRows);
-      if (childError) throw childError;
-    }
-  }
+  const { error } = await supabase.from("proposal_scope_items").insert(normalizedRows);
+  if (error) throw error;
 }
 
 export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (proposal: any) => {
-      const { scopeItems, payments, ...proposalData } = proposal;
-      const { data, error } = await supabase.from("proposals").insert(proposalData).select().single();
+      const { scopeItems, payments, id, ...proposalData } = proposal;
+      const proposalId = id || crypto.randomUUID();
+
+      const { error } = await supabase.from("proposals").insert({
+        ...proposalData,
+        id: proposalId,
+      });
       if (error) throw error;
 
-      await insertHierarchicalScopeItems(scopeItems, data.id);
+      await insertHierarchicalScopeItems(scopeItems, proposalId);
 
       if (payments && payments.length > 0) {
-        const paymentRows = payments.map((p: any) => ({ ...p, proposal_id: data.id }));
+        const paymentRows = payments.map((p: any) => ({
+          id: p.id || crypto.randomUUID(),
+          ...p,
+          proposal_id: proposalId,
+        }));
         const { error: payError } = await supabase.from("payment_conditions").insert(paymentRows);
         if (payError) throw payError;
       }
 
-      return data;
+      return { id: proposalId };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["proposals"] }),
   });

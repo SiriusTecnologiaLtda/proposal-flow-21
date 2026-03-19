@@ -776,13 +776,14 @@ export default function ProposalCreate() {
     };
 
     try {
-      // Refresh session to ensure valid JWT before saving
       const { data: { session: freshSession } } = await supabase.auth.getSession();
       if (!freshSession?.user) {
         toast({ title: "Sessão expirada", description: "Faça login novamente para salvar.", variant: "destructive" });
         return;
       }
+
       const authenticatedUserId = freshSession.user.id;
+      const generatedProposalId = !isEditing ? crypto.randomUUID() : undefined;
       const logPayload = {
         number: proposalNumber,
         type: proposalType,
@@ -798,10 +799,12 @@ export default function ProposalCreate() {
 
       await writeProposalLog({
         stage: isEditing ? "save_started" : "create_started",
+        proposalId: generatedProposalId,
         payload: logPayload,
         metadata: {
           authenticated_user_id: authenticatedUserId,
           context_user_id: user?.id || null,
+          using_client_generated_ids: !isEditing,
         },
       });
 
@@ -812,8 +815,12 @@ export default function ProposalCreate() {
         await writeProposalLog({ stage: "save_success", proposalId: savedId, payload: logPayload });
         toast({ title: "Proposta atualizada!" });
       } else {
-        const result = await createProposal.mutateAsync({ ...proposalData, created_by: authenticatedUserId });
-        savedId = (result as any)?.id;
+        const result = await createProposal.mutateAsync({
+          ...proposalData,
+          id: generatedProposalId,
+          created_by: authenticatedUserId,
+        });
+        savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }

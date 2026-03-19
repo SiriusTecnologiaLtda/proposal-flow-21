@@ -284,6 +284,33 @@ export default function ClientsList() {
   const getUnitName = (c: any) => c.unit_info?.name || "—";
   const getEsnName = (c: any) => c.esn?.name || "—";
 
+  async function handleTransferClient() {
+    if (!transferClient || !transferEsnId) return;
+    setTransferring(true);
+    try {
+      const { error } = await supabase.from("clients").update({ esn_id: transferEsnId }).eq("id", transferClient.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast({ title: "Cliente transferido com sucesso!" });
+      setTransferClient(null);
+      setTransferEsnId("");
+      setTransferSearch("");
+    } catch (err: any) {
+      toast({ title: "Erro ao transferir", description: err.message, variant: "destructive" });
+    } finally {
+      setTransferring(false);
+    }
+  }
+
+  const filteredEsnForTransfer = useMemo(() => {
+    return esnMembers.filter((m) => {
+      if (transferClient && m.id === transferClient.esn_id) return false;
+      if (!transferSearch) return true;
+      const s = transferSearch.toLowerCase();
+      return m.name.toLowerCase().includes(s) || m.code.toLowerCase().includes(s) || (m.email?.toLowerCase().includes(s));
+    });
+  }, [esnMembers, transferSearch, transferClient]);
+
   const showDetail = selectedClientId || isCreating;
 
   return (

@@ -100,6 +100,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />
+          <FeatureRequestsPanel />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">

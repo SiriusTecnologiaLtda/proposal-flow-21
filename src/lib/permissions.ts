@@ -17,6 +17,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   "cadastros/tipos-proposta": "Cadastros → Tipos de Proposta",
   templates: "Templates de Escopo",
   configuracoes: "Configurações",
+  "configuracoes/logs-propostas": "Configurações → Logs de Propostas",
 };
 
 export const ALL_RESOURCES = Object.keys(RESOURCE_LABELS);

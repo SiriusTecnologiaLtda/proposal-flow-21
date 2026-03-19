@@ -88,6 +88,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/importar" element={<GuardedRoute path="/configuracoes"><ImportDataPage /></GuardedRoute>} />
         <Route path="/configuracoes/tae" element={<GuardedRoute path="/configuracoes"><TaeConfigPage /></GuardedRoute>} />
         <Route path="/configuracoes/whatsapp" element={<GuardedRoute path="/configuracoes"><WhatsAppConfigPage /></GuardedRoute>} />
+        <Route path="/configuracoes/logs-propostas" element={<GuardedRoute path="/configuracoes/logs-propostas"><ProposalLogsPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/permissoes" element={<GuardedRoute path="/configuracoes"><RolePermissionsPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/cadastrados" element={<GuardedRoute path="/configuracoes"><RegisteredUsersPage /></GuardedRoute>} />

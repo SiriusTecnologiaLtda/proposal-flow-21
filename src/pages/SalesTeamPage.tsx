@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft } from "lucide-react";
+import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft, Percent } from "lucide-react";
+import BatchCommissionDialog from "@/components/sales-team/BatchCommissionDialog";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
 import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";

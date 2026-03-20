@@ -653,12 +653,17 @@ export default function ProposalsList() {
                               <FileCheck className="mr-2 h-3.5 w-3.5" />
                               Gerar MIT-065
                             </DropdownMenuItem>
-                            {p.arquiteto_id && (
+                            {p.arquiteto_id && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
-                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Ajuste ao Arquiteto
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Enviar para Eng. Valor
                                 </DropdownMenuItem>
+                              </>
+                            )}
+                            {isArquiteto && p.esn_id && (
+                              <>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "notificar_esn")}>
                                   <Mail className="mr-2 h-3.5 w-3.5" />Notificar ESN (Ajuste Concluído)
                                 </DropdownMenuItem>

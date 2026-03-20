@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canAccessRoute } from "@/lib/permissions";
 import AppLayout from "@/components/AppLayout";
+import UnauthorizedScreen from "@/components/UnauthorizedScreen";
 import Dashboard from "@/pages/Dashboard";
 import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";

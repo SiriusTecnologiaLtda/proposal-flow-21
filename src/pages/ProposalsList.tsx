@@ -78,6 +78,7 @@ export default function ProposalsList() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const isConsulta = userRole === "consulta";
+  const isArquiteto = userRole === "arquiteto";
 
   // For consulta role: load allowed unit IDs
   const { data: userUnitIds = [] } = useQuery({
@@ -232,6 +233,7 @@ export default function ProposalsList() {
             proposalId: notifProposal.id,
             type: notifType,
             message: notifMessage,
+            proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
           }),
         }
       );
@@ -651,12 +653,17 @@ export default function ProposalsList() {
                               <FileCheck className="mr-2 h-3.5 w-3.5" />
                               Gerar MIT-065
                             </DropdownMenuItem>
-                            {p.arquiteto_id && (
+                            {p.arquiteto_id && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
-                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Ajuste ao Arquiteto
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Enviar para Eng. Valor
                                 </DropdownMenuItem>
+                              </>
+                            )}
+                            {isArquiteto && p.esn_id && (
+                              <>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "notificar_esn")}>
                                   <Mail className="mr-2 h-3.5 w-3.5" />Notificar ESN (Ajuste Concluído)
                                 </DropdownMenuItem>
@@ -935,7 +942,7 @@ export default function ProposalsList() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {notifType === "solicitar_ajuste" ? (
-                  <><MessageSquare className="h-5 w-5" /> Solicitar Ajuste ao Arquiteto</>
+                  <><MessageSquare className="h-5 w-5" /> Enviar para Eng. Valor</>
                 ) : (
                   <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
                 )}
@@ -980,7 +987,7 @@ export default function ProposalsList() {
                     value={notifMessage}
                     onChange={(e) => setNotifMessage(e.target.value)}
                     placeholder={notifType === "solicitar_ajuste"
-                      ? "Descreva o que precisa ser ajustado no escopo..."
+                      ? "Descreva o resumo e observações para a engenharia de valor..."
                       : "Descreva o que foi ajustado e observações relevantes..."}
                     rows={4}
                     className="text-sm"

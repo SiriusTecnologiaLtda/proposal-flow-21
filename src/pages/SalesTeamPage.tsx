@@ -115,9 +115,14 @@ export default function SalesTeamPage() {
           <h1 className="text-2xl font-semibold text-foreground">Time de Vendas</h1>
           <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados</p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />Novo Membro
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBatchCommissionOpen(true)}>
+            <Percent className="mr-2 h-4 w-4" />Comissão em Lote
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" />Novo Membro
+          </Button>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

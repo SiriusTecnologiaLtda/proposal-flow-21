@@ -777,43 +777,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Proposals */}
-          <Card>
-            <CardHeader className="border-b border-border pb-3">
-              <CardTitle className="text-sm font-semibold">Propostas Recentes</CardTitle>
-            </CardHeader>
-            <div className="divide-y divide-border">
-              {proposals.slice(0, 10).map((proposal: any) => {
-                const status = statusMap[proposal.status] || statusMap.pendente;
-                const clientName = proposal.clients?.name || "—";
-                return (
-                  <Link
-                    key={proposal.id}
-                    to={`/propostas/${proposal.id}`}
-                    className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <FileText className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{proposal.number}</p>
-                        <p className="text-xs text-muted-foreground">{clientName}</p>
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                      {status.label}
-                    </span>
-                  </Link>
-                );
-              })}
-              {proposals.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  Nenhuma proposta ainda. Crie sua primeira proposta!
-                </div>
-              )}
-            </div>
-          </Card>
+          {/* Top 10 Proposals */}
+          <Top10Proposals proposals={filteredProposals} computeNetValue={computeNetValue} statusMap={statusMap} />
         </TabsContent>
 
         {/* ═══ TAB: Resultado ═══ */}

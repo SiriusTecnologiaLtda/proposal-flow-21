@@ -749,11 +749,21 @@ export default function ProposalCreate() {
       amount: p.amount,
     }));
 
+    // When editing, never downgrade status. If not generating, keep existing status.
+    const existingStatus = existingProposal?.status;
+    const effectiveStatus = isEditing && status === "pendente" && existingStatus && existingStatus !== "pendente"
+      ? existingStatus
+      : status;
+
+    // Set needs_regen flag: true when editing an already-generated proposal without regenerating
+    const needsRegen = isEditing && status === "pendente" && existingStatus && existingStatus !== "pendente";
+
     const proposalData = {
       number: proposalNumber,
       type: proposalType as any,
       product,
-      status,
+      status: effectiveStatus,
+      needs_regen: needsRegen ? true : (status === "proposta_gerada" ? false : undefined),
       scope_type: scopeType as any,
       client_id: clientId,
       esn_id: esnId || null,
@@ -823,7 +833,7 @@ export default function ProposalCreate() {
         });
         savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
-        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
+        toast({ title: effectiveStatus === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
 
       // Regenerate commission projections
@@ -835,7 +845,7 @@ export default function ProposalCreate() {
       navigate("/propostas");
 
       // If "Gerar Proposta" was checked, trigger document generation in background
-      if (status === "proposta_gerada" && savedId) {
+      if (effectiveStatus === "proposta_gerada" && status === "proposta_gerada" && savedId) {
         try {
           await writeProposalLog({ stage: "document_generation_started", proposalId: savedId, payload: { proposal_id: savedId } });
           const session = (await supabase.auth.getSession()).data.session;

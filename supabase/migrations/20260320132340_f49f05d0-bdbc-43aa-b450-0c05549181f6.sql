@@ -1,0 +1,1 @@
+UPDATE public.proposals SET status = 'proposta_gerada', needs_regen = true WHERE status = 'pendente' AND id IN (SELECT DISTINCT proposal_id FROM public.proposal_documents);

@@ -1,0 +1,1 @@
+ALTER TABLE public.proposals ADD COLUMN needs_regen boolean NOT NULL DEFAULT false;

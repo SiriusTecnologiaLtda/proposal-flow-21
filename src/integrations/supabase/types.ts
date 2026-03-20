@@ -1032,6 +1032,7 @@ export type Database = {
           gsn_id: string | null
           hourly_rate: number
           id: string
+          needs_regen: boolean
           negotiation: string | null
           num_companies: number
           number: string
@@ -1062,6 +1063,7 @@ export type Database = {
           gsn_id?: string | null
           hourly_rate?: number
           id?: string
+          needs_regen?: boolean
           negotiation?: string | null
           num_companies?: number
           number: string
@@ -1092,6 +1094,7 @@ export type Database = {
           gsn_id?: string | null
           hourly_rate?: number
           id?: string
+          needs_regen?: boolean
           negotiation?: string | null
           num_companies?: number
           number?: string

@@ -762,11 +762,12 @@ export default function Dashboard() {
         {/* ═══ TAB: Resultado ═══ */}
         <TabsContent value="resultado" className="space-y-6">
           {/* KPI summary */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <KpiCard icon={Target} label="Meta Total" value={formatCurrency(totalMeta)} subValue={`Ano ${targetYear}`} colorClass="text-primary" bgClass="bg-primary/15" delay={0} />
             <KpiCard icon={TrendingUp} label="Realizado" value={formatCurrency(totalRealizado)} subValue="propostas ganhas" colorClass="text-success" bgClass="bg-success/15" delay={0.05} />
             <KpiCard icon={Trophy} label="Atingimento" value={`${atingimentoPercent.toFixed(1)}%`} subValue="realizado / meta" colorClass={atingimentoPercent >= 100 ? "text-success" : "text-warning"} bgClass={atingimentoPercent >= 100 ? "bg-success/15" : "bg-warning/15"} delay={0.1} />
-            <KpiCard icon={BarChart3} label="Previsto" value={formatCurrency(totalPrevisto)} subValue="ganhas + pipeline ativo" colorClass="text-primary" bgClass="bg-primary/15" delay={0.15} />
+            <KpiCard icon={TrendingDown} label="GAP" value={formatCurrency(totalGap)} subValue="meta − realizado" colorClass={totalGap <= 0 ? "text-success" : "text-destructive"} bgClass={totalGap <= 0 ? "bg-success/15" : "bg-destructive/15"} delay={0.15} />
+            <KpiCard icon={BarChart3} label="Previsto" value={formatCurrency(totalPrevisto)} subValue="ganhas + pipeline ativo" colorClass="text-primary" bgClass="bg-primary/15" delay={0.2} />
           </div>
 
           {/* Meta vs Previsto Chart */}

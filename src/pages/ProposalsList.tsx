@@ -500,6 +500,16 @@ export default function ProposalsList() {
                       : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
+                    {(p as any).needs_regen && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-warning/15 text-warning">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Proposta editada — documento precisa ser regerado</TooltipContent>
+                      </Tooltip>
+                    )}
                     {p.status === "ganha" && (() => {
                       const sigs = (p as any).proposal_signatures || [];
                       const hasTae = sigs.some((s: any) => s.status === "completed" && (s.tae_publication_id || s.tae_document_id));

@@ -70,11 +70,23 @@ export default function ProposalsList() {
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
   const { user } = useAuth();
+  const { role: userRole } = useUserRole();
   const queryClient = useQueryClient();
   const deleteProposal = useDeleteProposal();
   const updateStatus = useUpdateProposalStatus();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isConsulta = userRole === "consulta";
+
+  // For consulta role: load allowed unit IDs
+  const { data: userUnitIds = [] } = useQuery({
+    queryKey: ["my-unit-access", user?.id],
+    enabled: isConsulta && !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase.from("user_unit_access").select("unit_id").eq("user_id", user!.id);
+      return (data || []).map((r: any) => r.unit_id as string);
+    },
+  });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);

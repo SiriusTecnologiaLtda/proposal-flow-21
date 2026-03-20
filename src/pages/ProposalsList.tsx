@@ -610,7 +610,7 @@ export default function ProposalsList() {
                     </Tooltip>
                   </div>
                   <div className="text-right">
-                    <DropdownMenu>
+                    {!isConsulta && <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />

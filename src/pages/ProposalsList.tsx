@@ -725,6 +725,14 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                             </DropdownMenuItem>
+                            {!isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openCraDialog(p)}>
+                                  <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </>
                         ) : (
                           <>

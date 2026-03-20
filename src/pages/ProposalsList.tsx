@@ -942,7 +942,7 @@ export default function ProposalsList() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {notifType === "solicitar_ajuste" ? (
-                  <><MessageSquare className="h-5 w-5" /> Solicitar Ajuste ao Arquiteto</>
+                  <><MessageSquare className="h-5 w-5" /> Enviar para Eng. Valor</>
                 ) : (
                   <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
                 )}

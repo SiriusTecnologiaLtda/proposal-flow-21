@@ -191,6 +191,25 @@ Deno.serve(async (req) => {
     const proposalNumber = proposal.number;
     const proposalProduct = proposal.product;
 
+    // Build scope summary HTML
+    const macroScope = ((proposal as any).proposal_macro_scope || [])
+      .sort((a: any, b: any) => a.sort_order - b.sort_order);
+    let scopeHtml = "";
+    if (macroScope.length > 0) {
+      scopeHtml = `
+        <div style="margin: 16px 0;">
+          <strong style="color: #555;">Escopo Resumido:</strong>
+          <ul style="margin: 8px 0; padding-left: 20px; color: #333;">
+            ${macroScope.map((s: any) => `<li style="margin: 4px 0;">${s.scope}${s.description ? ` — <span style="color: #666;">${s.description}</span>` : ""}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+    }
+
+    const linkHtml = proposalLink
+      ? `<p style="margin: 16px 0;"><a href="${proposalLink}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Proposta na Plataforma</a></p>`
+      : "";
+
     if (type === "solicitar_ajuste") {
       const arq = (proposal as any).arquiteto;
       if (!arq?.email) {
@@ -201,12 +220,12 @@ Deno.serve(async (req) => {
       }
       recipientEmail = arq.email;
       recipientName = arq.name;
-      subject = `[Proposta ${proposalNumber}] Solicitação de Ajuste no Escopo`;
+      subject = `[Proposta ${proposalNumber}] Envio para Engenharia de Valor`;
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #1a1a2e;">Solicitação de Ajuste no Escopo</h2>
+          <h2 style="color: #1a1a2e;">Envio para Engenharia de Valor</h2>
           <p>Olá <strong>${recipientName}</strong>,</p>
-          <p><strong>${senderName}</strong> solicitou que você revise e ajuste o escopo da seguinte proposta:</p>
+          <p><strong>${senderName}</strong> enviou a seguinte proposta para análise de engenharia de valor:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
             <tr style="border-bottom: 1px solid #e0e0e0;">
               <td style="padding: 8px; font-weight: bold; color: #555;">Proposta</td>
@@ -221,7 +240,9 @@ Deno.serve(async (req) => {
               <td style="padding: 8px;">${proposalProduct}</td>
             </tr>
           </table>
+          ${scopeHtml}
           ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+          ${linkHtml}
           <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de propostas.</p>
         </div>
       `;
@@ -255,7 +276,9 @@ Deno.serve(async (req) => {
               <td style="padding: 8px;">${proposalProduct}</td>
             </tr>
           </table>
-          ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem do Arquiteto:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+          ${scopeHtml}
+          ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Comentários do Arquiteto:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+          ${linkHtml}
           <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de propostas.</p>
         </div>
       `;

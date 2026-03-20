@@ -447,12 +447,14 @@ export default function ProposalsList() {
         </div>
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-9 md:gap-4">
+          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
             <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
             <span className="text-xs font-medium text-muted-foreground">Descrição</span>
             <span className="text-xs font-medium text-muted-foreground">Tipo</span>
             <span className="text-xs font-medium text-muted-foreground">Produto</span>
+            <span className="text-xs font-medium text-muted-foreground">ESN</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Valor Líquido</span>
+            <span className="text-xs font-medium text-muted-foreground text-center">Prev. Fechamento</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
             <span className="text-xs font-medium text-muted-foreground text-center">Docs</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
@@ -468,7 +470,7 @@ export default function ProposalsList() {
               return (
                 <div
                   key={p.id}
-                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-9 md:items-center md:gap-4 ${locked ? "opacity-60" : ""}`}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-11 md:items-center md:gap-4 ${locked ? "opacity-60" : ""}`}
                 >
                   <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -482,8 +484,14 @@ export default function ProposalsList() {
                   <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
                   <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
                   <p className="text-sm text-foreground">{p.product}</p>
+                  <p className="text-sm text-muted-foreground truncate">{(p as any).sales_team?.name || "—"}</p>
                   <p className="text-sm font-medium text-foreground text-right">
                     {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {p.expected_close_date
+                      ? new Date(p.expected_close_date + "T00:00:00").toLocaleDateString("pt-BR")
+                      : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
                     {p.status === "ganha" && (() => {

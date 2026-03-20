@@ -333,6 +333,14 @@ export default function ProposalsList() {
   }
 
   const filtered = proposals.filter((p) => {
+    // Consulta role: only ganha proposals from allowed units
+    if (isConsulta) {
+      if (p.status !== "ganha") return false;
+      // Check if proposal's ESN belongs to an allowed unit
+      const esnUnitId = (p as any).sales_team?.unit_id;
+      if (esnUnitId && userUnitIds.length > 0 && !userUnitIds.includes(esnUnitId)) return false;
+      if (!esnUnitId && userUnitIds.length > 0) return false;
+    }
     const q = search.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";

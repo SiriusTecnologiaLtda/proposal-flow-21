@@ -78,6 +78,7 @@ export default function ProposalsList() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const isConsulta = userRole === "consulta";
+  const isArquiteto = userRole === "arquiteto";
 
   // For consulta role: load allowed unit IDs
   const { data: userUnitIds = [] } = useQuery({

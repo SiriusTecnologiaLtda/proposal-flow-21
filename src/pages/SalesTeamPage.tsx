@@ -261,6 +261,12 @@ export default function SalesTeamPage() {
           onOpenChange={(v) => !v && setTransferGsnMember(null)}
         />
       )}
+      <BatchCommissionDialog
+        open={batchCommissionOpen}
+        onOpenChange={setBatchCommissionOpen}
+        esnMembers={salesTeam.filter((m) => m.role === "esn")}
+        units={units}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft } from "lucide-react";
+import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft, Percent } from "lucide-react";
+import BatchCommissionDialog from "@/components/sales-team/BatchCommissionDialog";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
 import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
@@ -24,7 +25,7 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", role: "", unit_id: "", linked_gsn_id: "" };
+const emptyForm = { name: "", code: "", email: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "3" };
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
@@ -37,6 +38,7 @@ export default function SalesTeamPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [transferMember, setTransferMember] = useState<any>(null);
   const [transferGsnMember, setTransferGsnMember] = useState<any>(null);
+  const [batchCommissionOpen, setBatchCommissionOpen] = useState(false);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
@@ -55,6 +57,7 @@ export default function SalesTeamPage() {
       role: member.role || "",
       unit_id: member.unit_id || "",
       linked_gsn_id: member.linked_gsn_id || "",
+      commission_pct: String((member as any).commission_pct ?? 3),
     });
     setDialogOpen(true);
   };
@@ -65,13 +68,14 @@ export default function SalesTeamPage() {
       return;
     }
     setSaving(true);
-    const payload = {
+    const payload: any = {
       name: form.name,
       code: form.code,
       email: form.email || null,
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
+      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : 0,
     };
     const { error } = editingId
       ? await supabase.from("sales_team").update(payload).eq("id", editingId)
@@ -111,9 +115,14 @@ export default function SalesTeamPage() {
           <h1 className="text-2xl font-semibold text-foreground">Time de Vendas</h1>
           <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados</p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />Novo Membro
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBatchCommissionOpen(true)}>
+            <Percent className="mr-2 h-4 w-4" />Comissão em Lote
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" />Novo Membro
+          </Button>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -156,15 +165,21 @@ export default function SalesTeamPage() {
               </Select>
             </div>
             {form.role === "esn" && (
-              <div className="grid gap-1">
-                <Label className="text-xs">GSN vinculado</Label>
-                <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                  <SelectContent>
-                    {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="grid gap-1">
+                  <Label className="text-xs">GSN vinculado</Label>
+                  <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
+                    <SelectContent>
+                      {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">% Comissão</Label>
+                  <Input type="number" step="0.5" min="0" max="100" placeholder="3" value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
+                </div>
+              </>
             )}
             <Button className="mt-2" onClick={handleSave} disabled={saving}>
               {saving ? "Salvando..." : "Salvar"}
@@ -220,6 +235,7 @@ export default function SalesTeamPage() {
                       {member.email && <p>📧 {member.email}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                       {unitName && <p>🏢 {unitName}</p>}
+                      {role === "esn" && <p>💰 Comissão: {(member as any).commission_pct ?? 3}%</p>}
                     </div>
                   </div>
                 );
@@ -245,6 +261,12 @@ export default function SalesTeamPage() {
           onOpenChange={(v) => !v && setTransferGsnMember(null)}
         />
       )}
+      <BatchCommissionDialog
+        open={batchCommissionOpen}
+        onOpenChange={setBatchCommissionOpen}
+        esnMembers={salesTeam.filter((m) => m.role === "esn")}
+        units={units}
+      />
     </div>
   );
 }

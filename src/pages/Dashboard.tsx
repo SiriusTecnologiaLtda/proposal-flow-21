@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
-  BarChart3, Percent, UserCheck, Trophy,
+  BarChart3, Percent, UserCheck, Trophy, DollarSign,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -274,6 +274,19 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch commission projections
+  const { data: commissionProjections = [] } = useQuery({
+    queryKey: ["commission-projections-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commission_projections")
+        .select("*")
+        .neq("proposal_status", "cancelada");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
 
@@ -465,6 +478,50 @@ export default function Dashboard() {
   const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
   const totalGap = totalMeta - totalRealizado;
+
+  // ─── Commission chart data ────────────────────────────────────
+  const commissionChartData = useMemo(() => {
+    const today = new Date().toISOString().substring(0, 10);
+    const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = MONTH_LABELS.map((label, i) => ({
+      label,
+      month: i + 1,
+      realizada: 0,
+      prevista: 0,
+    }));
+
+    // Filter by selected ESNs
+    const relevant = selectedEsnIds.length > 0
+      ? (commissionProjections as any[]).filter((cp: any) => selectedEsnIds.includes(cp.esn_id))
+      : (commissionProjections as any[]);
+
+    for (const cp of relevant) {
+      const dueDate = cp.due_date || "";
+      const year = Number(dueDate.substring(0, 4));
+      const month = Number(dueDate.substring(5, 7));
+      if (year !== targetYear || month < 1 || month > 12) continue;
+
+      const commValue = Number(cp.commission_value) || 0;
+      if (dueDate <= today) {
+        // Past: only ganha
+        if (cp.proposal_status === "ganha") {
+          months[month - 1].realizada += commValue;
+        }
+      } else {
+        // Future: ganha + open (not cancelada - already filtered out)
+        if (cp.proposal_status === "ganha") {
+          months[month - 1].realizada += commValue;
+        } else {
+          months[month - 1].prevista += commValue;
+        }
+      }
+    }
+
+    return months;
+  }, [commissionProjections, selectedEsnIds, targetYear]);
+
+  const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
+  const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
     (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
@@ -851,6 +908,43 @@ export default function Dashboard() {
               delay={0.2}
             />
           </div>
+
+          {/* Commission Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Comissões Previstas — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Realizada</p>
+                  <p className="text-lg font-bold text-success">{formatCurrency(totalCommRealizada)}</p>
+                  <p className="text-[11px] text-muted-foreground">propostas ganhas</p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Prevista</p>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(totalCommPrevista)}</p>
+                  <p className="text-[11px] text-muted-foreground">propostas em aberto</p>
+                </div>
+              </div>
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={commissionChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="realizada" name="Realizada (Ganhas)" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="prevista" name="Prevista (Em Aberto)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.6} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

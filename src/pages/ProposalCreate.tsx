@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
+import { regenerateCommissionProjections } from "@/lib/commissionProjections";
 
 // Two-level scope item for proposal
 interface ScopeChild {
@@ -823,6 +824,11 @@ export default function ProposalCreate() {
         savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
+      }
+
+      // Regenerate commission projections
+      if (savedId) {
+        regenerateCommissionProjections(savedId).catch(() => {});
       }
 
       // Navigate to list immediately after save

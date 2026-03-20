@@ -371,6 +371,13 @@ export function useUpdateProposalStatus() {
       }
       const { data, error } = await supabase.from("proposals").update(updates).eq("id", id).select().single();
       if (error) throw error;
+
+      // Update commission projection status
+      await supabase
+        .from("commission_projections")
+        .update({ proposal_status: status } as any)
+        .eq("proposal_id", id);
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["proposals"] }),

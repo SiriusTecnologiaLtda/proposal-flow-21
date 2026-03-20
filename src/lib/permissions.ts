@@ -53,4 +53,5 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   vendedor: "Vendedor (ESN)",
   gsn: "GSN",
   arquiteto: "Arquiteto",
+  consulta: "Consulta Propostas",
 };

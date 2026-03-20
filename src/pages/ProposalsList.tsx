@@ -987,7 +987,7 @@ export default function ProposalsList() {
                     value={notifMessage}
                     onChange={(e) => setNotifMessage(e.target.value)}
                     placeholder={notifType === "solicitar_ajuste"
-                      ? "Descreva o que precisa ser ajustado no escopo..."
+                      ? "Descreva o resumo e observações para a engenharia de valor..."
                       : "Descreva o que foi ajustado e observações relevantes..."}
                     rows={4}
                     className="text-sm"

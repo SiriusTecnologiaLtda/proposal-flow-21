@@ -43,6 +43,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const [signatories, setSignatories] = useState<Signatory[]>([]);
   const [sending, setSending] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [loadingUnitContacts, setLoadingUnitContacts] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pendingScrollId, setPendingScrollId] = useState<string | null>(null);
 

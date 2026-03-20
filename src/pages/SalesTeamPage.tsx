@@ -54,6 +54,7 @@ export default function SalesTeamPage() {
       name: member.name || "",
       code: member.code || "",
       email: member.email || "",
+      phone: (member as any).phone || "",
       role: member.role || "",
       unit_id: member.unit_id || "",
       linked_gsn_id: member.linked_gsn_id || "",

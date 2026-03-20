@@ -165,11 +165,11 @@ Deno.serve(async (req) => {
     const senderName = senderProfile.display_name || user.email || "Usuário";
     const senderEmail = senderProfile.gmail_sender_email || user.email || "noreply@example.com";
 
-    // Fetch proposal
+    // Fetch proposal with scope
     const { data: proposal, error: propError } = await supabase
       .from("proposals")
       .select(
-        "*, clients(name, cnpj), esn:sales_team!proposals_esn_id_fkey(id, name, email), arquiteto:sales_team!proposals_arquiteto_id_fkey(id, name, email)"
+        "*, clients(name, cnpj), esn:sales_team!proposals_esn_id_fkey(id, name, email), arquiteto:sales_team!proposals_arquiteto_id_fkey(id, name, email), proposal_macro_scope(scope, description, phase, sort_order)"
       )
       .eq("id", proposalId)
       .single();

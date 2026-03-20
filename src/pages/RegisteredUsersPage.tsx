@@ -159,9 +159,8 @@ export default function RegisteredUsersPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="w-[200px]">Perfil de Acesso</TableHead>
-                  <TableHead className="w-[70px] text-center">CRA</TableHead>
                   <TableHead>Permissões</TableHead>
-                  <TableHead className="w-[50px]" />
+                  <TableHead className="w-[100px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,12 +197,6 @@ export default function RegisteredUsersPage() {
                           {saving === profile.user_id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={!!(profile as any).is_cra}
-                          onCheckedChange={(checked) => handleCraToggle(profile.user_id, checked)}
-                        />
-                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {currentRole === "admin" ? (
@@ -216,6 +209,9 @@ export default function RegisteredUsersPage() {
                                   {userUnits.length} unidade{userUnits.length > 1 ? "s" : ""}
                                 </Badge>
                               )}
+                              {!!(profile as any).is_cra && (
+                                <Badge variant="default" className="text-xs">CRA</Badge>
+                              )}
                             </>
                           ) : userResources.length > 0 ? (
                             userResources.map((r: string) => (
@@ -227,11 +223,20 @@ export default function RegisteredUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {currentRole === "consulta" && (
-                          <Button variant="ghost" size="icon" onClick={() => setConfigUserId(profile.user_id)} title="Configurar unidades">
-                            <Settings2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {currentRole === "consulta" && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => setConfigUserId(profile.user_id)} title="Configurar unidades">
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
+                              <Switch
+                                checked={!!(profile as any).is_cra}
+                                onCheckedChange={(checked) => handleCraToggle(profile.user_id, checked)}
+                                title="Marcar como CRA"
+                              />
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

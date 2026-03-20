@@ -307,6 +307,9 @@ export default function ProposalsList() {
 
       if (response.ok && data?.docUrl) {
         setConsoleDocUrl(data.docUrl);
+        // Clear needs_regen flag after successful generation
+        await supabase.from("proposals").update({ needs_regen: false } as any).eq("id", proposalId);
+        queryClient.invalidateQueries({ queryKey: ["proposals"] });
       } else if (!data?.logs) {
         setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);
       }

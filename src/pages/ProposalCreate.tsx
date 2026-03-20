@@ -1766,7 +1766,11 @@ export default function ProposalCreate() {
           <ArrowLeft className="mr-2 h-4 w-4" />Anterior
         </Button>
         <div className="flex items-center gap-3">
-          {currentStep === 4 ? (
+          {isConsulta ? (
+            <Button variant="outline" onClick={() => navigate("/propostas")}>
+              Voltar para lista
+            </Button>
+          ) : currentStep === 4 ? (
             <>
               <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                 <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />

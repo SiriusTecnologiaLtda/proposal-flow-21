@@ -227,6 +227,106 @@ function KpiCard({
   );
 }
 
+// ─── Top 10 Proposals ─────────────────────────────────────────
+function Top10Proposals({
+  proposals,
+  computeNetValue: calcValue,
+  statusMap: sMap,
+}: {
+  proposals: any[];
+  computeNetValue: (p: any) => number | null;
+  statusMap: Record<string, { label: string; className: string }>;
+}) {
+  const [mode, setMode] = useState<"aberto" | "realizado">("aberto");
+
+  const top10 = useMemo(() => {
+    const filtered =
+      mode === "aberto"
+        ? proposals.filter(
+            (p: any) =>
+              p.status === "pendente" ||
+              p.status === "proposta_gerada" ||
+              p.status === "em_assinatura"
+          )
+        : proposals.filter((p: any) => p.status === "ganha");
+
+    return filtered
+      .map((p: any) => ({ ...p, _value: calcValue(p) || 0 }))
+      .sort((a: any, b: any) => b._value - a._value)
+      .slice(0, 10);
+  }, [proposals, mode, calcValue]);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+        <CardTitle className="text-sm font-semibold">
+          Top 10 — {mode === "aberto" ? "Em Aberto" : "Realizadas"}
+        </CardTitle>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setMode("aberto")}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+              mode === "aberto"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Em Aberto
+          </button>
+          <button
+            onClick={() => setMode("realizado")}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+              mode === "realizado"
+                ? "border-success bg-success text-success-foreground"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Realizadas
+          </button>
+        </div>
+      </CardHeader>
+      <div className="divide-y divide-border">
+        {top10.map((proposal: any, i: number) => {
+          const status = sMap[proposal.status] || sMap.pendente;
+          const clientName = proposal.clients?.name || "—";
+          return (
+            <Link
+              key={proposal.id}
+              to={`/propostas/${proposal.id}`}
+              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{proposal.number}</p>
+                  <p className="text-xs text-muted-foreground">{clientName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold tabular-nums text-foreground">
+                  {formatCurrency(proposal._value)}
+                </span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                  {status.label}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+        {top10.length === 0 && (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            Nenhuma proposta encontrada para os filtros selecionados.
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
@@ -777,43 +877,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Proposals */}
-          <Card>
-            <CardHeader className="border-b border-border pb-3">
-              <CardTitle className="text-sm font-semibold">Propostas Recentes</CardTitle>
-            </CardHeader>
-            <div className="divide-y divide-border">
-              {proposals.slice(0, 10).map((proposal: any) => {
-                const status = statusMap[proposal.status] || statusMap.pendente;
-                const clientName = proposal.clients?.name || "—";
-                return (
-                  <Link
-                    key={proposal.id}
-                    to={`/propostas/${proposal.id}`}
-                    className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <FileText className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{proposal.number}</p>
-                        <p className="text-xs text-muted-foreground">{clientName}</p>
-                      </div>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                      {status.label}
-                    </span>
-                  </Link>
-                );
-              })}
-              {proposals.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  Nenhuma proposta ainda. Crie sua primeira proposta!
-                </div>
-              )}
-            </div>
-          </Card>
+          {/* Top 10 Proposals */}
+          <Top10Proposals proposals={filteredProposals} computeNetValue={computeNetValue} statusMap={statusMap} />
         </TabsContent>
 
         {/* ═══ TAB: Resultado ═══ */}

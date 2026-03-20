@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_team ADD COLUMN IF NOT EXISTS phone text;

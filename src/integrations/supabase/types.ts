@@ -1209,6 +1209,7 @@ export type Database = {
           id: string
           linked_gsn_id: string | null
           name: string
+          phone: string | null
           role: Database["public"]["Enums"]["sales_role"]
           unit_id: string | null
           updated_at: string
@@ -1221,6 +1222,7 @@ export type Database = {
           id?: string
           linked_gsn_id?: string | null
           name: string
+          phone?: string | null
           role: Database["public"]["Enums"]["sales_role"]
           unit_id?: string | null
           updated_at?: string
@@ -1233,6 +1235,7 @@ export type Database = {
           id?: string
           linked_gsn_id?: string | null
           name?: string
+          phone?: string | null
           role?: Database["public"]["Enums"]["sales_role"]
           unit_id?: string | null
           updated_at?: string

@@ -200,44 +200,153 @@ async function buildProposalContext(supabase: any, userMessage: string, phone: s
   const lowerMsg = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const parts: string[] = [];
 
-  // 1. Identify user by phone
+  // 1. Identify user by phone – check profiles.phone AND sales_team.phone
   const cleanPhone = phone.replace("whatsapp:", "");
-  const { data: profile } = await supabase
+  // Normalize: try with and without country code prefix variations
+  const phoneVariants = [phone, cleanPhone];
+  // If starts with +55, also try without +55
+  if (cleanPhone.startsWith("+55")) phoneVariants.push(cleanPhone.slice(3));
+  if (cleanPhone.startsWith("55") && cleanPhone.length > 11) phoneVariants.push(cleanPhone.slice(2));
+  // Build OR filter
+  const phoneFilter = phoneVariants.map(p => `phone.eq.${p}`).join(",");
+
+  let profile: any = null;
+  let salesMember: any = null;
+  let userRole: string | null = null;
+  let userId: string | null = null;
+  let memberUnitId: string | null = null;
+
+  // Try to find via profiles table
+  const { data: profileMatch } = await supabase
     .from("profiles")
-    .select("user_id, display_name, email, sales_team_member_id, phone")
-    .or(`phone.eq.${phone},phone.eq.${cleanPhone}`)
+    .select("user_id, display_name, email, sales_team_member_id, phone, is_cra")
+    .or(phoneFilter)
     .maybeSingle();
 
-  if (profile) {
-    parts.push(`👤 USUÁRIO: ${profile.display_name} (${profile.email})`);
-    if (profile.sales_team_member_id) {
-      const { data: member } = await supabase
-        .from("sales_team")
-        .select("name, code, role, unit_id, unit_info(name)")
-        .eq("id", profile.sales_team_member_id)
-        .maybeSingle();
-      if (member) {
-        parts.push(`   Perfil comercial: ${member.code} - ${member.name} (${member.role?.toUpperCase()}) | Unidade: ${member.unit_info?.name || "N/A"}`);
+  if (profileMatch) {
+    profile = profileMatch;
+    userId = profileMatch.user_id;
+  }
+
+  // Also try to find via sales_team table phone
+  if (!profile) {
+    const { data: stMatch } = await supabase
+      .from("sales_team")
+      .select("id, name, code, role, email, phone, unit_id, unit_info(name)")
+      .or(phoneFilter)
+      .maybeSingle();
+
+    if (stMatch) {
+      salesMember = stMatch;
+      memberUnitId = stMatch.unit_id;
+      // Try to find the associated profile by email
+      if (stMatch.email) {
+        const { data: pByEmail } = await supabase
+          .from("profiles")
+          .select("user_id, display_name, email, sales_team_member_id, is_cra")
+          .eq("email", stMatch.email)
+          .maybeSingle();
+        if (pByEmail) {
+          profile = pByEmail;
+          userId = pByEmail.user_id;
+        }
       }
     }
   }
 
+  // If profile found, get sales member info
+  if (profile?.sales_team_member_id && !salesMember) {
+    const { data: member } = await supabase
+      .from("sales_team")
+      .select("id, name, code, role, unit_id, unit_info(name), email, phone")
+      .eq("id", profile.sales_team_member_id)
+      .maybeSingle();
+    if (member) {
+      salesMember = member;
+      memberUnitId = member.unit_id;
+    }
+  }
+
+  // Get user role
+  if (userId) {
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (roleData) userRole = roleData.role;
+  }
+
+  if (profile) {
+    parts.push(`👤 USUÁRIO IDENTIFICADO: ${profile.display_name} (${profile.email})`);
+    if (userRole) parts.push(`   Perfil de acesso: ${userRole.toUpperCase()}`);
+    if (profile.is_cra) parts.push(`   🏷️ CRA: Sim`);
+  }
+  if (salesMember) {
+    parts.push(`   Perfil comercial: ${salesMember.code} - ${salesMember.name} (${salesMember.role?.toUpperCase()}) | Unidade: ${salesMember.unit_info?.name || "N/A"}`);
+  }
+
+  if (!profile && !salesMember) {
+    parts.push(`⚠️ USUÁRIO NÃO IDENTIFICADO pelo telefone ${cleanPhone}. Dados serão limitados.`);
+  }
+
+  // Determine data access level based on role
+  const isAdmin = userRole === "admin";
+  const isConsulta = userRole === "consulta";
+  const isVendedor = userRole === "vendedor";
+  const isGsn = userRole === "gsn" || salesMember?.role === "gsn";
+  const isArquiteto = userRole === "arquiteto" || salesMember?.role === "arquiteto";
+  const isEsn = salesMember?.role === "esn";
+
+  // For consulta users, get allowed unit IDs
+  let consultaUnitIds: string[] = [];
+  if (isConsulta && userId) {
+    const { data: unitAccess } = await supabase
+      .from("user_unit_access")
+      .select("unit_id")
+      .eq("user_id", userId);
+    consultaUnitIds = (unitAccess || []).map((u: any) => u.unit_id);
+  }
+
   // 2. Always load proposal defaults
   const { data: defaults } = await supabase.from("proposal_defaults").select("*").limit(1).single();
-  if (defaults) {
+  if (defaults && !isConsulta) {
     parts.push(`\n⚙️ PARÂMETROS PADRÃO: Hora técnica R$${fmt(defaults.hourly_rate)} | GP ${defaults.gp_percentage}% | Acomp. Analista ${defaults.accomp_analyst_percentage}% | Acomp. GP ${defaults.accomp_gp_percentage}% | Traslado local ${defaults.travel_local_hours}h | Viagem ${defaults.travel_trip_hours}h | Hora traslado R$${fmt(defaults.travel_hourly_rate)}`);
   }
 
-  // 3. Always load recent proposals with full financial data
-  const { data: proposals } = await supabase
+  // 3. Load proposals with role-based filtering
+  let proposalQuery = supabase
     .from("proposals")
-    .select("id, number, status, product, type, scope_type, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, additional_analyst_rate, additional_gp_rate, travel_hourly_rate, travel_local_hours, travel_trip_hours, num_companies, created_at, updated_at, date_validity, expected_close_date, negotiation, description, client_id, esn_id, gsn_id, clients(name, code, cnpj, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code), proposal_scope_items(hours, included, parent_id, description), payment_conditions(installment, amount, due_date)")
+    .select("id, number, status, product, type, scope_type, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, additional_analyst_rate, additional_gp_rate, travel_hourly_rate, travel_local_hours, travel_trip_hours, num_companies, created_at, updated_at, date_validity, expected_close_date, negotiation, description, client_id, esn_id, gsn_id, arquiteto_id, clients(name, code, cnpj, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code, unit_id), proposal_scope_items(hours, included, parent_id, description), payment_conditions(installment, amount, due_date)")
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Apply role-based filters
+  if (isConsulta) {
+    proposalQuery = proposalQuery.eq("status", "ganha");
+  } else if (isEsn && salesMember) {
+    proposalQuery = proposalQuery.eq("esn_id", salesMember.id);
+  } else if (isGsn && salesMember) {
+    proposalQuery = proposalQuery.eq("gsn_id", salesMember.id);
+  } else if (isArquiteto && salesMember) {
+    proposalQuery = proposalQuery.eq("arquiteto_id", salesMember.id);
+  }
+  // admin and vendedor see all (vendedor through RLS)
+
+  const { data: proposals } = await proposalQuery;
+
   if (proposals && proposals.length > 0) {
-    parts.push("\n📋 PROPOSTAS RECENTES (últimas 20):");
-    for (const p of proposals) {
+    // For consulta, further filter by unit
+    let filteredProposals = proposals;
+    if (isConsulta && consultaUnitIds.length > 0) {
+      filteredProposals = proposals.filter((p: any) => {
+        const esnUnitId = p.sales_team?.unit_id;
+        return esnUnitId && consultaUnitIds.includes(esnUnitId);
+      });
+    }
+
+    parts.push(`\n📋 PROPOSTAS ${isConsulta ? "GANHAS" : "RECENTES"} (${filteredProposals.length}):`);
+    for (const p of filteredProposals) {
       const includedItems = (p.proposal_scope_items || []).filter((i: any) => i.included);
       const totalAnalystHours = includedItems.reduce((sum: number, i: any) => sum + (i.hours || 0), 0);
       const gpHours = totalAnalystHours * (p.gp_percentage || 0) / 100;
@@ -268,61 +377,78 @@ async function buildProposalContext(supabase: any, userMessage: string, phone: s
       parts.push(`     Cliente: *${p.clients?.name || "?"}* (${p.clients?.code || "?"}) | Unidade: ${p.clients?.unit_info?.name || "?"}`);
       parts.push(`     Produto: ${p.product} | Tipo: ${p.type} | Escopo: ${p.scope_type}`);
       parts.push(`     Status: ${statusLabel[p.status] || p.status}`);
-      parts.push(`     ESN: ${p.sales_team?.name || "N/A"}`);
-      parts.push(`     Valor/hora: R$${fmt(p.hourly_rate)} | GP: ${p.gp_percentage}%`);
-      parts.push(`     Horas Analista: ${totalAnalystHours}h | Horas GP: ${gpHours.toFixed(1)}h | Total: ${totalHours.toFixed(1)}h`);
+      if (!isConsulta) {
+        parts.push(`     ESN: ${p.sales_team?.name || "N/A"}`);
+        parts.push(`     Valor/hora: R$${fmt(p.hourly_rate)} | GP: ${p.gp_percentage}%`);
+        parts.push(`     Horas Analista: ${totalAnalystHours}h | Horas GP: ${gpHours.toFixed(1)}h | Total: ${totalHours.toFixed(1)}h`);
+      }
       parts.push(`     💰 Valor Líquido: R$${fmt(netTotal)} | Bruto: R$${fmt(grossTotal)} (tax_factor: ${taxFactor})`);
       parts.push(`     Pagamento: ${paymentInfo}`);
-      if (p.negotiation) parts.push(`     Negociação: ${p.negotiation}`);
-      if (p.expected_close_date) parts.push(`     Previsão fechamento: ${p.expected_close_date}`);
+      if (p.negotiation && !isConsulta) parts.push(`     Negociação: ${p.negotiation}`);
+      if (p.expected_close_date && !isConsulta) parts.push(`     Previsão fechamento: ${p.expected_close_date}`);
       parts.push(`     Criada em: ${new Date(p.created_at).toLocaleDateString("pt-BR")}`);
     }
   }
 
-  // 4. Always load client list
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("name, code, cnpj, email, contact, unit_id, unit_info(name), esn:sales_team!clients_esn_id_fkey(name, code), gsn:sales_team!clients_gsn_id_fkey(name, code)")
-    .order("name")
-    .limit(50);
+  // 4. Load client list (not for consulta users)
+  if (!isConsulta) {
+    const { data: clients } = await supabase
+      .from("clients")
+      .select("name, code, cnpj, email, contact, unit_id, unit_info(name), esn:sales_team!clients_esn_id_fkey(name, code), gsn:sales_team!clients_gsn_id_fkey(name, code)")
+      .order("name")
+      .limit(50);
 
-  if (clients && clients.length > 0) {
-    parts.push(`\n🏢 CLIENTES CADASTRADOS (${clients.length}):`);
-    for (const c of clients) {
-      parts.push(`  - ${c.code}: *${c.name}* | CNPJ: ${c.cnpj} | Unidade: ${c.unit_info?.name || "N/A"} | ESN: ${c.esn?.name || "-"} | GSN: ${c.gsn?.name || "-"}`);
+    if (clients && clients.length > 0) {
+      parts.push(`\n🏢 CLIENTES CADASTRADOS (${clients.length}):`);
+      for (const c of clients) {
+        parts.push(`  - ${c.code}: *${c.name}* | CNPJ: ${c.cnpj} | Unidade: ${c.unit_info?.name || "N/A"} | ESN: ${c.esn?.name || "-"} | GSN: ${c.gsn?.name || "-"}`);
+      }
     }
   }
 
-  // 5. Load products and templates when creating
-  const needsCreation = lowerMsg.includes("criar") || lowerMsg.includes("gerar") || lowerMsg.includes("nova proposta") || lowerMsg.includes("novo orcamento");
-  if (needsCreation) {
-    const { data: products } = await supabase.from("products").select("name");
-    const { data: templates } = await supabase.from("scope_templates").select("name, product, category").order("product");
+  // 5. Load products and templates when creating (not for consulta)
+  if (!isConsulta) {
+    const needsCreation = lowerMsg.includes("criar") || lowerMsg.includes("gerar") || lowerMsg.includes("nova proposta") || lowerMsg.includes("novo orcamento");
+    if (needsCreation) {
+      const { data: products } = await supabase.from("products").select("name");
+      const { data: templates } = await supabase.from("scope_templates").select("name, product, category").order("product");
 
-    if (products) {
-      parts.push("\n📦 PRODUTOS: " + products.map((p: any) => p.name).join(", "));
-    }
-    if (templates) {
-      parts.push("📝 TEMPLATES DE ESCOPO:");
-      for (const t of templates) {
-        parts.push(`  - ${t.name} (${t.product} / ${t.category})`);
+      if (products) {
+        parts.push("\n📦 PRODUTOS: " + products.map((p: any) => p.name).join(", "));
+      }
+      if (templates) {
+        parts.push("📝 TEMPLATES DE ESCOPO:");
+        for (const t of templates) {
+          parts.push(`  - ${t.name} (${t.product} / ${t.category})`);
+        }
       }
     }
   }
 
   // 6. Units
-  const { data: units } = await supabase.from("unit_info").select("name, code, tax_factor, city").order("name");
-  if (units && units.length > 0) {
-    parts.push(`\n🏛️ UNIDADES: ${units.map((u: any) => `${u.name} (tax: ${u.tax_factor})`).join(" | ")}`);
+  if (!isConsulta) {
+    const { data: units } = await supabase.from("unit_info").select("name, code, tax_factor, city").order("name");
+    if (units && units.length > 0) {
+      parts.push(`\n🏛️ UNIDADES: ${units.map((u: any) => `${u.name} (tax: ${u.tax_factor})`).join(" | ")}`);
+    }
   }
 
-  // 7. Proposal types
-  const { data: proposalTypes } = await supabase.from("proposal_types").select("name, slug, analyst_label, gp_label, rounding_factor");
-  if (proposalTypes && proposalTypes.length > 0) {
-    parts.push(`\n📐 TIPOS DE PROPOSTA:`);
-    for (const pt of proposalTypes) {
-      parts.push(`  - ${pt.name} (${pt.slug}): Analista="${pt.analyst_label}" | GP="${pt.gp_label}" | Arredondamento: ${pt.rounding_factor}h`);
+  // 7. Proposal types (not for consulta)
+  if (!isConsulta) {
+    const { data: proposalTypes } = await supabase.from("proposal_types").select("name, slug, analyst_label, gp_label, rounding_factor");
+    if (proposalTypes && proposalTypes.length > 0) {
+      parts.push(`\n📐 TIPOS DE PROPOSTA:`);
+      for (const pt of proposalTypes) {
+        parts.push(`  - ${pt.name} (${pt.slug}): Analista="${pt.analyst_label}" | GP="${pt.gp_label}" | Arredondamento: ${pt.rounding_factor}h`);
+      }
     }
+  }
+
+  // Access restriction note for AI
+  if (isConsulta) {
+    parts.push(`\n⚠️ REGRA DE ACESSO: Este usuário tem perfil CONSULTA. Só pode ver propostas GANHAS das unidades autorizadas. NÃO forneça dados de propostas pendentes, clientes ou parâmetros comerciais.`);
+  } else if (!profile && !salesMember) {
+    parts.push(`\n⚠️ REGRA DE ACESSO: Usuário não identificado. Forneça apenas informações genéricas. Peça para o usuário se identificar ou entrar em contato com o administrador.`);
   }
 
   return parts.join("\n");

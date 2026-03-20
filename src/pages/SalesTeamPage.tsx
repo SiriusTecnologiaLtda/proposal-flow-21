@@ -25,7 +25,7 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "3" };
+const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "3" };
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
@@ -54,6 +54,7 @@ export default function SalesTeamPage() {
       name: member.name || "",
       code: member.code || "",
       email: member.email || "",
+      phone: (member as any).phone || "",
       role: member.role || "",
       unit_id: member.unit_id || "",
       linked_gsn_id: member.linked_gsn_id || "",
@@ -72,6 +73,7 @@ export default function SalesTeamPage() {
       name: form.name,
       code: form.code,
       email: form.email || null,
+      phone: form.phone || null,
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
@@ -143,6 +145,10 @@ export default function SalesTeamPage() {
             <div className="grid gap-1">
               <Label className="text-xs">E-mail</Label>
               <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Celular (WhatsApp)</Label>
+              <Input type="tel" placeholder="+5511999999999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="grid gap-1">
               <Label className="text-xs">Função *</Label>
@@ -233,6 +239,7 @@ export default function SalesTeamPage() {
                     </div>
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {member.email && <p>📧 {member.email}</p>}
+                      {(member as any).phone && <p>📱 {(member as any).phone}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                       {unitName && <p>🏢 {unitName}</p>}
                       {role === "esn" && <p>💰 Comissão: {(member as any).commission_pct ?? 3}%</p>}

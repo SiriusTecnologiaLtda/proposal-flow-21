@@ -15,6 +15,7 @@ import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProp
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";

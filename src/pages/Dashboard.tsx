@@ -768,10 +768,10 @@ export default function Dashboard() {
             <KpiCard icon={BarChart3} label="Previsto" value={formatCurrency(totalPrevisto)} subValue="ganhas + pipeline ativo" colorClass="text-primary" bgClass="bg-primary/15" delay={0.15} />
           </div>
 
-          {/* Meta vs Realizado Chart */}
+          {/* Meta vs Previsto Chart */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Meta vs Realizado — {targetYear}</CardTitle>
+              <CardTitle className="text-sm font-semibold">Análise de Resultado — {targetYear}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[320px] w-full">
@@ -784,29 +784,7 @@ export default function Dashboard() {
                     <Legend />
                     <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
                     <Bar dataKey="realizado" name="Realizado" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Meta vs Previsto Chart */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Meta vs Previsto — {targetYear}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[320px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={resultadoData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                    <YAxis tickFormatter={(v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                    <Legend />
-                    <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.35} />
-                    <Bar dataKey="previsto" name="Previsto" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    <Line dataKey="realizado" name="Realizado" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line dataKey="previsto" name="Previsto" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

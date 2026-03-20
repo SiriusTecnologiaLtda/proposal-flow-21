@@ -810,7 +810,7 @@ export default function ProposalsList() {
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
-                                  <Ban className="mr-2 h-3.5 w-3.5" />Cancelar Proposta
+                                  <Ban className="mr-2 h-3.5 w-3.5" />Encerrar Perdida
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
                                   <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir

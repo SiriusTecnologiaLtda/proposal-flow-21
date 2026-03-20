@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canAccessRoute } from "@/lib/permissions";
 import AppLayout from "@/components/AppLayout";
+import UnauthorizedScreen from "@/components/UnauthorizedScreen";
 import Dashboard from "@/pages/Dashboard";
 import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";
@@ -47,7 +48,8 @@ function GuardedRoute({ path, children }: { path: string; children: React.ReactN
 }
 
 function ProtectedRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthorized } = useAuth();
+  const { role } = useUserRole();
 
   if (loading) {
     return (
@@ -59,6 +61,34 @@ function ProtectedRoutes() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Wait for authorization check
+  if (isAuthorized === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Verificando acesso...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return <UnauthorizedScreen />;
+  }
+
+  // Consulta role: only access proposals list and view (read-only)
+  if (role === "consulta") {
+    return (
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/propostas" replace />} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/propostas" element={<ProposalsList />} />
+          <Route path="/propostas/:id" element={<ProposalCreate />} />
+          <Route path="*" element={<Navigate to="/propostas" replace />} />
+        </Routes>
+      </AppLayout>
+    );
   }
 
   return (

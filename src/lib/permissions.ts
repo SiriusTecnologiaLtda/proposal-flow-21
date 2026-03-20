@@ -4,7 +4,7 @@
  * Admin role always has access to everything regardless of DB entries.
  */
 
-export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn";
+export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn" | "consulta";
 
 export const RESOURCE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -53,4 +53,5 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   vendedor: "Vendedor (ESN)",
   gsn: "GSN",
   arquiteto: "Arquiteto",
+  consulta: "Consulta Propostas",
 };

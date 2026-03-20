@@ -15,6 +15,7 @@ import { useClients, useSalesTeam, useScopeTemplates, useProducts, useCreateProp
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
@@ -65,6 +66,8 @@ export default function ProposalCreate() {
   const isDuplicating = !!duplicateId;
 
   const { user } = useAuth();
+  const { role: userRole } = useUserRole();
+  const isConsulta = userRole === "consulta";
   const { toast } = useToast();
   const { data: clients = [] } = useClients();
   const { data: salesTeam = [] } = useSalesTeam();
@@ -1763,7 +1766,11 @@ export default function ProposalCreate() {
           <ArrowLeft className="mr-2 h-4 w-4" />Anterior
         </Button>
         <div className="flex items-center gap-3">
-          {currentStep === 4 ? (
+          {isConsulta ? (
+            <Button variant="outline" onClick={() => navigate("/propostas")}>
+              Voltar para lista
+            </Button>
+          ) : currentStep === 4 ? (
             <>
               <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                 <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />

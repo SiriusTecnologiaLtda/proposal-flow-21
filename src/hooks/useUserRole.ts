@@ -26,6 +26,7 @@ export function useUserRole() {
     queryFn: async () => {
       if (!role) return ["dashboard", "propostas"];
       if (role === "admin") return ALL_RESOURCES;
+      if (role === "consulta") return ["propostas"];
       const { data, error } = await supabase
         .from("role_permissions")
         .select("resource")

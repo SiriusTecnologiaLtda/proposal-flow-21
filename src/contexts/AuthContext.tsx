@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isAuthorized: boolean | null; // null = loading, true = has role or in sales_team, false = blocked
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isAdmin: false,
+  isAuthorized: null,
   signOut: async () => {},
 });
 
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,6 +78,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from("user_roles").insert({ user_id: userId, role: appRole as any });
     };
 
+    const checkAuthorization = async (userId: string, email: string) => {
+      // Check if user has a role assigned
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (roleData) {
+        if (isMounted) setIsAuthorized(true);
+        return;
+      }
+      // Check if email is in sales_team
+      const { data: stData } = await supabase
+        .from("sales_team")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      if (stData) {
+        if (isMounted) setIsAuthorized(true);
+        return;
+      }
+      // Not authorized
+      if (isMounted) setIsAuthorized(false);
+    };
+
     const applySession = (nextSession: Session | null) => {
       if (!isMounted) return;
 
@@ -84,8 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession?.user) {
         void loadAdminRole(nextSession.user.id);
         void autoAssignRole(nextSession.user.id, nextSession.user.email || "");
+        void checkAuthorization(nextSession.user.id, nextSession.user.email || "");
       } else {
         setIsAdmin(false);
+        setIsAuthorized(null);
       }
 
       setLoading(false);
@@ -106,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setLoading(false);
         setIsAdmin(false);
+        setIsAuthorized(null);
       });
 
     return () => {
@@ -119,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, isAuthorized, signOut }}>
       {children}
     </AuthContext.Provider>
   );

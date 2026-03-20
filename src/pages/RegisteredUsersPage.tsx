@@ -8,7 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Shield, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, Shield, Loader2, Settings2 } from "lucide-react";
 import { ROLE_LABELS, ALL_RESOURCES, RESOURCE_LABELS, type AppRole } from "@/lib/permissions";
 
 export default function RegisteredUsersPage() {
@@ -16,6 +20,7 @@ export default function RegisteredUsersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
+  const [configUserId, setConfigUserId] = useState<string | null>(null);
 
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ["all-profiles"],
@@ -44,6 +49,24 @@ export default function RegisteredUsersPage() {
     },
   });
 
+  const { data: units = [] } = useQuery({
+    queryKey: ["all-units"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unit_info").select("id, name, code").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: userUnitAccess = [] } = useQuery({
+    queryKey: ["all-user-unit-access"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_unit_access").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const roleMap = new Map(userRoles.map((r) => [r.user_id, r]));
   const isLoading = loadingProfiles || loadingRoles;
 
@@ -56,6 +79,8 @@ export default function RegisteredUsersPage() {
           const { error } = await supabase.from("user_roles").delete().eq("id", existing.id);
           if (error) throw error;
         }
+        // Also clear unit access
+        await supabase.from("user_unit_access").delete().eq("user_id", userId);
       } else if (existing) {
         const { error } = await supabase.from("user_roles").update({ role: newRole as AppRole }).eq("id", existing.id);
         if (error) throw error;
@@ -63,13 +88,42 @@ export default function RegisteredUsersPage() {
         const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole as AppRole });
         if (error) throw error;
       }
+      // If changing away from consulta, clear unit access
+      if (newRole !== "consulta") {
+        await supabase.from("user_unit_access").delete().eq("user_id", userId);
+      }
       await qc.invalidateQueries({ queryKey: ["all-user-roles"] });
       await qc.invalidateQueries({ queryKey: ["user-role"] });
+      await qc.invalidateQueries({ queryKey: ["all-user-unit-access"] });
       toast({ title: "Perfil atualizado com sucesso" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setSaving(null);
+  }
+
+  async function handleCraToggle(userId: string, checked: boolean) {
+    const { error } = await supabase.from("profiles").update({ is_cra: checked }).eq("user_id", userId);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      await qc.invalidateQueries({ queryKey: ["all-profiles"] });
+      toast({ title: checked ? "Marcado como CRA" : "Desmarcado CRA" });
+    }
+  }
+
+  // Consulta unit config dialog
+  const configProfile = configUserId ? profiles.find((p) => p.user_id === configUserId) : null;
+  const configUnitIds = new Set(userUnitAccess.filter((u) => u.user_id === configUserId).map((u) => u.unit_id));
+
+  async function toggleUnitAccess(unitId: string, enabled: boolean) {
+    if (!configUserId) return;
+    if (enabled) {
+      await supabase.from("user_unit_access").insert({ user_id: configUserId, unit_id: unitId });
+    } else {
+      await supabase.from("user_unit_access").delete().eq("user_id", configUserId).eq("unit_id", unitId);
+    }
+    await qc.invalidateQueries({ queryKey: ["all-user-unit-access"] });
   }
 
   return (
@@ -105,7 +159,9 @@ export default function RegisteredUsersPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="w-[200px]">Perfil de Acesso</TableHead>
+                  <TableHead className="w-[70px] text-center">CRA</TableHead>
                   <TableHead>Permissões</TableHead>
+                  <TableHead className="w-[50px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -114,9 +170,13 @@ export default function RegisteredUsersPage() {
                   const roleValue = currentRole || "none";
                   const userResources = currentRole === "admin"
                     ? ALL_RESOURCES
-                    : currentRole
-                      ? rolePermissions.filter((p: any) => p.role === currentRole).map((p: any) => p.resource)
-                      : [];
+                    : currentRole === "consulta"
+                      ? ["propostas"]
+                      : currentRole
+                        ? rolePermissions.filter((p: any) => p.role === currentRole).map((p: any) => p.resource)
+                        : [];
+
+                  const userUnits = userUnitAccess.filter((u) => u.user_id === profile.user_id);
 
                   return (
                     <TableRow key={profile.id}>
@@ -138,10 +198,25 @@ export default function RegisteredUsersPage() {
                           {saving === profile.user_id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </div>
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!(profile as any).is_cra}
+                          onCheckedChange={(checked) => handleCraToggle(profile.user_id, checked)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {currentRole === "admin" ? (
                             <Badge variant="secondary" className="text-xs">Acesso total</Badge>
+                          ) : currentRole === "consulta" ? (
+                            <>
+                              <Badge variant="outline" className="text-xs">Propostas Ganhas (somente leitura)</Badge>
+                              {userUnits.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {userUnits.length} unidade{userUnits.length > 1 ? "s" : ""}
+                                </Badge>
+                              )}
+                            </>
                           ) : userResources.length > 0 ? (
                             userResources.map((r: string) => (
                               <Badge key={r} variant="outline" className="text-xs">{RESOURCE_LABELS[r] || r}</Badge>
@@ -151,6 +226,13 @@ export default function RegisteredUsersPage() {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {currentRole === "consulta" && (
+                          <Button variant="ghost" size="icon" onClick={() => setConfigUserId(profile.user_id)} title="Configurar unidades">
+                            <Settings2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -159,6 +241,31 @@ export default function RegisteredUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unit access config dialog for consulta role */}
+      <Dialog open={!!configUserId} onOpenChange={(open) => !open && setConfigUserId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unidades com Acesso — {configProfile?.display_name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Selecione as unidades cujas propostas ganhas este usuário poderá visualizar.</p>
+          <div className="space-y-2 max-h-60 overflow-auto">
+            {units.map((unit) => (
+              <label key={unit.id} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent cursor-pointer">
+                <Checkbox
+                  checked={configUnitIds.has(unit.id)}
+                  onCheckedChange={(checked) => toggleUnitAccess(unit.id, !!checked)}
+                />
+                <span className="text-sm">{unit.name}</span>
+                {unit.code && <span className="text-xs text-muted-foreground">({unit.code})</span>}
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigUserId(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

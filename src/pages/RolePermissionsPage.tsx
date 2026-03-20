@@ -26,7 +26,7 @@ export default function RolePermissionsPage() {
   });
 
   const permSet = new Set(rolePermissions.map((p: any) => `${p.role}:${p.resource}`));
-  const nonAdminRoles = (Object.keys(ROLE_LABELS) as AppRole[]).filter((r) => r !== "admin");
+  const nonAdminRoles = (Object.keys(ROLE_LABELS) as AppRole[]).filter((r) => r !== "admin" && r !== "consulta");
 
   async function togglePermission(role: AppRole, resource: string, currentlyEnabled: boolean) {
     setSaving(true);

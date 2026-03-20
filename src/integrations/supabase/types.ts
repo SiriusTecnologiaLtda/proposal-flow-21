@@ -560,6 +560,7 @@ export type Database = {
           gmail_refresh_token: string | null
           gmail_sender_email: string | null
           id: string
+          is_cra: boolean
           phone: string | null
           sales_team_member_id: string | null
           updated_at: string
@@ -573,6 +574,7 @@ export type Database = {
           gmail_refresh_token?: string | null
           gmail_sender_email?: string | null
           id?: string
+          is_cra?: boolean
           phone?: string | null
           sales_team_member_id?: string | null
           updated_at?: string
@@ -586,6 +588,7 @@ export type Database = {
           gmail_refresh_token?: string | null
           gmail_sender_email?: string | null
           id?: string
+          is_cra?: boolean
           phone?: string | null
           sales_team_member_id?: string | null
           updated_at?: string
@@ -1584,6 +1587,35 @@ export type Database = {
         }
         Relationships: []
       }
+      user_unit_access: {
+        Row: {
+          created_at: string
+          id: string
+          unit_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          unit_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          unit_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_unit_access_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_config: {
         Row: {
           ai_model: string
@@ -1672,7 +1704,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "vendedor" | "arquiteto" | "gsn"
+      app_role: "admin" | "vendedor" | "arquiteto" | "gsn" | "consulta"
       proposal_status:
         | "pendente"
         | "proposta_gerada"
@@ -1809,7 +1841,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "vendedor", "arquiteto", "gsn"],
+      app_role: ["admin", "vendedor", "arquiteto", "gsn", "consulta"],
       proposal_status: [
         "pendente",
         "proposta_gerada",

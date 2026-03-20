@@ -147,6 +147,10 @@ export default function SalesTeamPage() {
               <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="grid gap-1">
+              <Label className="text-xs">Celular (WhatsApp)</Label>
+              <Input type="tel" placeholder="+5511999999999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
               <Label className="text-xs">Função *</Label>
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>

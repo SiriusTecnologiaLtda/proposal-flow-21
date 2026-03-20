@@ -165,15 +165,21 @@ export default function SalesTeamPage() {
               </Select>
             </div>
             {form.role === "esn" && (
-              <div className="grid gap-1">
-                <Label className="text-xs">GSN vinculado</Label>
-                <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                  <SelectContent>
-                    {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="grid gap-1">
+                  <Label className="text-xs">GSN vinculado</Label>
+                  <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
+                    <SelectContent>
+                      {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">% Comissão</Label>
+                  <Input type="number" step="0.5" min="0" max="100" placeholder="3" value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
+                </div>
+              </>
             )}
             <Button className="mt-2" onClick={handleSave} disabled={saving}>
               {saving ? "Salvando..." : "Salvar"}

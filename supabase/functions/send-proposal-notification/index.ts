@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(

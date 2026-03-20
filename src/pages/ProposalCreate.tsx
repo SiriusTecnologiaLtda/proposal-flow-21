@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
+import { regenerateCommissionProjections } from "@/lib/commissionProjections";
 
 // Two-level scope item for proposal
 interface ScopeChild {

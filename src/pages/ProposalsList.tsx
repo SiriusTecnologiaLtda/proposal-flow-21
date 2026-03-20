@@ -761,6 +761,14 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {!isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openCraDialog(p)}>
+                                  <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             {!locked && (
                               <DropdownMenuItem onClick={() => navigate(`/propostas/${p.id}`)}>

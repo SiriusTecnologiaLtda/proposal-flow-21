@@ -159,9 +159,8 @@ export default function RegisteredUsersPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="w-[200px]">Perfil de Acesso</TableHead>
-                  <TableHead className="w-[70px] text-center">CRA</TableHead>
                   <TableHead>Permissões</TableHead>
-                  <TableHead className="w-[50px]" />
+                  <TableHead className="w-[100px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>

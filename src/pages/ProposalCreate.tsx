@@ -845,7 +845,7 @@ export default function ProposalCreate() {
       navigate("/propostas");
 
       // If "Gerar Proposta" was checked, trigger document generation in background
-      if (status === "proposta_gerada" && savedId) {
+      if (effectiveStatus === "proposta_gerada" && status === "proposta_gerada" && savedId) {
         try {
           await writeProposalLog({ stage: "document_generation_started", proposalId: savedId, payload: { proposal_id: savedId } });
           const session = (await supabase.auth.getSession()).data.session;

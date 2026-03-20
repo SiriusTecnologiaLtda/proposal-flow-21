@@ -908,6 +908,43 @@ export default function Dashboard() {
               delay={0.2}
             />
           </div>
+
+          {/* Commission Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Comissões Previstas — {targetYear}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Realizada</p>
+                  <p className="text-lg font-bold text-success">{formatCurrency(totalCommRealizada)}</p>
+                  <p className="text-[11px] text-muted-foreground">propostas ganhas</p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Prevista</p>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(totalCommPrevista)}</p>
+                  <p className="text-[11px] text-muted-foreground">propostas em aberto</p>
+                </div>
+              </div>
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={commissionChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <RechartsTooltip formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: "hsl(var(--foreground))" }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="realizada" name="Realizada (Ganhas)" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="prevista" name="Prevista (Em Aberto)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.6} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

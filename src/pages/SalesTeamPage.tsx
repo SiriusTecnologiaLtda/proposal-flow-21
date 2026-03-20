@@ -38,6 +38,7 @@ export default function SalesTeamPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [transferMember, setTransferMember] = useState<any>(null);
   const [transferGsnMember, setTransferGsnMember] = useState<any>(null);
+  const [batchCommissionOpen, setBatchCommissionOpen] = useState(false);
 
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 

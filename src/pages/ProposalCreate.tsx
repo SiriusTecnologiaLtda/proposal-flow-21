@@ -826,6 +826,11 @@ export default function ProposalCreate() {
         toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
 
+      // Regenerate commission projections
+      if (savedId) {
+        regenerateCommissionProjections(savedId).catch(() => {});
+      }
+
       // Navigate to list immediately after save
       navigate("/propostas");
 

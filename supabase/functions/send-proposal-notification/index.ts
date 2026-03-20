@@ -91,6 +91,18 @@ async function sendGmail(
   await res.text();
 }
 
+async function getOAuthClient(supabase: any) {
+  const { data: gInt, error: gIntErr } = await supabase
+    .from("google_integrations")
+    .select("oauth_client_id, oauth_client_secret")
+    .eq("is_default", true)
+    .single();
+  if (gIntErr || !gInt || !gInt.oauth_client_id || !gInt.oauth_client_secret) {
+    throw new Error("Integração Google OAuth2 padrão não configurada.");
+  }
+  return gInt;
+}
+
 // --- Main handler ---
 
 Deno.serve(async (req) => {

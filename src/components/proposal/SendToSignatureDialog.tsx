@@ -77,6 +77,60 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     setLoadingContacts(false);
   }
 
+  async function loadUnitContacts() {
+    if (!proposal?.esn_id) {
+      toast({ title: "Proposta sem ESN vinculado", variant: "destructive" });
+      return;
+    }
+    setLoadingUnitContacts(true);
+    try {
+      // Get ESN's unit_id
+      const { data: esn } = await supabase
+        .from("sales_team")
+        .select("unit_id")
+        .eq("id", proposal.esn_id)
+        .single();
+      if (!esn?.unit_id) {
+        toast({ title: "ESN não tem unidade vinculada", variant: "destructive" });
+        return;
+      }
+      // Get unit contacts
+      const { data: unitContacts, error } = await supabase
+        .from("unit_contacts")
+        .select("*")
+        .eq("unit_id", esn.unit_id)
+        .order("name");
+      if (error) throw error;
+      if (!unitContacts?.length) {
+        toast({ title: "Nenhum contato cadastrado na unidade do ESN" });
+        return;
+      }
+      // Add unit contacts as signatories (skip duplicates)
+      let added = 0;
+      const newSigs = [...signatories];
+      for (const uc of unitContacts) {
+        const alreadyExists = newSigs.some((s) => s.email.toLowerCase() === uc.email.toLowerCase());
+        if (alreadyExists) continue;
+        newSigs.push({
+          id: newLocalId(),
+          contact_id: null,
+          name: uc.name,
+          email: uc.email,
+          phone: uc.phone || "",
+          role: uc.role || "Signatário",
+          isNew: false,
+        });
+        added++;
+      }
+      setSignatories(newSigs);
+      toast({ title: `${added} contato(s) da unidade adicionado(s)${unitContacts.length - added > 0 ? ` (${unitContacts.length - added} já existiam)` : ""}` });
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar contatos da unidade", description: err.message, variant: "destructive" });
+    } finally {
+      setLoadingUnitContacts(false);
+    }
+  }
+
   async function loadPreviousSignatories() {
     if (!proposal?.id) return;
     const { data: lastSig } = await supabase

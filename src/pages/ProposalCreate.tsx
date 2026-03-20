@@ -66,6 +66,8 @@ export default function ProposalCreate() {
   const isDuplicating = !!duplicateId;
 
   const { user } = useAuth();
+  const { role: userRole } = useUserRole();
+  const isConsulta = userRole === "consulta";
   const { toast } = useToast();
   const { data: clients = [] } = useClients();
   const { data: salesTeam = [] } = useSalesTeam();

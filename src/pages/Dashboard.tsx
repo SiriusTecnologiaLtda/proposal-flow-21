@@ -274,6 +274,19 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch commission projections
+  const { data: commissionProjections = [] } = useQuery({
+    queryKey: ["commission-projections-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commission_projections")
+        .select("*")
+        .neq("proposal_status", "cancelada");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
 

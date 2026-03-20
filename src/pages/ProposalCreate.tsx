@@ -749,11 +749,21 @@ export default function ProposalCreate() {
       amount: p.amount,
     }));
 
+    // When editing, never downgrade status. If not generating, keep existing status.
+    const existingStatus = existingProposal?.status;
+    const effectiveStatus = isEditing && status === "pendente" && existingStatus && existingStatus !== "pendente"
+      ? existingStatus
+      : status;
+
+    // Set needs_regen flag: true when editing an already-generated proposal without regenerating
+    const needsRegen = isEditing && status === "pendente" && existingStatus && existingStatus !== "pendente";
+
     const proposalData = {
       number: proposalNumber,
       type: proposalType as any,
       product,
-      status,
+      status: effectiveStatus,
+      needs_regen: needsRegen ? true : (status === "proposta_gerada" ? false : undefined),
       scope_type: scopeType as any,
       client_id: clientId,
       esn_id: esnId || null,

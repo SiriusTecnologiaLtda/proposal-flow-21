@@ -277,6 +277,63 @@ export type Database = {
           },
         ]
       }
+      commission_projections: {
+        Row: {
+          amount: number
+          commission_pct: number
+          commission_value: number
+          created_at: string
+          due_date: string
+          esn_id: string
+          id: string
+          installment: number
+          proposal_id: string
+          proposal_status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          commission_pct?: number
+          commission_value?: number
+          created_at?: string
+          due_date: string
+          esn_id: string
+          id?: string
+          installment: number
+          proposal_id: string
+          proposal_status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          commission_pct?: number
+          commission_value?: number
+          created_at?: string
+          due_date?: string
+          esn_id?: string
+          id?: string
+          installment?: number
+          proposal_id?: string
+          proposal_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_projections_esn_id_fkey"
+            columns: ["esn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_projections_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_request_votes: {
         Row: {
           created_at: string
@@ -1140,6 +1197,7 @@ export type Database = {
       sales_team: {
         Row: {
           code: string
+          commission_pct: number
           created_at: string
           email: string | null
           id: string
@@ -1151,6 +1209,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          commission_pct?: number
           created_at?: string
           email?: string | null
           id?: string
@@ -1162,6 +1221,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          commission_pct?: number
           created_at?: string
           email?: string | null
           id?: string

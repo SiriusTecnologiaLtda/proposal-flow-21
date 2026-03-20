@@ -484,8 +484,14 @@ export default function ProposalsList() {
                   <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
                   <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
                   <p className="text-sm text-foreground">{p.product}</p>
+                  <p className="text-sm text-muted-foreground truncate">{(p as any).sales_team?.name || "—"}</p>
                   <p className="text-sm font-medium text-foreground text-right">
                     {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {p.expected_close_date
+                      ? new Date(p.expected_close_date + "T00:00:00").toLocaleDateString("pt-BR")
+                      : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
                     {p.status === "ganha" && (() => {

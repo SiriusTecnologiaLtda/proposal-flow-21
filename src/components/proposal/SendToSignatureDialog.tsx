@@ -374,7 +374,19 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             </div>
           </div>
 
-          {/* Signatories list */}
+          {/* Load unit contacts */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={loadUnitContacts}
+            disabled={loadingUnitContacts}
+          >
+            <Building className="h-3.5 w-3.5" />
+            {loadingUnitContacts ? "Carregando..." : "Carregar Signatários Internos (Unidade)"}
+          </Button>
+
+
           {signatories.length > 0 && (
             <div className="space-y-2">
               <Label className="text-xs">Signatários ({signatories.length})</Label>

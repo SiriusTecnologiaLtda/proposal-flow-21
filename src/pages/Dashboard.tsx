@@ -464,6 +464,7 @@ export default function Dashboard() {
   const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
   const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
+  const totalGap = totalMeta - totalRealizado;
 
   const activeFilters =
     (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);

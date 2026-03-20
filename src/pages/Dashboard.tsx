@@ -479,6 +479,50 @@ export default function Dashboard() {
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
   const totalGap = totalMeta - totalRealizado;
 
+  // ─── Commission chart data ────────────────────────────────────
+  const commissionChartData = useMemo(() => {
+    const today = new Date().toISOString().substring(0, 10);
+    const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = MONTH_LABELS.map((label, i) => ({
+      label,
+      month: i + 1,
+      realizada: 0,
+      prevista: 0,
+    }));
+
+    // Filter by selected ESNs
+    const relevant = selectedEsnIds.length > 0
+      ? (commissionProjections as any[]).filter((cp: any) => selectedEsnIds.includes(cp.esn_id))
+      : (commissionProjections as any[]);
+
+    for (const cp of relevant) {
+      const dueDate = cp.due_date || "";
+      const year = Number(dueDate.substring(0, 4));
+      const month = Number(dueDate.substring(5, 7));
+      if (year !== targetYear || month < 1 || month > 12) continue;
+
+      const commValue = Number(cp.commission_value) || 0;
+      if (dueDate <= today) {
+        // Past: only ganha
+        if (cp.proposal_status === "ganha") {
+          months[month - 1].realizada += commValue;
+        }
+      } else {
+        // Future: ganha + open (not cancelada - already filtered out)
+        if (cp.proposal_status === "ganha") {
+          months[month - 1].realizada += commValue;
+        } else {
+          months[month - 1].prevista += commValue;
+        }
+      }
+    }
+
+    return months;
+  }, [commissionProjections, selectedEsnIds, targetYear]);
+
+  const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
+  const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
+
   const activeFilters =
     (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
 

@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setLoading(false);
         setIsAdmin(false);
+        setIsAuthorized(null);
       });
 
     return () => {

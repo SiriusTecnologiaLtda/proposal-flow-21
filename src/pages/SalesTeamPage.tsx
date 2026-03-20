@@ -25,7 +25,7 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", role: "", unit_id: "", linked_gsn_id: "" };
+const emptyForm = { name: "", code: "", email: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "3" };
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();

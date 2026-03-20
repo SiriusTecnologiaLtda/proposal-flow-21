@@ -233,6 +233,7 @@ export default function ProposalsList() {
             proposalId: notifProposal.id,
             type: notifType,
             message: notifMessage,
+            proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
           }),
         }
       );

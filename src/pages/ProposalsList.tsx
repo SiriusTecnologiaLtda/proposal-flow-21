@@ -761,7 +761,7 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {!isArquiteto && (
+                            {!isArquiteto && p.status === "ganha" && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openCraDialog(p)}>

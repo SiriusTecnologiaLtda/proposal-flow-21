@@ -78,6 +78,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from("user_roles").insert({ user_id: userId, role: appRole as any });
     };
 
+    const checkAuthorization = async (userId: string, email: string) => {
+      // Check if user has a role assigned
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (roleData) {
+        if (isMounted) setIsAuthorized(true);
+        return;
+      }
+      // Check if email is in sales_team
+      const { data: stData } = await supabase
+        .from("sales_team")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      if (stData) {
+        if (isMounted) setIsAuthorized(true);
+        return;
+      }
+      // Not authorized
+      if (isMounted) setIsAuthorized(false);
+    };
+
     const applySession = (nextSession: Session | null) => {
       if (!isMounted) return;
 
@@ -87,8 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession?.user) {
         void loadAdminRole(nextSession.user.id);
         void autoAssignRole(nextSession.user.id, nextSession.user.email || "");
+        void checkAuthorization(nextSession.user.id, nextSession.user.email || "");
       } else {
         setIsAdmin(false);
+        setIsAuthorized(null);
       }
 
       setLoading(false);

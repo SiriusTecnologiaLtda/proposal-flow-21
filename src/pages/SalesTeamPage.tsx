@@ -235,6 +235,7 @@ export default function SalesTeamPage() {
                       {member.email && <p>📧 {member.email}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                       {unitName && <p>🏢 {unitName}</p>}
+                      {role === "esn" && <p>💰 Comissão: {(member as any).commission_pct ?? 3}%</p>}
                     </div>
                   </div>
                 );

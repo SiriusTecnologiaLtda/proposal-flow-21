@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isAuthorized: boolean | null; // null = loading, true = has role or in sales_team, false = blocked
   signOut: () => Promise<void>;
 }
 

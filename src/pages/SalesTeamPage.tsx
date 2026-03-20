@@ -57,6 +57,7 @@ export default function SalesTeamPage() {
       role: member.role || "",
       unit_id: member.unit_id || "",
       linked_gsn_id: member.linked_gsn_id || "",
+      commission_pct: String((member as any).commission_pct ?? 3),
     });
     setDialogOpen(true);
   };

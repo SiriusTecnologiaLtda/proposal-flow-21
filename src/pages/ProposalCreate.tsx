@@ -833,7 +833,7 @@ export default function ProposalCreate() {
         });
         savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
-        toast({ title: status === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
+        toast({ title: effectiveStatus === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
       }
 
       // Regenerate commission projections

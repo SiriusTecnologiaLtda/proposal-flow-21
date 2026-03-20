@@ -73,6 +73,7 @@ export default function SalesTeamPage() {
       name: form.name,
       code: form.code,
       email: form.email || null,
+      phone: form.phone || null,
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,

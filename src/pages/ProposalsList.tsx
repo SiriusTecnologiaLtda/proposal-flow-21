@@ -713,7 +713,7 @@ export default function ProposalsList() {
                           </>
                         )}
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                    </DropdownMenu>}
                   </div>
                 </div>
               );

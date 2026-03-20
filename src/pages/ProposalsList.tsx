@@ -317,12 +317,15 @@ export default function ProposalsList() {
   }
 
   const filtered = proposals.filter((p) => {
+    const q = search.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";
+    const esnName = (p as any).sales_team?.name || "";
     return (
-      p.number.toLowerCase().includes(search.toLowerCase()) ||
-      clientName.toLowerCase().includes(search.toLowerCase()) ||
-      desc.toLowerCase().includes(search.toLowerCase())
+      p.number.toLowerCase().includes(q) ||
+      clientName.toLowerCase().includes(q) ||
+      desc.toLowerCase().includes(q) ||
+      esnName.toLowerCase().includes(q)
     );
   });
 

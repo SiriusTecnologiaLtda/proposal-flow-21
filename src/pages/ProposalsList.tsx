@@ -906,12 +906,12 @@ export default function ProposalsList() {
         <AlertDialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Cancelar proposta?</AlertDialogTitle>
-              <AlertDialogDescription>A proposta será marcada como cancelada e não poderá mais ser editada ou excluída.</AlertDialogDescription>
+              <AlertDialogTitle>Encerrar proposta como perdida?</AlertDialogTitle>
+              <AlertDialogDescription>A proposta será marcada como perdida e não poderá mais ser editada ou excluída.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Voltar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirmar Cancelamento</AlertDialogAction>
+              <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirmar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

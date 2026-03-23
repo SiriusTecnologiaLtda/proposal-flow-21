@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import totvsLogo from "@/assets/totvs-logo.png";
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();

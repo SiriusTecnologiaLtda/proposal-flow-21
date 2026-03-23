@@ -173,14 +173,17 @@ Deno.serve(async (req) => {
           // Could be a single object or array
           const items = Array.isArray(data) ? data : [data];
           const match = items.find((item: any) => 
-            String(item?.idDocumento || item?.documentoId || "") === String(taeDocumentId)
+            String(item?.idDocumento || item?.documentoId || item?.id || "") === String(taeDocumentId)
           ) || items[0];
           
           if (match) {
             resolvedPublicationId = String(
               match?.idPublicacao || match?.publicacaoId || 
-              match?.publicacao?.id || ""
+              match?.publicacao?.id || match?.publicacoes?.[0]?.id ||
+              match?.publicacoes?.[0]?.idPublicacao || ""
             ).trim() || null;
+            
+            console.log(`[tae-check-status] Match found. resolvedPublicationId=${resolvedPublicationId}, match keys=${Object.keys(match)}`);
             
             // If this item has status/signers info, use it as pubData
             if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {

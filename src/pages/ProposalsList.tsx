@@ -499,6 +499,25 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
+  async function openChangeLog(proposalId: string) {
+    setChangeLogProposalId(proposalId);
+    setChangeLogLoading(true);
+    setChangeLogOpen(true);
+    try {
+      const { data, error } = await supabase
+        .from("proposal_process_logs")
+        .select("*")
+        .eq("proposal_id", proposalId)
+        .order("occurred_at", { ascending: false });
+      if (error) throw error;
+      setChangeLogEntries(data || []);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar log", description: err.message, variant: "destructive" });
+      setChangeLogEntries([]);
+    }
+    setChangeLogLoading(false);
+  }
+
   async function loadVersions(proposalId: string, docType: string = "proposta") {
     setVersionsProposalId(proposalId);
     setVersionsDocType(docType);

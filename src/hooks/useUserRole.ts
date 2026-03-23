@@ -9,6 +9,7 @@ export function useUserRole() {
   const { data: role, isLoading: roleLoading } = useQuery({
     queryKey: ["user-role", user?.id],
     enabled: !!user?.id,
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")
@@ -23,6 +24,7 @@ export function useUserRole() {
   const { data: allowedResources = [], isLoading: permsLoading } = useQuery({
     queryKey: ["role-permissions", role],
     enabled: role !== undefined,
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       if (!role) return ["dashboard", "propostas"];
       if (role === "admin") return ALL_RESOURCES;

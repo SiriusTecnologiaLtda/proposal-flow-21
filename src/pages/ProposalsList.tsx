@@ -737,14 +737,18 @@ export default function ProposalsList() {
                         ) : (
                           <>
                             {/* Pendente, proposta_gerada, em_assinatura */}
-                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
-                              <Eye className="mr-2 h-3.5 w-3.5" />
-                              Gerar Proposta
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
-                              <FileCheck className="mr-2 h-3.5 w-3.5" />
-                              Gerar MIT-065
-                            </DropdownMenuItem>
+                            {p.status !== "em_assinatura" && p.status !== "ganha" && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
+                                  <Eye className="mr-2 h-3.5 w-3.5" />
+                                  Gerar Proposta
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                                  <FileCheck className="mr-2 h-3.5 w-3.5" />
+                                  Gerar MIT-065
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {p.arquiteto_id && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />

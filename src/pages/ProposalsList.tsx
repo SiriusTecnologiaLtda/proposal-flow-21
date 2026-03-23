@@ -75,6 +75,7 @@ function StatusIcon({ status }: { status: LogEntry["status"] }) {
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
 

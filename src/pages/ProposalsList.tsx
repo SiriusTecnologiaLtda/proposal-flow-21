@@ -80,7 +80,7 @@ export default function ProposalsList() {
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
 

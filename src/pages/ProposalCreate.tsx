@@ -132,6 +132,7 @@ export default function ProposalCreate() {
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});

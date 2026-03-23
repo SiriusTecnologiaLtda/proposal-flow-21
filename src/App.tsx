@@ -37,7 +37,14 @@ import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import LandingPage from "@/pages/LandingPage";
 import NotFound from "./pages/NotFound.tsx";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 min — config data rarely changes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function GuardedRoute({ path, children }: { path: string; children: React.ReactNode }) {
   const { role, allowedResources } = useUserRole();

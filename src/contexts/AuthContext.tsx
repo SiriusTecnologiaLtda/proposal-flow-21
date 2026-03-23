@@ -110,9 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextSession?.user ?? null);
 
       if (nextSession?.user) {
-        void loadAdminRole(nextSession.user.id);
-        void autoAssignRole(nextSession.user.id, nextSession.user.email || "");
-        void checkAuthorization(nextSession.user.id, nextSession.user.email || "");
+        const userId = nextSession.user.id;
+        const email = nextSession.user.email || "";
+        // Run all auth checks in parallel
+        Promise.all([
+          loadAdminRole(userId),
+          autoAssignRole(userId, email),
+          checkAuthorization(userId, email),
+        ]).catch(() => {});
       } else {
         setIsAdmin(false);
         setIsAuthorized(null);

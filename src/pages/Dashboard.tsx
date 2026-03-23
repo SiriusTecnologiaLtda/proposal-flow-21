@@ -636,10 +636,13 @@ export default function Dashboard() {
       prevista: 0,
     }));
 
-    // Filter by selected ESNs
-    const relevant = selectedEsnIds.length > 0
-      ? (commissionProjections as any[]).filter((cp: any) => selectedEsnIds.includes(cp.esn_id))
-      : (commissionProjections as any[]);
+    // Filter by role scope + manual ESN selection
+    // Arquiteto: commissions are ESN-based, so show none for arquiteto
+    const relevant = isArquiteto
+      ? []
+      : effectiveEsnFilter === null
+        ? (commissionProjections as any[])
+        : (commissionProjections as any[]).filter((cp: any) => effectiveEsnFilter.includes(cp.esn_id));
 
     for (const cp of relevant) {
       const dueDate = cp.due_date || "";

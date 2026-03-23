@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
 
             console.log(`[tae-check-status] signintegration match. pubId=${resolvedPublicationId}, keys=${Object.keys(match)}`);
 
-            if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {
+            if (match?.status !== undefined || match?.assinantes || match?.destinatarios || match?.pendentes) {
               pubData = match;
               resolved = true;
             } else if (resolvedPublicationId) {

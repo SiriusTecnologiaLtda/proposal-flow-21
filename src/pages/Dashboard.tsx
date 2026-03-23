@@ -401,16 +401,11 @@ export default function Dashboard() {
   const filteredProposals = useMemo(() => {
     return proposals.filter((p: any) => {
       if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(p.esn_id)) return false;
-      const status = p.status;
-      if (status === "ganha" || status === "cancelada") {
-        const closeDate = p.updated_at?.substring(0, 10) || "";
-        if (dateFrom && closeDate < dateFrom) return false;
-        if (dateTo && closeDate > dateTo) return false;
-      } else {
-        const expectedDate = p.expected_close_date || "";
-        if (dateFrom && expectedDate && expectedDate < dateFrom) return false;
-        if (dateTo && expectedDate && expectedDate > dateTo) return false;
-      }
+      // Always use expected_close_date for date filtering
+      const refDate = p.expected_close_date || "";
+      if (dateFrom && refDate && refDate < dateFrom) return false;
+      if (dateTo && refDate && refDate > dateTo) return false;
+      // If no expected_close_date set, don't filter out
       return true;
     });
   }, [proposals, dateFrom, dateTo, selectedEsnIds]);

@@ -1077,7 +1077,14 @@ export default function ProposalCreate() {
                         <span className="text-xs text-muted-foreground">{c.code}</span>
                       </button>
                     ))}
-                    {filteredClients.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum cliente encontrado.</p>}
+                    {filteredClients.length === 0 && (
+                      <div className="px-3 py-3 text-center space-y-2">
+                        <p className="text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/cadastros/clientes?novo=1")}>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Cadastrar novo cliente
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

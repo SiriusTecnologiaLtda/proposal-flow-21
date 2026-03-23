@@ -289,15 +289,22 @@ Deno.serve(async (req) => {
     const pubStatus = pubData?.status;
     const pubStatusLabel = TAE_STATUS_MAP[pubStatus] ?? `Desconhecido (${pubStatus})`;
 
-    // Extract signer details
-    const signers = (pubData?.assinantes || pubData?.destinatarios || []).map((s: any) => ({
-      email: s.email || s.emailDestinatario,
-      name: s.nomeCompleto || s.nome || s.email,
-      status: s.statusAssinatura ?? s.status,
-      statusLabel: s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente"),
-      signedAt: s.dataAssinatura || null,
-      action: s.acao ?? s.tipoAssinatura,
-    }));
+    // Extract signer details — handle both publication format (assinantes/destinatarios) and signintegration format (pendentes)
+    const rawSigners = pubData?.assinantes || pubData?.destinatarios || pubData?.pendentes || [];
+    const signers = rawSigners.map((s: any) => {
+      // signintegration format uses `pendente` boolean
+      const isPendentesFormat = s.pendente !== undefined;
+      return {
+        email: s.email || s.emailDestinatario,
+        name: s.nomeCompleto || s.nome || s.email,
+        status: s.statusAssinatura ?? s.status,
+        statusLabel: isPendentesFormat
+          ? (s.pendente ? "Pendente" : "Assinado")
+          : (s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente")),
+        signedAt: s.dataAssinatura || null,
+        action: s.acao ?? s.tipoAssinatura,
+      };
+    });
 
     // Sync local signatories based on TAE
     for (const signer of signers) {

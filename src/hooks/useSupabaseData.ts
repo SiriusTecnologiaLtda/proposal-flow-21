@@ -338,7 +338,7 @@ export function useUpdateProposal() {
         if (payError) throw payError;
       }
 
-      return data;
+      return { id };
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["proposals"] });

@@ -108,6 +108,7 @@ export default function ProposalsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [winId, setWinId] = useState<string | null>(null);
+  const [winCloseDate, setWinCloseDate] = useState("");
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
@@ -484,14 +485,24 @@ export default function ProposalsList() {
   }
 
   async function handleWin() {
-    if (!winId) return;
+    if (!winId || !winCloseDate) return;
     try {
-      await updateStatus.mutateAsync({ id: winId, status: "ganha" });
+      const { error } = await supabase.from("proposals").update({
+        status: "ganha" as any,
+        expected_close_date: winCloseDate,
+      }).eq("id", winId);
+      if (error) throw error;
+      await supabase
+        .from("commission_projections")
+        .update({ proposal_status: "ganha" } as any)
+        .eq("proposal_id", winId);
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
       toast({ title: "Proposta encerrada como ganha!" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setWinId(null);
+    setWinCloseDate("");
   }
 
   function openEditDates(proposal: any) {
@@ -863,7 +874,7 @@ export default function ProposalsList() {
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                <DropdownMenuItem onClick={() => { setWinId(p.id); setWinCloseDate(new Date().toISOString().substring(0, 10)); }}>
                                   <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
                                 </DropdownMenuItem>
                               </>
@@ -1011,19 +1022,33 @@ export default function ProposalsList() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Win confirmation */}
-        <AlertDialog open={!!winId} onOpenChange={(open) => !open && setWinId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Encerrar como ganha?</AlertDialogTitle>
-              <AlertDialogDescription>A proposta será marcada como ganha.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Voltar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleWin}>Confirmar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Win confirmation with date picker */}
+        <Dialog open={!!winId} onOpenChange={(open) => { if (!open) { setWinId(null); setWinCloseDate(""); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-success" />
+                Encerrar como Ganha
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">Informe a data de fechamento desta proposta:</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="win-close-date">Data de Fechamento</Label>
+                <Input
+                  id="win-close-date"
+                  type="date"
+                  value={winCloseDate}
+                  onChange={(e) => setWinCloseDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setWinId(null); setWinCloseDate(""); }}>Voltar</Button>
+              <Button onClick={handleWin} disabled={!winCloseDate}>Confirmar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
 
         {/* Edit Dates dialog */}

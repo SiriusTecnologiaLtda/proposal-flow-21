@@ -93,7 +93,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           })}
         </nav>
 
-        <div className="border-t border-border p-2">
+        <div className="border-t border-border p-2 space-y-1">
+          <button onClick={toggleTheme} className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : undefined}>
+            {theme === "dark" ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+            {!collapsed && <span>{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>}
+          </button>
           <button onClick={signOut} className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Sair" : undefined}>
             <LogOut className="h-4 w-4 shrink-0" />
             {!collapsed && <span>Sair</span>}

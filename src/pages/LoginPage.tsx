@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ShieldAlert } from "lucide-react";
 import totvsLogo from "@/assets/totvs-logo.png";
 
 export default function LoginPage() {

@@ -1077,7 +1077,14 @@ export default function ProposalCreate() {
                         <span className="text-xs text-muted-foreground">{c.code}</span>
                       </button>
                     ))}
-                    {filteredClients.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum cliente encontrado.</p>}
+                    {filteredClients.length === 0 && (
+                      <div className="px-3 py-3 text-center space-y-2">
+                        <p className="text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/cadastros/clientes?novo=1")}>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Cadastrar novo cliente
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1135,12 +1142,28 @@ export default function ProposalCreate() {
                     <CommandList>
                       <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
                       <CommandGroup>
-                        {salesTeam.filter((m) => m.role === "arquiteto" && (`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())).map((m) => (
-                          <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setArquitetoId(m.id); setArquitetoPopoverOpen(false); setArquitetoSearch(""); }}>
-                            <Check className={`mr-2 h-4 w-4 ${arquitetoId === m.id ? "opacity-100" : "opacity-0"}`} />
-                            {m.code} - {m.name}
-                          </CommandItem>
-                        ))}
+                        {(() => {
+                          // Determine unit to filter architects: client's unit > logged user's sales_team unit
+                          const clientUnitId = selectedClient?.unit_id;
+                          const loggedUserMember = salesTeam.find(
+                            (m) => m.email && user?.email && m.email.toLowerCase() === user.email.toLowerCase()
+                          );
+                          const filterUnitId = clientUnitId || loggedUserMember?.unit_id || null;
+                          
+                          const filtered = salesTeam.filter((m) => {
+                            if (m.role !== "arquiteto") return false;
+                            if (!(`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())) return false;
+                            if (filterUnitId && m.unit_id) return m.unit_id === filterUnitId;
+                            return true;
+                          });
+                          
+                          return filtered.map((m) => (
+                            <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setArquitetoId(m.id); setArquitetoPopoverOpen(false); setArquitetoSearch(""); }}>
+                              <Check className={`mr-2 h-4 w-4 ${arquitetoId === m.id ? "opacity-100" : "opacity-0"}`} />
+                              {m.code} - {m.name}
+                            </CommandItem>
+                          ));
+                        })()}
                       </CommandGroup>
                     </CommandList>
                   </Command>

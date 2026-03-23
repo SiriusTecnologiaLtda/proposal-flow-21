@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User,
+  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import FeatureRequestsPanel from "@/components/FeatureRequestsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -31,6 +32,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { role, allowedResources } = useUserRole();
+
+  const { theme, toggleTheme } = useTheme();
 
   const { data: profile } = useQuery({
     queryKey: ["my-profile", user?.id],
@@ -90,7 +93,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           })}
         </nav>
 
-        <div className="border-t border-border p-2">
+        <div className="border-t border-border p-2 space-y-1">
+          <button onClick={toggleTheme} className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : undefined}>
+            {theme === "dark" ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+            {!collapsed && <span>{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>}
+          </button>
           <button onClick={signOut} className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${collapsed ? "justify-center px-2" : ""}`} title={collapsed ? "Sair" : undefined}>
             <LogOut className="h-4 w-4 shrink-0" />
             {!collapsed && <span>Sair</span>}

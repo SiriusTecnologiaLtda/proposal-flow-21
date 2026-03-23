@@ -75,6 +75,7 @@ function StatusIcon({ status }: { status: LogEntry["status"] }) {
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
 
@@ -445,11 +446,12 @@ export default function ProposalsList() {
     // Consulta role: only ganha proposals from allowed units
     if (isConsulta) {
       if (p.status !== "ganha") return false;
-      // Check if proposal's ESN belongs to an allowed unit
       const esnUnitId = (p as any).sales_team?.unit_id;
       if (esnUnitId && userUnitIds.length > 0 && !userUnitIds.includes(esnUnitId)) return false;
       if (!esnUnitId && userUnitIds.length > 0) return false;
     }
+    // Status filter
+    if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
     const q = search.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";
@@ -638,6 +640,38 @@ export default function ProposalsList() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar por número, cliente ou descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
+          {Object.entries(statusMap).map(([key, { label, className }]) => {
+            const active = statusFilter.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() =>
+                  setStatusFilter((prev) =>
+                    active ? prev.filter((s) => s !== key) : [...prev, key]
+                  )
+                }
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                  active
+                    ? `${className} border-current ring-1 ring-current/30`
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {statusFilter.length > 0 && (
+            <button
+              onClick={() => setStatusFilter([])}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar
+            </button>
+          )}
         </div>
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">

@@ -79,9 +79,7 @@ function getPresetDates(preset: string): { from: string; to: string } {
 }
 
 function formatCurrency(v: number): string {
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
-  return `R$ ${v.toFixed(0)}`;
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ─── ESN Multi-Select Popover ─────────────────────────────────
@@ -403,16 +401,11 @@ export default function Dashboard() {
   const filteredProposals = useMemo(() => {
     return proposals.filter((p: any) => {
       if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(p.esn_id)) return false;
-      const status = p.status;
-      if (status === "ganha" || status === "cancelada") {
-        const closeDate = p.updated_at?.substring(0, 10) || "";
-        if (dateFrom && closeDate < dateFrom) return false;
-        if (dateTo && closeDate > dateTo) return false;
-      } else {
-        const expectedDate = p.expected_close_date || "";
-        if (dateFrom && expectedDate && expectedDate < dateFrom) return false;
-        if (dateTo && expectedDate && expectedDate > dateTo) return false;
-      }
+      // Always use expected_close_date for date filtering
+      const refDate = p.expected_close_date || "";
+      if (dateFrom && refDate && refDate < dateFrom) return false;
+      if (dateTo && refDate && refDate > dateTo) return false;
+      // If no expected_close_date set, don't filter out
       return true;
     });
   }, [proposals, dateFrom, dateTo, selectedEsnIds]);
@@ -433,7 +426,7 @@ export default function Dashboard() {
     if (wonProposals.length === 0) return 0;
     const totalDays = wonProposals.reduce((sum: number, p: any) => {
       const created = new Date(p.created_at).getTime();
-      const closed = new Date(p.updated_at).getTime();
+      const closed = new Date(p.expected_close_date || p.updated_at).getTime();
       return sum + (closed - created) / (1000 * 60 * 60 * 24);
     }, 0);
     return Math.round(totalDays / wonProposals.length);
@@ -541,7 +534,8 @@ export default function Dashboard() {
       months.push({ key, label, ganhas: 0, perdidas: 0 });
     }
     for (const p of proposals as any[]) {
-      const closeMonth = (p.updated_at || "").substring(0, 7);
+      if (p.status !== "ganha" && p.status !== "cancelada") continue;
+      const closeMonth = (p.expected_close_date || "").substring(0, 7);
       const bucket = months.find((m) => m.key === closeMonth);
       if (!bucket) continue;
       if (p.status === "ganha") bucket.ganhas++;

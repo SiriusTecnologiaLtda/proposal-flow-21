@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -80,6 +80,7 @@ export default function ProposalsList() {
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
 
@@ -670,86 +671,135 @@ export default function ProposalsList() {
           <Input placeholder="Buscar por número, cliente ou descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
-          {Object.entries(statusMap).map(([key, { label, className }]) => {
-            const active = statusFilter.includes(key);
-            return (
+        {/* ─── Collapsible Filter Bar ──────────────────────────────── */}
+        {(() => {
+          const activeFilterCount =
+            (statusFilter.length > 0 ? 1 : 0) +
+            (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+          return (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
               <button
-                key={key}
-                onClick={() =>
-                  setStatusFilter((prev) =>
-                    active ? prev.filter((s) => s !== key) : [...prev, key]
-                  )
-                }
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
-                  active
-                    ? `${className} border-current ring-1 ring-current/30`
-                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
-                }`}
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
               >
-                {label}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+                </div>
+                {activeFilterCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    {activeFilterCount}
+                  </span>
+                )}
+                <div className="flex-1" />
+                {activeFilterCount > 0 && (
+                  <span
+                    role="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusFilter([]);
+                      setPeriodFilter("este_ano");
+                      setCustomStart("");
+                      setCustomEnd("");
+                    }}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Limpar tudo
+                  </span>
+                )}
+                {filtersOpen ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </button>
-            );
-          })}
-          {statusFilter.length > 0 && (
-            <button
-              onClick={() => setStatusFilter([])}
-              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
-            >
-              Limpar
-            </button>
-          )}
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground mr-1">PERÍODO</span>
-          {([
-            { key: "este_mes", label: "Este mês" },
-            { key: "ultimo_mes", label: "Último mês" },
-            { key: "este_trimestre", label: "Este trimestre" },
-            { key: "este_ano", label: "Este ano" },
-            { key: "personalizado", label: "Personalizado" },
-          ] as const).map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
-                periodFilter === key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {periodFilter === "personalizado" && (
-            <div className="flex items-center gap-1.5 ml-1">
-              <Input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="h-7 w-[130px] text-xs"
-              />
-              <span className="text-xs text-muted-foreground">até</span>
-              <Input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="h-7 w-[130px] text-xs"
-              />
+              {filtersOpen && (
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+                  {/* Period */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <CalendarRange className="h-3.5 w-3.5" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { key: "este_mes", label: "Este mês" },
+                        { key: "ultimo_mes", label: "Último mês" },
+                        { key: "este_trimestre", label: "Este trimestre" },
+                        { key: "este_ano", label: "Este ano" },
+                        { key: "personalizado", label: "Personalizado" },
+                      ] as const).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            periodFilter === key
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {periodFilter === "personalizado" && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Input
+                          type="date"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          className="h-8 w-36 text-xs"
+                        />
+                        <span className="text-xs text-muted-foreground">até</span>
+                        <Input
+                          type="date"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          className="h-8 w-36 text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                  {/* Status */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <FileText className="h-3.5 w-3.5" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(statusMap).map(([key, { label, className: statusClassName }]) => {
+                        const active = statusFilter.includes(key);
+                        return (
+                          <button
+                            key={key}
+                            onClick={() =>
+                              setStatusFilter((prev) =>
+                                active ? prev.filter((s) => s !== key) : [...prev, key]
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                              active
+                                ? `${statusClassName} border-current ring-1 ring-current/30`
+                                : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          {periodFilter && periodFilter !== "este_ano" && (
-            <button
-              onClick={() => { setPeriodFilter(""); setCustomStart(""); setCustomEnd(""); }}
-              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
-            >
-              Limpar
-            </button>
-          )}
-        </div>
+          );
+        })()}
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">

@@ -98,6 +98,9 @@ export default function ProposalsList() {
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [changeLogProposalId, setChangeLogProposalId] = useState<string | null>(null);
+  const [editDatesProposal, setEditDatesProposal] = useState<any>(null);
+  const [editDateValidity, setEditDateValidity] = useState("");
+  const [editExpectedClose, setEditExpectedClose] = useState("");
   const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(false);
 

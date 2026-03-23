@@ -1239,6 +1239,71 @@ export default function ProposalsList() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Change Log dialog */}
+        <Dialog open={changeLogOpen} onOpenChange={setChangeLogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Log de Alterações
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh]">
+              {changeLogLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : changeLogEntries.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum registro de alteração encontrado.</p>
+              ) : (
+                <div className="space-y-3 pr-2">
+                  {changeLogEntries.map((log: any) => {
+                    const severityColors: Record<string, string> = {
+                      info: "border-l-primary",
+                      warning: "border-l-warning",
+                      error: "border-l-destructive",
+                      success: "border-l-success",
+                    };
+                    return (
+                      <div
+                        key={log.id}
+                        className={`rounded-lg border border-border border-l-4 ${severityColors[log.severity] || "border-l-primary"} bg-card p-3`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-foreground">{log.action}</span>
+                              <Badge variant="outline" className="text-[10px]">{log.stage}</Badge>
+                              <Badge
+                                variant={log.severity === "error" ? "destructive" : "secondary"}
+                                className="text-[10px]"
+                              >
+                                {log.severity}
+                              </Badge>
+                            </div>
+                            {log.user_name && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <span className="font-medium">{log.user_name}</span>
+                                {log.user_email && <span className="ml-1">({log.user_email})</span>}
+                              </p>
+                            )}
+                            {log.error_message && (
+                              <p className="text-xs text-destructive mt-1">{log.error_message}</p>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {new Date(log.occurred_at).toLocaleDateString("pt-BR")} {new Date(log.occurred_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

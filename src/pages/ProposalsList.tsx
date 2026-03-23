@@ -642,6 +642,38 @@ export default function ProposalsList() {
           <Input placeholder="Buscar por número, cliente ou descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground mr-1">Status:</span>
+          {Object.entries(statusMap).map(([key, { label, className }]) => {
+            const active = statusFilter.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() =>
+                  setStatusFilter((prev) =>
+                    active ? prev.filter((s) => s !== key) : [...prev, key]
+                  )
+                }
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                  active
+                    ? `${className} border-current ring-1 ring-current/30`
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {statusFilter.length > 0 && (
+            <button
+              onClick={() => setStatusFilter([])}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
             <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>

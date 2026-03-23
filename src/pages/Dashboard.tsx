@@ -792,7 +792,7 @@ export default function Dashboard() {
                   <span className="text-[11px] font-medium uppercase tracking-wider">Vendedor</span>
                 </div>
                 <EsnSelector
-                  esnMembers={esnMembers}
+                  esnMembers={scopedEsnMembers}
                   selectedIds={selectedEsnIds}
                   onChange={setSelectedEsnIds}
                 />

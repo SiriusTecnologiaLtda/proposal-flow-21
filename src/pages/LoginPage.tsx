@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ShieldAlert } from "lucide-react";
 import totvsLogo from "@/assets/totvs-logo.png";
 
 export default function LoginPage() {
@@ -18,7 +20,42 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryKey, setRecoveryKey] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
   const { toast } = useToast();
+
+  const handleRecovery = async () => {
+    if (!recoveryEmail || !recoveryKey) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-recovery`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: recoveryEmail, recovery_key: recoveryKey }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({ title: "Sucesso!", description: data.message });
+        setRecoveryOpen(false);
+        setRecoveryEmail("");
+        setRecoveryKey("");
+      } else {
+        toast({ title: "Erro", description: data.error || "Falha na recuperação", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +213,55 @@ export default function LoginPage() {
             </>
           )}
         </form>
+
+        <button
+          type="button"
+          onClick={() => setRecoveryOpen(true)}
+          className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground mx-auto mt-2"
+        >
+          <ShieldAlert className="h-3 w-3" />
+          Recuperação de acesso admin
+        </button>
+
+        <Dialog open={recoveryOpen} onOpenChange={setRecoveryOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-destructive" />
+                Recuperação Admin
+              </DialogTitle>
+              <DialogDescription>
+                Restaura o papel de administrador para emails autorizados. Informe o email e a chave de recuperação.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail autorizado</Label>
+                <Input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder="admin@email.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chave de recuperação</Label>
+                <Input
+                  type="password"
+                  value={recoveryKey}
+                  onChange={(e) => setRecoveryKey(e.target.value)}
+                  placeholder="••••••••••••"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRecoveryOpen(false)}>Cancelar</Button>
+              <Button onClick={handleRecovery} disabled={recoveryLoading}>
+                {recoveryLoading ? "Restaurando..." : "Restaurar Admin"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

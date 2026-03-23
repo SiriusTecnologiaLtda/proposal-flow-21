@@ -443,6 +443,45 @@ export default function Dashboard() {
   const mySalesTeamId = myProfile?.sales_team_member_id || null;
   const mySalesTeamMember = salesTeam.find((m) => m.id === mySalesTeamId);
 
+  // ─── Role-based scope for dashboard data ──────────────────────
+  // null = no restriction (admin); [] = no access; [...ids] = scoped ESN IDs
+  const myLinkedEsnIds = useMemo(() => {
+    if (role === "admin") return null;
+    if (!mySalesTeamId || !mySalesTeamMember) return [];
+    const memberRole = mySalesTeamMember.role;
+    if (memberRole === "esn") return [mySalesTeamId];
+    if (memberRole === "gsn") {
+      return salesTeam
+        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
+        .map((m) => m.id);
+    }
+    if (memberRole === "arquiteto") return [mySalesTeamId];
+    return [];
+  }, [role, mySalesTeamId, mySalesTeamMember, salesTeam]);
+
+  // ESN members available for filter (GSN sees only their linked ESNs)
+  const scopedEsnMembers = useMemo(() => {
+    if (role === "admin") return esnMembers;
+    if (role === "gsn" && myLinkedEsnIds) {
+      return esnMembers.filter((m) => myLinkedEsnIds.includes(m.id));
+    }
+    return esnMembers;
+  }, [role, esnMembers, myLinkedEsnIds]);
+
+  // Effective ESN IDs for filtering data (combines role scope + manual selection)
+  const effectiveEsnFilter = useMemo((): string[] | null => {
+    if (role === "admin") {
+      return selectedEsnIds.length > 0 ? selectedEsnIds : null;
+    }
+    if (!myLinkedEsnIds || myLinkedEsnIds.length === 0) return [];
+    if (selectedEsnIds.length > 0) {
+      return selectedEsnIds.filter((id) => myLinkedEsnIds.includes(id));
+    }
+    return myLinkedEsnIds;
+  }, [role, myLinkedEsnIds, selectedEsnIds]);
+
+  const isArquiteto = mySalesTeamMember?.role === "arquiteto";
+
   const myClients = useMemo(() => {
     if (!mySalesTeamId) {
       if (role === "admin") return clients;
@@ -527,10 +566,13 @@ export default function Dashboard() {
       previsto: 0,
     }));
 
-    // Filter targets by selected ESNs
-    const relevantTargets = selectedEsnIds.length > 0
-      ? salesTargets.filter((t: any) => selectedEsnIds.includes(t.esn_id))
-      : salesTargets;
+    // Filter targets by role scope + manual ESN selection
+    // For arquiteto: targets where esn_id = their sales_team_id
+    const relevantTargets = isArquiteto
+      ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
+      : effectiveEsnFilter === null
+        ? salesTargets
+        : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
 
     for (const t of relevantTargets) {
       if (t.month >= 1 && t.month <= 12) {
@@ -538,11 +580,15 @@ export default function Dashboard() {
       }
     }
 
-    // Realizado = propostas ganhas, usando expected_close_date (ou updated_at como fallback)
-    // Previsto = ganhas + todas não canceladas, usando expected_close_date
-    const relevantProposals = selectedEsnIds.length > 0
-      ? proposals.filter((p: any) => selectedEsnIds.includes(p.esn_id))
-      : proposals;
+    // Realizado / Previsto: role-scoped proposals
+    // Arquiteto: proposals where arquiteto_id matches
+    // ESN: proposals where esn_id matches
+    // GSN: proposals where esn_id is in linked ESNs
+    const relevantProposals = isArquiteto
+      ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
+      : effectiveEsnFilter === null
+        ? proposals
+        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id));
 
     for (const p of relevantProposals as any[]) {
       const value = computeNetValue(p) || 0;
@@ -571,7 +617,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [salesTargets, proposals, selectedEsnIds, targetYear]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
 
   const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
   const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
@@ -590,10 +636,13 @@ export default function Dashboard() {
       prevista: 0,
     }));
 
-    // Filter by selected ESNs
-    const relevant = selectedEsnIds.length > 0
-      ? (commissionProjections as any[]).filter((cp: any) => selectedEsnIds.includes(cp.esn_id))
-      : (commissionProjections as any[]);
+    // Filter by role scope + manual ESN selection
+    // Arquiteto: commissions are ESN-based, so show none for arquiteto
+    const relevant = isArquiteto
+      ? []
+      : effectiveEsnFilter === null
+        ? (commissionProjections as any[])
+        : (commissionProjections as any[]).filter((cp: any) => effectiveEsnFilter.includes(cp.esn_id));
 
     for (const cp of relevant) {
       const dueDate = cp.due_date || "";
@@ -618,7 +667,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [commissionProjections, selectedEsnIds, targetYear]);
+  }, [commissionProjections, effectiveEsnFilter, isArquiteto, targetYear]);
 
   const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
@@ -743,7 +792,7 @@ export default function Dashboard() {
                   <span className="text-[11px] font-medium uppercase tracking-wider">Vendedor</span>
                 </div>
                 <EsnSelector
-                  esnMembers={esnMembers}
+                  esnMembers={scopedEsnMembers}
                   selectedIds={selectedEsnIds}
                   onChange={setSelectedEsnIds}
                 />

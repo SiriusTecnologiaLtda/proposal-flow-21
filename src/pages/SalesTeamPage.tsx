@@ -79,7 +79,7 @@ export default function SalesTeamPage() {
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
-      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : 0,
+      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : form.role === "arquiteto" ? parseFloat(form.commission_pct) || 1.31 : 0,
     };
     const { error } = editingId
       ? await supabase.from("sales_team").update(payload).eq("id", editingId)

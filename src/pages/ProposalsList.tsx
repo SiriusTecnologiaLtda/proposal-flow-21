@@ -652,7 +652,7 @@ export default function ProposalsList() {
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Minhas Propostas</h1>
             <p className="text-sm text-muted-foreground">
-              {isConsulta ? `${filtered.length} propostas ganhas` : `${proposals.length} propostas cadastradas`}
+              {isConsulta ? `${filtered.length} propostas ganhas` : `${filtered.length} de ${proposals.length} propostas`}
             </p>
           </div>
           {!isConsulta && (

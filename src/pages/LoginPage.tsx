@@ -20,7 +20,42 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isForgot, setIsForgot] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryKey, setRecoveryKey] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
   const { toast } = useToast();
+
+  const handleRecovery = async () => {
+    if (!recoveryEmail || !recoveryKey) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setRecoveryLoading(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-recovery`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: recoveryEmail, recovery_key: recoveryKey }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({ title: "Sucesso!", description: data.message });
+        setRecoveryOpen(false);
+        setRecoveryEmail("");
+        setRecoveryKey("");
+      } else {
+        toast({ title: "Erro", description: data.error || "Falha na recuperação", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

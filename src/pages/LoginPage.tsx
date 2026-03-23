@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import totvsLogo from "@/assets/totvs-logo.png";
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
@@ -69,7 +70,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">TOTVS Leste</h1>
+          <img src={totvsLogo} alt="TOTVS" className="mx-auto h-14 w-14" />
+          <h1 className="mt-2 text-2xl font-bold text-foreground">TOTVS Leste</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isForgot ? "Recuperar senha" : isSignUp ? "Criar conta" : "Acesse sua conta"}
           </p>

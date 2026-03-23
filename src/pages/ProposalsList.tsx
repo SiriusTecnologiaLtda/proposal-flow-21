@@ -622,7 +622,7 @@ export default function ProposalsList() {
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Propostas</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Minhas Propostas</h1>
             <p className="text-sm text-muted-foreground">
               {isConsulta ? `${filtered.length} propostas ganhas` : `${proposals.length} propostas cadastradas`}
             </p>

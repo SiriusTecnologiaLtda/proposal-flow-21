@@ -751,6 +751,7 @@ export default function ProposalsList() {
           )}
         </div>
 
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
             <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
             <span className="text-xs font-medium text-muted-foreground">Descrição</span>

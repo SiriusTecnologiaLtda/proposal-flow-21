@@ -479,6 +479,31 @@ export default function ProposalsList() {
     setWinId(null);
   }
 
+  function openEditDates(proposal: any) {
+    setEditDatesProposal(proposal);
+    setEditDateValidity(proposal.date_validity || "");
+    setEditExpectedClose(proposal.expected_close_date || "");
+  }
+
+  async function handleSaveDates() {
+    if (!editDatesProposal) return;
+    try {
+      const { error } = await supabase
+        .from("proposals")
+        .update({
+          date_validity: editDateValidity || null,
+          expected_close_date: editExpectedClose || null,
+        })
+        .eq("id", editDatesProposal.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      toast({ title: "Datas atualizadas com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setEditDatesProposal(null);
+  }
+
   async function handleCancelSignature() {
     if (!cancelSignatureId) return;
     try {

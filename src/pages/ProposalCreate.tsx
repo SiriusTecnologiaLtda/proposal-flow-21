@@ -19,6 +19,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
+import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { regenerateCommissionProjections } from "@/lib/commissionProjections";
 
 // Two-level scope item for proposal
@@ -131,6 +132,7 @@ export default function ProposalCreate() {
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
@@ -1064,30 +1066,41 @@ export default function ProposalCreate() {
                 />
               </>
             ) : (
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="clientSearch" placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="pl-9" />
-                </div>
-                {clientSearch.length >= 2 && (
-                  <div className="max-h-48 overflow-auto rounded-md border border-border bg-card">
-                    {filteredClients.map((c) => (
-                      <button key={c.id} onClick={() => { setClientId(c.id); setClientSearch(""); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent">
-                        <span className="font-medium text-foreground">{c.name}</span>
-                        <span className="text-xs text-muted-foreground">{c.code}</span>
-                      </button>
-                    ))}
-                    {filteredClients.length === 0 && (
-                      <div className="px-3 py-3 text-center space-y-2">
-                        <p className="text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
-                        <Button variant="outline" size="sm" onClick={() => navigate("/cadastros/clientes?novo=1")}>
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Cadastrar novo cliente
-                        </Button>
-                      </div>
-                    )}
+              <>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="clientSearch" placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="pl-9" />
                   </div>
-                )}
-              </div>
+                  {clientSearch.length >= 2 && (
+                    <div className="max-h-48 overflow-auto rounded-md border border-border bg-card">
+                      {filteredClients.map((c) => (
+                        <button key={c.id} onClick={() => { setClientId(c.id); setClientSearch(""); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent">
+                          <span className="font-medium text-foreground">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.code}</span>
+                        </button>
+                      ))}
+                      {filteredClients.length === 0 && (
+                        <div className="px-3 py-3 text-center space-y-2">
+                          <p className="text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                          <Button variant="outline" size="sm" onClick={() => setQuickCreateClientOpen(true)}>
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Cadastrar novo cliente
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <QuickCreateClientDialog
+                  open={quickCreateClientOpen}
+                  onOpenChange={setQuickCreateClientOpen}
+                  onClientCreated={(newId) => {
+                    setClientId(newId);
+                    setClientSearch("");
+                  }}
+                  initialSearch={clientSearch}
+                />
+              </>
             )}
           </div>
 

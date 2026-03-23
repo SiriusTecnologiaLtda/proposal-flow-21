@@ -33,6 +33,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { user, signOut } = useAuth();
   const { role, allowedResources } = useUserRole();
 
+  const { theme, toggleTheme } = useTheme();
+
   const { data: profile } = useQuery({
     queryKey: ["my-profile", user?.id],
     enabled: !!user?.id,

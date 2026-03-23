@@ -1090,6 +1090,15 @@ export default function ProposalCreate() {
                   </div>
                 )}
               </div>
+              <QuickCreateClientDialog
+                open={quickCreateClientOpen}
+                onOpenChange={setQuickCreateClientOpen}
+                onClientCreated={(newId) => {
+                  setClientId(newId);
+                  setClientSearch("");
+                }}
+                initialSearch={clientSearch}
+              />
             )}
           </div>
 

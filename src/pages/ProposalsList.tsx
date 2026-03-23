@@ -874,7 +874,7 @@ export default function ProposalsList() {
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setWinId(p.id)}>
+                                <DropdownMenuItem onClick={() => { setWinId(p.id); setWinCloseDate(new Date().toISOString().substring(0, 10)); }}>
                                   <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
                                 </DropdownMenuItem>
                               </>

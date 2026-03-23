@@ -85,7 +85,7 @@ export default function ProposalCreate() {
   });
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
-  const { data: existingProposal, isLoading: loadingProposal } = useProposal(isEditing ? id : duplicateId || undefined);
+  const { data: existingProposal, isLoading: loadingProposal, error: proposalError } = useProposal(isEditing ? id : duplicateId || undefined);
 
   const [loaded, setLoaded] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);

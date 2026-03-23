@@ -24,6 +24,7 @@ export function useUserRole() {
   const { data: allowedResources = [], isLoading: permsLoading } = useQuery({
     queryKey: ["role-permissions", role],
     enabled: role !== undefined,
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       if (!role) return ["dashboard", "propostas"];
       if (role === "admin") return ALL_RESOURCES;

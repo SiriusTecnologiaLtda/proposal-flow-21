@@ -288,7 +288,7 @@ export default function SalesTeamPage() {
       <BatchCommissionDialog
         open={batchCommissionOpen}
         onOpenChange={setBatchCommissionOpen}
-        esnMembers={salesTeam.filter((m) => m.role === "esn")}
+        esnMembers={salesTeam.filter((m) => m.role === "esn" || m.role === "arquiteto")}
         units={units}
       />
     </div>

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +77,9 @@ function StatusIcon({ status }: { status: LogEntry["status"] }) {
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
 
@@ -442,6 +446,21 @@ export default function ProposalsList() {
     setConsoleLoading(false);
   }
 
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
   const filtered = proposals.filter((p) => {
     // Consulta role: only ganha proposals from allowed units
     if (isConsulta) {
@@ -452,6 +471,15 @@ export default function ProposalsList() {
     }
     // Status filter
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
+    // Period filter by expected_close_date
+    if (periodRange) {
+      const closeDate = (p as any).expected_close_date;
+      if (!closeDate) return false;
+      try {
+        const d = parseISO(closeDate);
+        if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+      } catch { return false; }
+    }
     const q = search.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";
@@ -624,7 +652,7 @@ export default function ProposalsList() {
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Minhas Propostas</h1>
             <p className="text-sm text-muted-foreground">
-              {isConsulta ? `${filtered.length} propostas ganhas` : `${proposals.length} propostas cadastradas`}
+              {isConsulta ? `${filtered.length} propostas ganhas` : `${filtered.length} de ${proposals.length} propostas`}
             </p>
           </div>
           {!isConsulta && (
@@ -667,6 +695,55 @@ export default function ProposalsList() {
           {statusFilter.length > 0 && (
             <button
               onClick={() => setStatusFilter([])}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground mr-1">PERÍODO</span>
+          {([
+            { key: "este_mes", label: "Este mês" },
+            { key: "ultimo_mes", label: "Último mês" },
+            { key: "este_trimestre", label: "Este trimestre" },
+            { key: "este_ano", label: "Este ano" },
+            { key: "personalizado", label: "Personalizado" },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                periodFilter === key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {periodFilter === "personalizado" && (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="h-7 w-[130px] text-xs"
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <Input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="h-7 w-[130px] text-xs"
+              />
+            </div>
+          )}
+          {periodFilter && periodFilter !== "este_ano" && (
+            <button
+              onClick={() => { setPeriodFilter(""); setCustomStart(""); setCustomEnd(""); }}
               className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
             >
               Limpar

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Search } from "lucide-react";
 import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft, Percent } from "lucide-react";
 import BatchCommissionDialog from "@/components/sales-team/BatchCommissionDialog";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
@@ -29,6 +30,7 @@ const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id:
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
+  const [search, setSearch] = useState("");
   const { data: units = [] } = useUnits();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -105,7 +107,13 @@ export default function SalesTeamPage() {
     }
   };
 
-  const grouped = salesTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
+  const filteredTeam = salesTeam.filter((m) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q);
+  });
+
+  const grouped = filteredTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
     (acc[m.role] = acc[m.role] || []).push(m);
     return acc;
   }, {});
@@ -125,6 +133,15 @@ export default function SalesTeamPage() {
             <Plus className="mr-2 h-4 w-4" />Novo Membro
           </Button>
         </div>
+      </div>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Pesquisar por nome ou código..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

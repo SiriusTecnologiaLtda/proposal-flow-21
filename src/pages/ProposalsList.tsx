@@ -1096,6 +1096,21 @@ export default function ProposalsList() {
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma proposta encontrada.</div>
             )}
           </div>
+
+          {/* Footer totals */}
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between border-t border-border bg-accent/30 px-4 py-2.5">
+              <span className="text-sm font-medium text-muted-foreground">
+                {filtered.length} {filtered.length === 1 ? "proposta" : "propostas"}
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                Total: R${" "}
+                {filtered
+                  .reduce((sum, p) => sum + (computeNetValue(p, units, proposalTypes) || 0), 0)
+                  .toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Generation console dialog */}

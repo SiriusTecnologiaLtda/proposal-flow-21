@@ -42,28 +42,28 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
-function roundUp8(val: number): number {
-  return Math.ceil(val / 8) * 8;
+function roundUpFactor(val: number, factor: number): number {
+  if (factor <= 0) return val;
+  return Math.ceil(val / factor) * factor;
 }
 
-function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
-  if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
-  return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
-}
-
-function computeNetValue(proposal: any, units: any[]): number | null {
+function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): number | null {
   const scopeItems = proposal.proposal_scope_items;
   if (!scopeItems || scopeItems.length === 0) return null;
 
+  // Find the rounding factor from the proposal type config
+  const typeConfig = proposalTypes.find((pt: any) => pt.slug === proposal.type);
+  const roundingFactor = typeConfig?.rounding_factor || 8;
+
   // Sum hours of included children (items with parent_id)
-  const totalHours = roundUp8(
+  const totalHours = roundUpFactor(
     scopeItems
       .filter((item: any) => item.included && item.parent_id)
-      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0)
+      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0),
+    roundingFactor
   );
 
-  const gpHours = roundUp8(Math.ceil(totalHours * (proposal.gp_percentage / 100)));
+  const gpHours = roundUpFactor(Math.ceil(totalHours * (proposal.gp_percentage / 100)), roundingFactor);
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 

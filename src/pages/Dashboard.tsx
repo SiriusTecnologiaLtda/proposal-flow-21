@@ -79,7 +79,8 @@ function getPresetDates(preset: string): { from: string; to: string } {
 }
 
 function formatCurrency(v: number): string {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const k = v / 1000;
+  return `${k.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K`;
 }
 
 // ─── ESN Multi-Select Popover ─────────────────────────────────

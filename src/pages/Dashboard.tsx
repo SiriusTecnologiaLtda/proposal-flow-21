@@ -426,7 +426,7 @@ export default function Dashboard() {
     if (wonProposals.length === 0) return 0;
     const totalDays = wonProposals.reduce((sum: number, p: any) => {
       const created = new Date(p.created_at).getTime();
-      const closed = new Date(p.updated_at).getTime();
+      const closed = new Date(p.expected_close_date || p.updated_at).getTime();
       return sum + (closed - created) / (1000 * 60 * 60 * 24);
     }, 0);
     return Math.round(totalDays / wonProposals.length);

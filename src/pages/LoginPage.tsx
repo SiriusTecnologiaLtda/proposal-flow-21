@@ -213,6 +213,55 @@ export default function LoginPage() {
             </>
           )}
         </form>
+
+        <button
+          type="button"
+          onClick={() => setRecoveryOpen(true)}
+          className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground mx-auto mt-2"
+        >
+          <ShieldAlert className="h-3 w-3" />
+          Recuperação de acesso admin
+        </button>
+
+        <Dialog open={recoveryOpen} onOpenChange={setRecoveryOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-destructive" />
+                Recuperação Admin
+              </DialogTitle>
+              <DialogDescription>
+                Restaura o papel de administrador para emails autorizados. Informe o email e a chave de recuperação.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail autorizado</Label>
+                <Input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder="admin@email.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chave de recuperação</Label>
+                <Input
+                  type="password"
+                  value={recoveryKey}
+                  onChange={(e) => setRecoveryKey(e.target.value)}
+                  placeholder="••••••••••••"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRecoveryOpen(false)}>Cancelar</Button>
+              <Button onClick={handleRecovery} disabled={recoveryLoading}>
+                {recoveryLoading ? "Restaurando..." : "Restaurar Admin"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

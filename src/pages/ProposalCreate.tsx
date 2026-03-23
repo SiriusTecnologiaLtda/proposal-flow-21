@@ -1082,7 +1082,7 @@ export default function ProposalCreate() {
                     {filteredClients.length === 0 && (
                       <div className="px-3 py-3 text-center space-y-2">
                         <p className="text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
-                        <Button variant="outline" size="sm" onClick={() => navigate("/cadastros/clientes?novo=1")}>
+                        <Button variant="outline" size="sm" onClick={() => setQuickCreateClientOpen(true)}>
                           <Plus className="mr-1 h-3.5 w-3.5" /> Cadastrar novo cliente
                         </Button>
                       </div>

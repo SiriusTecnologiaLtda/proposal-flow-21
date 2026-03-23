@@ -647,7 +647,7 @@ export default function ProposalsList() {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
-              const netValue = computeNetValue(p, units);
+              const netValue = computeNetValue(p, units, proposalTypes);
               const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (

@@ -121,8 +121,17 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const loginData = await loginRes.json();
-    const taeToken = loginData.access_token || loginData.token;
+    const loginBody = await loginRes.text();
+    let loginData: any;
+    try { loginData = JSON.parse(loginBody); } catch { loginData = {}; }
+    const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
+    if (!taeToken) {
+      return new Response(
+        JSON.stringify({ error: "Token TAE não retornado", details: loginBody.substring(0, 300) }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    console.log(`[tae-check-status] TAE login OK, token length=${taeToken.length}`);
 
     // Get publication status from TAE (fallback to document when publication id is missing)
     let resolvedPublicationId = taePublicationId;

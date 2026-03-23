@@ -19,6 +19,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
 import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal/ClientValidationAlerts";
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
+import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { regenerateCommissionProjections } from "@/lib/commissionProjections";
 
 // Two-level scope item for proposal

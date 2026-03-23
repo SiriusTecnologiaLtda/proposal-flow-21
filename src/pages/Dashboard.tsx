@@ -1078,7 +1078,9 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto.
+                {isArquiteto
+                  ? `Comissão = ${Number(mySalesTeamMember?.commission_pct) || 1.31}% × valor líquido da proposta vinculada ao arquiteto.`
+                  : "Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto."}
               </p>
             </CardContent>
           </Card>

@@ -446,6 +446,21 @@ export default function ProposalsList() {
     setConsoleLoading(false);
   }
 
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
   const filtered = proposals.filter((p) => {
     // Consulta role: only ganha proposals from allowed units
     if (isConsulta) {
@@ -456,6 +471,15 @@ export default function ProposalsList() {
     }
     // Status filter
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
+    // Period filter by expected_close_date
+    if (periodRange) {
+      const closeDate = (p as any).expected_close_date;
+      if (!closeDate) return false;
+      try {
+        const d = parseISO(closeDate);
+        if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+      } catch { return false; }
+    }
     const q = search.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";

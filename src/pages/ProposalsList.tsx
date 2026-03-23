@@ -67,10 +67,25 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
+function StatusIcon({ status }: { status: LogEntry["status"] }) {
+  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
+  if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
+  return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
+}
+
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
+
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("slug, rounding_factor");
+      if (error) throw error;
+      return data;
+    },
+  });
   const { user } = useAuth();
   const { role: userRole } = useUserRole();
   const queryClient = useQueryClient();

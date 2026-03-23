@@ -667,7 +667,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [commissionProjections, selectedEsnIds, targetYear]);
+  }, [commissionProjections, effectiveEsnFilter, isArquiteto, targetYear]);
 
   const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);

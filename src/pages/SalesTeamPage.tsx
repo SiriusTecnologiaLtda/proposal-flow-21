@@ -259,7 +259,7 @@ export default function SalesTeamPage() {
                       {(member as any).phone && <p>📱 {(member as any).phone}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                       {unitName && <p>🏢 {unitName}</p>}
-                      {role === "esn" && <p>💰 Comissão: {(member as any).commission_pct ?? 3}%</p>}
+                      {(role === "esn" || role === "arquiteto") && <p>💰 Comissão: {(member as any).commission_pct ?? (role === "arquiteto" ? 1.31 : 3)}%</p>}
                     </div>
                   </div>
                 );

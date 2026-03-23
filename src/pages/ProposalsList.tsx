@@ -784,6 +784,9 @@ export default function ProposalsList() {
                             {!isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openEditDates(p)}>
+                                  <Edit2 className="mr-2 h-3.5 w-3.5" />Alterar Datas
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openCraDialog(p)}>
                                   <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
                                 </DropdownMenuItem>

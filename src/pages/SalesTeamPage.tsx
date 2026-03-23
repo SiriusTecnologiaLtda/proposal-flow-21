@@ -29,6 +29,7 @@ const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id:
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
+  const [search, setSearch] = useState("");
   const { data: units = [] } = useUnits();
   const { toast } = useToast();
   const qc = useQueryClient();

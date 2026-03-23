@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${taeToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ idsDocumentos: [Number(taeDocumentId)] }),
+          body: JSON.stringify([Number(taeDocumentId)]),
         });
         const siRaw = await siRes.text();
         console.log(`[tae-check-status] signintegration → ${siRes.status} ${siRaw.substring(0, 800)}`);

@@ -166,7 +166,8 @@ Deno.serve(async (req) => {
         
         if (res.ok && raw) {
           let parsed: any;
-          try { parsed = JSON.parse(raw); } catch { continue; }
+          try { parsed = JSON.parse(raw); } catch { console.log(`[tae-check-status] Could not parse JSON from ${endpoint}`); continue; }
+          console.log(`[tae-check-status] Parsed keys:`, Object.keys(parsed), parsed?.data ? `data keys: ${Object.keys(parsed.data)}` : "no data");
           const data = parsed?.data || parsed;
           
           // Could be a single object or array

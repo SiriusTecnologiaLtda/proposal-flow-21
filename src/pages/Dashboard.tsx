@@ -534,7 +534,8 @@ export default function Dashboard() {
       months.push({ key, label, ganhas: 0, perdidas: 0 });
     }
     for (const p of proposals as any[]) {
-      const closeMonth = (p.updated_at || "").substring(0, 7);
+      if (p.status !== "ganha" && p.status !== "cancelada") continue;
+      const closeMonth = (p.expected_close_date || "").substring(0, 7);
       const bucket = months.find((m) => m.key === closeMonth);
       if (!bucket) continue;
       if (p.status === "ganha") bucket.ganhas++;

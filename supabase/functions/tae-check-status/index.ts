@@ -147,12 +147,14 @@ Deno.serve(async (req) => {
       // No publication ID — try multiple TAE endpoints to find publication info
       console.log(`[tae-check-status] No publication ID, trying to resolve from document ${taeDocumentId}`);
 
-      // Try 1: GET /documents/v1/documentos/{id} (v1 endpoint)
+      // Try multiple TAE endpoints to resolve publication from document/envelope ID
       let resolved = false;
       for (const endpoint of [
+        `${baseUrl}/documents/v1/envelopes/${taeDocumentId}`,
+        `${baseUrl}/documents/v2/envelopes/${taeDocumentId}`,
+        `${baseUrl}/documents/v1/envelopes/${taeDocumentId}/publicacoes`,
+        `${baseUrl}/documents/v2/publicacoes?idDocumento=${taeDocumentId}`,
         `${baseUrl}/documents/v1/documentos/${taeDocumentId}`,
-        `${baseUrl}/documents/v2/documentos/${taeDocumentId}`,
-        `${baseUrl}/documents/v1/publicacoes?idDocumento=${taeDocumentId}`,
       ]) {
         if (resolved) break;
         console.log(`[tae-check-status] Trying: ${endpoint}`);

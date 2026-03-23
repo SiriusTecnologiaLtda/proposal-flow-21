@@ -14,10 +14,12 @@ export function useUserRole() {
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (error || !data) return null;
-      return data.role as AppRole;
+        .eq("user_id", user!.id);
+      if (error || !data?.length) return null;
+      // Prioritize admin role when user has multiple roles
+      const PRIORITY: AppRole[] = ["admin", "gsn", "arquiteto", "vendedor", "consulta"];
+      const roles = data.map((r: any) => r.role as AppRole);
+      return PRIORITY.find((p) => roles.includes(p)) || roles[0];
     },
   });
 

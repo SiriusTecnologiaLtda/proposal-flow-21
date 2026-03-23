@@ -933,6 +933,29 @@ export default function ProposalCreate() {
     );
   }
 
+  if ((isEditing || isDuplicating) && proposalError) {
+    console.error("[ProposalCreate] Erro ao carregar proposta:", proposalError);
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <p className="text-destructive font-medium">Erro ao carregar proposta</p>
+        <p className="text-sm text-muted-foreground max-w-md text-center">
+          {(proposalError as any)?.message || "Não foi possível carregar os dados da proposta. Verifique sua conexão e permissões."}
+        </p>
+        <Button variant="outline" onClick={() => navigate("/propostas")}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Propostas
+        </Button>
+      </div>
+    );
+  }
+
+  // Debug: log proposal load state
+  if (isEditing && !loaded && existingProposal) {
+    console.log("[ProposalCreate] Proposta carregada:", { id, scopeItemsCount: (existingProposal as any)?.proposal_scope_items?.length, status: existingProposal.status });
+  }
+  if (isEditing && !loaded && !loadingProposal && !existingProposal && !proposalError) {
+    console.warn("[ProposalCreate] Proposta não encontrada (sem erro):", { id, loadingProposal, proposalError });
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">

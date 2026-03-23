@@ -812,6 +812,14 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {locked && userRole === "admin" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir (Admin)
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </>
                         )}
                       </DropdownMenuContent>

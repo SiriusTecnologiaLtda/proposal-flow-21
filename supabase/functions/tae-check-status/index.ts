@@ -121,8 +121,17 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const loginData = await loginRes.json();
-    const taeToken = loginData.access_token || loginData.token;
+    const loginBody = await loginRes.text();
+    let loginData: any;
+    try { loginData = JSON.parse(loginBody); } catch { loginData = {}; }
+    const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
+    if (!taeToken) {
+      return new Response(
+        JSON.stringify({ error: "Token TAE não retornado", details: loginBody.substring(0, 300) }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    console.log(`[tae-check-status] TAE login OK, token length=${taeToken.length}`);
 
     // Get publication status from TAE (fallback to document when publication id is missing)
     let resolvedPublicationId = taePublicationId;
@@ -144,57 +153,110 @@ Deno.serve(async (req) => {
       try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
       pubData = statusData?.data || statusData;
     } else {
-      // No publication ID — try multiple TAE endpoints to find publication info
+      // No publication ID — use signintegration endpoint to resolve from document ID
       console.log(`[tae-check-status] No publication ID, trying to resolve from document ${taeDocumentId}`);
 
-      // Try 1: GET /documents/v1/documentos/{id} (v1 endpoint)
       let resolved = false;
-      for (const endpoint of [
-        `${baseUrl}/documents/v1/documentos/${taeDocumentId}`,
-        `${baseUrl}/documents/v2/documentos/${taeDocumentId}`,
-        `${baseUrl}/documents/v1/publicacoes?idDocumento=${taeDocumentId}`,
-      ]) {
-        if (resolved) break;
-        console.log(`[tae-check-status] Trying: ${endpoint}`);
-        const res = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${taeToken}` },
+
+      // Primary: POST /signintegration/v2/Publicacoes/documentos-empresa (official TAE endpoint)
+      try {
+        const siEndpoint = `${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`;
+        console.log(`[tae-check-status] Trying signintegration: ${siEndpoint}`);
+        const siRes = await fetch(siEndpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${taeToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify([Number(taeDocumentId)]),
         });
-        const raw = await res.text();
-        console.log(`[tae-check-status] → ${res.status} ${raw.substring(0, 500)}`);
-        
-        if (res.ok && raw) {
-          let parsed: any;
-          try { parsed = JSON.parse(raw); } catch { continue; }
-          const data = parsed?.data || parsed;
-          
-          // Could be a single object or array
-          const items = Array.isArray(data) ? data : [data];
-          const match = items.find((item: any) => 
-            String(item?.idDocumento || item?.documentoId || "") === String(taeDocumentId)
-          ) || items[0];
-          
+        const siRaw = await siRes.text();
+        console.log(`[tae-check-status] signintegration → ${siRes.status} ${siRaw.substring(0, 800)}`);
+
+        if (siRes.ok && siRaw) {
+          let siParsed: any;
+          try { siParsed = JSON.parse(siRaw); } catch { /* ignore */ }
+          const siData = siParsed?.data || siParsed;
+          const items = Array.isArray(siData) ? siData : [siData];
+          const match = items.find((item: any) =>
+            String(item?.idDocumento || item?.documentoId || item?.id || "") === String(taeDocumentId)
+          ) || (items.length > 0 ? items[0] : null);
+
           if (match) {
             resolvedPublicationId = String(
-              match?.idPublicacao || match?.publicacaoId || 
-              match?.publicacao?.id || ""
+              match?.idPublicacao || match?.publicacaoId ||
+              match?.publicacao?.id || match?.publicacoes?.[0]?.id ||
+              match?.publicacoes?.[0]?.idPublicacao || ""
             ).trim() || null;
-            
-            // If this item has status/signers info, use it as pubData
-            if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {
+
+            console.log(`[tae-check-status] signintegration match. pubId=${resolvedPublicationId}, keys=${Object.keys(match)}`);
+
+            if (match?.status !== undefined || match?.assinantes || match?.destinatarios || match?.pendentes) {
               pubData = match;
               resolved = true;
             } else if (resolvedPublicationId) {
-              // Got publication ID, fetch its details
               const pubRes = await fetch(`${baseUrl}/documents/v2/publicacoes/${resolvedPublicationId}`, {
                 headers: { Authorization: `Bearer ${taeToken}` },
               });
               if (pubRes.ok) {
                 const pubRaw = await pubRes.text();
                 try {
-                  const pubParsed = JSON.parse(pubRaw);
-                  pubData = pubParsed?.data || pubParsed;
+                  pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw);
                   resolved = true;
                 } catch { /* continue */ }
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.log(`[tae-check-status] signintegration error: ${e.message}`);
+      }
+
+      // Fallback: GET endpoints
+      if (!resolved) {
+        for (const endpoint of [
+          `${baseUrl}/documents/v1/envelopes/${taeDocumentId}`,
+          `${baseUrl}/documents/v1/envelopes/${taeDocumentId}/publicacoes`,
+          `${baseUrl}/documents/v1/documentos/${taeDocumentId}`,
+        ]) {
+          if (resolved) break;
+          console.log(`[tae-check-status] Trying fallback: ${endpoint}`);
+          const res = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${taeToken}` },
+          });
+          const raw = await res.text();
+          console.log(`[tae-check-status] → ${res.status} ${raw.substring(0, 500)}`);
+
+          if (res.ok && raw) {
+            let parsed: any;
+            try { parsed = JSON.parse(raw); } catch { continue; }
+            const data = parsed?.data || parsed;
+            const items = Array.isArray(data) ? data : [data];
+            const match = items.find((item: any) =>
+              String(item?.idDocumento || item?.documentoId || item?.id || "") === String(taeDocumentId)
+            ) || items[0];
+
+            if (match) {
+              resolvedPublicationId = String(
+                match?.idPublicacao || match?.publicacaoId ||
+                match?.publicacao?.id || match?.publicacoes?.[0]?.id ||
+                match?.publicacoes?.[0]?.idPublicacao || ""
+              ).trim() || null;
+
+              if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {
+                pubData = match;
+                resolved = true;
+              } else if (resolvedPublicationId) {
+                const pubRes = await fetch(`${baseUrl}/documents/v2/publicacoes/${resolvedPublicationId}`, {
+                  headers: { Authorization: `Bearer ${taeToken}` },
+                });
+                if (pubRes.ok) {
+                  const pubRaw = await pubRes.text();
+                  try {
+                    pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw);
+                    resolved = true;
+                  } catch { /* continue */ }
+                }
               }
             }
           }
@@ -227,15 +289,22 @@ Deno.serve(async (req) => {
     const pubStatus = pubData?.status;
     const pubStatusLabel = TAE_STATUS_MAP[pubStatus] ?? `Desconhecido (${pubStatus})`;
 
-    // Extract signer details
-    const signers = (pubData?.assinantes || pubData?.destinatarios || []).map((s: any) => ({
-      email: s.email || s.emailDestinatario,
-      name: s.nomeCompleto || s.nome || s.email,
-      status: s.statusAssinatura ?? s.status,
-      statusLabel: s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente"),
-      signedAt: s.dataAssinatura || null,
-      action: s.acao ?? s.tipoAssinatura,
-    }));
+    // Extract signer details — handle both publication format (assinantes/destinatarios) and signintegration format (pendentes)
+    const rawSigners = pubData?.assinantes || pubData?.destinatarios || pubData?.pendentes || [];
+    const signers = rawSigners.map((s: any) => {
+      // signintegration format uses `pendente` boolean
+      const isPendentesFormat = s.pendente !== undefined;
+      return {
+        email: s.email || s.emailDestinatario,
+        name: s.nomeCompleto || s.nome || s.email,
+        status: s.statusAssinatura ?? s.status,
+        statusLabel: isPendentesFormat
+          ? (s.pendente ? "Pendente" : "Assinado")
+          : (s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente")),
+        signedAt: s.dataAssinatura || null,
+        action: s.acao ?? s.tipoAssinatura,
+      };
+    });
 
     // Sync local signatories based on TAE
     for (const signer of signers) {

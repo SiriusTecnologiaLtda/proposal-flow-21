@@ -98,6 +98,9 @@ export default function ProposalsList() {
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [changeLogProposalId, setChangeLogProposalId] = useState<string | null>(null);
+  const [editDatesProposal, setEditDatesProposal] = useState<any>(null);
+  const [editDateValidity, setEditDateValidity] = useState("");
+  const [editExpectedClose, setEditExpectedClose] = useState("");
   const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(false);
 
@@ -476,6 +479,31 @@ export default function ProposalsList() {
     setWinId(null);
   }
 
+  function openEditDates(proposal: any) {
+    setEditDatesProposal(proposal);
+    setEditDateValidity(proposal.date_validity || "");
+    setEditExpectedClose(proposal.expected_close_date || "");
+  }
+
+  async function handleSaveDates() {
+    if (!editDatesProposal) return;
+    try {
+      const { error } = await supabase
+        .from("proposals")
+        .update({
+          date_validity: editDateValidity || null,
+          expected_close_date: editExpectedClose || null,
+        })
+        .eq("id", editDatesProposal.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      toast({ title: "Datas atualizadas com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setEditDatesProposal(null);
+  }
+
   async function handleCancelSignature() {
     if (!cancelSignatureId) return;
     try {
@@ -756,6 +784,9 @@ export default function ProposalsList() {
                             {!isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openEditDates(p)}>
+                                  <Edit2 className="mr-2 h-3.5 w-3.5" />Alterar Datas
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openCraDialog(p)}>
                                   <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
                                 </DropdownMenuItem>
@@ -978,6 +1009,30 @@ export default function ProposalsList() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+
+        {/* Edit Dates dialog */}
+        <Dialog open={!!editDatesProposal} onOpenChange={(open) => !open && setEditDatesProposal(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Alterar Datas da Proposta</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Data de Previsão (Validade)</Label>
+                <Input type="date" value={editDateValidity} onChange={(e) => setEditDateValidity(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de Fechamento</Label>
+                <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDatesProposal(null)}>Cancelar</Button>
+              <Button onClick={handleSaveDates}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Versions dialog */}
         <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>

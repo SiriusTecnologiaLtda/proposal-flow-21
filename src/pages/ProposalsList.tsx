@@ -485,14 +485,24 @@ export default function ProposalsList() {
   }
 
   async function handleWin() {
-    if (!winId) return;
+    if (!winId || !winCloseDate) return;
     try {
-      await updateStatus.mutateAsync({ id: winId, status: "ganha" });
+      const { error } = await supabase.from("proposals").update({
+        status: "ganha" as any,
+        expected_close_date: winCloseDate,
+      }).eq("id", winId);
+      if (error) throw error;
+      await supabase
+        .from("commission_projections")
+        .update({ proposal_status: "ganha" } as any)
+        .eq("proposal_id", winId);
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
       toast({ title: "Proposta encerrada como ganha!" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setWinId(null);
+    setWinCloseDate("");
   }
 
   function openEditDates(proposal: any) {

@@ -702,7 +702,55 @@ export default function ProposalsList() {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground mr-1">PERÍODO</span>
+          {([
+            { key: "este_mes", label: "Este mês" },
+            { key: "ultimo_mes", label: "Último mês" },
+            { key: "este_trimestre", label: "Este trimestre" },
+            { key: "este_ano", label: "Este ano" },
+            { key: "personalizado", label: "Personalizado" },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                periodFilter === key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {periodFilter === "personalizado" && (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="h-7 w-[130px] text-xs"
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <Input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="h-7 w-[130px] text-xs"
+              />
+            </div>
+          )}
+          {periodFilter && periodFilter !== "este_ano" && (
+            <button
+              onClick={() => { setPeriodFilter(""); setCustomStart(""); setCustomEnd(""); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
           <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
             <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
             <span className="text-xs font-medium text-muted-foreground">Descrição</span>

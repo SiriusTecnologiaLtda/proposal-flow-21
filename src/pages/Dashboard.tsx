@@ -443,6 +443,45 @@ export default function Dashboard() {
   const mySalesTeamId = myProfile?.sales_team_member_id || null;
   const mySalesTeamMember = salesTeam.find((m) => m.id === mySalesTeamId);
 
+  // ─── Role-based scope for dashboard data ──────────────────────
+  // null = no restriction (admin); [] = no access; [...ids] = scoped ESN IDs
+  const myLinkedEsnIds = useMemo(() => {
+    if (role === "admin") return null;
+    if (!mySalesTeamId || !mySalesTeamMember) return [];
+    const memberRole = mySalesTeamMember.role;
+    if (memberRole === "esn") return [mySalesTeamId];
+    if (memberRole === "gsn") {
+      return salesTeam
+        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
+        .map((m) => m.id);
+    }
+    if (memberRole === "arquiteto") return [mySalesTeamId];
+    return [];
+  }, [role, mySalesTeamId, mySalesTeamMember, salesTeam]);
+
+  // ESN members available for filter (GSN sees only their linked ESNs)
+  const scopedEsnMembers = useMemo(() => {
+    if (role === "admin") return esnMembers;
+    if (role === "gsn" && myLinkedEsnIds) {
+      return esnMembers.filter((m) => myLinkedEsnIds.includes(m.id));
+    }
+    return esnMembers;
+  }, [role, esnMembers, myLinkedEsnIds]);
+
+  // Effective ESN IDs for filtering data (combines role scope + manual selection)
+  const effectiveEsnFilter = useMemo((): string[] | null => {
+    if (role === "admin") {
+      return selectedEsnIds.length > 0 ? selectedEsnIds : null;
+    }
+    if (!myLinkedEsnIds || myLinkedEsnIds.length === 0) return [];
+    if (selectedEsnIds.length > 0) {
+      return selectedEsnIds.filter((id) => myLinkedEsnIds.includes(id));
+    }
+    return myLinkedEsnIds;
+  }, [role, myLinkedEsnIds, selectedEsnIds]);
+
+  const isArquiteto = mySalesTeamMember?.role === "arquiteto";
+
   const myClients = useMemo(() => {
     if (!mySalesTeamId) {
       if (role === "admin") return clients;

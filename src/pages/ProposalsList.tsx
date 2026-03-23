@@ -1010,6 +1010,30 @@ export default function ProposalsList() {
           </AlertDialogContent>
         </AlertDialog>
 
+
+        {/* Edit Dates dialog */}
+        <Dialog open={!!editDatesProposal} onOpenChange={(open) => !open && setEditDatesProposal(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Alterar Datas da Proposta</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Data de Previsão (Validade)</Label>
+                <Input type="date" value={editDateValidity} onChange={(e) => setEditDateValidity(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de Fechamento</Label>
+                <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDatesProposal(null)}>Cancelar</Button>
+              <Button onClick={handleSaveDates}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Versions dialog */}
         <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
           <DialogContent className="sm:max-w-lg">

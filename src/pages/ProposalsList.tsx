@@ -1022,19 +1022,33 @@ export default function ProposalsList() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Win confirmation */}
-        <AlertDialog open={!!winId} onOpenChange={(open) => !open && setWinId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Encerrar como ganha?</AlertDialogTitle>
-              <AlertDialogDescription>A proposta será marcada como ganha.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Voltar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleWin}>Confirmar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Win confirmation with date picker */}
+        <Dialog open={!!winId} onOpenChange={(open) => { if (!open) { setWinId(null); setWinCloseDate(""); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-success" />
+                Encerrar como Ganha
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">Informe a data de fechamento desta proposta:</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="win-close-date">Data de Fechamento</Label>
+                <Input
+                  id="win-close-date"
+                  type="date"
+                  value={winCloseDate}
+                  onChange={(e) => setWinCloseDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setWinId(null); setWinCloseDate(""); }}>Voltar</Button>
+              <Button onClick={handleWin} disabled={!winCloseDate}>Confirmar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
 
         {/* Edit Dates dialog */}

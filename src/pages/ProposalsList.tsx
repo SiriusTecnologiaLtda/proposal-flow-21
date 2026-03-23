@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
@@ -96,6 +96,10 @@ export default function ProposalsList() {
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
+  const [changeLogOpen, setChangeLogOpen] = useState(false);
+  const [changeLogProposalId, setChangeLogProposalId] = useState<string | null>(null);
+  const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
+  const [changeLogLoading, setChangeLogLoading] = useState(false);
 
   // Gmail auth state
   const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);
@@ -495,6 +499,25 @@ export default function ProposalsList() {
     navigate(`/propostas/nova?duplicar=${proposal.id}`);
   }
 
+  async function openChangeLog(proposalId: string) {
+    setChangeLogProposalId(proposalId);
+    setChangeLogLoading(true);
+    setChangeLogOpen(true);
+    try {
+      const { data, error } = await supabase
+        .from("proposal_process_logs")
+        .select("*")
+        .eq("proposal_id", proposalId)
+        .order("occurred_at", { ascending: false });
+      if (error) throw error;
+      setChangeLogEntries(data || []);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar log", description: err.message, variant: "destructive" });
+      setChangeLogEntries([]);
+    }
+    setChangeLogLoading(false);
+  }
+
   async function loadVersions(proposalId: string, docType: string = "proposta") {
     setVersionsProposalId(proposalId);
     setVersionsDocType(docType);
@@ -703,21 +726,26 @@ export default function ProposalsList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {/* Cancelada: somente Duplicar */}
+                        {/* Cancelada: somente Duplicar + Log */}
                         {p.status === "cancelada" ? (
                           <>
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         ) : p.status === "ganha" ? (
                           <>
-                            {/* Ganha: somente Gerar MIT, Duplicar e Monitor */}
-                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
-                              <FileCheck className="mr-2 h-3.5 w-3.5" />
-                              Gerar MIT-065
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {/* Ganha: Gerar MIT, Duplicar, Monitor, Log — exceto Arquiteto não gera MIT */}
+                            {!isArquiteto && (
+                              <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                                <FileCheck className="mr-2 h-3.5 w-3.5" />
+                                Gerar MIT-065
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
@@ -733,11 +761,15 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         ) : (
                           <>
                             {/* Pendente, proposta_gerada, em_assinatura */}
-                            {p.status !== "em_assinatura" && (
+                            {p.status !== "em_assinatura" && !isArquiteto && (
                               <>
                                 <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
                                   <Eye className="mr-2 h-3.5 w-3.5" />
@@ -776,7 +808,7 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            {p.status === "proposta_gerada" && (
+                            {p.status === "proposta_gerada" && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
@@ -790,18 +822,28 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {p.status === "proposta_gerada" && isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                                  <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {p.status === "em_assinatura" && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
-                                  <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
-                                </DropdownMenuItem>
+                                {!isArquiteto && (
+                                  <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                                    <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                                  </DropdownMenuItem>
+                                )}
                               </>
                             )}
-                            {!locked && (
+                            {!locked && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
@@ -820,6 +862,10 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         )}
                       </DropdownMenuContent>
@@ -1191,6 +1237,71 @@ export default function ProposalsList() {
                 Enviar ({craSelectedUserIds.length})
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Change Log dialog */}
+        <Dialog open={changeLogOpen} onOpenChange={setChangeLogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Log de Alterações
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh]">
+              {changeLogLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : changeLogEntries.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum registro de alteração encontrado.</p>
+              ) : (
+                <div className="space-y-3 pr-2">
+                  {changeLogEntries.map((log: any) => {
+                    const severityColors: Record<string, string> = {
+                      info: "border-l-primary",
+                      warning: "border-l-warning",
+                      error: "border-l-destructive",
+                      success: "border-l-success",
+                    };
+                    return (
+                      <div
+                        key={log.id}
+                        className={`rounded-lg border border-border border-l-4 ${severityColors[log.severity] || "border-l-primary"} bg-card p-3`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-foreground">{log.action}</span>
+                              <Badge variant="outline" className="text-[10px]">{log.stage}</Badge>
+                              <Badge
+                                variant={log.severity === "error" ? "destructive" : "secondary"}
+                                className="text-[10px]"
+                              >
+                                {log.severity}
+                              </Badge>
+                            </div>
+                            {log.user_name && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <span className="font-medium">{log.user_name}</span>
+                                {log.user_email && <span className="ml-1">({log.user_email})</span>}
+                              </p>
+                            )}
+                            {log.error_message && (
+                              <p className="text-xs text-destructive mt-1">{log.error_message}</p>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {new Date(log.occurred_at).toLocaleDateString("pt-BR")} {new Date(log.occurred_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>

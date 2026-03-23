@@ -96,6 +96,10 @@ export default function ProposalsList() {
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
+  const [changeLogOpen, setChangeLogOpen] = useState(false);
+  const [changeLogProposalId, setChangeLogProposalId] = useState<string | null>(null);
+  const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
+  const [changeLogLoading, setChangeLogLoading] = useState(false);
 
   // Gmail auth state
   const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);

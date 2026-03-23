@@ -106,7 +106,13 @@ export default function SalesTeamPage() {
     }
   };
 
-  const grouped = salesTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
+  const filteredTeam = salesTeam.filter((m) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q);
+  });
+
+  const grouped = filteredTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
     (acc[m.role] = acc[m.role] || []).push(m);
     return acc;
   }, {});

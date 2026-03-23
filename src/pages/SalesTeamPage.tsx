@@ -26,7 +26,7 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "3" };
+const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "" };
 
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
@@ -79,7 +79,7 @@ export default function SalesTeamPage() {
       role: form.role as any,
       unit_id: form.unit_id || null,
       linked_gsn_id: form.linked_gsn_id || null,
-      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : 0,
+      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : form.role === "arquiteto" ? parseFloat(form.commission_pct) || 1.31 : 0,
     };
     const { error } = editingId
       ? await supabase.from("sales_team").update(payload).eq("id", editingId)
@@ -188,21 +188,21 @@ export default function SalesTeamPage() {
               </Select>
             </div>
             {form.role === "esn" && (
-              <>
-                <div className="grid gap-1">
-                  <Label className="text-xs">GSN vinculado</Label>
-                  <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                    <SelectContent>
-                      {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-1">
-                  <Label className="text-xs">% Comissão</Label>
-                  <Input type="number" step="0.5" min="0" max="100" placeholder="3" value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
-                </div>
-              </>
+              <div className="grid gap-1">
+                <Label className="text-xs">GSN vinculado</Label>
+                <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
+                  <SelectContent>
+                    {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(form.role === "esn" || form.role === "arquiteto") && (
+              <div className="grid gap-1">
+                <Label className="text-xs">% Comissão</Label>
+                <Input type="number" step="0.01" min="0" max="100" placeholder={form.role === "arquiteto" ? "1.31" : "3"} value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
+              </div>
             )}
             <Button className="mt-2" onClick={handleSave} disabled={saving}>
               {saving ? "Salvando..." : "Salvar"}
@@ -259,7 +259,7 @@ export default function SalesTeamPage() {
                       {(member as any).phone && <p>📱 {(member as any).phone}</p>}
                       {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
                       {unitName && <p>🏢 {unitName}</p>}
-                      {role === "esn" && <p>💰 Comissão: {(member as any).commission_pct ?? 3}%</p>}
+                      {(role === "esn" || role === "arquiteto") && <p>💰 Comissão: {(member as any).commission_pct ?? (role === "arquiteto" ? 1.31 : 3)}%</p>}
                     </div>
                   </div>
                 );
@@ -288,7 +288,7 @@ export default function SalesTeamPage() {
       <BatchCommissionDialog
         open={batchCommissionOpen}
         onOpenChange={setBatchCommissionOpen}
-        esnMembers={salesTeam.filter((m) => m.role === "esn")}
+        esnMembers={salesTeam.filter((m) => m.role === "esn" || m.role === "arquiteto")}
         units={units}
       />
     </div>

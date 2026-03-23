@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,18 +21,23 @@ export default function BatchCommissionDialog({ open, onOpenChange, esnMembers, 
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [newPct, setNewPct] = useState("3");
   const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
+    let list = esnMembers;
+    if (roleFilter !== "all") {
+      list = list.filter((m) => m.role === roleFilter);
+    }
     const q = search.toLowerCase();
-    if (!q) return esnMembers;
-    return esnMembers.filter((m) => {
+    if (!q) return list;
+    return list.filter((m) => {
       const unitName = (m as any).unit_info?.name || "";
       return m.name.toLowerCase().includes(q) || unitName.toLowerCase().includes(q);
     });
-  }, [esnMembers, search]);
+  }, [esnMembers, search, roleFilter]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((m) => selectedIds.has(m.id));
 
@@ -55,7 +61,7 @@ export default function BatchCommissionDialog({ open, onOpenChange, esnMembers, 
 
   const handleSave = async () => {
     if (selectedIds.size === 0) {
-      toast({ title: "Selecione ao menos um ESN", variant: "destructive" });
+      toast({ title: "Selecione ao menos um membro", variant: "destructive" });
       return;
     }
     const pct = parseFloat(newPct);
@@ -73,33 +79,48 @@ export default function BatchCommissionDialog({ open, onOpenChange, esnMembers, 
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Comissão atualizada para ${ids.length} ESN(s)!` });
+      toast({ title: `Comissão atualizada para ${ids.length} membro(s)!` });
       qc.invalidateQueries({ queryKey: ["sales_team"] });
       onOpenChange(false);
       setSelectedIds(new Set());
     }
   };
 
+  const roleLabel: Record<string, string> = { esn: "ESN", arquiteto: "Arquiteto" };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Alterar Comissão em Lote</DialogTitle>
-          <DialogDescription>Selecione os ESNs e defina o novo percentual de comissão.</DialogDescription>
+          <DialogDescription>Selecione os membros e defina o novo percentual de comissão.</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
-          <div className="grid gap-1">
-            <Label className="text-xs">Novo % Comissão</Label>
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              max="100"
-              value={newPct}
-              onChange={(e) => setNewPct(e.target.value)}
-              className="w-32"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label className="text-xs">Novo % Comissão</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={newPct}
+                onChange={(e) => setNewPct(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Filtrar por Função</Label>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="esn">ESN</SelectItem>
+                  <SelectItem value="arquiteto">Arquiteto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="relative">
@@ -137,13 +158,15 @@ export default function BatchCommissionDialog({ open, onOpenChange, esnMembers, 
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{m.code} · {unitName} · {(m as any).commission_pct ?? 3}%</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {m.code} · {roleLabel[m.role] || m.role} · {unitName} · {(m as any).commission_pct ?? (m.role === "arquiteto" ? 1.31 : 3)}%
+                    </p>
                   </div>
                 </label>
               );
             })}
             {filtered.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum ESN encontrado.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum membro encontrado.</p>
             )}
           </div>
         </div>

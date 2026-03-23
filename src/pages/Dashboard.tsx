@@ -636,38 +636,61 @@ export default function Dashboard() {
       prevista: 0,
     }));
 
-    // Filter by role scope + manual ESN selection
-    // Arquiteto: commissions are ESN-based, so show none for arquiteto
-    const relevant = isArquiteto
-      ? []
-      : effectiveEsnFilter === null
+    if (isArquiteto) {
+      // Arquiteto: calculate commission from proposals where they are linked as arquiteto
+      const arquitetoPct = Number(mySalesTeamMember?.commission_pct) || 1.31;
+      const myProposals = (proposals as any[]).filter((p: any) => p.arquiteto_id === mySalesTeamId && p.status !== "cancelada");
+
+      for (const p of myProposals) {
+        const netValue = computeNetValue(p) || 0;
+        if (netValue === 0) continue;
+        const commValue = (netValue * arquitetoPct) / 100;
+
+        // Use expected_close_date for timing
+        const dateStr = p.status === "ganha"
+          ? (p.expected_close_date || (p.updated_at || "").substring(0, 10))
+          : (p.expected_close_date || "");
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year !== targetYear || month < 1 || month > 12) continue;
+
+        if (p.status === "ganha") {
+          months[month - 1].realizada += commValue;
+        } else {
+          if (dateStr <= today) continue; // past non-ganha: skip
+          months[month - 1].prevista += commValue;
+        }
+      }
+    } else {
+      // ESN-based commissions from commission_projections
+      const relevant = effectiveEsnFilter === null
         ? (commissionProjections as any[])
         : (commissionProjections as any[]).filter((cp: any) => effectiveEsnFilter.includes(cp.esn_id));
 
-    for (const cp of relevant) {
-      const dueDate = cp.due_date || "";
-      const year = Number(dueDate.substring(0, 4));
-      const month = Number(dueDate.substring(5, 7));
-      if (year !== targetYear || month < 1 || month > 12) continue;
+      for (const cp of relevant) {
+        const dueDate = cp.due_date || "";
+        const year = Number(dueDate.substring(0, 4));
+        const month = Number(dueDate.substring(5, 7));
+        if (year !== targetYear || month < 1 || month > 12) continue;
 
-      const commValue = Number(cp.commission_value) || 0;
-      if (dueDate <= today) {
-        // Past: only ganha
-        if (cp.proposal_status === "ganha") {
-          months[month - 1].realizada += commValue;
-        }
-      } else {
-        // Future: ganha + open (not cancelada - already filtered out)
-        if (cp.proposal_status === "ganha") {
-          months[month - 1].realizada += commValue;
+        const commValue = Number(cp.commission_value) || 0;
+        if (dueDate <= today) {
+          if (cp.proposal_status === "ganha") {
+            months[month - 1].realizada += commValue;
+          }
         } else {
-          months[month - 1].prevista += commValue;
+          if (cp.proposal_status === "ganha") {
+            months[month - 1].realizada += commValue;
+          } else {
+            months[month - 1].prevista += commValue;
+          }
         }
       }
     }
 
     return months;
-  }, [commissionProjections, effectiveEsnFilter, isArquiteto, targetYear]);
+  }, [commissionProjections, effectiveEsnFilter, isArquiteto, mySalesTeamMember, mySalesTeamId, proposals, targetYear]);
 
   const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
@@ -1055,7 +1078,9 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto.
+                {isArquiteto
+                  ? `Comissão = ${Number(mySalesTeamMember?.commission_pct) || 1.31}% × valor líquido da proposta vinculada ao arquiteto.`
+                  : "Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto."}
               </p>
             </CardContent>
           </Card>

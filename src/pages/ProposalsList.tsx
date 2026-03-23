@@ -703,21 +703,26 @@ export default function ProposalsList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {/* Cancelada: somente Duplicar */}
+                        {/* Cancelada: somente Duplicar + Log */}
                         {p.status === "cancelada" ? (
                           <>
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         ) : p.status === "ganha" ? (
                           <>
-                            {/* Ganha: somente Gerar MIT, Duplicar e Monitor */}
-                            <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
-                              <FileCheck className="mr-2 h-3.5 w-3.5" />
-                              Gerar MIT-065
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {/* Ganha: Gerar MIT, Duplicar, Monitor, Log — exceto Arquiteto não gera MIT */}
+                            {!isArquiteto && (
+                              <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "mit")}>
+                                <FileCheck className="mr-2 h-3.5 w-3.5" />
+                                Gerar MIT-065
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
@@ -733,11 +738,15 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         ) : (
                           <>
                             {/* Pendente, proposta_gerada, em_assinatura */}
-                            {p.status !== "em_assinatura" && (
+                            {p.status !== "em_assinatura" && !isArquiteto && (
                               <>
                                 <DropdownMenuItem onClick={() => handleGenerateDoc(p.id, "proposta")}>
                                   <Eye className="mr-2 h-3.5 w-3.5" />
@@ -776,7 +785,7 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            {p.status === "proposta_gerada" && (
+                            {p.status === "proposta_gerada" && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
@@ -790,18 +799,28 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {p.status === "proposta_gerada" && isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
+                                  <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {p.status === "em_assinatura" && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
-                                  <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
-                                </DropdownMenuItem>
+                                {!isArquiteto && (
+                                  <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
+                                    <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
+                                  </DropdownMenuItem>
+                                )}
                               </>
                             )}
-                            {!locked && (
+                            {!locked && !isArquiteto && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setCancelId(p.id)} className="text-destructive focus:text-destructive">
@@ -820,6 +839,10 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
+                              <History className="mr-2 h-3.5 w-3.5" />Log de Alterações
+                            </DropdownMenuItem>
                           </>
                         )}
                       </DropdownMenuContent>

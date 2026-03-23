@@ -314,7 +314,7 @@ export function useUpdateProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, scopeItems, payments, ...proposalData }: any) => {
-      const { data, error } = await supabase.from("proposals").update(proposalData).eq("id", id).select().single();
+      const { error } = await supabase.from("proposals").update(proposalData).eq("id", id);
       if (error) throw error;
 
       // Replace scope items (delete children first due to FK, then parents)
@@ -338,7 +338,7 @@ export function useUpdateProposal() {
         if (payError) throw payError;
       }
 
-      return data;
+      return { id };
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["proposals"] });

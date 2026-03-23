@@ -617,7 +617,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [salesTargets, proposals, selectedEsnIds, targetYear]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
 
   const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
   const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);

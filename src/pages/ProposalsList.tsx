@@ -796,9 +796,6 @@ export default function ProposalsList() {
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setWinId(p.id)}>
-                                  <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha (Manual)
-                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setCancelSignatureId(p.id)} className="text-destructive focus:text-destructive">
                                   <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Assinatura
                                 </DropdownMenuItem>

@@ -63,7 +63,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card transition-all duration-200 ${collapsed ? "w-16" : "w-60"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static`}>
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
-          {!collapsed && <span className="text-base font-semibold text-foreground">TOTVS Leste</span>}
+          <div className="flex items-center gap-2">
+            <img src={totvsLogo} alt="TOTVS" className="h-6 w-6" />
+            {!collapsed && <span className="text-base font-semibold text-foreground">TOTVS Leste</span>}
+          </div>
           <button onClick={() => setCollapsed(!collapsed)} className="hidden rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground md:block">
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
           </button>

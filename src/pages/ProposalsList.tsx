@@ -42,8 +42,29 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
-function roundUp8(val: number): number {
-  return Math.ceil(val / 8) * 8;
+function roundUpFactor(val: number, factor: number): number {
+  if (factor <= 0) return val;
+  return Math.ceil(val / factor) * factor;
+}
+
+function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): number | null {
+  const scopeItems = proposal.proposal_scope_items;
+  if (!scopeItems || scopeItems.length === 0) return null;
+
+  // Find the rounding factor from the proposal type config
+  const typeConfig = proposalTypes.find((pt: any) => pt.slug === proposal.type);
+  const roundingFactor = typeConfig?.rounding_factor || 8;
+
+  // Sum hours of included children (items with parent_id)
+  const totalHours = roundUpFactor(
+    scopeItems
+      .filter((item: any) => item.included && item.parent_id)
+      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0),
+    roundingFactor
+  );
+
+  const gpHours = roundUpFactor(Math.ceil(totalHours * (proposal.gp_percentage / 100)), roundingFactor);
+  return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
 function StatusIcon({ status }: { status: LogEntry["status"] }) {
@@ -52,25 +73,19 @@ function StatusIcon({ status }: { status: LogEntry["status"] }) {
   return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
 }
 
-function computeNetValue(proposal: any, units: any[]): number | null {
-  const scopeItems = proposal.proposal_scope_items;
-  if (!scopeItems || scopeItems.length === 0) return null;
-
-  // Sum hours of included children (items with parent_id)
-  const totalHours = roundUp8(
-    scopeItems
-      .filter((item: any) => item.included && item.parent_id)
-      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0)
-  );
-
-  const gpHours = roundUp8(Math.ceil(totalHours * (proposal.gp_percentage / 100)));
-  return (totalHours + gpHours) * proposal.hourly_rate;
-}
-
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
   const { data: proposals = [] } = useProposals();
   const { data: units = [] } = useUnits();
+
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("slug, rounding_factor");
+      if (error) throw error;
+      return data;
+    },
+  });
   const { user } = useAuth();
   const { role: userRole } = useUserRole();
   const queryClient = useQueryClient();
@@ -632,7 +647,7 @@ export default function ProposalsList() {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
-              const netValue = computeNetValue(p, units);
+              const netValue = computeNetValue(p, units, proposalTypes);
               const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (

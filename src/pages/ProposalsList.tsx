@@ -955,6 +955,14 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
+                            {userRole === "admin" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setDeleteId(p.id)} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" />Excluir (Admin)
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => openChangeLog(p.id)}>
                               <History className="mr-2 h-3.5 w-3.5" />Log de Alterações

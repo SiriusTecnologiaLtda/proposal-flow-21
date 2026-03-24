@@ -1077,6 +1077,9 @@ export default function Dashboard() {
                   ? `Comissão = ${Number(mySalesTeamMember?.commission_pct) || 1.31}% × valor líquido da proposta vinculada ao arquiteto.`
                   : "Comissão = % comissão do ESN × valor da parcela. Parcelas passadas: somente ganhas. Parcelas futuras: ganhas + em aberto."}
               </p>
+              <p className="mt-1 text-[11px] text-muted-foreground italic">
+                ⚠️ Os valores apresentados aqui são meramente simulados e de caráter informativo. A apuração oficial de comissões é realizada exclusivamente através do GooData, disponibilizado mensalmente pelo setor de Comissões da TOTVS Leste.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

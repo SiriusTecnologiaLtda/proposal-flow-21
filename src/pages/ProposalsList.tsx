@@ -435,8 +435,16 @@ export default function ProposalsList() {
 
       if (response.ok && data?.docUrl) {
         setConsoleDocUrl(data.docUrl);
-        // Clear needs_regen flag after successful generation
-        await supabase.from("proposals").update({ needs_regen: false } as any).eq("id", proposalId);
+        // Clear needs_regen flag and update status to proposta_gerada if generating proposal doc
+        const updateFields: Record<string, any> = { needs_regen: false };
+        if (docType === "proposta") {
+          // Only upgrade status if currently pendente
+          const currentProposal = proposals.find(p => p.id === proposalId);
+          if (currentProposal?.status === "pendente") {
+            updateFields.status = "proposta_gerada";
+          }
+        }
+        await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
       } else if (!data?.logs) {
         setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);

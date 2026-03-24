@@ -106,7 +106,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const saKey = typeof saKeyRaw === "string" ? JSON.parse(saKeyRaw) : saKeyRaw;
+    let saKey: any;
+    try {
+      saKey = typeof saKeyRaw === "string" ? JSON.parse(saKeyRaw) : saKeyRaw;
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: `Failed to parse SA key: ${e.message}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!saKey?.private_key || !saKey?.client_email) {
+      return new Response(JSON.stringify({ error: `SA key missing fields. Keys found: ${Object.keys(saKey || {}).join(", ")}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const accessToken = await getAccessTokenServiceAccount(saKey);
     const folderId = integration.output_folder_id;

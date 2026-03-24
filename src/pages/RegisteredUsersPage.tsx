@@ -12,8 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Shield, Loader2, Settings2 } from "lucide-react";
+import { ArrowLeft, Shield, Loader2, Settings2, Link2 } from "lucide-react";
 import { ROLE_LABELS, ALL_RESOURCES, RESOURCE_LABELS, type AppRole } from "@/lib/permissions";
+import { useSalesTeam } from "@/hooks/useSupabaseData";
 
 export default function RegisteredUsersPage() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function RegisteredUsersPage() {
   const qc = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
   const [configUserId, setConfigUserId] = useState<string | null>(null);
+  const { data: salesTeam = [] } = useSalesTeam();
 
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ["all-profiles"],
@@ -112,6 +114,20 @@ export default function RegisteredUsersPage() {
     }
   }
 
+  async function handleSalesTeamLink(userId: string, memberId: string) {
+    setSaving(userId);
+    try {
+      const value = memberId === "none" ? null : memberId;
+      const { error } = await supabase.from("profiles").update({ sales_team_member_id: value }).eq("user_id", userId);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["all-profiles"] });
+      toast({ title: value ? "Vínculo atualizado" : "Vínculo removido" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setSaving(null);
+  }
+
   // Consulta unit config dialog
   const configProfile = configUserId ? profiles.find((p) => p.user_id === configUserId) : null;
   const configUnitIds = new Set(userUnitAccess.filter((u) => u.user_id === configUserId).map((u) => u.unit_id));
@@ -159,6 +175,7 @@ export default function RegisteredUsersPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead className="w-[200px]">Perfil de Acesso</TableHead>
+                  <TableHead className="w-[200px]">Vínculo Time de Vendas</TableHead>
                   <TableHead>Permissões</TableHead>
                   <TableHead className="w-[100px]" />
                 </TableRow>
@@ -196,6 +213,25 @@ export default function RegisteredUsersPage() {
                           </Select>
                           {saving === profile.user_id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={profile.sales_team_member_id || "none"}
+                          onValueChange={(v) => handleSalesTeamLink(profile.user_id, v)}
+                          disabled={saving === profile.user_id}
+                        >
+                          <SelectTrigger className="h-8 w-[180px]">
+                            <SelectValue placeholder="Sem vínculo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem vínculo</SelectItem>
+                            {salesTeam.map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name} ({m.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

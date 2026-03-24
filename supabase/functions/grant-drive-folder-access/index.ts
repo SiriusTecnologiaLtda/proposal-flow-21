@@ -94,7 +94,9 @@ Deno.serve(async (req) => {
     }
 
     // Try service_account_key from DB first, then fall back to env secret
-    let saKeyRaw = integration.service_account_key;
+    let saKeyRaw: string | null = integration.service_account_key && integration.service_account_key.trim().length > 2
+      ? integration.service_account_key
+      : null;
     if (!saKeyRaw) {
       saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
     }

@@ -22,6 +22,7 @@ export default function RegisteredUsersPage() {
   const qc = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
   const [configUserId, setConfigUserId] = useState<string | null>(null);
+  const { data: salesTeam = [] } = useSalesTeam();
 
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ["all-profiles"],

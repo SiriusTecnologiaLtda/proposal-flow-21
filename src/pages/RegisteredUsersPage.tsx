@@ -215,6 +215,25 @@ export default function RegisteredUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Select
+                          value={profile.sales_team_member_id || "none"}
+                          onValueChange={(v) => handleSalesTeamLink(profile.user_id, v)}
+                          disabled={saving === profile.user_id}
+                        >
+                          <SelectTrigger className="h-8 w-[180px]">
+                            <SelectValue placeholder="Sem vínculo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem vínculo</SelectItem>
+                            {salesTeam.map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name} ({m.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {currentRole === "admin" ? (
                             <Badge variant="secondary" className="text-xs">Acesso total</Badge>

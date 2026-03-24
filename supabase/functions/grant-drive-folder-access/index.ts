@@ -109,6 +109,10 @@ Deno.serve(async (req) => {
     let saKey: any;
     try {
       saKey = typeof saKeyRaw === "string" ? JSON.parse(saKeyRaw) : saKeyRaw;
+      // Handle double-stringified JSON (secret stored as escaped string)
+      if (typeof saKey === "string") {
+        saKey = JSON.parse(saKey);
+      }
     } catch (e: any) {
       return new Response(JSON.stringify({ error: `Failed to parse SA key: ${e.message}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

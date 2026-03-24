@@ -87,15 +87,24 @@ Deno.serve(async (req) => {
       .eq("is_default", true)
       .maybeSingle();
 
-    if (!integration?.output_folder_id || !integration?.service_account_key) {
-      return new Response(JSON.stringify({ error: "Google integration or output folder not configured" }), {
+    if (!integration?.output_folder_id) {
+      return new Response(JSON.stringify({ error: "Google integration output folder not configured" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const saKey = typeof integration.service_account_key === "string"
-      ? JSON.parse(integration.service_account_key)
-      : integration.service_account_key;
+    // Try service_account_key from DB first, then fall back to env secret
+    let saKeyRaw = integration.service_account_key;
+    if (!saKeyRaw) {
+      saKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    }
+    if (!saKeyRaw) {
+      return new Response(JSON.stringify({ error: "Google service account key not configured" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const saKey = typeof saKeyRaw === "string" ? JSON.parse(saKeyRaw) : saKeyRaw;
 
     const accessToken = await getAccessTokenServiceAccount(saKey);
     const folderId = integration.output_folder_id;

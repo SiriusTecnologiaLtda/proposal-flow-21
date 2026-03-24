@@ -1,0 +1,1 @@
+UPDATE profiles SET sales_team_member_id = '5d6f85a5-1e87-48ef-a8a2-a9c045ce5375' WHERE user_id = '13bb0e27-4c14-4bda-b012-929277f0ea1a' AND sales_team_member_id IS NULL;

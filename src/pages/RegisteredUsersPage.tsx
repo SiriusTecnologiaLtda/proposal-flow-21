@@ -114,6 +114,20 @@ export default function RegisteredUsersPage() {
     }
   }
 
+  async function handleSalesTeamLink(userId: string, memberId: string) {
+    setSaving(userId);
+    try {
+      const value = memberId === "none" ? null : memberId;
+      const { error } = await supabase.from("profiles").update({ sales_team_member_id: value }).eq("user_id", userId);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["all-profiles"] });
+      toast({ title: value ? "Vínculo atualizado" : "Vínculo removido" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setSaving(null);
+  }
+
   // Consulta unit config dialog
   const configProfile = configUserId ? profiles.find((p) => p.user_id === configUserId) : null;
   const configUnitIds = new Set(userUnitAccess.filter((u) => u.user_id === configUserId).map((u) => u.unit_id));

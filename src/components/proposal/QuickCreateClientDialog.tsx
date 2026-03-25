@@ -17,7 +17,7 @@ interface Props {
 
 const emptyForm = {
   name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
-  address: "", unit_id: "", esn_id: "", gsn_id: "",
+  address: "", unit_id: "", esn_id: "", gsn_id: "", state_registration: "", store_code: "",
 };
 
 export default function QuickCreateClientDialog({ open, onOpenChange, onClientCreated, initialSearch }: Props) {

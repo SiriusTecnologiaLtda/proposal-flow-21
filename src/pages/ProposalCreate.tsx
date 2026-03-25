@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -138,6 +138,9 @@ export default function ProposalCreate() {
   const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [addedProjectIds, setAddedProjectIds] = useState<Set<string>>(new Set());
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -353,6 +356,104 @@ export default function ProposalCreate() {
     return templates;
   }, [scopeTemplates, templateSearch]);
 
+  // Fetch projects for current client (with scope items)
+  const { data: clientProjects = [] } = useQuery({
+    queryKey: ["client_projects", clientId],
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, product, status, created_at, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearch) return clientProjects;
+    const q = projectSearch.toLowerCase();
+    return clientProjects.filter((p: any) =>
+      (p.product || "").toLowerCase().includes(q) || (p.status || "").toLowerCase().includes(q)
+    );
+  }, [clientProjects, projectSearch]);
+
+  // Import project scope items into proposal scope
+  function addProjectToScope(project: any) {
+    if (addedProjectIds.has(project.id)) return;
+    const items = project.project_scope_items || [];
+    const parentItems = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const childrenMap = new Map<string, any[]>();
+    items.filter((i: any) => i.parent_id).forEach((i: any) => {
+      if (!childrenMap.has(i.parent_id)) childrenMap.set(i.parent_id, []);
+      childrenMap.get(i.parent_id)!.push(i);
+    });
+
+    const projectGroupKey = `_project_${project.id}`;
+    const newProcesses: ScopeProcess[] = parentItems.map((parent: any) => {
+      const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      return {
+        id: localId(),
+        description: parent.description,
+        included: parent.included,
+        templateId: projectGroupKey,
+        notes: parent.notes || "",
+        children: kids.map((kid: any) => ({
+          id: localId(),
+          description: kid.description,
+          hours: kid.hours || 0,
+          included: kid.included,
+          notes: kid.notes || "",
+        })),
+      };
+    });
+
+    // If flat items only
+    if (parentItems.length === 0 && items.length > 0) {
+      for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
+        newProcesses.push({
+          id: localId(),
+          description: item.description,
+          included: item.included,
+          templateId: projectGroupKey,
+          children: [{
+            id: localId(),
+            description: item.description,
+            hours: item.hours || 0,
+            included: item.included,
+          }],
+        });
+      }
+    }
+
+    setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setAddedProjectIds((prev) => new Set([...prev, project.id]));
+    setAddedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
+    setExpandedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
+    setExpandedProcessIds((prev) => {
+      const next = new Set(prev);
+      newProcesses.forEach((p) => next.add(p.id));
+      return next;
+    });
+  }
+
+  function removeProjectFromScope(projectId: string) {
+    const projectGroupKey = `_project_${projectId}`;
+    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey));
+    setAddedProjectIds((prev) => {
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      next.delete(projectGroupKey);
+      return next;
+    });
+  }
+
   // Get the current proposal type config for labels and rounding
   const currentProposalTypeConfig = useMemo(() => {
     return proposalTypes.find((pt: any) => pt.slug === proposalType) || null;
@@ -397,10 +498,14 @@ export default function ProposalCreate() {
 
     for (const [tid, procs] of templateGroups) {
       const tmpl = scopeTemplates.find((t) => t.id === tid);
+      // Check if this is a project group
+      const isProjectGroup = tid.startsWith("_project_");
+      const projectId = isProjectGroup ? tid.replace("_project_", "") : null;
+      const project = projectId ? clientProjects.find((p: any) => p.id === projectId) : null;
       groups.push({
         templateId: tid,
-        templateName: tmpl?.name || "Template",
-        category: tmpl?.category || "",
+        templateName: isProjectGroup ? `Projeto: ${project?.product || "Projeto"}` : (tmpl?.name || "Template"),
+        category: isProjectGroup ? "Projeto" : (tmpl?.category || ""),
         processes: procs,
       });
     }
@@ -410,7 +515,7 @@ export default function ProposalCreate() {
     }
 
     return groups;
-  }, [scopeProcesses, scopeTemplates]);
+  }, [scopeProcesses, scopeTemplates, clientProjects]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {
@@ -1165,6 +1270,11 @@ export default function ProposalCreate() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
             <div className="flex items-center gap-2">
+              {clientId && (
+                <Button variant="outline" size="sm" onClick={() => { setProjectSearch(""); setProjectDialogOpen(true); }}>
+                  <FolderKanban className="mr-1 h-3.5 w-3.5" /> Incluir Projeto
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
                 <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
               </Button>
@@ -1223,6 +1333,65 @@ export default function ProposalCreate() {
             </DialogContent>
           </Dialog>
 
+          {/* Project import dialog */}
+          <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Incluir Projeto no Escopo</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar projetos por produto ou status..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {clientProjects.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">Nenhum projeto encontrado para este cliente.</p>
+              ) : (
+                <div className="max-h-72 overflow-auto space-y-1">
+                  {filteredProjects.map((project: any) => {
+                    const isAdded = addedProjectIds.has(project.id);
+                    const scopeCount = (project.project_scope_items || []).length;
+                    const totalHrs = (project.project_scope_items || [])
+                      .filter((i: any) => i.included && !i.parent_id)
+                      .reduce((s: number, i: any) => s + Number(i.hours || 0), 0);
+                    const statusLabel = project.status === "concluido" ? "Concluído" : project.status === "em_revisao" ? "Em Revisão" : "Rascunho";
+                    return (
+                      <div
+                        key={project.id}
+                        className={`flex items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                          isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{project.product || "Projeto"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {statusLabel} · {scopeCount} itens · {totalHrs}h
+                          </p>
+                        </div>
+                        {isAdded ? (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeProjectFromScope(project.id)}>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => addProjectToScope(project)}>
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Incluir
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {filteredProjects.length === 0 && (
+                    <p className="py-4 text-center text-sm text-muted-foreground">Nenhum projeto encontrado.</p>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* Notes dialog */}
           <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
             <DialogContent className="max-w-md">
@@ -1259,8 +1428,8 @@ export default function ProposalCreate() {
                       className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
                       onClick={() => toggleTemplateExpand(groupKey)}
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Layers className="h-4 w-4" />
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${groupKey.startsWith("_project_") ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                        {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         {!group.templateId ? (
@@ -1298,7 +1467,10 @@ export default function ProposalCreate() {
                         className="text-destructive hover:text-destructive shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (group.templateId) {
+                          if (group.templateId?.startsWith("_project_")) {
+                            const pid = group.templateId.replace("_project_", "");
+                            removeProjectFromScope(pid);
+                          } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
                           } else {
                             setScopeProcesses((prev) => prev.filter((p) => p.templateId));

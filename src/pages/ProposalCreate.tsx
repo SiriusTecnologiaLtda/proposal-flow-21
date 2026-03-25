@@ -356,6 +356,120 @@ export default function ProposalCreate() {
     return templates;
   }, [scopeTemplates, templateSearch]);
 
+  // Fetch projects for current client (with scope items)
+  const { data: clientProjects = [] } = useQuery({
+    queryKey: ["client_projects", clientId],
+    enabled: !!clientId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, product, status, created_at, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearch) return clientProjects;
+    const q = projectSearch.toLowerCase();
+    return clientProjects.filter((p: any) =>
+      (p.product || "").toLowerCase().includes(q) || (p.status || "").toLowerCase().includes(q)
+    );
+  }, [clientProjects, projectSearch]);
+
+  // Import project scope items into proposal scope
+  function addProjectToScope(project: any) {
+    if (addedProjectIds.has(project.id)) return;
+    const items = project.project_scope_items || [];
+    const parentItems = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const childrenMap = new Map<string, any[]>();
+    items.filter((i: any) => i.parent_id).forEach((i: any) => {
+      if (!childrenMap.has(i.parent_id)) childrenMap.set(i.parent_id, []);
+      childrenMap.get(i.parent_id)!.push(i);
+    });
+
+    const projectGroupKey = `_project_${project.id}`;
+    const newProcesses: ScopeProcess[] = parentItems.map((parent: any) => {
+      const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      return {
+        id: localId(),
+        description: parent.description,
+        included: parent.included,
+        templateId: parent.template_id || projectGroupKey,
+        notes: parent.notes || "",
+        children: kids.map((kid: any) => ({
+          id: localId(),
+          description: kid.description,
+          hours: kid.hours || 0,
+          included: kid.included,
+          notes: kid.notes || "",
+        })),
+      };
+    });
+
+    // If flat items only
+    if (parentItems.length === 0 && items.length > 0) {
+      for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
+        newProcesses.push({
+          id: localId(),
+          description: item.description,
+          included: item.included,
+          templateId: projectGroupKey,
+          children: [{
+            id: localId(),
+            description: item.description,
+            hours: item.hours || 0,
+            included: item.included,
+          }],
+        });
+      }
+    }
+
+    setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setAddedProjectIds((prev) => new Set([...prev, project.id]));
+    // Register fake template IDs so groupedScope can group them
+    const templateIdsUsed = new Set(newProcesses.map(p => p.templateId).filter(Boolean));
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      templateIdsUsed.forEach(id => { if (id) next.add(id); });
+      return next;
+    });
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      templateIdsUsed.forEach(id => { if (id) next.add(id); });
+      return next;
+    });
+    setExpandedProcessIds((prev) => {
+      const next = new Set(prev);
+      newProcesses.forEach((p) => next.add(p.id));
+      return next;
+    });
+  }
+
+  function removeProjectFromScope(projectId: string) {
+    const projectGroupKey = `_project_${projectId}`;
+    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey && !(p.templateId && addedProjectIds.has(projectId) && scopeTemplates.every(t => t.id !== p.templateId) && p.templateId.startsWith("_project_"))));
+    // Remove processes that belong to this project
+    setScopeProcesses((prev) => prev.filter((p) => {
+      if (!p.templateId) return true;
+      if (p.templateId === projectGroupKey) return false;
+      return true;
+    }));
+    setAddedProjectIds((prev) => {
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      next.delete(projectGroupKey);
+      return next;
+    });
+  }
+
   // Get the current proposal type config for labels and rounding
   const currentProposalTypeConfig = useMemo(() => {
     return proposalTypes.find((pt: any) => pt.slug === proposalType) || null;

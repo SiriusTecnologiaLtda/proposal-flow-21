@@ -35,6 +35,8 @@ import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import LandingPage from "@/pages/LandingPage";
+import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectCreatePage from "@/pages/ProjectCreatePage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({
@@ -106,6 +108,9 @@ function ProtectedRoutes() {
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />
         <Route path="/propostas/:id" element={<ProposalCreate />} />
+        <Route path="/projetos" element={<GuardedRoute path="/projetos"><ProjectsPage /></GuardedRoute>} />
+        <Route path="/projetos/novo" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
+        <Route path="/projetos/:id" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
         <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
         <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros/clientes"><ClientsList /></GuardedRoute>} />
         <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros/unidades"><UnitsPage /></GuardedRoute>} />

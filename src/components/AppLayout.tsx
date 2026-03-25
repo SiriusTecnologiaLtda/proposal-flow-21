@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun,
+  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun, FolderKanban,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import FeatureRequestsPanel from "@/components/FeatureRequestsPanel";
@@ -18,6 +18,7 @@ import totvsLogo from "@/assets/totvs-logo.png";
 const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/propostas", key: "propostas", label: "Minhas Propostas", icon: FileText },
+  { path: "/projetos", key: "projetos", label: "Projetos", icon: FolderKanban },
   { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
   { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },

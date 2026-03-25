@@ -466,7 +466,7 @@ export default function ProjectCreatePage() {
     try {
       const flatScope = flattenScope();
       if (isEditing) {
-        await updateProject.mutateAsync({ id, ...form, scopeItems: flatScope });
+        await updateProject.mutateAsync({ id, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, scopeItems: flatScope });
       } else {
         const projectId = crypto.randomUUID();
         await createProject.mutateAsync({

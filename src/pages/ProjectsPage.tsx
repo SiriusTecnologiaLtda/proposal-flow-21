@@ -255,7 +255,7 @@ export default function ProjectsPage() {
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   <FolderKanban className="mx-auto h-8 w-8 mb-2 opacity-40" />
                   Nenhum projeto encontrado
                 </TableCell>

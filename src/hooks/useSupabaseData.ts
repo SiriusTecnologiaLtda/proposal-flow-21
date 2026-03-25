@@ -261,6 +261,7 @@ async function insertHierarchicalScopeItems(scopeItems: any[], proposalId: strin
       notes: item.notes || "",
       sort_order: item.sort_order,
       template_id: item.template_id || null,
+      project_id: item.project_id || null,
       parent_id: item._parent_local_id ? null : item.parent_id || null,
     };
   });

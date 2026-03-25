@@ -37,6 +37,7 @@ interface ScopeProcess {
   included: boolean;
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
+  projectId?: string; // track origin project for reference only
   notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 
@@ -248,11 +249,20 @@ export default function ProposalCreate() {
       } else {
         // New hierarchical data
         for (const item of parentItems) {
+          // Reconstruct composite templateId for project-linked items
+          let templateId = item.template_id || undefined;
+          let projectId: string | undefined = undefined;
+          if (item.project_id) {
+            projectId = item.project_id;
+            const origTid = item.template_id || "_no_template_";
+            templateId = `_project_${item.project_id}_${origTid}`;
+          }
           const proc: ScopeProcess = {
             id: item.id,
             description: item.description,
             included: item.included,
-            templateId: item.template_id || undefined,
+            templateId,
+            projectId,
             notes: item.notes || "",
             children: [],
           };
@@ -277,8 +287,13 @@ export default function ProposalCreate() {
 
       // Track which templates were already added
       const tids = new Set<string>();
-      items.forEach((i: any) => { if (i.template_id) tids.add(i.template_id); });
+      const pids = new Set<string>();
+      for (const proc of processes) {
+        if (proc.templateId) tids.add(proc.templateId);
+        if (proc.projectId) pids.add(proc.projectId);
+      }
       setAddedTemplateIds(tids);
+      setAddedProjectIds(pids);
 
       // Load payments
       const pays = (existingProposal as any).payment_conditions || [];
@@ -422,6 +437,7 @@ export default function ProposalCreate() {
             description: parent.description,
             included: parent.included,
             templateId: groupKey,
+            projectId: project.id,
             children: [{
               id: localId(),
               description: parent.description,
@@ -436,6 +452,7 @@ export default function ProposalCreate() {
             description: parent.description,
             included: parent.included,
             templateId: groupKey,
+            projectId: project.id,
             notes: parent.notes || "",
             children: kids.map((kid: any) => ({
               id: localId(),
@@ -894,6 +911,15 @@ export default function ProposalCreate() {
     let sortOrder = 0;
     for (const proc of scopeProcesses) {
       const parentSortOrder = sortOrder++;
+      // Extract real template_id and project_id from composite key
+      let realTemplateId: string | null = proc.templateId || null;
+      let projectId: string | null = proc.projectId || null;
+      if (proc.templateId?.startsWith("_project_")) {
+        const parts = proc.templateId.replace("_project_", "").split("_");
+        projectId = parts[0];
+        const origTid = parts.slice(1).join("_");
+        realTemplateId = origTid === "_no_template_" ? null : origTid;
+      }
       allScopeItems.push({
         description: proc.description,
         included: proc.included,
@@ -901,7 +927,8 @@ export default function ProposalCreate() {
         phase: 1,
         notes: proc.notes || "",
         sort_order: parentSortOrder,
-        template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
+        template_id: realTemplateId,
+        project_id: projectId,
         parent_id: null,
         _local_id: proc.id,
       });
@@ -914,7 +941,8 @@ export default function ProposalCreate() {
           phase: 1,
           notes: child.notes || "",
           sort_order: sortOrder++,
-          template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
+          template_id: realTemplateId,
+          project_id: projectId,
           parent_id: proc.id,
           _local_id: child.id,
           _parent_local_id: proc.id,

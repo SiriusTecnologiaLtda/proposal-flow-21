@@ -1,0 +1,1 @@
+ALTER TABLE public.proposal_scope_items ADD COLUMN project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL DEFAULT NULL;

@@ -1271,7 +1271,7 @@ export default function ProposalCreate() {
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
             <div className="flex items-center gap-2">
               {clientId && (
-                <Button variant="outline" size="sm" onClick={() => { setProjectSearch(""); setProjectDialogOpen(true); }}>
+                <Button variant="outline" size="sm" onClick={() => { setProjectSearch(""); refetchProjects(); setProjectDialogOpen(true); }}>
                   <FolderKanban className="mr-1 h-3.5 w-3.5" /> Incluir Projeto
                 </Button>
               )}

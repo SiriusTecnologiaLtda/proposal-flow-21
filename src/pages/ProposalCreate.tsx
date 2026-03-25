@@ -258,6 +258,8 @@ export default function ProposalCreate() {
           });
         }
       } else {
+        // Restore process-to-group mapping
+        const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
         // New hierarchical data
         for (const item of parentItems) {
           // Reconstruct composite templateId for project-linked items
@@ -274,6 +276,7 @@ export default function ProposalCreate() {
             included: item.included,
             templateId,
             projectId,
+            groupId: processGroupMap[item.id] || undefined,
             notes: item.notes || "",
             children: [],
           };
@@ -1032,7 +1035,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: { ...groupNotes, _manual_groups: manualGroupNames },
+      group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _process_group_map: Object.fromEntries(scopeProcesses.filter(p => p.groupId).map(p => [p.id, p.groupId])) },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

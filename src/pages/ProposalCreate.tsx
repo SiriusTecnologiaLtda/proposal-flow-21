@@ -1504,11 +1504,17 @@ export default function ProposalCreate() {
                           isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
                         }`}
                       >
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground">{project.product || "Projeto"}</p>
+                          {project.description && (
+                            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             {statusLabel} · {scopeCount} itens · {totalHrs}h
+                            {project.sales_team?.name ? ` · Arq: ${project.sales_team.name}` : ""}
+                            {project.created_at ? ` · ${new Date(project.created_at).toLocaleDateString("pt-BR")}` : ""}
                           </p>
+                        </div>
                         </div>
                         {isAdded ? (
                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeProjectFromScope(project.id)}>

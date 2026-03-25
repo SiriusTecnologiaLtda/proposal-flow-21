@@ -452,6 +452,7 @@ export default function ProposalCreate() {
             description: parent.description,
             included: parent.included,
             templateId: groupKey,
+            projectId: project.id,
             notes: parent.notes || "",
             children: kids.map((kid: any) => ({
               id: localId(),

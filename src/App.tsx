@@ -35,6 +35,8 @@ import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import LandingPage from "@/pages/LandingPage";
+import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectCreatePage from "@/pages/ProjectCreatePage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({

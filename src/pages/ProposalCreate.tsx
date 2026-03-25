@@ -357,10 +357,10 @@ export default function ProposalCreate() {
   }, [scopeTemplates, templateSearch]);
 
   // Fetch projects for current client (with scope items)
-  const { data: clientProjects = [] } = useQuery({
+  const { data: clientProjects = [], refetch: refetchProjects } = useQuery({
     queryKey: ["client_projects", clientId],
     enabled: !!clientId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")

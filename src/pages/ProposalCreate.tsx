@@ -38,6 +38,7 @@ interface ScopeProcess {
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
   projectId?: string; // track origin project for reference only
+  groupId?: string; // manual group id
   notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 
@@ -145,7 +146,7 @@ export default function ProposalCreate() {
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();
-  const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
+  const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
 
   async function writeProposalLog(entry: {
@@ -209,8 +210,14 @@ export default function ProposalCreate() {
       setExpectedCloseDate(existingProposal.expected_close_date || "");
       const loadedGroupNotes = (existingProposal as any).group_notes || {};
       setGroupNotes(loadedGroupNotes);
-      if (loadedGroupNotes._avulso_name) {
-        setAvulsoGroupName(loadedGroupNotes._avulso_name);
+      // Restore manual group names
+      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+      if (Object.keys(loadedManualGroups).length > 0) {
+        setManualGroupNames(loadedManualGroups);
+      } else if (loadedGroupNotes._avulso_name) {
+        // Legacy: migrate old single avulso name to a manual group
+        const legacyGid = localId();
+        setManualGroupNames({ [legacyGid]: loadedGroupNotes._avulso_name });
       }
       setDefaultsLoaded(true);
 
@@ -538,28 +545,27 @@ export default function ProposalCreate() {
     return roundUpFactor(total);
   }, [scopeProcesses, roundingFactor]);
 
-  // Group scope processes by template for grouped display
+   // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
-    const groups: { templateId: string | undefined; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
     const templateGroups = new Map<string, ScopeProcess[]>();
-    const noTemplate: ScopeProcess[] = [];
+    const manualGroups = new Map<string, ScopeProcess[]>();
 
     for (const proc of scopeProcesses) {
       if (proc.templateId) {
         if (!templateGroups.has(proc.templateId)) templateGroups.set(proc.templateId, []);
         templateGroups.get(proc.templateId)!.push(proc);
-      } else {
-        noTemplate.push(proc);
+      } else if (proc.groupId) {
+        if (!manualGroups.has(proc.groupId)) manualGroups.set(proc.groupId, []);
+        manualGroups.get(proc.groupId)!.push(proc);
       }
     }
 
     for (const [tid, procs] of templateGroups) {
-      // Check if this is a project group: _project_<projectId>_<templateId>
       const isProjectGroup = tid.startsWith("_project_");
       if (isProjectGroup) {
-        // Extract original template id from the key: _project_<projectId>_<origTemplateId>
         const parts = tid.replace("_project_", "").split("_");
-        const origTemplateId = parts.slice(1).join("_"); // everything after projectId
+        const origTemplateId = parts.slice(1).join("_");
         const tmpl = origTemplateId && origTemplateId !== "_no_template_"
           ? scopeTemplates.find((t) => t.id === origTemplateId)
           : null;
@@ -580,12 +586,19 @@ export default function ProposalCreate() {
       }
     }
 
-    if (noTemplate.length > 0) {
-      groups.push({ templateId: undefined, templateName: avulsoGroupName, category: "", processes: noTemplate });
+    // Include all manual groups (even empty ones)
+    for (const gid of Object.keys(manualGroupNames)) {
+      groups.push({
+        templateId: undefined,
+        groupId: gid,
+        templateName: manualGroupNames[gid] || "Novo Grupo",
+        category: "",
+        processes: manualGroups.get(gid) || [],
+      });
     }
 
     return groups;
-  }, [scopeProcesses, scopeTemplates]);
+  }, [scopeProcesses, scopeTemplates, manualGroupNames]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {
@@ -764,17 +777,26 @@ export default function ProposalCreate() {
     setNotesDialogOpen(false);
   }
 
-  // Add new process
-  function addProcess() {
+  // Add new manual group
+  function addGroup() {
+    const gid = localId();
+    setManualGroupNames((prev) => ({ ...prev, [gid]: "Novo Grupo" }));
+    setExpandedTemplateIds((prev) => new Set([...prev, gid]));
+  }
+
+  // Add process to a group (manual or template)
+  function addProcessToGroup(groupIdOrTemplateId: string) {
+    const isTemplate = addedTemplateIds.has(groupIdOrTemplateId);
     const newProc: ScopeProcess = {
       id: localId(),
       description: "",
       included: true,
+      templateId: isTemplate ? groupIdOrTemplateId : undefined,
+      groupId: isTemplate ? undefined : groupIdOrTemplateId,
       children: [{ id: localId(), description: "", hours: 0, included: true }],
     };
     setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
-    setExpandedTemplateIds((prev) => new Set([...prev, "_avulso"]));
   }
 
   // Add child to process
@@ -994,7 +1016,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: { ...groupNotes, _avulso_name: avulsoGroupName },
+      group_notes: { ...groupNotes, _manual_groups: manualGroupNames },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };
@@ -1366,8 +1388,8 @@ export default function ProposalCreate() {
                   <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
                     <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
                   </Button>
-                  <Button variant="outline" size="sm" onClick={addProcess}>
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
+                  <Button variant="outline" size="sm" onClick={addGroup}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Novo Grupo
                   </Button>
                 </>
               )}
@@ -1506,7 +1528,7 @@ export default function ProposalCreate() {
             <div className="space-y-3">
 
               {groupedScope.map((group) => {
-                const groupKey = group.templateId || "_avulso";
+                const groupKey = group.templateId || group.groupId || "_unknown";
                 const isTemplateExpanded = expandedTemplateIds.has(groupKey);
                 const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
                 const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.length, 0);
@@ -1522,10 +1544,10 @@ export default function ProposalCreate() {
                         {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        {!group.templateId ? (
+                        {group.groupId ? (
                           <Input
-                            value={avulsoGroupName}
-                            onChange={(e) => setAvulsoGroupName(e.target.value)}
+                            value={manualGroupNames[group.groupId] || ""}
+                            onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
                             onClick={(e) => e.stopPropagation()}
                             className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
                             placeholder="Nome do grupo"
@@ -1580,8 +1602,9 @@ export default function ProposalCreate() {
                             }
                           } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
-                          } else {
-                            setScopeProcesses((prev) => prev.filter((p) => p.templateId));
+                          } else if (group.groupId) {
+                            setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                            setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                           }
                         }}
                       >
@@ -1718,6 +1741,16 @@ export default function ProposalCreate() {
                             </div>
                           );
                         })}
+                        {/* Add process button inside group */}
+                        <button
+                          onClick={() => {
+                            const gid = group.groupId || group.templateId;
+                            if (gid) addProcessToGroup(gid);
+                          }}
+                          className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                        >
+                          <Plus className="h-3 w-3" /> Adicionar Processo
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1987,7 +2020,7 @@ export default function ProposalCreate() {
                 ) : (
                   <div className="space-y-2">
                     {groupedScope.filter(g => g.processes.some(p => p.included)).map((group) => {
-                      const groupKey = group.templateId || "_avulso";
+                      const groupKey = group.templateId || group.groupId || "_unknown";
                       const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
                       const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.filter(c => c.included).length, 0);
 
@@ -1999,7 +2032,7 @@ export default function ProposalCreate() {
                                 {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                               </div>
                               <div className="flex-1 min-w-0 text-left">
-                                <p className="text-sm font-semibold text-foreground">{group.templateId ? group.templateName : avulsoGroupName || "Itens Avulsos"}</p>
+                                <p className="text-sm font-semibold text-foreground">{group.templateName || "Grupo"}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
                                 </p>

@@ -1575,18 +1575,22 @@ export default function ProposalCreate() {
                       </div>
                       <div className="flex-1 min-w-0">
                         {group.groupId ? (
-                          <Input
-                            value={manualGroupNames[group.groupId] || ""}
-                            onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
-                            placeholder="Nome do grupo"
-                          />
+                          groupKey.startsWith("_project_") ? (
+                            <p className="text-sm font-semibold text-foreground">{manualGroupNames[group.groupId] || "Grupo"}</p>
+                          ) : (
+                            <Input
+                              value={manualGroupNames[group.groupId] || ""}
+                              onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                              placeholder="Nome do grupo"
+                            />
+                          )
                         ) : (
                           <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
+                          {groupItemCount} itens{group.category ? ` · ${group.category}` : ""}{groupKey.startsWith("_project_") && !group.category ? " · Projeto" : ""} · {groupHours}h
                         </p>
                       </div>
                       <button

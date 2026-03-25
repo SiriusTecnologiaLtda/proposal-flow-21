@@ -87,9 +87,9 @@ export default function ProposalsList() {
   const { data: proposalTypes = [] } = useQuery({
     queryKey: ["proposal_types"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("proposal_types").select("slug, rounding_factor");
+      const { data, error } = await supabase.from("proposal_types").select("*").order("name");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     staleTime: 5 * 60 * 1000,
   });

@@ -469,8 +469,8 @@ export default function ProposalCreate() {
   }
 
   function removeProjectFromScope(projectId: string) {
-    const projectGroupKey = `_project_${projectId}`;
-    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey));
+    const prefix = `_project_${projectId}_`;
+    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix)));
     setAddedProjectIds((prev) => {
       const next = new Set(prev);
       next.delete(projectId);
@@ -478,7 +478,9 @@ export default function ProposalCreate() {
     });
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
-      next.delete(projectGroupKey);
+      for (const k of next) {
+        if (k.startsWith(prefix)) next.delete(k);
+      }
       return next;
     });
   }

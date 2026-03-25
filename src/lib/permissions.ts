@@ -19,7 +19,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   templates: "Templates de Escopo",
   projetos: "Projetos de Implantação",
   configuracoes: "Configurações",
-  "configuracoes/logs-propostas": "Configurações → Logs de Propostas",
+  "configuracoes/logs-propostas": "Configurações → Logs de Oportunidades",
 };
 
 export const ALL_RESOURCES = Object.keys(RESOURCE_LABELS);

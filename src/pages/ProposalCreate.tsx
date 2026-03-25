@@ -2021,7 +2021,7 @@ export default function ProposalCreate() {
                                 {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                               </div>
                               <div className="flex-1 min-w-0 text-left">
-                                <p className="text-sm font-semibold text-foreground">{group.templateId ? group.templateName : avulsoGroupName || "Itens Avulsos"}</p>
+                                <p className="text-sm font-semibold text-foreground">{group.templateName || "Grupo"}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
                                 </p>

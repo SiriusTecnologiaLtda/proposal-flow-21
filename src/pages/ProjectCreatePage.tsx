@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare } from "lucide-react";
 import { useProject, useCreateProject, useUpdateProject } from "@/hooks/useProjects";
-import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
+import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates, useUnits } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,7 @@ export default function ProjectCreatePage() {
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
   const { data: templates = [] } = useScopeTemplates();
+  const { data: units = [] } = useUnits();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
 
@@ -61,6 +62,11 @@ export default function ProjectCreatePage() {
     product: "",
     description: "",
   });
+
+  // Derived client info (ESN, GSN, Unit)
+  const selectedClient = useMemo(() => clients.find((c: any) => c.id === form.client_id), [clients, form.client_id]);
+  const clientEsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.esn_id), [salesTeam, selectedClient]);
+  const clientGsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.gsn_id), [salesTeam, selectedClient]);
 
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
@@ -549,6 +555,22 @@ export default function ProjectCreatePage() {
                 </SelectContent>
               </Select>
             </div>
+            {form.client_id && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">ESN (do cliente)</Label>
+                  <Input value={clientEsn?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">GSN (do cliente)</Label>
+                  <Input value={clientGsn?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">Unidade (do cliente)</Label>
+                  <Input value={units.find((u: any) => u.id === selectedClient?.unit_id)?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+              </div>
+            )}
             <div className="grid gap-1 sm:col-span-2">
               <Label className="text-xs">Descrição</Label>
               <Textarea

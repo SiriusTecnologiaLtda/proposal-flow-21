@@ -55,7 +55,10 @@ export default function ProjectsPage() {
       (p.clients?.name || "").toLowerCase().includes(s) ||
       (p.description || "").toLowerCase().includes(s) ||
       (p.product || "").toLowerCase().includes(s) ||
-      (p.sales_team?.name || "").toLowerCase().includes(s);
+      (p.sales_team?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
     if (!textMatch) return false;
 
     if (statusFilter.length > 0 && !statusFilter.includes(p.status || "rascunho")) return false;
@@ -112,7 +115,7 @@ export default function ProjectsPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por cliente, produto, arquiteto..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Input placeholder="Buscar por cliente, produto, arquiteto, ESN, GSN, unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
       {/* Filters - same layout as proposals */}
@@ -233,8 +236,10 @@ export default function ProjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Cliente</TableHead>
+              <TableHead>ESN</TableHead>
+              <TableHead>GSN</TableHead>
+              <TableHead>Unidade</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Descrição</TableHead>
               <TableHead>Arquiteto</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>
@@ -246,11 +251,11 @@ export default function ProjectsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   <FolderKanban className="mx-auto h-8 w-8 mb-2 opacity-40" />
                   Nenhum projeto encontrado
                 </TableCell>
@@ -267,8 +272,10 @@ export default function ProjectsPage() {
                 return (
                   <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
                     <TableCell className="font-medium">{project.clients?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.sales_team_esn?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.sales_team_gsn?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.unit_info?.name || "—"}</TableCell>
                     <TableCell>{project.product || "—"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{project.description || "—"}</TableCell>
                     <TableCell>{project.sales_team?.name || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{createdDate}</TableCell>
                     <TableCell className="text-right text-sm font-medium">{totalHours > 0 ? `${totalHours}h` : "—"}</TableCell>

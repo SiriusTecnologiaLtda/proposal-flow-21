@@ -398,7 +398,7 @@ export default function ProposalCreate() {
         id: localId(),
         description: parent.description,
         included: parent.included,
-        templateId: parent.template_id || projectGroupKey,
+        templateId: projectGroupKey,
         notes: parent.notes || "",
         children: kids.map((kid: any) => ({
           id: localId(),
@@ -430,18 +430,8 @@ export default function ProposalCreate() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
-    // Register fake template IDs so groupedScope can group them
-    const templateIdsUsed = new Set(newProcesses.map(p => p.templateId).filter(Boolean));
-    setAddedTemplateIds((prev) => {
-      const next = new Set(prev);
-      templateIdsUsed.forEach(id => { if (id) next.add(id); });
-      return next;
-    });
-    setExpandedTemplateIds((prev) => {
-      const next = new Set(prev);
-      templateIdsUsed.forEach(id => { if (id) next.add(id); });
-      return next;
-    });
+    setAddedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
+    setExpandedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
     setExpandedProcessIds((prev) => {
       const next = new Set(prev);
       newProcesses.forEach((p) => next.add(p.id));
@@ -451,13 +441,7 @@ export default function ProposalCreate() {
 
   function removeProjectFromScope(projectId: string) {
     const projectGroupKey = `_project_${projectId}`;
-    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey && !(p.templateId && addedProjectIds.has(projectId) && scopeTemplates.every(t => t.id !== p.templateId) && p.templateId.startsWith("_project_"))));
-    // Remove processes that belong to this project
-    setScopeProcesses((prev) => prev.filter((p) => {
-      if (!p.templateId) return true;
-      if (p.templateId === projectGroupKey) return false;
-      return true;
-    }));
+    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey));
     setAddedProjectIds((prev) => {
       const next = new Set(prev);
       next.delete(projectId);

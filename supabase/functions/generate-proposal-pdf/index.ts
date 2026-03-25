@@ -1054,7 +1054,13 @@ Deno.serve(async (req) => {
     const accompAnalystHours = roundUp(Math.ceil(totalAnalystHours * (accompAnalyst / 100)), roundingFactor);
     const accompGPHours = roundUp(Math.ceil(gpHours * (accompGP / 100)), roundingFactor);
 
+    // Build macro scope names: templates + non-template groups
     const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
+    // Check if there are included parent items without template_id
+    const nonTemplateParents = parentItems.filter((i: any) => !i.template_id);
+    if (nonTemplateParents.length > 0) {
+      macroScopeNames.push("Outros");
+    }
     const isProjeto = proposal.type === "projeto";
     const client = proposal.clients;
     const esn = proposal.esn;

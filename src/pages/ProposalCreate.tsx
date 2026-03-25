@@ -1290,18 +1290,8 @@ export default function ProposalCreate() {
                       </Button>
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
-                    {/* Group-level internal notes */}
-                    {groupNotesOpenIds.has(groupKey) && (
-                      <div className="px-4 py-2 bg-blue-50/50 dark:bg-blue-950/20 border-t border-blue-200/50 dark:border-blue-800/30">
-                        <Label className="text-xs text-blue-700 dark:text-blue-400">📌 Comentário interno do grupo (não será impresso na proposta)</Label>
-                        <Textarea
-                          value={groupNotes[groupKey] || ""}
-                          onChange={(e) => setGroupNotes((prev) => ({ ...prev, [groupKey]: e.target.value }))}
-                          placeholder="Anotações internas sobre este grupo..."
-                          className="mt-1 text-xs min-h-[60px] bg-background"
-                        />
-                      </div>
-                    )}
+
+
 
                     {/* Processes inside this template */}
                     {isTemplateExpanded && (

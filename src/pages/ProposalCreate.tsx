@@ -1262,12 +1262,11 @@ export default function ProposalCreate() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setGroupNotesOpenIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(groupKey)) next.delete(groupKey);
-                            else next.add(groupKey);
-                            return next;
-                          });
+                          openNotesDialog(
+                            { type: "group", groupKey },
+                            groupNotes[groupKey] || "",
+                            "📌 Comentário interno do grupo (não será impresso na proposta)"
+                          );
                         }}
                         className={`shrink-0 rounded p-1 transition-colors ${groupNotes[groupKey] ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                         title="Comentário interno do grupo (uso interno)"

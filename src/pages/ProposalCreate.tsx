@@ -1602,8 +1602,9 @@ export default function ProposalCreate() {
                             }
                           } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
-                          } else {
-                            setScopeProcesses((prev) => prev.filter((p) => p.templateId));
+                          } else if (group.groupId) {
+                            setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                            setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                           }
                         }}
                       >

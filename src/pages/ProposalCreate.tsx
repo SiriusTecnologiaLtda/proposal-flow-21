@@ -1349,7 +1349,11 @@ export default function ProposalCreate() {
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
                                 <button
-                                  onClick={() => toggleNotes(proc.id)}
+                                  onClick={() => openNotesDialog(
+                                    { type: "process", processId: proc.id },
+                                    proc.notes || "",
+                                    "📝 Comentário do processo (impresso no escopo detalhado)"
+                                  )}
                                   className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                   title="Comentário do processo (impresso no escopo detalhado)"
                                 >
@@ -1360,19 +1364,6 @@ export default function ProposalCreate() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-                              {/* Printable notes for process */}
-                              {notesOpenIds.has(proc.id) && (
-                                <div className="px-6 pb-2 pt-1 bg-muted/30 border-t border-border">
-                                  <Label className="text-xs text-muted-foreground">📝 Comentário do processo (impresso no escopo detalhado)</Label>
-                                  <Textarea
-                                    value={proc.notes || ""}
-                                    onChange={(e) => updateProcessNotes(proc.id, e.target.value)}
-                                    placeholder="Adicionar comentário sobre este processo..."
-                                    className="mt-1 min-h-[60px] text-xs bg-background"
-                                    rows={2}
-                                  />
-                                </div>
-                              )}
 
                               {/* Children (Level 2) */}
                               {isExpanded && (
@@ -1396,7 +1387,11 @@ export default function ProposalCreate() {
                                           disabled={!child.included || !proc.included}
                                         />
                                         <button
-                                          onClick={() => toggleNotes(child.id)}
+                                          onClick={() => openNotesDialog(
+                                            { type: "child", processId: proc.id, childId: child.id },
+                                            child.notes || "",
+                                            "📝 Comentário do item (impresso no escopo detalhado)"
+                                          )}
                                           className={`shrink-0 rounded p-1 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                           title="Comentário (impresso no escopo)"
                                         >
@@ -1411,18 +1406,6 @@ export default function ProposalCreate() {
                                           <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
-                                      {notesOpenIds.has(child.id) && (
-                                        <div className="px-14 pb-2 pt-1 bg-accent/30 border-t border-border/30">
-                                          <Label className="text-xs text-muted-foreground">📝 Comentário (impresso no escopo detalhado)</Label>
-                                          <Textarea
-                                            value={child.notes || ""}
-                                            onChange={(e) => updateChildNotes(proc.id, child.id, e.target.value)}
-                                            placeholder="Adicionar comentário para o escopo detalhado..."
-                                            className="mt-1 min-h-[50px] text-xs bg-background"
-                                            rows={2}
-                                          />
-                                        </div>
-                                      )}
                                     </div>
                                   ))}
                                   <button

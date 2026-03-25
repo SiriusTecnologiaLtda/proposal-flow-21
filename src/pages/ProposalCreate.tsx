@@ -38,6 +38,7 @@ interface ScopeProcess {
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
   projectId?: string; // track origin project for reference only
+  groupId?: string; // manual group id
   notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 

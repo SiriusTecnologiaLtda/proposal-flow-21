@@ -2009,7 +2009,7 @@ export default function ProposalCreate() {
                 ) : (
                   <div className="space-y-2">
                     {groupedScope.filter(g => g.processes.some(p => p.included)).map((group) => {
-                      const groupKey = group.templateId || "_avulso";
+                      const groupKey = group.templateId || group.groupId || "_unknown";
                       const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
                       const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.filter(c => c.included).length, 0);
 

@@ -81,6 +81,8 @@ export default function ProjectCreatePage() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
 
   // Notes dialog state
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);

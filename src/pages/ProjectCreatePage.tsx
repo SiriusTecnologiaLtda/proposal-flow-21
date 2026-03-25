@@ -50,6 +50,7 @@ export default function ProjectCreatePage() {
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
   const { data: templates = [] } = useScopeTemplates();
+  const { data: units = [] } = useUnits();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
 

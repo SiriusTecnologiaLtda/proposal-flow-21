@@ -1595,18 +1595,17 @@ export default function ProposalCreate() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (group.templateId?.startsWith("_project_")) {
-                            // Remove just this template group from the project
                             const gid = group.templateId;
                             setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                            setGroupOrder((prev) => prev.filter((key) => key !== gid));
                             setAddedTemplateIds((prev) => {
                               const next = new Set(prev);
                               next.delete(gid);
                               return next;
                             });
-                            // Check if any project groups remain for this project
                             const projectId = gid.replace("_project_", "").split("_")[0];
                             const remainingProjectGroups = scopeProcesses.filter(
-                              (p) => p.templateId?.startsWith(`_project_${projectId}_`) && p.templateId !== gid
+                              (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
                             );
                             if (remainingProjectGroups.length === 0) {
                               setAddedProjectIds((prev) => {
@@ -1619,6 +1618,7 @@ export default function ProposalCreate() {
                             removeTemplateFromScope(group.templateId);
                           } else if (group.groupId) {
                             setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                            setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
                             setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                           }
                         }}

@@ -59,6 +59,8 @@ export default function ProjectCreatePage() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
 
   // Load existing project data
   useEffect(() => {

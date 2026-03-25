@@ -1223,7 +1223,26 @@ export default function ProposalCreate() {
             </DialogContent>
           </Dialog>
 
-          {/* Scope items - grouped by template */}
+          {/* Notes dialog */}
+          <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{notesDialogLabel}</DialogTitle>
+              </DialogHeader>
+              <Textarea
+                value={notesDialogValue}
+                onChange={(e) => setNotesDialogValue(e.target.value)}
+                placeholder="Digite o comentário..."
+                className="min-h-[100px]"
+                rows={4}
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={saveNotesDialog}>Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {scopeProcesses.length > 0 ? (
             <div className="space-y-3">
 

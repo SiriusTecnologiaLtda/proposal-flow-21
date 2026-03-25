@@ -107,7 +107,7 @@ export function useDeleteProject() {
   });
 }
 
-async function insertProjectScopeItems(scopeItems: any[], projectId: string) {
+export async function insertProjectScopeItems(scopeItems: any[], projectId: string) {
   const localIdToRealId = new Map<string, string>();
 
   const rows = scopeItems.map((item: any) => {
@@ -139,4 +139,5 @@ async function insertProjectScopeItems(scopeItems: any[], projectId: string) {
 
   const { error } = await supabase.from("project_scope_items").insert(normalizedRows);
   if (error) throw error;
+  return localIdToRealId;
 }

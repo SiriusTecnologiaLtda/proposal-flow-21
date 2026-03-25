@@ -93,7 +93,8 @@ export default function ProjectCreatePage() {
 
   // Group notes (internal, per template group)
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
-  const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
+  // Manual group names: groupId -> name
+  const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
 
   // Load existing project data
   useEffect(() => {

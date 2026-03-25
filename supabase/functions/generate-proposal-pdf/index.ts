@@ -615,132 +615,71 @@ async function appendDetailedScope(
     }
   }
   
-  // Get current doc end index
+  // Insert page break and main title first
   let doc = await getDocumentStructure(accessToken, docId);
   let endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
   
-  const requests: any[] = [];
+  const initRequests: any[] = [];
   let cursor = endIndex;
   
   // Page break
-  requests.push({ insertText: { location: { index: cursor }, text: "\n" } });
+  initRequests.push({ insertText: { location: { index: cursor }, text: "\n" } });
   cursor += 1;
-  requests.push({ insertPageBreak: { location: { index: cursor } } });
+  initRequests.push({ insertPageBreak: { location: { index: cursor } } });
   cursor += 1;
   
   // Title
   const title1 = "Anexo - Escopo Detalhado\n";
-  requests.push({ insertText: { location: { index: cursor }, text: title1 } });
-  requests.push({
+  initRequests.push({ insertText: { location: { index: cursor }, text: title1 } });
+  initRequests.push({
     updateParagraphStyle: {
       range: { startIndex: cursor, endIndex: cursor + title1.length },
       paragraphStyle: { namedStyleType: "HEADING_1", alignment: "CENTER" },
       fields: "namedStyleType,alignment",
     },
   });
-  requests.push({
+  initRequests.push({
     updateTextStyle: {
       range: { startIndex: cursor, endIndex: cursor + title1.length - 1 },
       textStyle: { bold: true, fontSize: { magnitude: 16, unit: "PT" } },
       fields: "bold,fontSize",
     },
   });
-  cursor += title1.length;
   
-  // For each template group
-  for (const [tmplId, group] of Object.entries(grouped)) {
-    if (group.parents.length === 0) continue;
-    
+  await docBatchUpdate(accessToken, docId, initRequests);
+  
+  // Process each template group one at a time to avoid index shifting issues
+  const groupEntries = Object.entries(grouped).filter(([_, g]) => g.parents.length > 0);
+  
+  for (const [tmplId, group] of groupEntries) {
     const tmplName = templateNames[tmplId] || "Outros";
+    
+    // Re-read doc to get current end index
+    doc = await getDocumentStructure(accessToken, docId);
+    endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
+    cursor = endIndex;
+    
+    // Insert subtitle
     const subtitle = `\n${tmplName}\n`;
-    requests.push({ insertText: { location: { index: cursor }, text: subtitle } });
-    requests.push({
+    const subtitleRequests: any[] = [];
+    subtitleRequests.push({ insertText: { location: { index: cursor }, text: subtitle } });
+    subtitleRequests.push({
       updateParagraphStyle: {
         range: { startIndex: cursor + 1, endIndex: cursor + subtitle.length },
         paragraphStyle: { namedStyleType: "HEADING_2" },
         fields: "namedStyleType",
       },
     });
-    requests.push({
+    subtitleRequests.push({
       updateTextStyle: {
         range: { startIndex: cursor + 1, endIndex: cursor + subtitle.length - 1 },
         textStyle: { bold: true, fontSize: { magnitude: 13, unit: "PT" } },
         fields: "bold,fontSize",
       },
     });
-    cursor += subtitle.length;
+    await docBatchUpdate(accessToken, docId, subtitleRequests);
     
-    // Build table rows with level numbering
-    const allRows: string[][] = [["Processo", "Resumo", "Escopo"]];
-    
-    for (let pi = 0; pi < group.parents.length; pi++) {
-      const parent = group.parents[pi];
-      const parentNum = pi + 1;
-      allRows.push([
-        `${parentNum}. ${parent.description || "—"}`,
-        parent.notes || "",
-        parent.included ? "Sim" : "Não",
-      ]);
-      
-      const children = group.children[parent.id] || [];
-      for (let ci = 0; ci < children.length; ci++) {
-        const child = children[ci];
-        allRows.push([
-          `   ${parentNum}.${ci + 1} ${child.description || "—"}`,
-          child.notes || "",
-          child.included ? "Sim" : "Não",
-        ]);
-      }
-    }
-    
-    // Insert table
-    const numRows = allRows.length;
-    const numCols = 3;
-    
-    requests.push({
-      insertTable: {
-        rows: numRows,
-        columns: numCols,
-        location: { index: cursor },
-      },
-    });
-    
-    // We need to execute what we have so far, then read the doc to get table cell indices
-  }
-  
-  // Execute the first batch (page break, titles, tables structure)
-  if (requests.length > 0) {
-    await docBatchUpdate(accessToken, docId, requests);
-  }
-  
-  // Now re-read doc and fill tables with content
-  doc = await getDocumentStructure(accessToken, docId);
-  const bodyContent = doc.body?.content || [];
-  
-  // Find all tables that were just inserted (after the original content)
-  const newTables: any[] = [];
-  for (const el of bodyContent) {
-    if (el.table && el.startIndex >= endIndex) {
-      newTables.push(el);
-    }
-  }
-  
-  // Build text fill requests for each table
-  let tableIdx = 0;
-  const fillRequests: any[] = [];
-  
-  // Track row metadata for styling after insert
-  interface RowMeta { row: number; isHeader: boolean; isDisabled: boolean; }
-  const tableRowMetas: { tableIndex: number; rows: RowMeta[] }[] = [];
-  
-  for (const [tmplId, group] of Object.entries(grouped)) {
-    if (group.parents.length === 0) continue;
-    if (tableIdx >= newTables.length) break;
-    
-    const tableEl = newTables[tableIdx];
-    const currentTableIdx = tableIdx;
-    tableIdx++;
-    
+    // Build table rows
     const allRows: { cells: string[]; isHeader: boolean; isDisabled: boolean }[] = [
       { cells: ["Processo", "Resumo", "Escopo"], isHeader: true, isDisabled: false },
     ];
@@ -763,10 +702,43 @@ async function appendDetailedScope(
       }
     }
     
-    const rowMetas: RowMeta[] = allRows.map((r, i) => ({ row: i, isHeader: r.isHeader, isDisabled: r.isDisabled }));
-    tableRowMetas.push({ tableIndex: currentTableIdx, rows: rowMetas });
+    // Re-read doc to get current end index for table insertion
+    doc = await getDocumentStructure(accessToken, docId);
+    endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
     
+    // Insert table
+    const numRows = allRows.length;
+    const numCols = 3;
+    await docBatchUpdate(accessToken, docId, [{
+      insertTable: {
+        rows: numRows,
+        columns: numCols,
+        location: { index: endIndex },
+      },
+    }]);
+    
+    // Re-read doc to find the newly inserted table
+    doc = await getDocumentStructure(accessToken, docId);
+    const bodyContent = doc.body?.content || [];
+    
+    // Find the last table in the document (the one we just inserted)
+    let tableEl: any = null;
+    for (let i = bodyContent.length - 1; i >= 0; i--) {
+      if (bodyContent[i].table) {
+        tableEl = bodyContent[i];
+        break;
+      }
+    }
+    
+    if (!tableEl) {
+      log(logs, "Escopo detalhado", "error", `Tabela não encontrada para grupo "${tmplName}"`);
+      continue;
+    }
+    
+    // Fill table cells
     const tableRows = tableEl.table?.tableRows || [];
+    const fillRequests: any[] = [];
+    
     for (let r = 0; r < Math.min(tableRows.length, allRows.length); r++) {
       const cells = tableRows[r].tableCells || [];
       for (let c = 0; c < Math.min(cells.length, allRows[r].cells.length); c++) {
@@ -784,98 +756,93 @@ async function appendDetailedScope(
         }
       }
     }
-  }
-  
-  // Sort inserts by descending index
-  fillRequests.sort((a: any, b: any) => {
-    const aIdx = a.insertText?.location?.index || 0;
-    const bIdx = b.insertText?.location?.index || 0;
-    return bIdx - aIdx;
-  });
-  
-  if (fillRequests.length > 0) {
-    await docBatchUpdate(accessToken, docId, fillRequests);
-  }
-  
-  // Re-read doc to apply styling (bold headers, strikethrough+gray for disabled rows, Arial Narrow 9pt)
-  doc = await getDocumentStructure(accessToken, docId);
-  const styledBodyContent = doc.body?.content || [];
-  const styledTables: any[] = [];
-  for (const el of styledBodyContent) {
-    if (el.table && el.startIndex >= endIndex) {
-      styledTables.push(el);
-    }
-  }
-  
-  const styleRequests: any[] = [];
-  
-  for (const meta of tableRowMetas) {
-    if (meta.tableIndex >= styledTables.length) continue;
-    const tableEl = styledTables[meta.tableIndex];
-    const tableRows = tableEl.table?.tableRows || [];
     
-    for (const rm of meta.rows) {
-      if (rm.row >= tableRows.length) continue;
-      const cells = tableRows[rm.row].tableCells || [];
+    // Sort inserts by descending index
+    fillRequests.sort((a: any, b: any) => {
+      const aIdx = a.insertText?.location?.index || 0;
+      const bIdx = b.insertText?.location?.index || 0;
+      return bIdx - aIdx;
+    });
+    
+    if (fillRequests.length > 0) {
+      await docBatchUpdate(accessToken, docId, fillRequests);
+    }
+    
+    // Apply styling
+    doc = await getDocumentStructure(accessToken, docId);
+    const styledBodyContent = doc.body?.content || [];
+    let styledTableEl: any = null;
+    for (let i = styledBodyContent.length - 1; i >= 0; i--) {
+      if (styledBodyContent[i].table) {
+        styledTableEl = styledBodyContent[i];
+        break;
+      }
+    }
+    
+    if (styledTableEl) {
+      const styleRequests: any[] = [];
+      const styledRows = styledTableEl.table?.tableRows || [];
       
-      for (const cell of cells) {
-        const para = cell.content?.[0]?.paragraph;
-        if (!para) continue;
-        const startIdx = para.elements?.[0]?.startIndex;
-        const endIdx = para.elements?.[para.elements.length - 1]?.endIndex;
-        if (!startIdx || !endIdx || startIdx >= endIdx) continue;
+      for (let r = 0; r < Math.min(styledRows.length, allRows.length); r++) {
+        const cells = styledRows[r].tableCells || [];
+        const rowMeta = allRows[r];
         
-        if (rm.isHeader) {
-          // Header: Bold, Arial Narrow 9pt
-          styleRequests.push({
-            updateTextStyle: {
-              range: { startIndex: startIdx, endIndex: endIdx },
-              textStyle: {
-                bold: true,
-                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 700 },
-                fontSize: { magnitude: 9, unit: "PT" },
+        for (const cell of cells) {
+          const para = cell.content?.[0]?.paragraph;
+          if (!para) continue;
+          const startIdx = para.elements?.[0]?.startIndex;
+          const endIdx = para.elements?.[para.elements.length - 1]?.endIndex;
+          if (!startIdx || !endIdx || startIdx >= endIdx) continue;
+          
+          if (rowMeta.isHeader) {
+            styleRequests.push({
+              updateTextStyle: {
+                range: { startIndex: startIdx, endIndex: endIdx },
+                textStyle: {
+                  bold: true,
+                  weightedFontFamily: { fontFamily: "Arial Narrow", weight: 700 },
+                  fontSize: { magnitude: 9, unit: "PT" },
+                },
+                fields: "bold,weightedFontFamily,fontSize",
               },
-              fields: "bold,weightedFontFamily,fontSize",
-            },
-          });
-        } else if (rm.isDisabled) {
-          // Disabled: strikethrough, gray, Arial Narrow 9pt
-          styleRequests.push({
-            updateTextStyle: {
-              range: { startIndex: startIdx, endIndex: endIdx },
-              textStyle: {
-                bold: false,
-                strikethrough: true,
-                foregroundColor: { color: { rgbColor: { red: 0.6, green: 0.6, blue: 0.6 } } },
-                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
-                fontSize: { magnitude: 9, unit: "PT" },
+            });
+          } else if (rowMeta.isDisabled) {
+            styleRequests.push({
+              updateTextStyle: {
+                range: { startIndex: startIdx, endIndex: endIdx },
+                textStyle: {
+                  bold: false,
+                  strikethrough: true,
+                  foregroundColor: { color: { rgbColor: { red: 0.6, green: 0.6, blue: 0.6 } } },
+                  weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
+                  fontSize: { magnitude: 9, unit: "PT" },
+                },
+                fields: "bold,strikethrough,foregroundColor,weightedFontFamily,fontSize",
               },
-              fields: "bold,strikethrough,foregroundColor,weightedFontFamily,fontSize",
-            },
-          });
-        } else {
-          // Normal: Arial Narrow 9pt, not bold
-          styleRequests.push({
-            updateTextStyle: {
-              range: { startIndex: startIdx, endIndex: endIdx },
-              textStyle: {
-                bold: false,
-                weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
-                fontSize: { magnitude: 9, unit: "PT" },
+            });
+          } else {
+            styleRequests.push({
+              updateTextStyle: {
+                range: { startIndex: startIdx, endIndex: endIdx },
+                textStyle: {
+                  bold: false,
+                  weightedFontFamily: { fontFamily: "Arial Narrow", weight: 400 },
+                  fontSize: { magnitude: 9, unit: "PT" },
+                },
+                fields: "bold,weightedFontFamily,fontSize",
               },
-              fields: "bold,weightedFontFamily,fontSize",
-            },
-          });
+            });
+          }
         }
+      }
+      
+      if (styleRequests.length > 0) {
+        await docBatchUpdate(accessToken, docId, styleRequests);
       }
     }
   }
   
-  if (styleRequests.length > 0) {
-    await docBatchUpdate(accessToken, docId, styleRequests);
-  }
-  
-  log(logs, "Escopo detalhado", "ok", `${Object.keys(grouped).length} grupo(s) de template adicionado(s) ao final do documento`);
+  log(logs, "Escopo detalhado", "ok", `${groupEntries.length} grupo(s) de template adicionado(s) ao final do documento`);
 }
 
 // ─── Formatters ─────────────────────────────────────────────────────

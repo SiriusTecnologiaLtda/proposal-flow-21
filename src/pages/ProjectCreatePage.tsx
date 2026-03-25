@@ -470,7 +470,7 @@ export default function ProjectCreatePage() {
       } else {
         const projectId = crypto.randomUUID();
         await createProject.mutateAsync({
-          id: projectId, ...form, created_by: user!.id, scopeItems: flatScope,
+          id: projectId, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, created_by: user!.id, scopeItems: flatScope,
         });
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({

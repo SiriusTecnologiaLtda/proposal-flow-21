@@ -437,6 +437,7 @@ export default function ProposalCreate() {
             description: parent.description,
             included: parent.included,
             templateId: groupKey,
+            projectId: project.id,
             children: [{
               id: localId(),
               description: parent.description,

@@ -380,7 +380,7 @@ export default function ProposalCreate() {
     );
   }, [clientProjects, projectSearch]);
 
-  // Import project scope items into proposal scope
+  // Import project scope items into proposal scope — grouped by original template
   function addProjectToScope(project: any) {
     if (addedProjectIds.has(project.id)) return;
     const items = project.project_scope_items || [];
@@ -391,47 +391,76 @@ export default function ProposalCreate() {
       childrenMap.get(i.parent_id)!.push(i);
     });
 
-    const projectGroupKey = `_project_${project.id}`;
-    const newProcesses: ScopeProcess[] = parentItems.map((parent: any) => {
-      const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
-      return {
-        id: localId(),
-        description: parent.description,
-        included: parent.included,
-        templateId: projectGroupKey,
-        notes: parent.notes || "",
-        children: kids.map((kid: any) => ({
-          id: localId(),
-          description: kid.description,
-          hours: kid.hours || 0,
-          included: kid.included,
-          notes: kid.notes || "",
-        })),
-      };
-    });
+    // Group parent items by their original template_id
+    const templateGroupMap = new Map<string, any[]>();
+    for (const parent of parentItems) {
+      const key = parent.template_id || "_no_template_";
+      if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
+      templateGroupMap.get(key)!.push(parent);
+    }
 
-    // If flat items only
+    // Handle flat items (no parents)
     if (parentItems.length === 0 && items.length > 0) {
       for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
-        newProcesses.push({
-          id: localId(),
-          description: item.description,
-          included: item.included,
-          templateId: projectGroupKey,
-          children: [{
+        const key = item.template_id || "_no_template_";
+        if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
+        templateGroupMap.get(key)!.push({ ...item, _flat: true });
+      }
+    }
+
+    const newProcesses: ScopeProcess[] = [];
+    const newGroupKeys: string[] = [];
+
+    for (const [origTemplateId, parents] of templateGroupMap) {
+      const groupKey = `_project_${project.id}_${origTemplateId}`;
+      newGroupKeys.push(groupKey);
+
+      for (const parent of parents) {
+        if (parent._flat) {
+          newProcesses.push({
             id: localId(),
-            description: item.description,
-            hours: item.hours || 0,
-            included: item.included,
-          }],
-        });
+            description: parent.description,
+            included: parent.included,
+            templateId: groupKey,
+            children: [{
+              id: localId(),
+              description: parent.description,
+              hours: parent.hours || 0,
+              included: parent.included,
+            }],
+          });
+        } else {
+          const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+          newProcesses.push({
+            id: localId(),
+            description: parent.description,
+            included: parent.included,
+            templateId: groupKey,
+            notes: parent.notes || "",
+            children: kids.map((kid: any) => ({
+              id: localId(),
+              description: kid.description,
+              hours: kid.hours || 0,
+              included: kid.included,
+              notes: kid.notes || "",
+            })),
+          });
+        }
       }
     }
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
-    setAddedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
-    setExpandedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      newGroupKeys.forEach((k) => next.add(k));
+      return next;
+    });
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      newGroupKeys.forEach((k) => next.add(k));
+      return next;
+    });
     setExpandedProcessIds((prev) => {
       const next = new Set(prev);
       newProcesses.forEach((p) => next.add(p.id));

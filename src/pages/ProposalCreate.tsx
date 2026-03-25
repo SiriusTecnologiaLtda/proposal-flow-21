@@ -404,7 +404,10 @@ export default function ProposalCreate() {
     if (!projectSearch) return clientProjects;
     const q = projectSearch.toLowerCase();
     return clientProjects.filter((p: any) =>
-      (p.product || "").toLowerCase().includes(q) || (p.status || "").toLowerCase().includes(q)
+      (p.product || "").toLowerCase().includes(q) ||
+      (p.status || "").toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q) ||
+      (p.sales_team?.name || "").toLowerCase().includes(q)
     );
   }, [clientProjects, projectSearch]);
 

@@ -184,18 +184,19 @@ export default function ProjectCreatePage() {
     );
   }, [templates, templateSearch]);
 
-  // Group scope processes by template
+  // Group scope processes by template or manual group
   const groupedScope = useMemo(() => {
-    const groups: { templateId: string | undefined; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
     const templateGroups = new Map<string, ScopeProcess[]>();
-    const noTemplate: ScopeProcess[] = [];
+    const manualGroups = new Map<string, ScopeProcess[]>();
 
     for (const proc of scopeProcesses) {
       if (proc.templateId) {
         if (!templateGroups.has(proc.templateId)) templateGroups.set(proc.templateId, []);
         templateGroups.get(proc.templateId)!.push(proc);
-      } else {
-        noTemplate.push(proc);
+      } else if (proc.groupId) {
+        if (!manualGroups.has(proc.groupId)) manualGroups.set(proc.groupId, []);
+        manualGroups.get(proc.groupId)!.push(proc);
       }
     }
 
@@ -209,12 +210,18 @@ export default function ProjectCreatePage() {
       });
     }
 
-    if (noTemplate.length > 0) {
-      groups.push({ templateId: undefined, templateName: avulsoGroupName, category: "", processes: noTemplate });
+    for (const [gid, procs] of manualGroups) {
+      groups.push({
+        templateId: undefined,
+        groupId: gid,
+        templateName: manualGroupNames[gid] || "Novo Grupo",
+        category: "",
+        processes: procs,
+      });
     }
 
     return groups;
-  }, [scopeProcesses, templates, avulsoGroupName]);
+  }, [scopeProcesses, templates, manualGroupNames]);
 
   // Total hours
   const totalHours = useMemo(() => {

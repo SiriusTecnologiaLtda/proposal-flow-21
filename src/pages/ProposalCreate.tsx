@@ -126,7 +126,12 @@ export default function ProposalCreate() {
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
-  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
+
+  // Notes dialog state (replaces inline notesOpenIds)
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesDialogValue, setNotesDialogValue] = useState("");
+  const [notesDialogTarget, setNotesDialogTarget] = useState<{ type: "process" | "child" | "group"; processId?: string; childId?: string; groupKey?: string } | null>(null);
+  const [notesDialogLabel, setNotesDialogLabel] = useState("");
 
   // Template search/selection
   const [templateSearch, setTemplateSearch] = useState("");
@@ -138,7 +143,6 @@ export default function ProposalCreate() {
   const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
-  const [groupNotesOpenIds, setGroupNotesOpenIds] = useState<Set<string>>(new Set());
 
   async function writeProposalLog(entry: {
     stage: string;

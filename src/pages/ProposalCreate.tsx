@@ -120,6 +120,7 @@ export default function ProposalCreate() {
   const [additionalGpRate, setAdditionalGpRate] = useState(300);
   const [defaultsLoaded, setDefaultsLoaded] = useState(false);
   const [generateOnSave, setGenerateOnSave] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);

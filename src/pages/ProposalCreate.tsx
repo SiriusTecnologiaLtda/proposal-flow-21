@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,7 +126,12 @@ export default function ProposalCreate() {
   // Scope state: flat list of processes with children
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
-  const [notesOpenIds, setNotesOpenIds] = useState<Set<string>>(new Set());
+
+  // Notes dialog state (replaces inline notesOpenIds)
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesDialogValue, setNotesDialogValue] = useState("");
+  const [notesDialogTarget, setNotesDialogTarget] = useState<{ type: "process" | "child" | "group"; processId?: string; childId?: string; groupKey?: string } | null>(null);
+  const [notesDialogLabel, setNotesDialogLabel] = useState("");
 
   // Template search/selection
   const [templateSearch, setTemplateSearch] = useState("");
@@ -138,7 +143,6 @@ export default function ProposalCreate() {
   const queryClient = useQueryClient();
   const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
-  const [groupNotesOpenIds, setGroupNotesOpenIds] = useState<Set<string>>(new Set());
 
   async function writeProposalLog(entry: {
     stage: string;
@@ -564,14 +568,25 @@ export default function ProposalCreate() {
     );
   }
 
-  // Toggle notes visibility
-  function toggleNotes(itemId: string) {
-    setNotesOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
+  // Notes dialog helpers
+  function openNotesDialog(target: typeof notesDialogTarget, currentValue: string, label: string) {
+    setNotesDialogTarget(target);
+    setNotesDialogValue(currentValue);
+    setNotesDialogLabel(label);
+    setNotesDialogOpen(true);
+  }
+
+  function saveNotesDialog() {
+    if (!notesDialogTarget) return;
+    const { type, processId, childId, groupKey } = notesDialogTarget;
+    if (type === "process" && processId) {
+      updateProcessNotes(processId, notesDialogValue);
+    } else if (type === "child" && processId && childId) {
+      updateChildNotes(processId, childId, notesDialogValue);
+    } else if (type === "group" && groupKey) {
+      setGroupNotes((prev) => ({ ...prev, [groupKey]: notesDialogValue }));
+    }
+    setNotesDialogOpen(false);
   }
 
   // Add new process
@@ -1208,7 +1223,26 @@ export default function ProposalCreate() {
             </DialogContent>
           </Dialog>
 
-          {/* Scope items - grouped by template */}
+          {/* Notes dialog */}
+          <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{notesDialogLabel}</DialogTitle>
+              </DialogHeader>
+              <Textarea
+                value={notesDialogValue}
+                onChange={(e) => setNotesDialogValue(e.target.value)}
+                placeholder="Digite o comentário..."
+                className="min-h-[100px]"
+                rows={4}
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={saveNotesDialog}>Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {scopeProcesses.length > 0 ? (
             <div className="space-y-3">
 
@@ -1247,12 +1281,11 @@ export default function ProposalCreate() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setGroupNotesOpenIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(groupKey)) next.delete(groupKey);
-                            else next.add(groupKey);
-                            return next;
-                          });
+                          openNotesDialog(
+                            { type: "group", groupKey },
+                            groupNotes[groupKey] || "",
+                            "📌 Comentário interno do grupo (não será impresso na proposta)"
+                          );
                         }}
                         className={`shrink-0 rounded p-1 transition-colors ${groupNotes[groupKey] ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                         title="Comentário interno do grupo (uso interno)"
@@ -1276,18 +1309,8 @@ export default function ProposalCreate() {
                       </Button>
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
-                    {/* Group-level internal notes */}
-                    {groupNotesOpenIds.has(groupKey) && (
-                      <div className="px-4 py-2 bg-blue-50/50 dark:bg-blue-950/20 border-t border-blue-200/50 dark:border-blue-800/30">
-                        <Label className="text-xs text-blue-700 dark:text-blue-400">📌 Comentário interno do grupo (não será impresso na proposta)</Label>
-                        <Textarea
-                          value={groupNotes[groupKey] || ""}
-                          onChange={(e) => setGroupNotes((prev) => ({ ...prev, [groupKey]: e.target.value }))}
-                          placeholder="Anotações internas sobre este grupo..."
-                          className="mt-1 text-xs min-h-[60px] bg-background"
-                        />
-                      </div>
-                    )}
+
+
 
                     {/* Processes inside this template */}
                     {isTemplateExpanded && (
@@ -1345,7 +1368,11 @@ export default function ProposalCreate() {
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
                                 <button
-                                  onClick={() => toggleNotes(proc.id)}
+                                  onClick={() => openNotesDialog(
+                                    { type: "process", processId: proc.id },
+                                    proc.notes || "",
+                                    "📝 Comentário do processo (impresso no escopo detalhado)"
+                                  )}
                                   className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                   title="Comentário do processo (impresso no escopo detalhado)"
                                 >
@@ -1356,19 +1383,6 @@ export default function ProposalCreate() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-                              {/* Printable notes for process */}
-                              {notesOpenIds.has(proc.id) && (
-                                <div className="px-6 pb-2 pt-1 bg-muted/30 border-t border-border">
-                                  <Label className="text-xs text-muted-foreground">📝 Comentário do processo (impresso no escopo detalhado)</Label>
-                                  <Textarea
-                                    value={proc.notes || ""}
-                                    onChange={(e) => updateProcessNotes(proc.id, e.target.value)}
-                                    placeholder="Adicionar comentário sobre este processo..."
-                                    className="mt-1 min-h-[60px] text-xs bg-background"
-                                    rows={2}
-                                  />
-                                </div>
-                              )}
 
                               {/* Children (Level 2) */}
                               {isExpanded && (
@@ -1392,7 +1406,11 @@ export default function ProposalCreate() {
                                           disabled={!child.included || !proc.included}
                                         />
                                         <button
-                                          onClick={() => toggleNotes(child.id)}
+                                          onClick={() => openNotesDialog(
+                                            { type: "child", processId: proc.id, childId: child.id },
+                                            child.notes || "",
+                                            "📝 Comentário do item (impresso no escopo detalhado)"
+                                          )}
                                           className={`shrink-0 rounded p-1 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                           title="Comentário (impresso no escopo)"
                                         >
@@ -1407,18 +1425,6 @@ export default function ProposalCreate() {
                                           <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
-                                      {notesOpenIds.has(child.id) && (
-                                        <div className="px-14 pb-2 pt-1 bg-accent/30 border-t border-border/30">
-                                          <Label className="text-xs text-muted-foreground">📝 Comentário (impresso no escopo detalhado)</Label>
-                                          <Textarea
-                                            value={child.notes || ""}
-                                            onChange={(e) => updateChildNotes(proc.id, child.id, e.target.value)}
-                                            placeholder="Adicionar comentário para o escopo detalhado..."
-                                            className="mt-1 min-h-[50px] text-xs bg-background"
-                                            rows={2}
-                                          />
-                                        </div>
-                                      )}
                                     </div>
                                   ))}
                                   <button

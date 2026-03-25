@@ -918,7 +918,7 @@ export default function ProposalCreate() {
     if (paymentMode === "linear" && numInstallments > 0) {
       generateLinearPayments(numInstallments, totalValue, firstDueDate);
     }
-  }, [totalValue]);
+  }, [totalValue, firstDueDate]);
 
   async function handleSave(status: string) {
     const missing: string[] = [];

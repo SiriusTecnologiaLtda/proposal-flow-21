@@ -778,8 +778,18 @@ export default function ProposalCreate() {
   // Add new manual group
   function addGroup() {
     const gid = localId();
+    const newProc: ScopeProcess = {
+      id: localId(),
+      description: "",
+      included: true,
+      groupId: gid,
+      children: [{ id: localId(), description: "", hours: 0, included: true }],
+    };
     setManualGroupNames((prev) => ({ ...prev, [gid]: "Novo Grupo" }));
+    setGroupOrder((prev) => [...prev, gid]);
+    setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedTemplateIds((prev) => new Set([...prev, gid]));
+    setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
   }
 
   // Add process to a group (manual or template)

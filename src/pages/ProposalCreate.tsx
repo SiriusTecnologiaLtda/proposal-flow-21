@@ -37,6 +37,7 @@ interface ScopeProcess {
   included: boolean;
   children: ScopeChild[];
   templateId?: string; // track origin template for reference only
+  projectId?: string; // track origin project for reference only
   notes?: string; // comentário interno (comunicação arquiteto/ESN)
 }
 

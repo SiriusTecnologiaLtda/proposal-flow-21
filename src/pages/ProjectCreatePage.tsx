@@ -281,12 +281,6 @@ export default function ProjectCreatePage() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedTemplateIds((prev) => new Set([...prev, templateId]));
-    setExpandedTemplateIds((prev) => new Set([...prev, templateId]));
-    setExpandedProcessIds((prev) => {
-      const next = new Set(prev);
-      newProcesses.forEach((p) => next.add(p.id));
-      return next;
-    });
   }
 
   function removeTemplateFromScope(templateId: string) {

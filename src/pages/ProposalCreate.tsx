@@ -392,7 +392,7 @@ export default function ProposalCreate() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, product, status, created_at, group_notes, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .select("id, product, status, created_at, description, group_notes, sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -404,7 +404,10 @@ export default function ProposalCreate() {
     if (!projectSearch) return clientProjects;
     const q = projectSearch.toLowerCase();
     return clientProjects.filter((p: any) =>
-      (p.product || "").toLowerCase().includes(q) || (p.status || "").toLowerCase().includes(q)
+      (p.product || "").toLowerCase().includes(q) ||
+      (p.status || "").toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q) ||
+      (p.sales_team?.name || "").toLowerCase().includes(q)
     );
   }, [clientProjects, projectSearch]);
 
@@ -514,16 +517,6 @@ export default function ProposalCreate() {
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
       newGroupKeys.forEach((k) => next.add(k));
-      return next;
-    });
-    setExpandedTemplateIds((prev) => {
-      const next = new Set(prev);
-      newGroupKeys.forEach((k) => next.add(k));
-      return next;
-    });
-    setExpandedProcessIds((prev) => {
-      const next = new Set(prev);
-      newProcesses.forEach((p) => next.add(p.id));
       return next;
     });
   }
@@ -696,13 +689,6 @@ export default function ProposalCreate() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedTemplateIds((prev) => new Set([...prev, templateId]));
-    setExpandedTemplateIds((prev) => new Set([...prev, templateId]));
-    // Auto-expand all new processes
-    setExpandedProcessIds((prev) => {
-      const next = new Set(prev);
-      newProcesses.forEach((p) => next.add(p.id));
-      return next;
-    });
   }
 
   // Remove a template's processes from scope
@@ -1508,10 +1494,15 @@ export default function ProposalCreate() {
                           isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
                         }`}
                       >
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground">{project.product || "Projeto"}</p>
+                          {project.description && (
+                            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             {statusLabel} · {scopeCount} itens · {totalHrs}h
+                            {project.sales_team?.name ? ` · Arq: ${project.sales_team.name}` : ""}
+                            {project.created_at ? ` · ${new Date(project.created_at).toLocaleDateString("pt-BR")}` : ""}
                           </p>
                         </div>
                         {isAdded ? (

@@ -755,7 +755,7 @@ export default function ProjectCreatePage() {
           </Dialog>
 
           {/* Scope tree - grouped by template */}
-          {scopeProcesses.length > 0 ? (
+          {(scopeProcesses.length > 0 || Object.keys(manualGroupNames).length > 0) ? (
             <div className="space-y-3">
               {groupedScope.map((group) => {
                 const groupKey = group.templateId || "_avulso";

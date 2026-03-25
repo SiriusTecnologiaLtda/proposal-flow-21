@@ -138,6 +138,9 @@ export default function ProposalCreate() {
   const [addedTemplateIds, setAddedTemplateIds] = useState<Set<string>>(new Set());
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [addedProjectIds, setAddedProjectIds] = useState<Set<string>>(new Set());
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();

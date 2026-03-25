@@ -777,17 +777,26 @@ export default function ProposalCreate() {
     setNotesDialogOpen(false);
   }
 
-  // Add new process
-  function addProcess() {
+  // Add new manual group
+  function addGroup() {
+    const gid = localId();
+    setManualGroupNames((prev) => ({ ...prev, [gid]: "Novo Grupo" }));
+    setExpandedTemplateIds((prev) => new Set([...prev, gid]));
+  }
+
+  // Add process to a group (manual or template)
+  function addProcessToGroup(groupIdOrTemplateId: string) {
+    const isTemplate = addedTemplateIds.has(groupIdOrTemplateId);
     const newProc: ScopeProcess = {
       id: localId(),
       description: "",
       included: true,
+      templateId: isTemplate ? groupIdOrTemplateId : undefined,
+      groupId: isTemplate ? undefined : groupIdOrTemplateId,
       children: [{ id: localId(), description: "", hours: 0, included: true }],
     };
     setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
-    setExpandedTemplateIds((prev) => new Set([...prev, "_avulso"]));
   }
 
   // Add child to process

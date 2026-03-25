@@ -1961,8 +1961,8 @@ export default function ProposalCreate() {
                         <Collapsible key={groupKey} defaultOpen={false}>
                           <div className="rounded-lg border border-border bg-card overflow-hidden">
                             <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Layers className="h-4 w-4" />
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${groupKey.startsWith("_project_") ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                                {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                               </div>
                               <div className="flex-1 min-w-0 text-left">
                                 <p className="text-sm font-semibold text-foreground">{group.templateId ? group.templateName : avulsoGroupName || "Itens Avulsos"}</p>

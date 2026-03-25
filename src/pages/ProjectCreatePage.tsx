@@ -114,8 +114,26 @@ export default function ProjectCreatePage() {
     }
   }, [existingProject]);
 
+  // Track which templates have been added
+  const addedTemplateIds = useMemo(() => {
+    const ids = new Set<string>();
+    scopeItems.forEach((item) => { if (item.template_id) ids.add(item.template_id); });
+    return ids;
+  }, [scopeItems]);
+
+  // Filtered templates for dialog
+  const availableTemplates = useMemo(() => {
+    const search = templateSearch.toLowerCase();
+    return templates.filter((t: any) =>
+      (t.name || "").toLowerCase().includes(search) ||
+      (t.category || "").toLowerCase().includes(search) ||
+      (t.product || "").toLowerCase().includes(search)
+    );
+  }, [templates, templateSearch]);
+
   // Add template to scope
   const addTemplate = (templateId: string) => {
+    if (addedTemplateIds.has(templateId)) return;
     const template = templates.find((t: any) => t.id === templateId);
     if (!template) return;
     const flatItems = (template as any).scope_template_items || [];
@@ -152,6 +170,11 @@ export default function ProjectCreatePage() {
       });
     });
     setScopeItems((prev) => [...prev, ...newItems]);
+  };
+
+  // Remove template processes from scope
+  const removeTemplate = (templateId: string) => {
+    setScopeItems((prev) => prev.filter((item) => item.template_id !== templateId));
   };
 
   // Manual process/item management

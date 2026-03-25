@@ -857,7 +857,7 @@ export default function ProposalCreate() {
         phase: 1,
         notes: proc.notes || "",
         sort_order: parentSortOrder,
-        template_id: proc.templateId || null,
+        template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
         parent_id: null,
         _local_id: proc.id,
       });

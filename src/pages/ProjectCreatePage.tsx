@@ -145,6 +145,11 @@ export default function ProjectCreatePage() {
       setExpandedProcessIds(expandProc);
       setExpandedTemplateIds(expandTmpl);
       setAttachments(existingProject.project_attachments || []);
+      const loadedGroupNotes = (existingProject as any).group_notes || {};
+      setGroupNotes(loadedGroupNotes);
+      if (loadedGroupNotes._avulso_name) {
+        setAvulsoGroupName(loadedGroupNotes._avulso_name);
+      }
       setLoaded(true);
     }
   }, [existingProject, loaded]);
@@ -466,11 +471,11 @@ export default function ProjectCreatePage() {
     try {
       const flatScope = flattenScope();
       if (isEditing) {
-        await updateProject.mutateAsync({ id, ...form, scopeItems: flatScope });
+        await updateProject.mutateAsync({ id, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, scopeItems: flatScope });
       } else {
         const projectId = crypto.randomUUID();
         await createProject.mutateAsync({
-          id: projectId, ...form, created_by: user!.id, scopeItems: flatScope,
+          id: projectId, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, created_by: user!.id, scopeItems: flatScope,
         });
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({

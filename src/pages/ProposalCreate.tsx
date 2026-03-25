@@ -207,7 +207,11 @@ export default function ProposalCreate() {
       setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
       setAdditionalGpRate(existingProposal.additional_gp_rate);
       setExpectedCloseDate(existingProposal.expected_close_date || "");
-      setGroupNotes((existingProposal as any).group_notes || {});
+      const loadedGroupNotes = (existingProposal as any).group_notes || {};
+      setGroupNotes(loadedGroupNotes);
+      if (loadedGroupNotes._avulso_name) {
+        setAvulsoGroupName(loadedGroupNotes._avulso_name);
+      }
       setDefaultsLoaded(true);
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
@@ -988,7 +992,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: groupNotes,
+      group_notes: { ...groupNotes, _avulso_name: avulsoGroupName },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

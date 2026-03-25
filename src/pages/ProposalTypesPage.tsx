@@ -303,6 +303,42 @@ export default function ProposalTypesPage() {
                 <p className="text-xs text-muted-foreground mt-1">Arredonda horas para o múltiplo mais próximo</p>
               </div>
             </div>
+            {/* Project & Scope Parameters */}
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <p className="text-sm font-medium text-foreground">Parâmetros de Escopo</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Permitir Associar Projeto</Label>
+                  <p className="text-xs text-muted-foreground">Habilita o botão "Incluir Projeto" no escopo da proposta</p>
+                </div>
+                <Switch
+                  checked={form.allow_project}
+                  onCheckedChange={(v) => setForm({ ...form, allow_project: v, require_project: v ? form.require_project : false })}
+                />
+              </div>
+              {form.allow_project && (
+                <div className="flex items-center justify-between pl-4 border-l-2 border-primary/30">
+                  <div>
+                    <Label className="text-sm">Projeto Obrigatório</Label>
+                    <p className="text-xs text-muted-foreground">Exige que pelo menos um projeto seja vinculado à proposta</p>
+                  </div>
+                  <Switch
+                    checked={form.require_project}
+                    onCheckedChange={(v) => setForm({ ...form, require_project: v })}
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Permitir Escopo sem Projeto</Label>
+                  <p className="text-xs text-muted-foreground">Habilita os botões "Template" e "Novo Processo" no escopo</p>
+                </div>
+                <Switch
+                  checked={form.allow_standalone_scope}
+                  onCheckedChange={(v) => setForm({ ...form, allow_standalone_scope: v })}
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>

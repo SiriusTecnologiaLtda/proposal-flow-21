@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
@@ -99,6 +99,7 @@ export default function ProposalsList() {
   const deleteProposal = useDeleteProposal();
   const updateStatus = useUpdateProposalStatus();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const isConsulta = userRole === "consulta";
   const isArquiteto = userRole === "arquiteto";
@@ -405,6 +406,16 @@ export default function ProposalsList() {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [consoleLogs]);
+
+  // Auto-trigger generation when navigating from ProposalCreate with ?generate=<id>
+  useEffect(() => {
+    const generateId = searchParams.get("generate");
+    if (generateId) {
+      searchParams.delete("generate");
+      setSearchParams(searchParams, { replace: true });
+      handleGenerateDoc(generateId, "proposta");
+    }
+  }, []);
 
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     setConsoleLogs([]);

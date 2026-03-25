@@ -848,60 +848,12 @@ export default function ProposalCreate() {
         regenerateCommissionProjections(savedId).catch(() => {});
       }
 
-      // If "Gerar Proposta" was checked, trigger document generation BEFORE navigating
-      const shouldGenerate = status === "proposta_gerada" && savedId;
-      if (shouldGenerate) {
-        setIsGenerating(true);
-        try {
-          await writeProposalLog({ stage: "document_generation_started", proposalId: savedId, payload: { proposal_id: savedId } });
-          const session = (await supabase.auth.getSession()).data.session;
-          const res = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-pdf`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                Authorization: `Bearer ${session?.access_token}`,
-              },
-              body: JSON.stringify({ proposalId: savedId }),
-            }
-          );
-          const data = await res.json();
-          const hasError = data?.logs?.some((l: any) => l.status === "error");
-          if (res.ok && !hasError && data?.docUrl) {
-            await writeProposalLog({
-              stage: "document_generation_success",
-              proposalId: savedId,
-              metadata: { doc_url: data.docUrl, logs_count: data?.logs?.length || 0 },
-            });
-            toast({ title: "Documento gerado com sucesso!" });
-          } else {
-            const errorMsg = data?.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ") || "Erro na geração";
-            await writeProposalLog({
-              stage: "document_generation_error",
-              severity: "error",
-              proposalId: savedId,
-              errorMessage: errorMsg,
-              payload: { response: data },
-              metadata: { http_status: res.status },
-            });
-            toast({ title: "Proposta salva, mas houve erro na geração do documento", description: errorMsg, variant: "destructive" });
-          }
-        } catch (genErr: any) {
-          await writeProposalLog({
-            stage: "document_generation_error",
-            severity: "error",
-            proposalId: savedId,
-            errorMessage: genErr.message,
-            errorCode: genErr.code,
-          });
-          toast({ title: "Proposta salva, mas falha ao gerar documento", description: genErr.message, variant: "destructive" });
-        }
+      // Navigate to list — if generating, pass query param so list opens the console dialog
+      if (status === "proposta_gerada" && savedId) {
+        navigate(`/propostas?generate=${savedId}`);
+      } else {
+        navigate("/propostas");
       }
-
-      // Navigate to list AFTER generation completes (or immediately if no generation)
-      navigate("/propostas");
     } catch (err: any) {
       await writeProposalLog({
         stage: isEditing ? "save_error" : "create_error",

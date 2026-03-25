@@ -978,6 +978,7 @@ export default function ProposalCreate() {
         project_id: projectId,
         parent_id: null,
         _local_id: proc.id,
+        _groupId: proc.groupId || null,
       });
 
       for (const child of proc.children) {
@@ -1035,7 +1036,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _process_group_map: Object.fromEntries(scopeProcesses.filter(p => p.groupId).map(p => [p.id, p.groupId])) },
+      group_notes: { ...groupNotes, _manual_groups: manualGroupNames },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

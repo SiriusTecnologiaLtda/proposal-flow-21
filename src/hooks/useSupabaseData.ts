@@ -244,9 +244,8 @@ export function useProposal(id: string | undefined) {
 }
 
 async function insertHierarchicalScopeItems(scopeItems: any[], proposalId: string) {
-  if (!scopeItems || scopeItems.length === 0) return;
-
   const localIdToRealId = new Map<string, string>();
+  if (!scopeItems || scopeItems.length === 0) return localIdToRealId;
 
   const rows = scopeItems.map((item: any) => {
     const realId = item.id?.startsWith?.("local_") ? crypto.randomUUID() : item.id || crypto.randomUUID();
@@ -278,6 +277,29 @@ async function insertHierarchicalScopeItems(scopeItems: any[], proposalId: strin
 
   const { error } = await supabase.from("proposal_scope_items").insert(normalizedRows);
   if (error) throw error;
+  return localIdToRealId;
+}
+
+async function updateProposalProcessGroupMap(
+  proposalId: string,
+  scopeItems: any[],
+  localToReal: Map<string, string>,
+  currentGroupNotes: any,
+) {
+  const processGroupMap: Record<string, string> = {};
+
+  for (const item of scopeItems) {
+    if (item._groupId && !item._parent_local_id) {
+      const realId = localToReal.get(item._local_id || item.id);
+      if (realId) {
+        processGroupMap[realId] = item._groupId;
+      }
+    }
+  }
+
+  const updatedNotes = { ...(currentGroupNotes || {}), _process_group_map: processGroupMap };
+  const { error } = await supabase.from("proposals").update({ group_notes: updatedNotes }).eq("id", proposalId);
+  if (error) throw error;
 }
 
 export function useCreateProposal() {
@@ -293,7 +315,8 @@ export function useCreateProposal() {
       });
       if (error) throw error;
 
-      await insertHierarchicalScopeItems(scopeItems, proposalId);
+      const localToReal = await insertHierarchicalScopeItems(scopeItems, proposalId);
+      await updateProposalProcessGroupMap(proposalId, scopeItems, localToReal, proposalData.group_notes);
 
       if (payments && payments.length > 0) {
         const paymentRows = payments.map((p: any) => ({
@@ -329,7 +352,8 @@ export function useUpdateProposal() {
         if (parentIds.length > 0) await supabase.from("proposal_scope_items").delete().in("id", parentIds);
       }
 
-      await insertHierarchicalScopeItems(scopeItems, id);
+      const localToReal = await insertHierarchicalScopeItems(scopeItems, id);
+      await updateProposalProcessGroupMap(id, scopeItems, localToReal, proposalData.group_notes);
 
       // Replace payments
       await supabase.from("payment_conditions").delete().eq("proposal_id", id);

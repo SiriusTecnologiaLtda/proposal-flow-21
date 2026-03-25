@@ -14,7 +14,7 @@ export default function SettingsPage() {
     { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de oportunidades", action: () => navigate("/configuracoes/tae"), icon: PenTool },
     { title: "Importar Dados", desc: "Importar clientes e templates de escopo via planilha Excel", action: () => navigate("/configuracoes/importar"), icon: Upload },
     { title: "WhatsApp + IA", desc: "Configurar integração com WhatsApp para consulta e geração de propostas via chat inteligente", action: () => navigate("/configuracoes/whatsapp"), icon: MessageCircle },
-    { title: "Logs de Propostas", desc: "Consultar erros e eventos detalhados do processo de criação e geração de propostas", action: () => navigate("/configuracoes/logs-propostas"), icon: ClipboardList },
+    { title: "Logs de Oportunidades", desc: "Consultar erros e eventos detalhados do processo de criação e geração de oportunidades", action: () => navigate("/configuracoes/logs-propostas"), icon: ClipboardList },
   ];
 
   return (

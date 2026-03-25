@@ -1467,7 +1467,10 @@ export default function ProposalCreate() {
                         className="text-destructive hover:text-destructive shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (group.templateId) {
+                          if (group.templateId?.startsWith("_project_")) {
+                            const pid = group.templateId.replace("_project_", "");
+                            removeProjectFromScope(pid);
+                          } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
                           } else {
                             setScopeProcesses((prev) => prev.filter((p) => p.templateId));

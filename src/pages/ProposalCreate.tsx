@@ -1016,7 +1016,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: { ...groupNotes, _avulso_name: avulsoGroupName },
+      group_notes: { ...groupNotes, _manual_groups: manualGroupNames },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };

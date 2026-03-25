@@ -625,6 +625,25 @@ export default function ProposalCreate() {
     return orderedKeys.map((key) => groupsByKey.get(key)!).filter(Boolean);
   }, [scopeProcesses, scopeTemplates, manualGroupNames, groupOrder]);
 
+  function toggleTemplateExpand(templateId: string) {
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      return next;
+    });
+  }
+
+  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
+  const totalValue = (totalHours + gpHours) * hourlyRate;
+
+  const clientUnit = useMemo(() => {
+    if (!selectedClient?.unit_id) return null;
+    return units.find((u) => u.id === selectedClient.unit_id) || null;
+  }, [selectedClient, units]);
+  const taxFactor = clientUnit?.tax_factor || 0;
+  const totalValueGross = taxFactor > 0 ? totalValue / taxFactor : totalValue;
+
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {
     if (addedTemplateIds.has(templateId)) return;

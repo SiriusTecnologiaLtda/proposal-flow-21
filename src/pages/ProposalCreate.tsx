@@ -1505,7 +1505,6 @@ export default function ProposalCreate() {
                             {project.created_at ? ` · ${new Date(project.created_at).toLocaleDateString("pt-BR")}` : ""}
                           </p>
                         </div>
-                        </div>
                         {isAdded ? (
                           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeProjectFromScope(project.id)}>
                             <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover

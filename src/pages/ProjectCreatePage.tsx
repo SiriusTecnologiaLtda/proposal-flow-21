@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare } from "lucide-react";
 import { useProject, useCreateProject, useUpdateProject } from "@/hooks/useProjects";
-import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
+import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates, useUnits } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";

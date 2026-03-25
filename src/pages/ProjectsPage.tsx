@@ -251,7 +251,7 @@ export default function ProjectsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>

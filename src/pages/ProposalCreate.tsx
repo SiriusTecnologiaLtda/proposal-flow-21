@@ -928,7 +928,7 @@ export default function ProposalCreate() {
     }
   }
 
-  const isSaving = createProposal.isPending || updateProposal.isPending;
+  const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating;
 
   if ((isEditing || isDuplicating) && loadingProposal) {
     return (

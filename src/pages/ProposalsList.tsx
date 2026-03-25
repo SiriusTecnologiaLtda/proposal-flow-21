@@ -99,6 +99,7 @@ export default function ProposalsList() {
   const deleteProposal = useDeleteProposal();
   const updateStatus = useUpdateProposalStatus();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const isConsulta = userRole === "consulta";
   const isArquiteto = userRole === "arquiteto";

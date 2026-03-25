@@ -262,13 +262,16 @@ export default function ProposalCreate() {
         const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
         // New hierarchical data
         for (const item of parentItems) {
-          // Reconstruct composite templateId for project-linked items
+          const mappedGroupId = processGroupMap[item.id] || undefined;
+          // Reconstruct composite templateId only for project items that originated from templates.
+          // Project manual groups must remain manual groups after reload.
           let templateId = item.template_id || undefined;
           let projectId: string | undefined = undefined;
           if (item.project_id) {
             projectId = item.project_id;
-            const origTid = item.template_id || "_no_template_";
-            templateId = `_project_${item.project_id}_${origTid}`;
+            templateId = item.template_id
+              ? `_project_${item.project_id}_${item.template_id}`
+              : undefined;
           }
           const proc: ScopeProcess = {
             id: item.id,
@@ -276,7 +279,7 @@ export default function ProposalCreate() {
             included: item.included,
             templateId,
             projectId,
-            groupId: processGroupMap[item.id] || undefined,
+            groupId: mappedGroupId,
             notes: item.notes || "",
             children: [],
           };
@@ -558,8 +561,8 @@ export default function ProposalCreate() {
     return Math.ceil(val / roundingFactor) * roundingFactor;
   }
 
-  // Calculate total hours from included children only (rounded to multiple of 8)
-  const totalHours = useMemo(() => {
+  // Raw scope hours for UI summary
+  const rawScopeHours = useMemo(() => {
     let total = 0;
     for (const proc of scopeProcesses) {
       if (proc.included) {
@@ -568,8 +571,13 @@ export default function ProposalCreate() {
         }
       }
     }
-    return roundUpFactor(total);
-  }, [scopeProcesses, roundingFactor]);
+    return total;
+  }, [scopeProcesses]);
+
+  // Financial hours keep the configured rounding rule
+  const totalHours = useMemo(() => {
+    return roundUpFactor(rawScopeHours);
+  }, [rawScopeHours, roundingFactor]);
 
    // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
@@ -1786,7 +1794,7 @@ export default function ProposalCreate() {
               {/* Summary */}
               <div className="flex items-center justify-end gap-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
                 <span className="text-muted-foreground">Total de Horas:</span>
-                <span className="font-semibold text-foreground">{totalHours}h</span>
+                <span className="font-semibold text-foreground">{rawScopeHours}h</span>
               </div>
             </div>
           ) : (

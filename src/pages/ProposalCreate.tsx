@@ -1839,7 +1839,8 @@ export default function ProposalCreate() {
                 Gerar Proposta?
               </label>
               <Button onClick={() => handleSave(generateOnSave ? "proposta_gerada" : "pendente")} disabled={isSaving}>
-                <Check className="mr-2 h-4 w-4" />Confirmar
+                <Check className="mr-2 h-4 w-4" />
+                {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Confirmar"}
               </Button>
             </>
           ) : (

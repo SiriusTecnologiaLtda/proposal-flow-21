@@ -441,6 +441,7 @@ export default function ProjectCreatePage() {
         template_id: proc.templateId || null,
         parent_id: null,
         _local_id: proc.id,
+        _groupId: proc.groupId || null,
       });
       for (const child of proc.children) {
         allItems.push({

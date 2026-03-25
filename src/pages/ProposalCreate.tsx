@@ -83,6 +83,7 @@ export default function ProposalCreate() {
       if (error) throw error;
       return data as any[];
     },
+    staleTime: 5 * 60 * 1000,
   });
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();

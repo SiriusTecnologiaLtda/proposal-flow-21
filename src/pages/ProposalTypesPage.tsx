@@ -51,6 +51,7 @@ export default function ProposalTypesPage() {
       if (error) throw error;
       return data as unknown as ProposalType[];
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   const saveMutation = useMutation({

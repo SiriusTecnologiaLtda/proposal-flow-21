@@ -1742,17 +1742,15 @@ export default function ProposalCreate() {
                           );
                         })}
                         {/* Add process button inside group */}
-                        {!isReadOnly && (
-                          <button
-                            onClick={() => {
-                              const gid = group.groupId || group.templateId;
-                              if (gid) addProcessToGroup(gid);
-                            }}
-                            className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                          >
-                            <Plus className="h-3 w-3" /> Adicionar Processo
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            const gid = group.groupId || group.templateId;
+                            if (gid) addProcessToGroup(gid);
+                          }}
+                          className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                        >
+                          <Plus className="h-3 w-3" /> Adicionar Processo
+                        </button>
                       </div>
                     )}
                   </div>

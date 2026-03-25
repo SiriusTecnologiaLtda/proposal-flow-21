@@ -554,6 +554,22 @@ export default function ProjectCreatePage() {
                 </SelectContent>
               </Select>
             </div>
+            {form.client_id && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">ESN (do cliente)</Label>
+                  <Input value={clientEsn?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">GSN (do cliente)</Label>
+                  <Input value={clientGsn?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs text-muted-foreground">Unidade (do cliente)</Label>
+                  <Input value={units.find((u: any) => u.id === selectedClient?.unit_id)?.name || "—"} disabled className="bg-muted/50" />
+                </div>
+              </div>
+            )}
             <div className="grid gap-1 sm:col-span-2">
               <Label className="text-xs">Descrição</Label>
               <Textarea

@@ -974,6 +974,7 @@ export type Database = {
           notes: string | null
           parent_id: string | null
           phase: number
+          project_id: string | null
           proposal_id: string
           sort_order: number
           template_id: string | null
@@ -986,6 +987,7 @@ export type Database = {
           notes?: string | null
           parent_id?: string | null
           phase?: number
+          project_id?: string | null
           proposal_id: string
           sort_order?: number
           template_id?: string | null
@@ -998,6 +1000,7 @@ export type Database = {
           notes?: string | null
           parent_id?: string | null
           phase?: number
+          project_id?: string | null
           proposal_id?: string
           sort_order?: number
           template_id?: string | null
@@ -1008,6 +1011,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "proposal_scope_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_scope_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {

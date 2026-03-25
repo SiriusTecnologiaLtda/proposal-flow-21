@@ -700,13 +700,13 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Visão geral das propostas comerciais
+            Visão geral das oportunidades comerciais
           </p>
         </div>
         <Button asChild>
           <Link to="/propostas/nova">
             <Plus className="mr-2 h-4 w-4" />
-            Nova Proposta
+            Nova Oportunidade
           </Link>
         </Button>
       </div>
@@ -857,7 +857,7 @@ export default function Dashboard() {
       {/* ─── Tabs ────────────────────────────────────────────── */}
       <Tabs defaultValue="propostas" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="propostas">Propostas</TabsTrigger>
+          <TabsTrigger value="propostas">Oportunidades</TabsTrigger>
           <TabsTrigger value="resultado">Análise de Resultado</TabsTrigger>
           <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
         </TabsList>

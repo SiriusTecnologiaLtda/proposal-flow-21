@@ -1178,10 +1178,10 @@ export default function ProposalCreate() {
         </button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
-            {isEditing ? "Editar Proposta" : isDuplicating ? "Duplicar Proposta" : "Nova Proposta"}
+            {isEditing ? "Editar Oportunidade" : isDuplicating ? "Duplicar Oportunidade" : "Nova Oportunidade"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isEditing ? "Altere as informações da proposta" : "Preencha as informações da proposta comercial"}
+            {isEditing ? "Altere as informações da oportunidade" : "Preencha as informações da oportunidade comercial"}
           </p>
         </div>
       </div>

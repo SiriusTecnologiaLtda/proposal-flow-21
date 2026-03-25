@@ -8,18 +8,18 @@ export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn" | "consulta";
 
 export const RESOURCE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
-  propostas: "Propostas",
+  propostas: "Oportunidades",
   "cadastros/clientes": "Cadastros → Clientes",
   "cadastros/unidades": "Cadastros → Unidades",
   "cadastros/time": "Cadastros → Time de Vendas",
   "cadastros/produtos": "Cadastros → Produtos",
   "cadastros/categorias": "Cadastros → Categorias",
-  "cadastros/tipos-proposta": "Cadastros → Tipos de Proposta",
+  "cadastros/tipos-proposta": "Cadastros → Tipos de Oportunidade",
   "cadastros/metas": "Cadastros → Metas de Vendas",
   templates: "Templates de Escopo",
   projetos: "Projetos de Implantação",
   configuracoes: "Configurações",
-  "configuracoes/logs-propostas": "Configurações → Logs de Propostas",
+  "configuracoes/logs-propostas": "Configurações → Logs de Oportunidades",
 };
 
 export const ALL_RESOURCES = Object.keys(RESOURCE_LABELS);
@@ -54,5 +54,5 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   vendedor: "Vendedor (ESN)",
   gsn: "GSN",
   arquiteto: "Arquiteto",
-  consulta: "Consulta Propostas",
+  consulta: "Consulta Oportunidades",
 };

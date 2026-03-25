@@ -514,10 +514,14 @@ export default function ProposalCreate() {
 
     for (const [tid, procs] of templateGroups) {
       const tmpl = scopeTemplates.find((t) => t.id === tid);
+      // Check if this is a project group
+      const isProjectGroup = tid.startsWith("_project_");
+      const projectId = isProjectGroup ? tid.replace("_project_", "") : null;
+      const project = projectId ? clientProjects.find((p: any) => p.id === projectId) : null;
       groups.push({
         templateId: tid,
-        templateName: tmpl?.name || "Template",
-        category: tmpl?.category || "",
+        templateName: isProjectGroup ? `Projeto: ${project?.product || "Projeto"}` : (tmpl?.name || "Template"),
+        category: isProjectGroup ? "Projeto" : (tmpl?.category || ""),
         processes: procs,
       });
     }

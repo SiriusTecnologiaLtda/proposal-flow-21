@@ -1524,8 +1524,26 @@ export default function ProposalCreate() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (group.templateId?.startsWith("_project_")) {
-                            const pid = group.templateId.replace("_project_", "");
-                            removeProjectFromScope(pid);
+                            // Remove just this template group from the project
+                            const gid = group.templateId;
+                            setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                            setAddedTemplateIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(gid);
+                              return next;
+                            });
+                            // Check if any project groups remain for this project
+                            const projectId = gid.replace("_project_", "").split("_")[0];
+                            const remainingProjectGroups = scopeProcesses.filter(
+                              (p) => p.templateId?.startsWith(`_project_${projectId}_`) && p.templateId !== gid
+                            );
+                            if (remainingProjectGroups.length === 0) {
+                              setAddedProjectIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(projectId);
+                                return next;
+                              });
+                            }
                           } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
                           } else {

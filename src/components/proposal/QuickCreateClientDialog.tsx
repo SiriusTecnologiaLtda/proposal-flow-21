@@ -17,7 +17,7 @@ interface Props {
 
 const emptyForm = {
   name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
-  address: "", unit_id: "", esn_id: "", gsn_id: "",
+  address: "", unit_id: "", esn_id: "", gsn_id: "", state_registration: "", store_code: "",
 };
 
 export default function QuickCreateClientDialog({ open, onOpenChange, onClientCreated, initialSearch }: Props) {
@@ -108,16 +108,36 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
+              <Label className="text-xs">Contato Principal</Label>
+              <Input value={form.contact} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
               <Label className="text-xs">E-mail</Label>
               <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
               <Label className="text-xs">Telefone</Label>
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Inscrição Estadual</Label>
+              <Input value={form.state_registration} onChange={(e) => setForm((f) => ({ ...f, state_registration: e.target.value }))} />
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-1">
+            <Label className="text-xs">Endereço</Label>
+            <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-1">
+              <Label className="text-xs">Cód. Loja</Label>
+              <Input value={form.store_code} onChange={(e) => setForm((f) => ({ ...f, store_code: e.target.value }))} />
+            </div>
             <div className="grid gap-1">
               <Label className="text-xs">Unidade</Label>
               <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
@@ -127,6 +147,9 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
               <Label className="text-xs">ESN</Label>
               <Select value={form.esn_id} onValueChange={(v) => setForm((f) => ({ ...f, esn_id: v }))}>

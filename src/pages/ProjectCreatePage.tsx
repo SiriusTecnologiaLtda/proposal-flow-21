@@ -32,6 +32,7 @@ interface ScopeProcess {
   included: boolean;
   children: ScopeChild[];
   templateId?: string;
+  groupId?: string;
   notes?: string;
 }
 

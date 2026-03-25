@@ -407,6 +407,16 @@ export default function ProposalsList() {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [consoleLogs]);
 
+  // Auto-trigger generation when navigating from ProposalCreate with ?generate=<id>
+  useEffect(() => {
+    const generateId = searchParams.get("generate");
+    if (generateId) {
+      searchParams.delete("generate");
+      setSearchParams(searchParams, { replace: true });
+      handleGenerateDoc(generateId, "proposta");
+    }
+  }, []);
+
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     setConsoleLogs([]);
     setConsoleDocUrl(null);

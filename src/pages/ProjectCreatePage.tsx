@@ -145,6 +145,11 @@ export default function ProjectCreatePage() {
       setExpandedProcessIds(expandProc);
       setExpandedTemplateIds(expandTmpl);
       setAttachments(existingProject.project_attachments || []);
+      const loadedGroupNotes = (existingProject as any).group_notes || {};
+      setGroupNotes(loadedGroupNotes);
+      if (loadedGroupNotes._avulso_name) {
+        setAvulsoGroupName(loadedGroupNotes._avulso_name);
+      }
       setLoaded(true);
     }
   }, [existingProject, loaded]);

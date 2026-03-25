@@ -91,6 +91,7 @@ export default function ProposalsList() {
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000,
   });
   const { user } = useAuth();
   const { role: userRole } = useUserRole();

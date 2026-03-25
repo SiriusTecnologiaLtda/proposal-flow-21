@@ -604,6 +604,162 @@ export type Database = {
           },
         ]
       }
+      project_attachments: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          mime_type: string | null
+          project_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          mime_type?: string | null
+          project_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          mime_type?: string | null
+          project_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_attachments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_scope_items: {
+        Row: {
+          description: string
+          hours: number
+          id: string
+          included: boolean
+          notes: string | null
+          parent_id: string | null
+          phase: number
+          project_id: string
+          sort_order: number
+          template_id: string | null
+        }
+        Insert: {
+          description: string
+          hours?: number
+          id?: string
+          included?: boolean
+          notes?: string | null
+          parent_id?: string | null
+          phase?: number
+          project_id: string
+          sort_order?: number
+          template_id?: string | null
+        }
+        Update: {
+          description?: string
+          hours?: number
+          id?: string
+          included?: boolean
+          notes?: string | null
+          parent_id?: string | null
+          phase?: number
+          project_id?: string
+          sort_order?: number
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_scope_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "project_scope_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_scope_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_scope_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "scope_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          arquiteto_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          product: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arquiteto_id?: string | null
+          client_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          product?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arquiteto_id?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          product?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_arquiteto_id_fkey"
+            columns: ["arquiteto_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_defaults: {
         Row: {
           accomp_analyst_percentage: number

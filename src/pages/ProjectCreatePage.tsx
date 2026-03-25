@@ -334,16 +334,23 @@ export default function ProjectCreatePage() {
     );
   }
 
-  function addProcess() {
+  function addGroup() {
+    const gid = localId();
+    setManualGroupNames((prev) => ({ ...prev, [gid]: "Novo Grupo" }));
+    setExpandedTemplateIds((prev) => new Set([...prev, gid]));
+  }
+
+  function addProcessToGroup(groupId: string) {
     const newProc: ScopeProcess = {
       id: localId(),
       description: "",
       included: true,
+      groupId,
       children: [{ id: localId(), description: "", hours: 0, included: true }],
     };
     setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
-    setExpandedTemplateIds((prev) => new Set([...prev, "_avulso"]));
+  }
   }
 
   function addChild(processId: string) {

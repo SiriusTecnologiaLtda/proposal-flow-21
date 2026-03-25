@@ -380,7 +380,7 @@ export default function ProposalCreate() {
     );
   }, [clientProjects, projectSearch]);
 
-  // Import project scope items into proposal scope
+  // Import project scope items into proposal scope — grouped by original template
   function addProjectToScope(project: any) {
     if (addedProjectIds.has(project.id)) return;
     const items = project.project_scope_items || [];
@@ -391,47 +391,76 @@ export default function ProposalCreate() {
       childrenMap.get(i.parent_id)!.push(i);
     });
 
-    const projectGroupKey = `_project_${project.id}`;
-    const newProcesses: ScopeProcess[] = parentItems.map((parent: any) => {
-      const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
-      return {
-        id: localId(),
-        description: parent.description,
-        included: parent.included,
-        templateId: projectGroupKey,
-        notes: parent.notes || "",
-        children: kids.map((kid: any) => ({
-          id: localId(),
-          description: kid.description,
-          hours: kid.hours || 0,
-          included: kid.included,
-          notes: kid.notes || "",
-        })),
-      };
-    });
+    // Group parent items by their original template_id
+    const templateGroupMap = new Map<string, any[]>();
+    for (const parent of parentItems) {
+      const key = parent.template_id || "_no_template_";
+      if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
+      templateGroupMap.get(key)!.push(parent);
+    }
 
-    // If flat items only
+    // Handle flat items (no parents)
     if (parentItems.length === 0 && items.length > 0) {
       for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
-        newProcesses.push({
-          id: localId(),
-          description: item.description,
-          included: item.included,
-          templateId: projectGroupKey,
-          children: [{
+        const key = item.template_id || "_no_template_";
+        if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
+        templateGroupMap.get(key)!.push({ ...item, _flat: true });
+      }
+    }
+
+    const newProcesses: ScopeProcess[] = [];
+    const newGroupKeys: string[] = [];
+
+    for (const [origTemplateId, parents] of templateGroupMap) {
+      const groupKey = `_project_${project.id}_${origTemplateId}`;
+      newGroupKeys.push(groupKey);
+
+      for (const parent of parents) {
+        if (parent._flat) {
+          newProcesses.push({
             id: localId(),
-            description: item.description,
-            hours: item.hours || 0,
-            included: item.included,
-          }],
-        });
+            description: parent.description,
+            included: parent.included,
+            templateId: groupKey,
+            children: [{
+              id: localId(),
+              description: parent.description,
+              hours: parent.hours || 0,
+              included: parent.included,
+            }],
+          });
+        } else {
+          const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+          newProcesses.push({
+            id: localId(),
+            description: parent.description,
+            included: parent.included,
+            templateId: groupKey,
+            notes: parent.notes || "",
+            children: kids.map((kid: any) => ({
+              id: localId(),
+              description: kid.description,
+              hours: kid.hours || 0,
+              included: kid.included,
+              notes: kid.notes || "",
+            })),
+          });
+        }
       }
     }
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
-    setAddedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
-    setExpandedTemplateIds((prev) => new Set([...prev, projectGroupKey]));
+    setAddedTemplateIds((prev) => {
+      const next = new Set(prev);
+      newGroupKeys.forEach((k) => next.add(k));
+      return next;
+    });
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      newGroupKeys.forEach((k) => next.add(k));
+      return next;
+    });
     setExpandedProcessIds((prev) => {
       const next = new Set(prev);
       newProcesses.forEach((p) => next.add(p.id));
@@ -440,8 +469,8 @@ export default function ProposalCreate() {
   }
 
   function removeProjectFromScope(projectId: string) {
-    const projectGroupKey = `_project_${projectId}`;
-    setScopeProcesses((prev) => prev.filter((p) => p.templateId !== projectGroupKey));
+    const prefix = `_project_${projectId}_`;
+    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix)));
     setAddedProjectIds((prev) => {
       const next = new Set(prev);
       next.delete(projectId);
@@ -449,7 +478,9 @@ export default function ProposalCreate() {
     });
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
-      next.delete(projectGroupKey);
+      for (const k of next) {
+        if (k.startsWith(prefix)) next.delete(k);
+      }
       return next;
     });
   }
@@ -500,17 +531,30 @@ export default function ProposalCreate() {
     }
 
     for (const [tid, procs] of templateGroups) {
-      const tmpl = scopeTemplates.find((t) => t.id === tid);
-      // Check if this is a project group
+      // Check if this is a project group: _project_<projectId>_<templateId>
       const isProjectGroup = tid.startsWith("_project_");
-      const projectId = isProjectGroup ? tid.replace("_project_", "") : null;
-      const project = projectId ? clientProjects.find((p: any) => p.id === projectId) : null;
-      groups.push({
-        templateId: tid,
-        templateName: isProjectGroup ? `Projeto: ${project?.product || "Projeto"}` : (tmpl?.name || "Template"),
-        category: isProjectGroup ? "Projeto" : (tmpl?.category || ""),
-        processes: procs,
-      });
+      if (isProjectGroup) {
+        // Extract original template id from the key: _project_<projectId>_<origTemplateId>
+        const parts = tid.replace("_project_", "").split("_");
+        const origTemplateId = parts.slice(1).join("_"); // everything after projectId
+        const tmpl = origTemplateId && origTemplateId !== "_no_template_"
+          ? scopeTemplates.find((t) => t.id === origTemplateId)
+          : null;
+        groups.push({
+          templateId: tid,
+          templateName: tmpl?.name || "Itens Avulsos",
+          category: tmpl?.category || "Projeto",
+          processes: procs,
+        });
+      } else {
+        const tmpl = scopeTemplates.find((t) => t.id === tid);
+        groups.push({
+          templateId: tid,
+          templateName: tmpl?.name || "Template",
+          category: tmpl?.category || "",
+          processes: procs,
+        });
+      }
     }
 
     if (noTemplate.length > 0) {
@@ -518,7 +562,7 @@ export default function ProposalCreate() {
     }
 
     return groups;
-  }, [scopeProcesses, scopeTemplates, clientProjects]);
+  }, [scopeProcesses, scopeTemplates]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {
@@ -1480,8 +1524,26 @@ export default function ProposalCreate() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (group.templateId?.startsWith("_project_")) {
-                            const pid = group.templateId.replace("_project_", "");
-                            removeProjectFromScope(pid);
+                            // Remove just this template group from the project
+                            const gid = group.templateId;
+                            setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                            setAddedTemplateIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(gid);
+                              return next;
+                            });
+                            // Check if any project groups remain for this project
+                            const projectId = gid.replace("_project_", "").split("_")[0];
+                            const remainingProjectGroups = scopeProcesses.filter(
+                              (p) => p.templateId?.startsWith(`_project_${projectId}_`) && p.templateId !== gid
+                            );
+                            if (remainingProjectGroups.length === 0) {
+                              setAddedProjectIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(projectId);
+                                return next;
+                              });
+                            }
                           } else if (group.templateId) {
                             removeTemplateFromScope(group.templateId);
                           } else {
@@ -1899,8 +1961,8 @@ export default function ProposalCreate() {
                         <Collapsible key={groupKey} defaultOpen={false}>
                           <div className="rounded-lg border border-border bg-card overflow-hidden">
                             <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Layers className="h-4 w-4" />
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${groupKey.startsWith("_project_") ? "bg-accent text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                                {groupKey.startsWith("_project_") ? <FolderKanban className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
                               </div>
                               <div className="flex-1 min-w-0 text-left">
                                 <p className="text-sm font-semibold text-foreground">{group.templateId ? group.templateName : avulsoGroupName || "Itens Avulsos"}</p>

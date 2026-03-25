@@ -236,8 +236,10 @@ export default function ProjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Cliente</TableHead>
+              <TableHead>ESN</TableHead>
+              <TableHead>GSN</TableHead>
+              <TableHead>Unidade</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Descrição</TableHead>
               <TableHead>Arquiteto</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>

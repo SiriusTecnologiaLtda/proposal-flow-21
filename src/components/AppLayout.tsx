@@ -18,6 +18,7 @@ import totvsLogo from "@/assets/totvs-logo.png";
 const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/propostas", key: "propostas", label: "Minhas Propostas", icon: FileText },
+  { path: "/projetos", key: "projetos", label: "Projetos", icon: FolderKanban },
   { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
   { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },

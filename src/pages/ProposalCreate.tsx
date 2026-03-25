@@ -624,7 +624,7 @@ export default function ProposalCreate() {
     const orderedKeys = [...groupOrder.filter((key) => groupsByKey.has(key)), ...Array.from(groupsByKey.keys()).filter((key) => !groupOrder.includes(key))];
     return orderedKeys.map((key) => groupsByKey.get(key)!).filter(Boolean);
   }, [scopeProcesses, scopeTemplates, manualGroupNames, groupOrder]);
-...
+
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {
     if (addedTemplateIds.has(templateId)) return;

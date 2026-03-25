@@ -568,14 +568,25 @@ export default function ProposalCreate() {
     );
   }
 
-  // Toggle notes visibility
-  function toggleNotes(itemId: string) {
-    setNotesOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
+  // Notes dialog helpers
+  function openNotesDialog(target: typeof notesDialogTarget, currentValue: string, label: string) {
+    setNotesDialogTarget(target);
+    setNotesDialogValue(currentValue);
+    setNotesDialogLabel(label);
+    setNotesDialogOpen(true);
+  }
+
+  function saveNotesDialog() {
+    if (!notesDialogTarget) return;
+    const { type, processId, childId, groupKey } = notesDialogTarget;
+    if (type === "process" && processId) {
+      updateProcessNotes(processId, notesDialogValue);
+    } else if (type === "child" && processId && childId) {
+      updateChildNotes(processId, childId, notesDialogValue);
+    } else if (type === "group" && groupKey) {
+      setGroupNotes((prev) => ({ ...prev, [groupKey]: notesDialogValue }));
+    }
+    setNotesDialogOpen(false);
   }
 
   // Add new process

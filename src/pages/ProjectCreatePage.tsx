@@ -210,13 +210,14 @@ export default function ProjectCreatePage() {
       });
     }
 
-    for (const [gid, procs] of manualGroups) {
+    // Include all manual groups (even empty ones)
+    for (const gid of Object.keys(manualGroupNames)) {
       groups.push({
         templateId: undefined,
         groupId: gid,
         templateName: manualGroupNames[gid] || "Novo Grupo",
         category: "",
-        processes: procs,
+        processes: manualGroups.get(gid) || [],
       });
     }
 

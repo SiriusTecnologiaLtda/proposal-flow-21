@@ -1495,10 +1495,7 @@ export default function ProposalCreate() {
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{project.product || "Projeto"}</p>
-                          {project.description && (
-                            <p className="text-xs text-muted-foreground truncate">{project.description}</p>
-                          )}
+                          <p className="text-sm font-medium text-foreground">{project.description || "Projeto"}</p>
                           <p className="text-xs text-muted-foreground">
                             {statusLabel} · {scopeCount} itens · {totalHrs}h
                             {project.sales_team?.name ? ` · Arq: ${project.sales_team.name}` : ""}

@@ -1349,6 +1349,65 @@ export default function ProposalCreate() {
             </DialogContent>
           </Dialog>
 
+          {/* Project import dialog */}
+          <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Incluir Projeto no Escopo</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar projetos por produto ou status..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {clientProjects.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">Nenhum projeto encontrado para este cliente.</p>
+              ) : (
+                <div className="max-h-72 overflow-auto space-y-1">
+                  {filteredProjects.map((project: any) => {
+                    const isAdded = addedProjectIds.has(project.id);
+                    const scopeCount = (project.project_scope_items || []).length;
+                    const totalHrs = (project.project_scope_items || [])
+                      .filter((i: any) => i.included && !i.parent_id)
+                      .reduce((s: number, i: any) => s + Number(i.hours || 0), 0);
+                    const statusLabel = project.status === "concluido" ? "Concluído" : project.status === "em_revisao" ? "Em Revisão" : "Rascunho";
+                    return (
+                      <div
+                        key={project.id}
+                        className={`flex items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                          isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{project.product || "Projeto"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {statusLabel} · {scopeCount} itens · {totalHrs}h
+                          </p>
+                        </div>
+                        {isAdded ? (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeProjectFromScope(project.id)}>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => addProjectToScope(project)}>
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Incluir
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {filteredProjects.length === 0 && (
+                    <p className="py-4 text-center text-sm text-muted-foreground">Nenhum projeto encontrado.</p>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* Notes dialog */}
           <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
             <DialogContent className="max-w-md">

@@ -232,9 +232,12 @@ Deno.serve(async (req) => {
     } else {
       googleToken = await getGoogleAccessToken(saKey);
     }
-    const exportUrl = `https://www.googleapis.com/drive/v3/files/${officialDoc.doc_id}/export?mimeType=application/pdf`;
+    // Use docs.google.com export endpoint instead of Drive API to avoid
+    // blank "tab separator" pages in multi-tab Google Docs
+    const exportUrl = `https://docs.google.com/document/d/${officialDoc.doc_id}/export?format=pdf`;
     const pdfRes = await fetch(exportUrl, {
       headers: { Authorization: `Bearer ${googleToken}` },
+      redirect: "follow",
     });
     if (!pdfRes.ok) {
       const errText = await pdfRes.text();

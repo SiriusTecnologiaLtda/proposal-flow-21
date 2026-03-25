@@ -507,10 +507,7 @@ export default function ProjectCreatePage() {
     setSaving(true);
     try {
       const flatScope = flattenScope();
-      // Build process-to-group mapping for persistence
-      const processGroupMap: Record<string, string> = {};
-      scopeProcesses.forEach(p => { if (p.groupId) processGroupMap[p.id] = p.groupId; });
-      const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames, _process_group_map: processGroupMap };
+      const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames };
       if (isEditing) {
         await updateProject.mutateAsync({ id, ...form, group_notes: savedGroupNotes, scopeItems: flatScope });
       } else {

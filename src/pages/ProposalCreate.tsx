@@ -909,6 +909,15 @@ export default function ProposalCreate() {
     let sortOrder = 0;
     for (const proc of scopeProcesses) {
       const parentSortOrder = sortOrder++;
+      // Extract real template_id and project_id from composite key
+      let realTemplateId: string | null = proc.templateId || null;
+      let projectId: string | null = proc.projectId || null;
+      if (proc.templateId?.startsWith("_project_")) {
+        const parts = proc.templateId.replace("_project_", "").split("_");
+        projectId = parts[0];
+        const origTid = parts.slice(1).join("_");
+        realTemplateId = origTid === "_no_template_" ? null : origTid;
+      }
       allScopeItems.push({
         description: proc.description,
         included: proc.included,
@@ -916,7 +925,8 @@ export default function ProposalCreate() {
         phase: 1,
         notes: proc.notes || "",
         sort_order: parentSortOrder,
-        template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
+        template_id: realTemplateId,
+        project_id: projectId,
         parent_id: null,
         _local_id: proc.id,
       });
@@ -929,7 +939,8 @@ export default function ProposalCreate() {
           phase: 1,
           notes: child.notes || "",
           sort_order: sortOrder++,
-          template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
+          template_id: realTemplateId,
+          project_id: projectId,
           parent_id: proc.id,
           _local_id: child.id,
           _parent_local_id: proc.id,

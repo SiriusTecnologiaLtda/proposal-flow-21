@@ -519,16 +519,6 @@ export default function ProposalCreate() {
       newGroupKeys.forEach((k) => next.add(k));
       return next;
     });
-    setExpandedTemplateIds((prev) => {
-      const next = new Set(prev);
-      newGroupKeys.forEach((k) => next.add(k));
-      return next;
-    });
-    setExpandedProcessIds((prev) => {
-      const next = new Set(prev);
-      newProcesses.forEach((p) => next.add(p.id));
-      return next;
-    });
   }
 
   function removeProjectFromScope(projectId: string) {

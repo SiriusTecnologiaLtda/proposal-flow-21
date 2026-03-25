@@ -65,8 +65,8 @@ export default function ProposalDefaultsPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Parâmetros Padrão de Proposta</h1>
-          <p className="text-sm text-muted-foreground">Valores carregados automaticamente em novas propostas. O usuário pode ajustá-los por proposta.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Parâmetros Padrão de Oportunidade</h1>
+          <p className="text-sm text-muted-foreground">Valores carregados automaticamente em novas oportunidades. O usuário pode ajustá-los por oportunidade.</p>
         </div>
       </div>
 

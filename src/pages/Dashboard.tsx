@@ -857,7 +857,7 @@ export default function Dashboard() {
       {/* ─── Tabs ────────────────────────────────────────────── */}
       <Tabs defaultValue="propostas" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="propostas">Propostas</TabsTrigger>
+          <TabsTrigger value="propostas">Oportunidades</TabsTrigger>
           <TabsTrigger value="resultado">Análise de Resultado</TabsTrigger>
           <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
         </TabsList>

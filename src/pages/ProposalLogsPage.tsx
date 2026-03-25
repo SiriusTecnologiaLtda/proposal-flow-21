@@ -63,8 +63,8 @@ export default function ProposalLogsPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Logs de Propostas</h1>
-          <p className="text-sm text-muted-foreground">Rastreie falhas e eventos do processo de criação/geração de propostas.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Logs de Oportunidades</h1>
+          <p className="text-sm text-muted-foreground">Rastreie falhas e eventos do processo de criação/geração de oportunidades.</p>
         </div>
       </div>
 

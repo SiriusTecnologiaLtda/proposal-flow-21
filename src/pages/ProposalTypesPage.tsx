@@ -149,8 +149,8 @@ export default function ProposalTypesPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Tipos de Proposta</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os tipos de proposta e seus templates de documento</p>
+          <h1 className="text-2xl font-semibold text-foreground">Tipos de Oportunidade</h1>
+          <p className="text-sm text-muted-foreground">Gerencie os tipos de oportunidade e seus templates de documento</p>
         </div>
       </div>
 

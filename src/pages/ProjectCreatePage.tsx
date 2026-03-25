@@ -81,6 +81,8 @@ export default function ProjectCreatePage() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
 
   // Notes dialog state
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
@@ -527,7 +529,7 @@ export default function ProjectCreatePage() {
           <div className="grid gap-4 sm:grid-cols-2 rounded-lg border border-border bg-card p-4">
             <div className="grid gap-1">
               <Label className="text-xs">Cliente *</Label>
-              <Popover>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
                     {form.client_id
@@ -546,7 +548,7 @@ export default function ProjectCreatePage() {
                           <CommandItem
                             key={c.id}
                             value={`${c.name} ${c.code || ""} ${c.cnpj || ""}`}
-                            onSelect={() => setForm((f) => ({ ...f, client_id: c.id }))}
+                            onSelect={() => { setForm((f) => ({ ...f, client_id: c.id })); setClientPopoverOpen(false); }}
                           >
                             <Check className={cn("mr-2 h-4 w-4", form.client_id === c.id ? "opacity-100" : "opacity-0")} />
                             <div className="flex flex-col">
@@ -563,7 +565,7 @@ export default function ProjectCreatePage() {
             </div>
             <div className="grid gap-1">
               <Label className="text-xs">Arquiteto</Label>
-              <Popover>
+              <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
                     {form.arquiteto_id
@@ -582,7 +584,7 @@ export default function ProjectCreatePage() {
                           <CommandItem
                             key={a.id}
                             value={`${a.name} ${a.code || ""} ${a.email || ""}`}
-                            onSelect={() => setForm((f) => ({ ...f, arquiteto_id: a.id }))}
+                            onSelect={() => { setForm((f) => ({ ...f, arquiteto_id: a.id })); setArquitetoPopoverOpen(false); }}
                           >
                             <Check className={cn("mr-2 h-4 w-4", form.arquiteto_id === a.id ? "opacity-100" : "opacity-0")} />
                             {a.name}

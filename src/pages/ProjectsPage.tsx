@@ -271,7 +271,12 @@ export default function ProjectsPage() {
                   : "—";
                 return (
                   <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
-                    <TableCell className="font-medium">{project.clients?.name || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{project.clients?.name || "—"}</div>
+                      {project.clients?.code && (
+                        <div className="text-xs text-muted-foreground">{project.clients.code} · {project.clients.cnpj || ""}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{project.clients?.sales_team_esn?.name || "—"}</TableCell>
                     <TableCell className="text-sm">{project.clients?.sales_team_gsn?.name || "—"}</TableCell>
                     <TableCell className="text-sm">{project.clients?.unit_info?.name || "—"}</TableCell>

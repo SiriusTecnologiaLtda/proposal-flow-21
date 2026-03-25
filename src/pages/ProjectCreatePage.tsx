@@ -113,6 +113,12 @@ export default function ProjectCreatePage() {
       const expandProc = new Set<string>();
       const expandTmpl = new Set<string>();
 
+      // First pass: load manual group names
+      const loadedGroupNotes = (existingProject as any).group_notes || {};
+      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+      // Map: original DB id -> groupId
+      const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
+
       parents.forEach((p: any) => {
         const pid = localId();
         const children = flat
@@ -125,21 +131,33 @@ export default function ProjectCreatePage() {
             included: c.included,
             notes: c.notes || "",
           }));
-        // Determine groupId for manual (no template) processes
         let groupId: string | undefined;
         if (!p.template_id) {
-          // Use parent's sort_order as a group key hint, will be overridden by group_notes
-          groupId = undefined; // will be set from group_notes below
+          // Look up by original DB id
+          groupId = processGroupMapping[p.id];
+          // Fallback for old data: assign to first manual group
+          if (!groupId) {
+            const existingGroupIds = Object.keys(loadedManualGroups);
+            if (existingGroupIds.length > 0) {
+              groupId = existingGroupIds[0];
+            } else {
+              // Create a default group for old data
+              const defaultGid = localId();
+              loadedManualGroups[defaultGid] = loadedGroupNotes._avulso_name || "Itens Avulsos";
+              groupId = defaultGid;
+            }
+          }
         }
         processes.push({
           id: pid,
+          _dbId: p.id, // track original DB id for save mapping
           description: p.description,
           included: p.included,
           templateId: p.template_id || undefined,
           groupId,
           notes: p.notes || "",
           children,
-        });
+        } as any);
         if (p.template_id) {
           templateIds.add(p.template_id);
         }
@@ -150,26 +168,8 @@ export default function ProjectCreatePage() {
       setExpandedProcessIds(new Set());
       setExpandedTemplateIds(new Set());
       setAttachments(existingProject.project_attachments || []);
-      const loadedGroupNotes = (existingProject as any).group_notes || {};
       setGroupNotes(loadedGroupNotes);
-      // Restore manual group names and assign groupIds to processes
-      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
       setManualGroupNames(loadedManualGroups);
-      // Assign groupIds to non-template processes based on saved mapping
-      const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
-      setScopeProcesses(prev => prev.map(p => {
-        if (!p.templateId && processGroupMapping[p.id]) {
-          return { ...p, groupId: processGroupMapping[p.id] };
-        }
-        // For old data without groupId, put all in a single manual group
-        if (!p.templateId && !p.groupId) {
-          const existingGroupIds = Object.keys(loadedManualGroups);
-          if (existingGroupIds.length > 0) {
-            return { ...p, groupId: existingGroupIds[0] };
-          }
-        }
-        return p;
-      }));
       setLoaded(true);
     }
   }, [existingProject, loaded]);

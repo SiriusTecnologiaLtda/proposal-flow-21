@@ -1278,17 +1278,21 @@ export default function ProposalCreate() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
             <div className="flex items-center gap-2">
-              {clientId && (
+              {clientId && allowProject && (
                 <Button variant="outline" size="sm" onClick={() => { setProjectSearch(""); refetchProjects(); setProjectDialogOpen(true); }}>
                   <FolderKanban className="mr-1 h-3.5 w-3.5" /> Incluir Projeto
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
-                <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
-              </Button>
-              <Button variant="outline" size="sm" onClick={addProcess}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
-              </Button>
+              {allowStandaloneScope && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
+                    <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={addProcess}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 

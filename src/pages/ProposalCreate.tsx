@@ -392,7 +392,7 @@ export default function ProposalCreate() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, product, status, created_at, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .select("id, product, status, created_at, group_notes, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
       if (error) throw error;

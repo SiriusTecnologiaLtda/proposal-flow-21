@@ -496,7 +496,7 @@ export default function ProjectCreatePage() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
-            {isEditing ? "Editar Projeto" : "Novo Projeto de Implantação"}
+            {isEditing ? "Editar Projeto" : "Novo Projeto"}
           </h1>
           {existingProject && (
             <p className="text-sm text-muted-foreground">

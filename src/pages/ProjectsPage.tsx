@@ -104,7 +104,7 @@ export default function ProjectsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Projetos de Implantação</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
           <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
         </div>
         <Button onClick={() => navigate("/projetos/novo")}>

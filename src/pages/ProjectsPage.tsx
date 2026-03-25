@@ -272,8 +272,10 @@ export default function ProjectsPage() {
                 return (
                   <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
                     <TableCell className="font-medium">{project.clients?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.sales_team_esn?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.sales_team_gsn?.name || "—"}</TableCell>
+                    <TableCell className="text-sm">{project.clients?.unit_info?.name || "—"}</TableCell>
                     <TableCell>{project.product || "—"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{project.description || "—"}</TableCell>
                     <TableCell>{project.sales_team?.name || "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{createdDate}</TableCell>
                     <TableCell className="text-right text-sm font-medium">{totalHours > 0 ? `${totalHours}h` : "—"}</TableCell>

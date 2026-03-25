@@ -62,6 +62,11 @@ export default function ProjectCreatePage() {
     description: "",
   });
 
+  // Derived client info (ESN, GSN, Unit)
+  const selectedClient = useMemo(() => clients.find((c: any) => c.id === form.client_id), [clients, form.client_id]);
+  const clientEsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.esn_id), [salesTeam, selectedClient]);
+  const clientGsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.gsn_id), [salesTeam, selectedClient]);
+
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
   const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());

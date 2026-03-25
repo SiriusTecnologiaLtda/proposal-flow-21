@@ -870,7 +870,7 @@ export default function ProposalCreate() {
           phase: 1,
           notes: child.notes || "",
           sort_order: sortOrder++,
-          template_id: proc.templateId || null,
+          template_id: proc.templateId?.startsWith("_project_") ? null : (proc.templateId || null),
           parent_id: proc.id,
           _local_id: child.id,
           _parent_local_id: proc.id,

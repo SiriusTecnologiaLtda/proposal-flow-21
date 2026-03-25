@@ -531,17 +531,30 @@ export default function ProposalCreate() {
     }
 
     for (const [tid, procs] of templateGroups) {
-      const tmpl = scopeTemplates.find((t) => t.id === tid);
-      // Check if this is a project group
+      // Check if this is a project group: _project_<projectId>_<templateId>
       const isProjectGroup = tid.startsWith("_project_");
-      const projectId = isProjectGroup ? tid.replace("_project_", "") : null;
-      const project = projectId ? clientProjects.find((p: any) => p.id === projectId) : null;
-      groups.push({
-        templateId: tid,
-        templateName: isProjectGroup ? `Projeto: ${project?.product || "Projeto"}` : (tmpl?.name || "Template"),
-        category: isProjectGroup ? "Projeto" : (tmpl?.category || ""),
-        processes: procs,
-      });
+      if (isProjectGroup) {
+        // Extract original template id from the key: _project_<projectId>_<origTemplateId>
+        const parts = tid.replace("_project_", "").split("_");
+        const origTemplateId = parts.slice(1).join("_"); // everything after projectId
+        const tmpl = origTemplateId && origTemplateId !== "_no_template_"
+          ? scopeTemplates.find((t) => t.id === origTemplateId)
+          : null;
+        groups.push({
+          templateId: tid,
+          templateName: tmpl?.name || "Itens Avulsos",
+          category: tmpl?.category || "Projeto",
+          processes: procs,
+        });
+      } else {
+        const tmpl = scopeTemplates.find((t) => t.id === tid);
+        groups.push({
+          templateId: tid,
+          templateName: tmpl?.name || "Template",
+          category: tmpl?.category || "",
+          processes: procs,
+        });
+      }
     }
 
     if (noTemplate.length > 0) {

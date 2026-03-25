@@ -504,12 +504,16 @@ export default function ProjectCreatePage() {
     setSaving(true);
     try {
       const flatScope = flattenScope();
+      // Build process-to-group mapping for persistence
+      const processGroupMap: Record<string, string> = {};
+      scopeProcesses.forEach(p => { if (p.groupId) processGroupMap[p.id] = p.groupId; });
+      const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames, _process_group_map: processGroupMap };
       if (isEditing) {
-        await updateProject.mutateAsync({ id, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, scopeItems: flatScope });
+        await updateProject.mutateAsync({ id, ...form, group_notes: savedGroupNotes, scopeItems: flatScope });
       } else {
         const projectId = crypto.randomUUID();
         await createProject.mutateAsync({
-          id: projectId, ...form, group_notes: { ...groupNotes, _avulso_name: avulsoGroupName }, created_by: user!.id, scopeItems: flatScope,
+          id: projectId, ...form, group_notes: savedGroupNotes, created_by: user!.id, scopeItems: flatScope,
         });
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({

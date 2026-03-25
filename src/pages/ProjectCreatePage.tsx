@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, FolderPlus, Upload, FileIcon, X, Paperclip } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, FolderPlus, Upload, FileIcon, X, Paperclip, Library, Search } from "lucide-react";
 import { useProject, useCreateProject, useUpdateProject } from "@/hooks/useProjects";
 import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 

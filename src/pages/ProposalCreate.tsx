@@ -224,26 +224,14 @@ export default function ProposalCreate() {
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
       const items = (existingProposal as any).proposal_scope_items || [];
-      // Items with parent_id=null are processes, others are children
-      // But currently proposal_scope_items doesn't have parent_id...
-      // We stored them flat with template_id. Let's rebuild from sort_order grouping.
-      // For backward compat: treat items with hours=0 that have children after them as parents.
-      // Better approach: we'll need to store parent/child in proposal_scope_items too.
-      // For now, load them as flat processes (each item = process with no children)
-      // After migration, this will work properly.
-      
       const processes: ScopeProcess[] = [];
       const parentMap = new Map<string, ScopeProcess>();
-      
-      // Group by: items without parent are L1, items with parent are L2
-      // We need parent_id column on proposal_scope_items - let's handle both cases
       const parentItems = items.filter((i: any) => !i.parent_id);
       const childItems = items.filter((i: any) => i.parent_id);
-      
+
       if (parentItems.length === 0 && childItems.length === 0) {
         // No items
       } else if (childItems.length === 0) {
-        // Old flat data - each item becomes a process
         for (const item of items) {
           processes.push({
             id: item.id,
@@ -259,13 +247,9 @@ export default function ProposalCreate() {
           });
         }
       } else {
-        // Restore process-to-group mapping
         const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
-        // New hierarchical data
         for (const item of parentItems) {
           const mappedGroupId = processGroupMap[item.id] || undefined;
-          // Reconstruct composite templateId only for project items that originated from templates.
-          // Project manual groups must remain manual groups after reload.
           let templateId = item.template_id || undefined;
           let projectId: string | undefined = undefined;
           if (item.project_id) {
@@ -300,18 +284,30 @@ export default function ProposalCreate() {
           }
         }
       }
-      
+
       setScopeProcesses(processes);
       setExpandedProcessIds(new Set());
       setExpandedTemplateIds(new Set());
 
-      // Track which templates were already added
       const tids = new Set<string>();
       const pids = new Set<string>();
+      const inferredGroupOrder: string[] = [];
       for (const proc of processes) {
         if (proc.templateId) tids.add(proc.templateId);
         if (proc.projectId) pids.add(proc.projectId);
+        const groupKey = proc.templateId || proc.groupId;
+        if (groupKey && !inferredGroupOrder.includes(groupKey)) {
+          inferredGroupOrder.push(groupKey);
+        }
       }
+      for (const gid of Object.keys(loadedManualGroups)) {
+        if (!inferredGroupOrder.includes(gid)) inferredGroupOrder.push(gid);
+      }
+      const savedGroupOrder = Array.isArray(loadedGroupNotes._group_order) ? loadedGroupNotes._group_order : [];
+      setGroupOrder(savedGroupOrder.length > 0
+        ? [...savedGroupOrder.filter((key: string) => inferredGroupOrder.includes(key)), ...inferredGroupOrder.filter((key) => !savedGroupOrder.includes(key))]
+        : inferredGroupOrder
+      );
       setAddedTemplateIds(tids);
       setAddedProjectIds(pids);
 

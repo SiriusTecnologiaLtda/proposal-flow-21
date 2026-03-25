@@ -9,9 +9,9 @@ export default function SettingsPage() {
   const cards = [
     { title: "Usuários e Acessos", desc: "Gerenciar usuários e permissões da plataforma", action: () => navigate("/configuracoes/usuarios"), icon: Settings },
     { title: "Integrações / APIs", desc: "Configurar APIs externas para sincronizar Clientes e Time de Vendas", action: () => navigate("/configuracoes/integracoes"), icon: Settings },
-    { title: "Parâmetros Padrão de Proposta", desc: "Valores padrão de hora, GP, traslado e taxas carregados em novas propostas", action: () => navigate("/configuracoes/parametros"), icon: Settings },
-    { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de propostas", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
-    { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de propostas", action: () => navigate("/configuracoes/tae"), icon: PenTool },
+    { title: "Parâmetros Padrão de Oportunidade", desc: "Valores padrão de hora, GP, traslado e taxas carregados em novas oportunidades", action: () => navigate("/configuracoes/parametros"), icon: Settings },
+    { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de oportunidades", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
+    { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de oportunidades", action: () => navigate("/configuracoes/tae"), icon: PenTool },
     { title: "Importar Dados", desc: "Importar clientes e templates de escopo via planilha Excel", action: () => navigate("/configuracoes/importar"), icon: Upload },
     { title: "WhatsApp + IA", desc: "Configurar integração com WhatsApp para consulta e geração de propostas via chat inteligente", action: () => navigate("/configuracoes/whatsapp"), icon: MessageCircle },
     { title: "Logs de Propostas", desc: "Consultar erros e eventos detalhados do processo de criação e geração de propostas", action: () => navigate("/configuracoes/logs-propostas"), icon: ClipboardList },

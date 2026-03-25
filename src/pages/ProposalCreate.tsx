@@ -148,6 +148,7 @@ export default function ProposalCreate() {
   const queryClient = useQueryClient();
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
+  const [groupOrder, setGroupOrder] = useState<string[]>([]);
 
   async function writeProposalLog(entry: {
     stage: string;
@@ -223,26 +224,14 @@ export default function ProposalCreate() {
 
       // Rebuild two-level hierarchy from flat proposal_scope_items
       const items = (existingProposal as any).proposal_scope_items || [];
-      // Items with parent_id=null are processes, others are children
-      // But currently proposal_scope_items doesn't have parent_id...
-      // We stored them flat with template_id. Let's rebuild from sort_order grouping.
-      // For backward compat: treat items with hours=0 that have children after them as parents.
-      // Better approach: we'll need to store parent/child in proposal_scope_items too.
-      // For now, load them as flat processes (each item = process with no children)
-      // After migration, this will work properly.
-      
       const processes: ScopeProcess[] = [];
       const parentMap = new Map<string, ScopeProcess>();
-      
-      // Group by: items without parent are L1, items with parent are L2
-      // We need parent_id column on proposal_scope_items - let's handle both cases
       const parentItems = items.filter((i: any) => !i.parent_id);
       const childItems = items.filter((i: any) => i.parent_id);
-      
+
       if (parentItems.length === 0 && childItems.length === 0) {
         // No items
       } else if (childItems.length === 0) {
-        // Old flat data - each item becomes a process
         for (const item of items) {
           processes.push({
             id: item.id,
@@ -258,13 +247,9 @@ export default function ProposalCreate() {
           });
         }
       } else {
-        // Restore process-to-group mapping
         const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
-        // New hierarchical data
         for (const item of parentItems) {
           const mappedGroupId = processGroupMap[item.id] || undefined;
-          // Reconstruct composite templateId only for project items that originated from templates.
-          // Project manual groups must remain manual groups after reload.
           let templateId = item.template_id || undefined;
           let projectId: string | undefined = undefined;
           if (item.project_id) {
@@ -299,18 +284,30 @@ export default function ProposalCreate() {
           }
         }
       }
-      
+
       setScopeProcesses(processes);
       setExpandedProcessIds(new Set());
       setExpandedTemplateIds(new Set());
 
-      // Track which templates were already added
       const tids = new Set<string>();
       const pids = new Set<string>();
+      const inferredGroupOrder: string[] = [];
       for (const proc of processes) {
         if (proc.templateId) tids.add(proc.templateId);
         if (proc.projectId) pids.add(proc.projectId);
+        const groupKey = proc.templateId || proc.groupId;
+        if (groupKey && !inferredGroupOrder.includes(groupKey)) {
+          inferredGroupOrder.push(groupKey);
+        }
       }
+      for (const gid of Object.keys(loadedManualGroups)) {
+        if (!inferredGroupOrder.includes(gid)) inferredGroupOrder.push(gid);
+      }
+      const savedGroupOrder = Array.isArray(loadedGroupNotes._group_order) ? loadedGroupNotes._group_order : [];
+      setGroupOrder(savedGroupOrder.length > 0
+        ? [...savedGroupOrder.filter((key: string) => inferredGroupOrder.includes(key)), ...inferredGroupOrder.filter((key) => !savedGroupOrder.includes(key))]
+        : inferredGroupOrder
+      );
       setAddedTemplateIds(tids);
       setAddedProjectIds(pids);
 
@@ -432,23 +429,17 @@ export default function ProposalCreate() {
       childrenMap.get(i.parent_id)!.push(i);
     });
 
-    // Reconstruct the group hierarchy from the project's group_notes
-    // Groups in the project = manual groups (from _manual_groups) + template groups
-    // Each process (parent) is mapped to a group via _process_group_map
-    const groupProcessesMap = new Map<string, any[]>(); // groupKey -> parent items
+    const groupProcessesMap = new Map<string, any[]>();
 
     for (const parent of parentItems) {
       const origGroupId = processGroupMap[parent.id];
       let groupKey: string;
 
       if (origGroupId && projectManualGroups[origGroupId]) {
-        // This process belongs to a manual group in the project
         groupKey = `_project_${project.id}_manual_${origGroupId}`;
       } else if (parent.template_id) {
-        // This process belongs to a template group
         groupKey = `_project_${project.id}_${parent.template_id}`;
       } else {
-        // Fallback: no group info
         groupKey = `_project_${project.id}_ungrouped`;
       }
 
@@ -456,7 +447,6 @@ export default function ProposalCreate() {
       groupProcessesMap.get(groupKey)!.push(parent);
     }
 
-    // If no parents but there are items, treat them as flat
     if (parentItems.length === 0 && items.length > 0) {
       const groupKey = `_project_${project.id}_ungrouped`;
       for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
@@ -471,8 +461,6 @@ export default function ProposalCreate() {
 
     for (const [groupKey, parents] of groupProcessesMap) {
       newGroupKeys.push(groupKey);
-
-      // Determine group name
       const manualMatch = groupKey.match(/_project_[^_]+_manual_(.+)/);
       if (manualMatch) {
         const origGid = manualMatch[1];
@@ -519,6 +507,7 @@ export default function ProposalCreate() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setManualGroupNames((prev) => ({ ...prev, ...newManualGroupNames }));
+    setGroupOrder((prev) => [...prev, ...newGroupKeys.filter((key) => !prev.includes(key))]);
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
@@ -529,7 +518,9 @@ export default function ProposalCreate() {
 
   function removeProjectFromScope(projectId: string) {
     const prefix = `_project_${projectId}_`;
-    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix)));
+    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix) && !p.groupId?.startsWith(prefix)));
+    setManualGroupNames((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith(prefix))));
+    setGroupOrder((prev) => prev.filter((key) => !key.startsWith(prefix)));
     setAddedProjectIds((prev) => {
       const next = new Set(prev);
       next.delete(projectId);
@@ -581,7 +572,7 @@ export default function ProposalCreate() {
 
    // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
-    const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const groupsByKey = new Map<string, { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }>();
     const templateGroups = new Map<string, ScopeProcess[]>();
     const manualGroups = new Map<string, ScopeProcess[]>();
 
@@ -603,7 +594,7 @@ export default function ProposalCreate() {
         const tmpl = origTemplateId && origTemplateId !== "_no_template_"
           ? scopeTemplates.find((t) => t.id === origTemplateId)
           : null;
-        groups.push({
+        groupsByKey.set(tid, {
           templateId: tid,
           templateName: tmpl?.name || "Itens Avulsos",
           category: tmpl?.category || "Projeto",
@@ -611,7 +602,7 @@ export default function ProposalCreate() {
         });
       } else {
         const tmpl = scopeTemplates.find((t) => t.id === tid);
-        groups.push({
+        groupsByKey.set(tid, {
           templateId: tid,
           templateName: tmpl?.name || "Template",
           category: tmpl?.category || "",
@@ -620,9 +611,8 @@ export default function ProposalCreate() {
       }
     }
 
-    // Include all manual groups (even empty ones)
     for (const gid of Object.keys(manualGroupNames)) {
-      groups.push({
+      groupsByKey.set(gid, {
         templateId: undefined,
         groupId: gid,
         templateName: manualGroupNames[gid] || "Novo Grupo",
@@ -631,8 +621,9 @@ export default function ProposalCreate() {
       });
     }
 
-    return groups;
-  }, [scopeProcesses, scopeTemplates, manualGroupNames]);
+    const orderedKeys = [...groupOrder.filter((key) => groupsByKey.has(key)), ...Array.from(groupsByKey.keys()).filter((key) => !groupOrder.includes(key))];
+    return orderedKeys.map((key) => groupsByKey.get(key)!).filter(Boolean);
+  }, [scopeProcesses, scopeTemplates, manualGroupNames, groupOrder]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {
@@ -646,7 +637,6 @@ export default function ProposalCreate() {
   const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
   const totalValue = (totalHours + gpHours) * hourlyRate;
 
-  // Get tax factor from client's unit
   const clientUnit = useMemo(() => {
     if (!selectedClient?.unit_id) return null;
     return units.find((u) => u.id === selectedClient.unit_id) || null;
@@ -661,7 +651,6 @@ export default function ProposalCreate() {
     if (!template) return;
 
     const allItems = (template as any).scope_template_items || [];
-    // Build hierarchy: parents (no parent_id) and children
     const parents = allItems.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
     const childrenMap = new Map<string, any[]>();
     allItems.filter((i: any) => i.parent_id).forEach((i: any) => {
@@ -685,7 +674,6 @@ export default function ProposalCreate() {
       };
     });
 
-    // If template has no hierarchy (flat items), treat each as a process
     if (parents.length === 0 && allItems.length > 0) {
       for (const item of allItems.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
         newProcesses.push({
@@ -699,12 +687,14 @@ export default function ProposalCreate() {
     }
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setGroupOrder((prev) => (prev.includes(templateId) ? prev : [...prev, templateId]));
     setAddedTemplateIds((prev) => new Set([...prev, templateId]));
   }
 
   // Remove a template's processes from scope
   function removeTemplateFromScope(templateId: string) {
     setScopeProcesses((prev) => prev.filter((p) => p.templateId !== templateId));
+    setGroupOrder((prev) => prev.filter((key) => key !== templateId));
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
       next.delete(templateId);
@@ -807,8 +797,18 @@ export default function ProposalCreate() {
   // Add new manual group
   function addGroup() {
     const gid = localId();
+    const newProc: ScopeProcess = {
+      id: localId(),
+      description: "",
+      included: true,
+      groupId: gid,
+      children: [{ id: localId(), description: "", hours: 0, included: true }],
+    };
     setManualGroupNames((prev) => ({ ...prev, [gid]: "Novo Grupo" }));
+    setGroupOrder((prev) => [...prev, gid]);
+    setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedTemplateIds((prev) => new Set([...prev, gid]));
+    setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
   }
 
   // Add process to a group (manual or template)
@@ -1044,7 +1044,7 @@ export default function ProposalCreate() {
       negotiation,
       description,
       expected_close_date: expectedCloseDate || null,
-      group_notes: { ...groupNotes, _manual_groups: manualGroupNames },
+      group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _group_order: groupOrder },
       scopeItems: allScopeItems,
       payments: paymentRows,
     };
@@ -1614,18 +1614,17 @@ export default function ProposalCreate() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (group.templateId?.startsWith("_project_")) {
-                            // Remove just this template group from the project
                             const gid = group.templateId;
                             setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                            setGroupOrder((prev) => prev.filter((key) => key !== gid));
                             setAddedTemplateIds((prev) => {
                               const next = new Set(prev);
                               next.delete(gid);
                               return next;
                             });
-                            // Check if any project groups remain for this project
                             const projectId = gid.replace("_project_", "").split("_")[0];
                             const remainingProjectGroups = scopeProcesses.filter(
-                              (p) => p.templateId?.startsWith(`_project_${projectId}_`) && p.templateId !== gid
+                              (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
                             );
                             if (remainingProjectGroups.length === 0) {
                               setAddedProjectIds((prev) => {
@@ -1638,6 +1637,7 @@ export default function ProposalCreate() {
                             removeTemplateFromScope(group.templateId);
                           } else if (group.groupId) {
                             setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                            setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
                             setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                           }
                         }}

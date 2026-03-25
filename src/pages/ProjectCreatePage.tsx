@@ -527,25 +527,72 @@ export default function ProjectCreatePage() {
           <div className="grid gap-4 sm:grid-cols-2 rounded-lg border border-border bg-card p-4">
             <div className="grid gap-1">
               <Label className="text-xs">Cliente *</Label>
-              <Select value={form.client_id} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))} disabled={isReadOnly}>
-                <SelectTrigger><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
+                    {form.client_id
+                      ? clients.find((c: any) => c.id === form.client_id)?.name || "Selecione o cliente"
+                      : "Selecione o cliente"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar cliente..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {clients.map((c: any) => (
+                          <CommandItem
+                            key={c.id}
+                            value={`${c.name} ${c.code || ""} ${c.cnpj || ""}`}
+                            onSelect={() => setForm((f) => ({ ...f, client_id: c.id }))}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", form.client_id === c.id ? "opacity-100" : "opacity-0")} />
+                            <div className="flex flex-col">
+                              <span>{c.name}</span>
+                              <span className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid gap-1">
               <Label className="text-xs">Arquiteto</Label>
-              <Select value={form.arquiteto_id} onValueChange={(v) => setForm((f) => ({ ...f, arquiteto_id: v }))} disabled={isReadOnly}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {arquitetos.map((a: any) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
+                    {form.arquiteto_id
+                      ? arquitetos.find((a: any) => a.id === form.arquiteto_id)?.name || "Selecione"
+                      : "Selecione"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Pesquisar arquiteto..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum arquiteto encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {arquitetos.map((a: any) => (
+                          <CommandItem
+                            key={a.id}
+                            value={`${a.name} ${a.code || ""} ${a.email || ""}`}
+                            onSelect={() => setForm((f) => ({ ...f, arquiteto_id: a.id }))}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", form.arquiteto_id === a.id ? "opacity-100" : "opacity-0")} />
+                            {a.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid gap-1">
               <Label className="text-xs">Produto *</Label>

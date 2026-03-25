@@ -699,13 +699,6 @@ export default function ProposalCreate() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setAddedTemplateIds((prev) => new Set([...prev, templateId]));
-    setExpandedTemplateIds((prev) => new Set([...prev, templateId]));
-    // Auto-expand all new processes
-    setExpandedProcessIds((prev) => {
-      const next = new Set(prev);
-      newProcesses.forEach((p) => next.add(p.id));
-      return next;
-    });
   }
 
   // Remove a template's processes from scope

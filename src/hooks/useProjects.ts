@@ -43,8 +43,11 @@ export function useCreateProject() {
       const { error } = await supabase.from("projects").insert({ ...projectData, id: projectId });
       if (error) throw error;
 
+      let localToReal: Map<string, string> | undefined;
       if (scopeItems && scopeItems.length > 0) {
-        await insertProjectScopeItems(scopeItems, projectId);
+        localToReal = await insertProjectScopeItems(scopeItems, projectId);
+        // Update group_notes with real DB IDs for process_group_map
+        await updateProcessGroupMap(projectId, scopeItems, localToReal, projectData.group_notes);
       }
 
       return { id: projectId };
@@ -72,8 +75,10 @@ export function useUpdateProject() {
         if (parentIds.length > 0) await supabase.from("project_scope_items").delete().in("id", parentIds);
       }
 
+      let localToReal: Map<string, string> | undefined;
       if (scopeItems && scopeItems.length > 0) {
-        await insertProjectScopeItems(scopeItems, id);
+        localToReal = await insertProjectScopeItems(scopeItems, id);
+        await updateProcessGroupMap(id, scopeItems, localToReal, projectData.group_notes);
       }
 
       return { id };
@@ -83,6 +88,25 @@ export function useUpdateProject() {
       qc.invalidateQueries({ queryKey: ["project", vars.id] });
     },
   });
+}
+
+async function updateProcessGroupMap(
+  projectId: string,
+  scopeItems: any[],
+  localToReal: Map<string, string>,
+  currentGroupNotes: any
+) {
+  const processGroupMap: Record<string, string> = {};
+  for (const item of scopeItems) {
+    if (item._groupId && !item._parent_local_id) {
+      const realId = localToReal.get(item._local_id || item.id);
+      if (realId) {
+        processGroupMap[realId] = item._groupId;
+      }
+    }
+  }
+  const updatedNotes = { ...(currentGroupNotes || {}), _process_group_map: processGroupMap };
+  await supabase.from("projects").update({ group_notes: updatedNotes }).eq("id", projectId);
 }
 
 export function useUpdateProjectStatus() {

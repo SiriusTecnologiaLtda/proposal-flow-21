@@ -85,6 +85,59 @@ function roleToAcao(role: string): number {
   }
 }
 
+function flattenGoogleDocTabs(tabs: any[] = []): any[] {
+  const result: any[] = [];
+
+  for (const tab of tabs) {
+    result.push(tab);
+    if (Array.isArray(tab?.childTabs) && tab.childTabs.length > 0) {
+      result.push(...flattenGoogleDocTabs(tab.childTabs));
+    }
+  }
+
+  return result;
+}
+
+function isGenericTabTitle(title?: string | null): boolean {
+  if (!title) return false;
+  const normalized = title.trim().toLowerCase();
+  return /^guia\s+\d+$/.test(normalized) || /^tab\s+\d+$/.test(normalized);
+}
+
+async function getPreferredGoogleDocTab(
+  accessToken: string,
+  docId: string,
+): Promise<{ tabId: string; title: string | null } | null> {
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Falha ao consultar guias do Google Docs: ${await resp.text()}`);
+  }
+
+  const doc = await resp.json();
+  const allTabs = flattenGoogleDocTabs(doc?.tabs || []);
+
+  if (allTabs.length === 0) {
+    return null;
+  }
+
+  const leafTabs = allTabs.filter((tab) => !Array.isArray(tab?.childTabs) || tab.childTabs.length === 0);
+  const candidates = leafTabs.length > 0 ? leafTabs : allTabs;
+  const preferred = candidates.find((tab) => !isGenericTabTitle(tab?.tabProperties?.title)) || candidates[0];
+  const tabId = preferred?.tabProperties?.tabId;
+
+  if (!tabId) {
+    return null;
+  }
+
+  return {
+    tabId,
+    title: preferred?.tabProperties?.title || null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -232,9 +285,31 @@ Deno.serve(async (req) => {
     } else {
       googleToken = await getGoogleAccessToken(saKey);
     }
-    // Use docs.google.com export endpoint instead of Drive API to avoid
-    // blank "tab separator" pages in multi-tab Google Docs
-    const exportUrl = `https://docs.google.com/document/d/${officialDoc.doc_id}/export?format=pdf`;
+    // Export a specific Google Docs tab when available to avoid the
+    // auto-generated "Guia 1 / Tab 1" separator page in tabbed documents.
+    let exportUrl = `https://docs.google.com/document/d/${officialDoc.doc_id}/export?format=pdf`;
+    try {
+      const preferredTab = await getPreferredGoogleDocTab(googleToken, officialDoc.doc_id);
+      if (preferredTab?.tabId) {
+        exportUrl += `&tab=${encodeURIComponent(preferredTab.tabId)}`;
+        log(
+          logs,
+          "Google Docs",
+          "ok",
+          `Exportando guia específica do documento${preferredTab.title ? `: ${preferredTab.title}` : ""}`,
+        );
+      } else {
+        log(logs, "Google Docs", "info", "Documento sem guias detectáveis — exportação padrão será usada");
+      }
+    } catch (tabError: any) {
+      log(
+        logs,
+        "Google Docs",
+        "info",
+        `Não foi possível identificar a guia correta; seguindo com exportação padrão (${tabError.message})`,
+      );
+    }
+
     const pdfRes = await fetch(exportUrl, {
       headers: { Authorization: `Bearer ${googleToken}` },
       redirect: "follow",

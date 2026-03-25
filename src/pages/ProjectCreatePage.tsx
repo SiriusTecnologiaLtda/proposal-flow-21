@@ -774,10 +774,10 @@ export default function ProjectCreatePage() {
                         <Layers className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        {!group.templateId ? (
+                        {group.groupId ? (
                           <Input
-                            value={avulsoGroupName}
-                            onChange={(e) => setAvulsoGroupName(e.target.value)}
+                            value={manualGroupNames[group.groupId] || ""}
+                            onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
                             onClick={(e) => e.stopPropagation()}
                             className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
                             placeholder="Nome do grupo"

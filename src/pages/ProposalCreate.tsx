@@ -392,7 +392,7 @@ export default function ProposalCreate() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, product, status, created_at, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .select("id, product, status, created_at, group_notes, project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -412,6 +412,10 @@ export default function ProposalCreate() {
   function addProjectToScope(project: any) {
     if (addedProjectIds.has(project.id)) return;
     const items = project.project_scope_items || [];
+    const projectGroupNotes = project.group_notes || {};
+    const processGroupMap: Record<string, string> = projectGroupNotes._process_group_map || {};
+    const projectManualGroups: Record<string, string> = projectGroupNotes._manual_groups || {};
+
     const parentItems = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
     const childrenMap = new Map<string, any[]>();
     items.filter((i: any) => i.parent_id).forEach((i: any) => {
@@ -419,29 +423,52 @@ export default function ProposalCreate() {
       childrenMap.get(i.parent_id)!.push(i);
     });
 
-    // Group parent items by their original template_id
-    const templateGroupMap = new Map<string, any[]>();
+    // Reconstruct the group hierarchy from the project's group_notes
+    // Groups in the project = manual groups (from _manual_groups) + template groups
+    // Each process (parent) is mapped to a group via _process_group_map
+    const groupProcessesMap = new Map<string, any[]>(); // groupKey -> parent items
+
     for (const parent of parentItems) {
-      const key = parent.template_id || "_no_template_";
-      if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
-      templateGroupMap.get(key)!.push(parent);
+      const origGroupId = processGroupMap[parent.id];
+      let groupKey: string;
+
+      if (origGroupId && projectManualGroups[origGroupId]) {
+        // This process belongs to a manual group in the project
+        groupKey = `_project_${project.id}_manual_${origGroupId}`;
+      } else if (parent.template_id) {
+        // This process belongs to a template group
+        groupKey = `_project_${project.id}_${parent.template_id}`;
+      } else {
+        // Fallback: no group info
+        groupKey = `_project_${project.id}_ungrouped`;
+      }
+
+      if (!groupProcessesMap.has(groupKey)) groupProcessesMap.set(groupKey, []);
+      groupProcessesMap.get(groupKey)!.push(parent);
     }
 
-    // Handle flat items (no parents)
+    // If no parents but there are items, treat them as flat
     if (parentItems.length === 0 && items.length > 0) {
+      const groupKey = `_project_${project.id}_ungrouped`;
       for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
-        const key = item.template_id || "_no_template_";
-        if (!templateGroupMap.has(key)) templateGroupMap.set(key, []);
-        templateGroupMap.get(key)!.push({ ...item, _flat: true });
+        if (!groupProcessesMap.has(groupKey)) groupProcessesMap.set(groupKey, []);
+        groupProcessesMap.get(groupKey)!.push({ ...item, _flat: true });
       }
     }
 
     const newProcesses: ScopeProcess[] = [];
     const newGroupKeys: string[] = [];
+    const newManualGroupNames: Record<string, string> = {};
 
-    for (const [origTemplateId, parents] of templateGroupMap) {
-      const groupKey = `_project_${project.id}_${origTemplateId}`;
+    for (const [groupKey, parents] of groupProcessesMap) {
       newGroupKeys.push(groupKey);
+
+      // Determine group name
+      const manualMatch = groupKey.match(/_project_[^_]+_manual_(.+)/);
+      if (manualMatch) {
+        const origGid = manualMatch[1];
+        newManualGroupNames[groupKey] = projectManualGroups[origGid] || "Grupo";
+      }
 
       for (const parent of parents) {
         if (parent._flat) {
@@ -449,7 +476,8 @@ export default function ProposalCreate() {
             id: localId(),
             description: parent.description,
             included: parent.included,
-            templateId: groupKey,
+            templateId: manualMatch ? undefined : groupKey,
+            groupId: manualMatch ? groupKey : undefined,
             projectId: project.id,
             children: [{
               id: localId(),
@@ -464,7 +492,8 @@ export default function ProposalCreate() {
             id: localId(),
             description: parent.description,
             included: parent.included,
-            templateId: groupKey,
+            templateId: manualMatch ? undefined : groupKey,
+            groupId: manualMatch ? groupKey : undefined,
             projectId: project.id,
             notes: parent.notes || "",
             children: kids.map((kid: any) => ({
@@ -480,6 +509,7 @@ export default function ProposalCreate() {
     }
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setManualGroupNames((prev) => ({ ...prev, ...newManualGroupNames }));
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
@@ -1545,18 +1575,22 @@ export default function ProposalCreate() {
                       </div>
                       <div className="flex-1 min-w-0">
                         {group.groupId ? (
-                          <Input
-                            value={manualGroupNames[group.groupId] || ""}
-                            onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
-                            placeholder="Nome do grupo"
-                          />
+                          groupKey.startsWith("_project_") ? (
+                            <p className="text-sm font-semibold text-foreground">{manualGroupNames[group.groupId] || "Grupo"}</p>
+                          ) : (
+                            <Input
+                              value={manualGroupNames[group.groupId] || ""}
+                              onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                              placeholder="Nome do grupo"
+                            />
+                          )
                         ) : (
                           <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {groupItemCount} itens{group.category ? ` · ${group.category}` : ""} · {groupHours}h
+                          {groupItemCount} itens{group.category ? ` · ${group.category}` : ""}{groupKey.startsWith("_project_") && !group.category ? " · Projeto" : ""} · {groupHours}h
                         </p>
                       </div>
                       <button

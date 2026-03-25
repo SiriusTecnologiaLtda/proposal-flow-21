@@ -17,6 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, ArrowLeft, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface ProposalType {
   id: string;
@@ -27,9 +28,12 @@ interface ProposalType {
   analyst_label: string;
   gp_label: string;
   rounding_factor: number;
+  allow_project: boolean;
+  require_project: boolean;
+  allow_standalone_scope: boolean;
 }
 
-const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8 };
+const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8, allow_project: true, require_project: false, allow_standalone_scope: true };
 
 export default function ProposalTypesPage() {
   const navigate = useNavigate();

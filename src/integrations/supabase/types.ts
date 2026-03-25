@@ -716,6 +716,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          group_notes: Json | null
           id: string
           product: string
           status: string
@@ -727,6 +728,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          group_notes?: Json | null
           id?: string
           product?: string
           status?: string
@@ -738,6 +740,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          group_notes?: Json | null
           id?: string
           product?: string
           status?: string

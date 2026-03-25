@@ -829,7 +829,7 @@ export default function ProposalCreate() {
         await updateProposal.mutateAsync({ id, ...proposalData });
         savedId = id;
         await writeProposalLog({ stage: "save_success", proposalId: savedId, payload: logPayload });
-        toast({ title: "Proposta atualizada!" });
+        toast({ title: status === "proposta_gerada" ? "Proposta atualizada! Gerando documento..." : "Proposta atualizada!" });
       } else {
         const result = await createProposal.mutateAsync({
           ...proposalData,
@@ -838,7 +838,7 @@ export default function ProposalCreate() {
         });
         savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
-        toast({ title: effectiveStatus === "pendente" ? "Proposta salva!" : "Proposta salva! Gerando documento..." });
+        toast({ title: status === "proposta_gerada" ? "Proposta salva! Gerando documento..." : "Proposta salva!" });
       }
 
       // Regenerate commission projections
@@ -846,11 +846,9 @@ export default function ProposalCreate() {
         regenerateCommissionProjections(savedId).catch(() => {});
       }
 
-      // Navigate to list immediately after save
-      navigate("/propostas");
-
-      // If "Gerar Proposta" was checked, trigger document generation in background
-      if (effectiveStatus === "proposta_gerada" && status === "proposta_gerada" && savedId) {
+      // If "Gerar Proposta" was checked, trigger document generation BEFORE navigating
+      const shouldGenerate = status === "proposta_gerada" && savedId;
+      if (shouldGenerate) {
         try {
           await writeProposalLog({ stage: "document_generation_started", proposalId: savedId, payload: { proposal_id: savedId } });
           const session = (await supabase.auth.getSession()).data.session;
@@ -898,6 +896,9 @@ export default function ProposalCreate() {
           toast({ title: "Proposta salva, mas falha ao gerar documento", description: genErr.message, variant: "destructive" });
         }
       }
+
+      // Navigate to list AFTER generation completes (or immediately if no generation)
+      navigate("/propostas");
     } catch (err: any) {
       await writeProposalLog({
         stage: isEditing ? "save_error" : "create_error",

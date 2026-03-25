@@ -148,6 +148,7 @@ export default function ProposalCreate() {
   const queryClient = useQueryClient();
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
+  const [groupOrder, setGroupOrder] = useState<string[]>([]);
 
   async function writeProposalLog(entry: {
     stage: string;

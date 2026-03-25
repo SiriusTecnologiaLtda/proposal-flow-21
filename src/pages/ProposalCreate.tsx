@@ -146,7 +146,7 @@ export default function ProposalCreate() {
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   const [quickCreateClientOpen, setQuickCreateClientOpen] = useState(false);
   const queryClient = useQueryClient();
-  const [avulsoGroupName, setAvulsoGroupName] = useState("Itens Avulsos");
+  const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
 
   async function writeProposalLog(entry: {

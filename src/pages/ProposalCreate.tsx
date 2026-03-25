@@ -515,7 +515,7 @@ export default function ProposalCreate() {
     }
 
     return groups;
-  }, [scopeProcesses, scopeTemplates]);
+  }, [scopeProcesses, scopeTemplates, clientProjects]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {

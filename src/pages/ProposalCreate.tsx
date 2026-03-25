@@ -1528,7 +1528,7 @@ export default function ProposalCreate() {
             <div className="space-y-3">
 
               {groupedScope.map((group) => {
-                const groupKey = group.templateId || "_avulso";
+                const groupKey = group.templateId || group.groupId || "_unknown";
                 const isTemplateExpanded = expandedTemplateIds.has(groupKey);
                 const groupHours = group.processes.reduce((sum, p) => sum + (p.included ? processHours(p) : 0), 0);
                 const groupItemCount = group.processes.reduce((sum, p) => sum + p.children.length, 0);

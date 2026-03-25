@@ -545,28 +545,27 @@ export default function ProposalCreate() {
     return roundUpFactor(total);
   }, [scopeProcesses, roundingFactor]);
 
-  // Group scope processes by template for grouped display
+   // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
-    const groups: { templateId: string | undefined; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
     const templateGroups = new Map<string, ScopeProcess[]>();
-    const noTemplate: ScopeProcess[] = [];
+    const manualGroups = new Map<string, ScopeProcess[]>();
 
     for (const proc of scopeProcesses) {
       if (proc.templateId) {
         if (!templateGroups.has(proc.templateId)) templateGroups.set(proc.templateId, []);
         templateGroups.get(proc.templateId)!.push(proc);
-      } else {
-        noTemplate.push(proc);
+      } else if (proc.groupId) {
+        if (!manualGroups.has(proc.groupId)) manualGroups.set(proc.groupId, []);
+        manualGroups.get(proc.groupId)!.push(proc);
       }
     }
 
     for (const [tid, procs] of templateGroups) {
-      // Check if this is a project group: _project_<projectId>_<templateId>
       const isProjectGroup = tid.startsWith("_project_");
       if (isProjectGroup) {
-        // Extract original template id from the key: _project_<projectId>_<origTemplateId>
         const parts = tid.replace("_project_", "").split("_");
-        const origTemplateId = parts.slice(1).join("_"); // everything after projectId
+        const origTemplateId = parts.slice(1).join("_");
         const tmpl = origTemplateId && origTemplateId !== "_no_template_"
           ? scopeTemplates.find((t) => t.id === origTemplateId)
           : null;
@@ -587,12 +586,19 @@ export default function ProposalCreate() {
       }
     }
 
-    if (noTemplate.length > 0) {
-      groups.push({ templateId: undefined, templateName: avulsoGroupName, category: "", processes: noTemplate });
+    // Include all manual groups (even empty ones)
+    for (const gid of Object.keys(manualGroupNames)) {
+      groups.push({
+        templateId: undefined,
+        groupId: gid,
+        templateName: manualGroupNames[gid] || "Novo Grupo",
+        category: "",
+        processes: manualGroups.get(gid) || [],
+      });
     }
 
     return groups;
-  }, [scopeProcesses, scopeTemplates]);
+  }, [scopeProcesses, scopeTemplates, manualGroupNames]);
 
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {

@@ -142,8 +142,8 @@ export default function ProjectCreatePage() {
 
       setScopeProcesses(processes);
       setAddedTemplateIds(templateIds);
-      setExpandedProcessIds(expandProc);
-      setExpandedTemplateIds(expandTmpl);
+      setExpandedProcessIds(new Set());
+      setExpandedTemplateIds(new Set());
       setAttachments(existingProject.project_attachments || []);
       const loadedGroupNotes = (existingProject as any).group_notes || {};
       setGroupNotes(loadedGroupNotes);

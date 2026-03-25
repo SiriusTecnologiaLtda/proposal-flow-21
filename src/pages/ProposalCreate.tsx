@@ -429,23 +429,17 @@ export default function ProposalCreate() {
       childrenMap.get(i.parent_id)!.push(i);
     });
 
-    // Reconstruct the group hierarchy from the project's group_notes
-    // Groups in the project = manual groups (from _manual_groups) + template groups
-    // Each process (parent) is mapped to a group via _process_group_map
-    const groupProcessesMap = new Map<string, any[]>(); // groupKey -> parent items
+    const groupProcessesMap = new Map<string, any[]>();
 
     for (const parent of parentItems) {
       const origGroupId = processGroupMap[parent.id];
       let groupKey: string;
 
       if (origGroupId && projectManualGroups[origGroupId]) {
-        // This process belongs to a manual group in the project
         groupKey = `_project_${project.id}_manual_${origGroupId}`;
       } else if (parent.template_id) {
-        // This process belongs to a template group
         groupKey = `_project_${project.id}_${parent.template_id}`;
       } else {
-        // Fallback: no group info
         groupKey = `_project_${project.id}_ungrouped`;
       }
 
@@ -453,7 +447,6 @@ export default function ProposalCreate() {
       groupProcessesMap.get(groupKey)!.push(parent);
     }
 
-    // If no parents but there are items, treat them as flat
     if (parentItems.length === 0 && items.length > 0) {
       const groupKey = `_project_${project.id}_ungrouped`;
       for (const item of items.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
@@ -468,8 +461,6 @@ export default function ProposalCreate() {
 
     for (const [groupKey, parents] of groupProcessesMap) {
       newGroupKeys.push(groupKey);
-
-      // Determine group name
       const manualMatch = groupKey.match(/_project_[^_]+_manual_(.+)/);
       if (manualMatch) {
         const origGid = manualMatch[1];
@@ -516,6 +507,7 @@ export default function ProposalCreate() {
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
     setManualGroupNames((prev) => ({ ...prev, ...newManualGroupNames }));
+    setGroupOrder((prev) => [...prev, ...newGroupKeys.filter((key) => !prev.includes(key))]);
     setAddedProjectIds((prev) => new Set([...prev, project.id]));
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
@@ -526,7 +518,9 @@ export default function ProposalCreate() {
 
   function removeProjectFromScope(projectId: string) {
     const prefix = `_project_${projectId}_`;
-    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix)));
+    setScopeProcesses((prev) => prev.filter((p) => !p.templateId?.startsWith(prefix) && !p.groupId?.startsWith(prefix)));
+    setManualGroupNames((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith(prefix))));
+    setGroupOrder((prev) => prev.filter((key) => !key.startsWith(prefix)));
     setAddedProjectIds((prev) => {
       const next = new Set(prev);
       next.delete(projectId);

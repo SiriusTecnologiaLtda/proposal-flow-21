@@ -1388,8 +1388,8 @@ export default function ProposalCreate() {
                   <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
                     <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
                   </Button>
-                  <Button variant="outline" size="sm" onClick={addProcess}>
-                    <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
+                  <Button variant="outline" size="sm" onClick={addGroup}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Novo Grupo
                   </Button>
                 </>
               )}

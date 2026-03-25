@@ -288,6 +288,8 @@ export default function ProposalCreate() {
       }
       
       setScopeProcesses(processes);
+      setExpandedProcessIds(new Set());
+      setExpandedTemplateIds(new Set());
 
       // Track which templates were already added
       const tids = new Set<string>();

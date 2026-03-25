@@ -449,22 +449,67 @@ export default function ProjectCreatePage() {
 
         <TabsContent value="escopo" className="space-y-4 mt-4">
           {!isReadOnly && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Select onValueChange={addTemplate}>
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Adicionar template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name} ({t.product})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={addProcess}>
-                <FolderPlus className="mr-2 h-4 w-4" />Adicionar Processo Manual
-              </Button>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-foreground">Escopo do Projeto</h2>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
+                  <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
+                </Button>
+                <Button variant="outline" size="sm" onClick={addProcess}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Novo Processo
+                </Button>
+              </div>
             </div>
           )}
+
+          {/* Template search dialog */}
+          <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Adicionar Templates de Escopo</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar templates por nome ou categoria..."
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="max-h-72 overflow-auto space-y-1">
+                {availableTemplates.map((template: any) => {
+                  const isAdded = addedTemplateIds.has(template.id);
+                  const itemCount = (template.scope_template_items || []).length;
+                  return (
+                    <div
+                      key={template.id}
+                      className={`flex items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                        isAdded ? "border-primary/30 bg-primary/5" : "border-border hover:bg-accent/50"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{template.name}</p>
+                        <p className="text-xs text-muted-foreground">{template.product} · {template.category} · {itemCount} itens</p>
+                      </div>
+                      {isAdded ? (
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeTemplate(template.id)}>
+                          <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => addTemplate(template.id)}>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+                {availableTemplates.length === 0 && (
+                  <p className="py-4 text-center text-sm text-muted-foreground">Nenhum template encontrado.</p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="space-y-3">
             {scopeItems.map((parent, pi) => (

@@ -340,17 +340,18 @@ export default function ProjectCreatePage() {
     setExpandedTemplateIds((prev) => new Set([...prev, gid]));
   }
 
-  function addProcessToGroup(groupId: string) {
+  function addProcessToGroup(groupIdOrTemplateId: string) {
+    const isTemplate = addedTemplateIds.has(groupIdOrTemplateId);
     const newProc: ScopeProcess = {
       id: localId(),
       description: "",
       included: true,
-      groupId,
+      templateId: isTemplate ? groupIdOrTemplateId : undefined,
+      groupId: isTemplate ? undefined : groupIdOrTemplateId,
       children: [{ id: localId(), description: "", hours: 0, included: true }],
     };
     setScopeProcesses((prev) => [...prev, newProc]);
     setExpandedProcessIds((prev) => new Set([...prev, newProc.id]));
-  }
   }
 
   function addChild(processId: string) {

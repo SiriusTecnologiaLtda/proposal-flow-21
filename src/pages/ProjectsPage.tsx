@@ -55,7 +55,10 @@ export default function ProjectsPage() {
       (p.clients?.name || "").toLowerCase().includes(s) ||
       (p.description || "").toLowerCase().includes(s) ||
       (p.product || "").toLowerCase().includes(s) ||
-      (p.sales_team?.name || "").toLowerCase().includes(s);
+      (p.sales_team?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
+      (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
     if (!textMatch) return false;
 
     if (statusFilter.length > 0 && !statusFilter.includes(p.status || "rascunho")) return false;

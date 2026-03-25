@@ -572,7 +572,7 @@ export default function ProposalCreate() {
 
    // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
-    const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
+    const groupsByKey = new Map<string, { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }>();
     const templateGroups = new Map<string, ScopeProcess[]>();
     const manualGroups = new Map<string, ScopeProcess[]>();
 
@@ -594,7 +594,7 @@ export default function ProposalCreate() {
         const tmpl = origTemplateId && origTemplateId !== "_no_template_"
           ? scopeTemplates.find((t) => t.id === origTemplateId)
           : null;
-        groups.push({
+        groupsByKey.set(tid, {
           templateId: tid,
           templateName: tmpl?.name || "Itens Avulsos",
           category: tmpl?.category || "Projeto",
@@ -602,7 +602,7 @@ export default function ProposalCreate() {
         });
       } else {
         const tmpl = scopeTemplates.find((t) => t.id === tid);
-        groups.push({
+        groupsByKey.set(tid, {
           templateId: tid,
           templateName: tmpl?.name || "Template",
           category: tmpl?.category || "",
@@ -611,9 +611,8 @@ export default function ProposalCreate() {
       }
     }
 
-    // Include all manual groups (even empty ones)
     for (const gid of Object.keys(manualGroupNames)) {
-      groups.push({
+      groupsByKey.set(gid, {
         templateId: undefined,
         groupId: gid,
         templateName: manualGroupNames[gid] || "Novo Grupo",
@@ -622,29 +621,10 @@ export default function ProposalCreate() {
       });
     }
 
-    return groups;
-  }, [scopeProcesses, scopeTemplates, manualGroupNames]);
-
-  function toggleTemplateExpand(templateId: string) {
-    setExpandedTemplateIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
-      return next;
-    });
-  }
-
-  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
-  const totalValue = (totalHours + gpHours) * hourlyRate;
-
-  // Get tax factor from client's unit
-  const clientUnit = useMemo(() => {
-    if (!selectedClient?.unit_id) return null;
-    return units.find((u) => u.id === selectedClient.unit_id) || null;
-  }, [selectedClient, units]);
-  const taxFactor = clientUnit?.tax_factor || 0;
-  const totalValueGross = taxFactor > 0 ? totalValue / taxFactor : totalValue;
-
+    const orderedKeys = [...groupOrder.filter((key) => groupsByKey.has(key)), ...Array.from(groupsByKey.keys()).filter((key) => !groupOrder.includes(key))];
+    return orderedKeys.map((key) => groupsByKey.get(key)!).filter(Boolean);
+  }, [scopeProcesses, scopeTemplates, manualGroupNames, groupOrder]);
+...
   // Add template to proposal scope (copy its items)
   function addTemplateToScope(templateId: string) {
     if (addedTemplateIds.has(templateId)) return;
@@ -652,7 +632,6 @@ export default function ProposalCreate() {
     if (!template) return;
 
     const allItems = (template as any).scope_template_items || [];
-    // Build hierarchy: parents (no parent_id) and children
     const parents = allItems.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
     const childrenMap = new Map<string, any[]>();
     allItems.filter((i: any) => i.parent_id).forEach((i: any) => {
@@ -676,7 +655,6 @@ export default function ProposalCreate() {
       };
     });
 
-    // If template has no hierarchy (flat items), treat each as a process
     if (parents.length === 0 && allItems.length > 0) {
       for (const item of allItems.sort((a: any, b: any) => a.sort_order - b.sort_order)) {
         newProcesses.push({
@@ -690,12 +668,14 @@ export default function ProposalCreate() {
     }
 
     setScopeProcesses((prev) => [...prev, ...newProcesses]);
+    setGroupOrder((prev) => (prev.includes(templateId) ? prev : [...prev, templateId]));
     setAddedTemplateIds((prev) => new Set([...prev, templateId]));
   }
 
   // Remove a template's processes from scope
   function removeTemplateFromScope(templateId: string) {
     setScopeProcesses((prev) => prev.filter((p) => p.templateId !== templateId));
+    setGroupOrder((prev) => prev.filter((key) => key !== templateId));
     setAddedTemplateIds((prev) => {
       const next = new Set(prev);
       next.delete(templateId);

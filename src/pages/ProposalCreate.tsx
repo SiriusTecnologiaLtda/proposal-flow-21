@@ -258,6 +258,8 @@ export default function ProposalCreate() {
           });
         }
       } else {
+        // Restore process-to-group mapping
+        const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
         // New hierarchical data
         for (const item of parentItems) {
           // Reconstruct composite templateId for project-linked items
@@ -274,6 +276,7 @@ export default function ProposalCreate() {
             included: item.included,
             templateId,
             projectId,
+            groupId: processGroupMap[item.id] || undefined,
             notes: item.notes || "",
             children: [],
           };

@@ -125,21 +125,24 @@ export default function ProjectCreatePage() {
             included: c.included,
             notes: c.notes || "",
           }));
+        // Determine groupId for manual (no template) processes
+        let groupId: string | undefined;
+        if (!p.template_id) {
+          // Use parent's sort_order as a group key hint, will be overridden by group_notes
+          groupId = undefined; // will be set from group_notes below
+        }
         processes.push({
           id: pid,
           description: p.description,
           included: p.included,
           templateId: p.template_id || undefined,
+          groupId,
           notes: p.notes || "",
           children,
         });
         if (p.template_id) {
           templateIds.add(p.template_id);
-          expandTmpl.add(p.template_id);
-        } else {
-          expandTmpl.add("_avulso");
         }
-        expandProc.add(pid);
       });
 
       setScopeProcesses(processes);
@@ -149,9 +152,24 @@ export default function ProjectCreatePage() {
       setAttachments(existingProject.project_attachments || []);
       const loadedGroupNotes = (existingProject as any).group_notes || {};
       setGroupNotes(loadedGroupNotes);
-      if (loadedGroupNotes._avulso_name) {
-        setAvulsoGroupName(loadedGroupNotes._avulso_name);
-      }
+      // Restore manual group names and assign groupIds to processes
+      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+      setManualGroupNames(loadedManualGroups);
+      // Assign groupIds to non-template processes based on saved mapping
+      const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
+      setScopeProcesses(prev => prev.map(p => {
+        if (!p.templateId && processGroupMapping[p.id]) {
+          return { ...p, groupId: processGroupMapping[p.id] };
+        }
+        // For old data without groupId, put all in a single manual group
+        if (!p.templateId && !p.groupId) {
+          const existingGroupIds = Object.keys(loadedManualGroups);
+          if (existingGroupIds.length > 0) {
+            return { ...p, groupId: existingGroupIds[0] };
+          }
+        }
+        return p;
+      }));
       setLoaded(true);
     }
   }, [existingProject, loaded]);

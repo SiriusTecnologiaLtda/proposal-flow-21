@@ -210,8 +210,14 @@ export default function ProposalCreate() {
       setExpectedCloseDate(existingProposal.expected_close_date || "");
       const loadedGroupNotes = (existingProposal as any).group_notes || {};
       setGroupNotes(loadedGroupNotes);
-      if (loadedGroupNotes._avulso_name) {
-        setAvulsoGroupName(loadedGroupNotes._avulso_name);
+      // Restore manual group names
+      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+      if (Object.keys(loadedManualGroups).length > 0) {
+        setManualGroupNames(loadedManualGroups);
+      } else if (loadedGroupNotes._avulso_name) {
+        // Legacy: migrate old single avulso name to a manual group
+        const legacyGid = localId();
+        setManualGroupNames({ [legacyGid]: loadedGroupNotes._avulso_name });
       }
       setDefaultsLoaded(true);
 

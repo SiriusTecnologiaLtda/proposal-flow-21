@@ -77,46 +77,37 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const manualGroups: Record<string, string> = groupNotes._manual_groups || {};
     const groupOrder: string[] = groupNotes._group_order || [];
 
-    const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
-    const groupHoursMap = new Map<string, { name: string; hours: number }>();
-
-    for (const parent of parents) {
-      const groupId = processGroupMap[parent.id];
-      let groupName = "Itens Avulsos";
-      let groupKey = "__ungrouped";
-
-      if (groupId && manualGroups[groupId]) {
-        groupName = manualGroups[groupId];
-        groupKey = groupId;
-      } else if (parent.template_id) {
-        groupKey = parent.template_id;
-        groupName = parent.template_id;
-      }
-
-      const children = items.filter((i: any) => i.parent_id === parent.id && i.included);
-      const hrs = children.reduce((s: number, c: any) => s + Number(c.hours || 0), 0);
-
-      if (groupHoursMap.has(groupKey)) {
-        groupHoursMap.get(groupKey)!.hours += hrs;
-      } else {
-        groupHoursMap.set(groupKey, { name: groupName, hours: hrs });
-      }
+    // Build reverse map: groupId -> parent item IDs
+    const groupToParents = new Map<string, string[]>();
+    for (const [parentId, groupId] of Object.entries(processGroupMap)) {
+      if (!groupToParents.has(groupId as string)) groupToParents.set(groupId as string, []);
+      groupToParents.get(groupId as string)!.push(parentId);
     }
 
     const result: { name: string; hours: number }[] = [];
-    const orderedKeys = groupOrder.length > 0 ? groupOrder : [...groupHoursMap.keys()];
+    const accountedParents = new Set<string>();
 
-    for (const key of orderedKeys) {
-      const entry = groupHoursMap.get(key);
-      if (entry && entry.hours > 0) {
-        result.push(entry);
+    // Follow defined group order
+    for (const groupId of groupOrder) {
+      const groupName = manualGroups[groupId] || groupId;
+      const parentIds = groupToParents.get(groupId) || [];
+      let hours = 0;
+      for (const pid of parentIds) {
+        accountedParents.add(pid);
+        const children = items.filter((i: any) => i.parent_id === pid && i.included);
+        hours += children.reduce((s: number, c: any) => s + Number(c.hours || 0), 0);
       }
+      if (hours > 0) result.push({ name: groupName, hours });
     }
-    for (const [key, entry] of groupHoursMap) {
-      if (!orderedKeys.includes(key) && entry.hours > 0) {
-        result.push(entry);
-      }
+
+    // Any unaccounted parents go to "Itens Avulsos"
+    const ungroupedParents = items.filter((i: any) => !i.parent_id && !accountedParents.has(i.id));
+    let ungroupedHours = 0;
+    for (const p of ungroupedParents) {
+      const children = items.filter((i: any) => i.parent_id === p.id && i.included);
+      ungroupedHours += children.reduce((s: number, c: any) => s + Number(c.hours || 0), 0);
     }
+    if (ungroupedHours > 0) result.push({ name: "Itens Avulsos", hours: ungroupedHours });
 
     return result;
   }, [project]);

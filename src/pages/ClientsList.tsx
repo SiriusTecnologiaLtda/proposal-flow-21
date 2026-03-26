@@ -243,26 +243,59 @@ export default function ClientsList() {
       toast({ title: "Preencha nome e email de todos os contatos", variant: "destructive" });
       return;
     }
+
+    // Validate duplicate emails within the list
+    const emailCount = new Map<string, number>();
+    for (const c of contacts) {
+      const key = c.email.trim().toLowerCase();
+      emailCount.set(key, (emailCount.get(key) || 0) + 1);
+    }
+    const duplicates = [...emailCount.entries()].filter(([, count]) => count > 1).map(([email]) => email);
+    if (duplicates.length > 0) {
+      toast({ title: "E-mails duplicados", description: `Os seguintes e-mails estão repetidos: ${duplicates.join(", ")}`, variant: "destructive" });
+      return;
+    }
+
     setSavingContacts(true);
     try {
-      // Upsert: insert new, update existing
       for (const contact of contacts) {
         if (contact.isNew) {
-          const { error } = await supabase.from("client_contacts").insert({
-            client_id: selectedClientId,
-            name: contact.name,
-            email: contact.email,
-            phone: contact.phone || null,
-            role: contact.role || null,
-            department: contact.department || "",
-            position: contact.position || "",
-            notes: contact.notes || "",
-          });
-          if (error) throw error;
+          // Check if email already exists for this client in DB
+          const { data: existing } = await supabase
+            .from("client_contacts")
+            .select("id")
+            .eq("client_id", selectedClientId)
+            .ilike("email", contact.email.trim())
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            // Update existing instead of inserting
+            const { error } = await supabase.from("client_contacts").update({
+              name: contact.name,
+              phone: contact.phone || null,
+              role: contact.role || null,
+              department: contact.department || "",
+              position: contact.position || "",
+              notes: contact.notes || "",
+            }).eq("id", existing[0].id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from("client_contacts").insert({
+              client_id: selectedClientId,
+              name: contact.name,
+              email: contact.email.trim(),
+              phone: contact.phone || null,
+              role: contact.role || null,
+              department: contact.department || "",
+              position: contact.position || "",
+              notes: contact.notes || "",
+            });
+            if (error) throw error;
+          }
         } else {
           const { error } = await supabase.from("client_contacts").update({
             name: contact.name,
-            email: contact.email,
+            email: contact.email.trim(),
             phone: contact.phone || null,
             role: contact.role || null,
             department: contact.department || "",

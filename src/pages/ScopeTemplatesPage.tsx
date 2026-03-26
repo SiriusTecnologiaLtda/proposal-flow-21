@@ -267,7 +267,7 @@ export default function ScopeTemplatesPage() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {totalItems} itens · {template.category}
+                            {totalItems} itens · {totalHours}h · {template.category}
                             {(template as any).created_by_name && ` · por ${(template as any).created_by_name}`}
                             {template.created_at && ` · ${new Date(template.created_at).toLocaleDateString("pt-BR")}`}
                           </p>

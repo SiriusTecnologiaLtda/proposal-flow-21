@@ -26,6 +26,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const [esnName, setEsnName] = useState<string | null>(null);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
   const [ccInput, setCcInput] = useState("");
+  const [templateNames, setTemplateNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const qc = useQueryClient();
 

@@ -235,6 +235,7 @@ export default function ProjectsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>OPP</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>ESN</TableHead>
               <TableHead>GSN</TableHead>

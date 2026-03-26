@@ -118,6 +118,9 @@ export default function ProposalsList() {
   const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(false);
 
+  // Track which proposals are currently generating docs (proposalId -> docType)
+  const [generatingDocs, setGeneratingDocs] = useState<Record<string, "proposta" | "mit">>({});
+
   // Gmail auth state
   const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);
   const [gmailAuthLoading, setGmailAuthLoading] = useState(false);
@@ -488,6 +491,9 @@ export default function ProposalsList() {
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     const docLabel = docType === "mit" ? "MIT-065" : "Proposta";
     
+    // Mark as generating
+    setGeneratingDocs(prev => ({ ...prev, [proposalId]: docType }));
+    
     // Show background processing toast that auto-closes after 4 seconds
     toast({
       title: `Gerando ${docLabel}...`,
@@ -551,6 +557,12 @@ export default function ProposalsList() {
         description: err.message,
         variant: "destructive",
         duration: 10000,
+      });
+    } finally {
+      setGeneratingDocs(prev => {
+        const next = { ...prev };
+        delete next[proposalId];
+        return next;
       });
     }
   }
@@ -1016,41 +1028,57 @@ export default function ProposalsList() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          disabled={propostaCount === 0}
+                          disabled={propostaCount === 0 && generatingDocs[p.id] !== "proposta"}
                           onClick={() => { if (propostaCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("proposta"); setVersionsOpen(true); } }}
-                          className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
-                            propostaCount > 0
-                              ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-                              : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                          className={`relative inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
+                            generatingDocs[p.id] === "proposta"
+                              ? "bg-primary/10 text-primary"
+                              : propostaCount > 0
+                                ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                                : "bg-muted text-muted-foreground/40 cursor-not-allowed"
                           }`}
                         >
-                          <FileText className="h-3.5 w-3.5" />
+                          {generatingDocs[p.id] === "proposta" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <FileText className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {propostaCount > 0
-                          ? `${propostaCount} proposta(s) gerada(s)`
-                          : "Nenhuma proposta gerada"}
+                        {generatingDocs[p.id] === "proposta"
+                          ? "Gerando proposta..."
+                          : propostaCount > 0
+                            ? `${propostaCount} proposta(s) gerada(s)`
+                            : "Nenhuma proposta gerada"}
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          disabled={mitCount === 0}
+                          disabled={mitCount === 0 && generatingDocs[p.id] !== "mit"}
                           onClick={() => { if (mitCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("mit"); setVersionsOpen(true); } }}
-                          className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
-                            mitCount > 0
-                              ? "bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"
-                              : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                          className={`relative inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
+                            generatingDocs[p.id] === "mit"
+                              ? "bg-accent text-accent-foreground"
+                              : mitCount > 0
+                                ? "bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"
+                                : "bg-muted text-muted-foreground/40 cursor-not-allowed"
                           }`}
                         >
-                          <FileCheck className="h-3.5 w-3.5" />
+                          {generatingDocs[p.id] === "mit" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <FileCheck className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {mitCount > 0
-                          ? `${mitCount} MIT-065 gerado(s)`
-                          : "Nenhum MIT-065 gerado"}
+                        {generatingDocs[p.id] === "mit"
+                          ? "Gerando MIT-065..."
+                          : mitCount > 0
+                            ? `${mitCount} MIT-065 gerado(s)`
+                            : "Nenhum MIT-065 gerado"}
                       </TooltipContent>
                     </Tooltip>
                   </div>

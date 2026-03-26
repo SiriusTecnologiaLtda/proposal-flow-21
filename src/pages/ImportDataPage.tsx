@@ -544,7 +544,7 @@ function ImportCard({
           <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="h-2 w-2 rounded-full bg-success" />
                 <span className="text-muted-foreground">Inseridos:</span>
                 <span className="font-medium">{run.imported}</span>
               </div>

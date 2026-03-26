@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
             </tr>
           </table>
           ${scopeHtml}
-          ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Comentários do Arquiteto:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+          ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Comentários do Eng. Valor:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
           ${linkHtml}
           <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de propostas.</p>
         </div>

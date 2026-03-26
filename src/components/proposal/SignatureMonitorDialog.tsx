@@ -348,7 +348,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
 
                         {/* Completion/cancellation info */}
                         {sig.completed_at && (
-                          <p className="text-xs text-green-600">
+                          <p className="text-xs text-success">
                             ✅ Finalizado em {new Date(sig.completed_at).toLocaleDateString("pt-BR")} às{" "}
                             {new Date(sig.completed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                           </p>

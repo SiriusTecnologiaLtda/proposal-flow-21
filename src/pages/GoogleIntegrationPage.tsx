@@ -667,7 +667,7 @@ export default function GoogleIntegrationPage() {
                     onChange={(e) => setForm({ ...form, oauth_client_secret: e.target.value })}
                   />
                 </div>
-                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <div className="rounded-md bg-primary/5 p-3 text-xs text-primary space-y-1">
                   <p className="font-medium">Como funciona:</p>
                   <ol className="list-decimal list-inside space-y-0.5">
                     <li>Preencha Client ID e Client Secret do Google Cloud Console</li>

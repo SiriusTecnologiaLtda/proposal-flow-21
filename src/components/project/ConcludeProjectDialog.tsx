@@ -64,6 +64,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         setEsnName(esn?.name || null);
       }
 
+      // Check for OTHER projects linked to same proposal
       const { data: linkedProjects } = await supabase
         .from("projects")
         .select("id, description, product, proposal_id, proposal_number")
@@ -71,6 +72,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         .neq("id", project.id);
       setExistingProjects(linkedProjects || []);
 
+      // Check if THIS project already has scope items in the proposal
+      const { count: ownScopeCount } = await supabase
+        .from("proposal_scope_items")
+        .select("id", { count: "exact", head: true })
+        .eq("proposal_id", proposalId)
+        .eq("project_id", project.id);
+
+      // If no other projects, auto-add; if this project already has items it's an update
       if (!linkedProjects || linkedProjects.length === 0) {
         setReplaceMode("add");
       } else {

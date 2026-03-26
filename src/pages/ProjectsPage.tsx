@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, Clock, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useProjects, useDeleteProject, useUpdateProjectStatus } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";

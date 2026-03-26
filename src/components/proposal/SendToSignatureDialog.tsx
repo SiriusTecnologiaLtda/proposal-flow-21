@@ -138,8 +138,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
       // Set default email content
       const proposalNum = proposal?.number || "";
-      const client = (proposal as any)?.clients?.name || "";
-      const subjectDefault = `Proposta ${proposalNum} - ${client}`.substring(0, 60);
+      const desc = proposal?.description || "";
+      const subjectDefault = `Proposta ${proposalNum}${desc ? ` - ${desc}` : ""}`.substring(0, 60);
       setEmailSubject(subjectDefault);
       setEmailBody(
         `Prezado(a),\n\nSegue envelope para assinatura eletrônica referente à proposta ${proposalNum}.\n\nSolicitamos a gentileza de revisar os documentos e proceder com a assinatura.\n\nAtenciosamente.`

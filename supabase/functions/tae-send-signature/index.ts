@@ -173,12 +173,14 @@ Deno.serve(async (req) => {
     log(logs, "Autenticação", "ok", `Usuário: ${user.email}`);
 
     // 2. Parse body
-    const { signatureId, attachmentIds } = await req.json();
+    const { signatureId, attachmentIds, emailSubject, emailBody } = await req.json();
     if (!signatureId) {
       log(logs, "Validação", "error", "signatureId é obrigatório");
       return respondWithLogs(logs, {}, 400);
     }
     const selectedAttachmentIds: string[] = Array.isArray(attachmentIds) ? attachmentIds : [];
+    const customSubject: string | null = typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : null;
+    const customBody: string | null = typeof emailBody === "string" && emailBody.trim() ? emailBody.trim() : null;
 
     // 3. Load signature record with signatories
     const { data: sigRecord, error: sigErr } = await supabase

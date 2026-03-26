@@ -26,6 +26,7 @@ export default function ProjectsPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [concludeProject, setConcludeProject] = useState<any>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();

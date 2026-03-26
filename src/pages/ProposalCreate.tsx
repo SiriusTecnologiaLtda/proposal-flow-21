@@ -94,6 +94,7 @@ export default function ProposalCreate() {
   const { data: existingProposal, isLoading: loadingProposal, error: proposalError } = useProposal(isEditing ? id : duplicateId || undefined);
 
   const [loaded, setLoaded] = useState(false);
+  const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
@@ -191,7 +192,9 @@ export default function ProposalCreate() {
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
-    if (!existingProposal || (loaded && !isDuplicating)) return;
+    const proposalUpdatedAt = (existingProposal as any)?.updated_at;
+    const needsRehydration = loaded && proposalUpdatedAt && proposalUpdatedAt !== lastHydratedAt;
+    if (!existingProposal || (loaded && !isDuplicating && !needsRehydration)) return;
 
     setProposalNumber(isDuplicating ? "" : existingProposal.number);
     setProposalType(existingProposal.type);
@@ -321,7 +324,8 @@ export default function ProposalCreate() {
     }
 
     setLoaded(true);
-  }, [existingProposal, loaded, isDuplicating]);
+    setLastHydratedAt((existingProposal as any)?.updated_at || null);
+  }, [existingProposal, loaded, isDuplicating, lastHydratedAt]);
 
   // Load defaults for new proposals
   useEffect(() => {

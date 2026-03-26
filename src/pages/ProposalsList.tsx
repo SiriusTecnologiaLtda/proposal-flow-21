@@ -414,6 +414,7 @@ export default function ProposalsList() {
           await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", notifProposal.id);
         }
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        queryClient.invalidateQueries({ queryKey: ["proposal", notifProposal.id] });
         
         toast({
           title: "Email enviado com sucesso",

@@ -102,22 +102,41 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const proj = fullProject;
     if (!proj) return [];
     const items = proj.project_scope_items || [];
-    const groupNotes = proj.group_notes || {};
-    const processGroupMap: Record<string, string> = groupNotes._process_group_map || {};
-    const manualGroups: Record<string, string> = groupNotes._manual_groups || {};
-    const groupOrder: string[] = groupNotes._group_order || [];
+    const gNotes = proj.group_notes || {};
+    let processGroupMap: Record<string, string> = gNotes._process_group_map || {};
+    const manualGroups: Record<string, string> = gNotes._manual_groups || {};
+    let groupOrder: string[] = gNotes._group_order || [];
+
+    // Fallback: if no _group_order or _process_group_map, infer from items
+    const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+    if (groupOrder.length === 0 && Object.keys(processGroupMap).length === 0 && parents.length > 0) {
+      // Infer groups from template_id or assign to a single manual group
+      const inferredMap: Record<string, string> = {};
+      const inferredOrder: string[] = [];
+      for (const p of parents) {
+        const key = p.template_id || "_manual_default";
+        inferredMap[p.id] = key;
+        if (!inferredOrder.includes(key)) inferredOrder.push(key);
+      }
+      processGroupMap = inferredMap;
+      groupOrder = inferredOrder;
+      // If there's a single manual group and manualGroups has entries, use the first one's name
+      if (inferredOrder.includes("_manual_default") && Object.keys(manualGroups).length > 0) {
+        const firstManualName = Object.values(manualGroups)[0];
+        manualGroups["_manual_default"] = firstManualName;
+      }
+    }
 
     const groupToParents = new Map<string, string[]>();
     for (const [parentId, groupId] of Object.entries(processGroupMap)) {
-      if (!groupToParents.has(groupId as string)) groupToParents.set(groupId as string, []);
-      groupToParents.get(groupId as string)!.push(parentId);
+      if (!groupToParents.has(groupId)) groupToParents.set(groupId, []);
+      groupToParents.get(groupId)!.push(parentId);
     }
 
     const result: { name: string; hours: number }[] = [];
     const accountedParents = new Set<string>();
 
     for (const groupId of groupOrder) {
-      // Resolve name: manual group name, or template name, or fallback to groupId
       const groupName = manualGroups[groupId] || templateNames[groupId] || groupId;
       const parentIds = groupToParents.get(groupId) || [];
       let hours = 0;

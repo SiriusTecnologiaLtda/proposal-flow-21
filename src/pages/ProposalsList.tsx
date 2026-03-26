@@ -488,9 +488,6 @@ export default function ProposalsList() {
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
   const [versionsDocType, setVersionsDocType] = useState<string>("proposta");
 
-  useEffect(() => {
-    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [consoleLogs]);
 
   // Auto-trigger generation when navigating from ProposalCreate with ?generate=<id>
   useEffect(() => {

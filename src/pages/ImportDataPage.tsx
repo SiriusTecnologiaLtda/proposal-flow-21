@@ -609,10 +609,10 @@ function ImportCard({
                 <div className="space-y-0.5 font-mono text-[11px]">
                   {run.logs.map((entry, i) => (
                     <div key={i} className="flex items-start gap-1.5">
-                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />}
+                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
                       {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
                       {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                      <span className={entry.status === "ok" ? "text-emerald-600 dark:text-emerald-400" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                      <span className={entry.status === "ok" ? "text-success" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
                         {entry.message}
                       </span>
                     </div>

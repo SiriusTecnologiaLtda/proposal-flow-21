@@ -378,7 +378,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex gap-2 mt-3">
                       {[
-                        { l: "A", n: "Admin" }, { l: "V", n: "Vendedor" }, { l: "G", n: "GSN" }, { l: "Q", n: "Arquiteto" }, { l: "C", n: "Consulta" },
+                        { l: "A", n: "Admin" }, { l: "V", n: "Vendedor" }, { l: "G", n: "GSN" }, { l: "E", n: "Eng. Valor" }, { l: "C", n: "Consulta" },
                       ].map((r, i) => (
                         <span key={i} className="text-[8px] text-muted-foreground">{r.l}={r.n}</span>
                       ))}

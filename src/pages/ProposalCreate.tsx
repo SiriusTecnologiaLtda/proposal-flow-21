@@ -1446,9 +1446,9 @@ export default function ProposalCreate() {
                 </div>
               </div>
 
-              {/* Arquiteto */}
+              {/* Engenheiro de Valor */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Arquiteto de Solução</Label>
+                <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">

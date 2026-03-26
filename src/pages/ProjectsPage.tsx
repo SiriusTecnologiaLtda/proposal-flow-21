@@ -49,6 +49,8 @@ export default function ProjectsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [concludeProject, setConcludeProject] = useState<any>(null);
   const [reviewProposalId, setReviewProposalId] = useState<string | null>(null);
+  const [deleteConfirmProject, setDeleteConfirmProject] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();

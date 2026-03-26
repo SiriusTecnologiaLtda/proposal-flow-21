@@ -1270,62 +1270,7 @@ export default function ProposalsList() {
           )}
         </div>
 
-        {/* Generation console dialog */}
-        <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
-          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-            <DialogHeader className="px-6 pt-6 pb-3">
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Gerar Documento — Console de Execução
-              </DialogTitle>
-            </DialogHeader>
-            <div className="bg-card mx-4 mb-4 rounded-lg border border-border overflow-hidden">
-              <ScrollArea className="h-80">
-                <div className="p-4 font-mono text-sm space-y-2">
-                  {consoleLogs.map((entry, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <StatusIcon status={entry.status} />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground text-xs mr-2">
-                          {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
-                        </span>
-                        <span className="text-foreground font-semibold">{entry.step}</span>
-                        <span className="text-muted-foreground mx-1">—</span>
-                        <span className={
-                          entry.status === "error" ? "text-destructive" :
-                          entry.status === "ok" ? "text-success" :
-                          "text-primary"
-                        }>
-                          {entry.message}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {consoleLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Processando...</span>
-                    </div>
-                  )}
-                  <div ref={consoleEndRef} />
-                </div>
-              </ScrollArea>
-            </div>
-            {!consoleLoading && consoleLogs.length > 0 && (
-              <div className="px-6 pb-4 flex gap-2 justify-end">
-                {consoleDocUrl && (
-                  <Button onClick={() => window.open(consoleDocUrl, "_blank")}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Abrir Documento
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setConsoleOpen(false)}>
-                  Fechar
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Generation console removed — now uses background toast notifications */}
 
         {/* Delete confirmation with linked projects warning */}
         <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

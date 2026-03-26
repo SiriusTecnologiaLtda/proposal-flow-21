@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock } from "lucide-react";
 import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
+import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useProjects, useDeleteProject, useUpdateProjectStatus } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,22 +12,41 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
-  rascunho: { label: "Rascunho", className: "bg-muted text-muted-foreground" },
+  pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
+  rascunho: { label: "Pendente", className: "bg-muted text-muted-foreground" }, // legacy
   em_revisao: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
   concluido: { label: "Concluído", className: "bg-success/15 text-success" },
 };
 
+const PROPOSAL_STATUS_MAP: Record<string, { label: string; className: string; icon: any }> = {
+  aberto: { label: "Em Aberto", className: "bg-muted text-muted-foreground", icon: Clock },
+  em_assinatura: { label: "Em Assinatura", className: "bg-primary/15 text-primary", icon: PenSquare },
+  ganha: { label: "Ganha", className: "bg-success/15 text-success", icon: Trophy },
+  cancelada: { label: "Perdida", className: "bg-destructive/15 text-destructive", icon: XCircle },
+};
+
+function getProposalStatusCategory(proposalStatus: string | null | undefined): string | null {
+  if (!proposalStatus) return null;
+  if (proposalStatus === "ganha") return "ganha";
+  if (proposalStatus === "cancelada") return "cancelada";
+  if (proposalStatus === "em_assinatura") return "em_assinatura";
+  return "aberto"; // pendente, proposta_gerada, em_analise_ev, analise_ev_concluida
+}
+
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [concludeProject, setConcludeProject] = useState<any>(null);
+  const [reviewProposalId, setReviewProposalId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();
@@ -51,7 +71,7 @@ export default function ProjectsPage() {
     }
   }
 
-  const filtered = projects.filter((p: any) => {
+  const filtered = useMemo(() => projects.filter((p: any) => {
     const s = search.toLowerCase();
     const textMatch =
       (p.clients?.name || "").toLowerCase().includes(s) ||
@@ -63,7 +83,15 @@ export default function ProjectsPage() {
       (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
     if (!textMatch) return false;
 
-    if (statusFilter.length > 0 && !statusFilter.includes(p.status || "rascunho")) return false;
+    const effectiveStatus = (p.status === "rascunho") ? "pendente" : p.status;
+    if (statusFilter.length > 0 && !statusFilter.includes(effectiveStatus || "pendente")) return false;
+
+    // Proposal status filter
+    if (proposalStatusFilter.length > 0) {
+      const proposalStatus = p.proposals?.status || null;
+      const category = getProposalStatusCategory(proposalStatus);
+      if (!category || !proposalStatusFilter.includes(category)) return false;
+    }
 
     const range = getDateRange();
     if (range) {
@@ -72,9 +100,9 @@ export default function ProjectsPage() {
     }
 
     return true;
-  });
+  }), [projects, search, statusFilter, proposalStatusFilter, periodFilter, customStart, customEnd]);
 
-  const activeFilterCount = statusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+  const activeFilterCount = statusFilter.length + proposalStatusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
   const handleDelete = async (id: string) => {
     try {
@@ -102,6 +130,14 @@ export default function ProjectsPage() {
       .reduce((sum: number, i: any) => sum + (i.hours || 0), 0);
   };
 
+  // Check if proposal has scope and financial data
+  const canViewProposal = (project: any) => {
+    if (!project.proposal_id) return false;
+    const proposalStatus = project.proposals?.status;
+    // Has scope if proposal exists and has been worked on
+    return proposalStatus && proposalStatus !== "pendente";
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -120,7 +156,7 @@ export default function ProjectsPage() {
         <Input placeholder="Buscar por cliente, produto, eng. valor, ESN, GSN, unidade..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Filters - same layout as proposals */}
+      {/* Filters */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <button
           onClick={() => setFiltersOpen(!filtersOpen)}
@@ -142,6 +178,7 @@ export default function ProjectsPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 setStatusFilter([]);
+                setProposalStatusFilter([]);
                 setPeriodFilter("este_ano");
                 setCustomStart("");
                 setCustomEnd("");
@@ -200,20 +237,53 @@ export default function ProjectsPage() {
             {/* Divider */}
             <div className="hidden h-16 w-px self-center bg-border sm:block" />
 
-            {/* Status */}
+            {/* Status do Projeto */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <FolderKanban className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status Projeto</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {Object.entries(STATUS_MAP).map(([key, { label, className: statusClassName }]) => {
+                {Object.entries(STATUS_MAP).filter(([key]) => key !== "rascunho").map(([key, { label, className: statusClassName }]) => {
                   const active = statusFilter.includes(key);
                   return (
                     <button
                       key={key}
                       onClick={() =>
                         setStatusFilter((prev) =>
+                          active ? prev.filter((s) => s !== key) : [...prev, key]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? `${statusClassName} border-current ring-1 ring-current/30`
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Status da Oportunidade */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status Oportunidade</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(PROPOSAL_STATUS_MAP).map(([key, { label, className: statusClassName }]) => {
+                  const active = proposalStatusFilter.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() =>
+                        setProposalStatusFilter((prev) =>
                           active ? prev.filter((s) => s !== key) : [...prev, key]
                         )
                       }
@@ -237,7 +307,7 @@ export default function ProjectsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>OPP</TableHead>
+              <TableHead className="w-16">OPP</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>ESN</TableHead>
               <TableHead>GSN</TableHead>
@@ -247,6 +317,7 @@ export default function ProjectsPage() {
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-24">Oportunidade</TableHead>
               <TableHead className="text-right">Itens</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -254,27 +325,52 @@ export default function ProjectsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-              <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   <FolderKanban className="mx-auto h-8 w-8 mb-2 opacity-40" />
                   Nenhum projeto encontrado
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((project: any) => {
-                const statusInfo = STATUS_MAP[project.status] || STATUS_MAP.rascunho;
+                const effectiveStatus = project.status === "rascunho" ? "pendente" : project.status;
+                const statusInfo = STATUS_MAP[effectiveStatus] || STATUS_MAP.pendente;
                 const scopeCount = project.project_scope_items?.length || 0;
                 const attachCount = project.project_attachments?.length || 0;
                 const totalHours = getTotalHours(project);
                 const createdDate = project.created_at
                   ? new Date(project.created_at).toLocaleDateString("pt-BR")
                   : "—";
+                const hasProposal = !!(project.proposal_id || project.proposal_number);
+                const proposalStatus = project.proposals?.status || null;
+                const proposalCategory = getProposalStatusCategory(proposalStatus);
+                const proposalStatusInfo = proposalCategory ? PROPOSAL_STATUS_MAP[proposalCategory] : null;
+                const ProposalIcon = proposalStatusInfo?.icon || null;
+
                 return (
                   <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
-                    <TableCell className="text-sm text-muted-foreground">{project.proposal_number || "—"}</TableCell>
+                    <TableCell>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center justify-center">
+                            {hasProposal ? (
+                              <Link2 className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Link2Off className="h-4 w-4 text-muted-foreground/40" />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {hasProposal
+                            ? `Vinculado à OPP ${project.proposal_number || ""}`
+                            : "Sem oportunidade vinculada"
+                          }
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div>{project.clients?.name || "—"}</div>
                       {project.clients?.code && (
@@ -293,6 +389,23 @@ export default function ProjectsPage() {
                         {statusInfo.label}
                       </span>
                     </TableCell>
+                    <TableCell>
+                      {proposalStatusInfo && ProposalIcon ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${proposalStatusInfo.className}`}>
+                              <ProposalIcon className="h-3 w-3" />
+                              {proposalStatusInfo.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Status da Oportunidade: {proposalStatusInfo.label}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {scopeCount} itens · {attachCount} anexos
                     </TableCell>
@@ -307,14 +420,19 @@ export default function ProjectsPage() {
                           <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />Abrir
                           </DropdownMenuItem>
-                          {(project.status === "rascunho" || project.status === "em_revisao") && (project.proposal_id || project.proposal_number) && (
+                          {canViewProposal(project) && (
+                            <DropdownMenuItem onClick={() => setReviewProposalId(project.proposal_id)}>
+                              <FileText className="mr-2 h-4 w-4" />Ver Proposta
+                            </DropdownMenuItem>
+                          )}
+                          {(effectiveStatus === "pendente" || effectiveStatus === "em_revisao") && hasProposal && (
                             <DropdownMenuItem onClick={() => setConcludeProject(project)}>
                               <CheckCircle className="mr-2 h-4 w-4" />Concluir Projeto
                             </DropdownMenuItem>
                           )}
-                          {project.status === "em_revisao" && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "rascunho")}>
-                              <PenLine className="mr-2 h-4 w-4" />Voltar para Rascunho
+                          {effectiveStatus === "em_revisao" && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
+                              <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
                             </DropdownMenuItem>
                           )}
                           {role === "admin" && (
@@ -340,6 +458,12 @@ export default function ProjectsPage() {
         open={!!concludeProject}
         onOpenChange={(open) => { if (!open) setConcludeProject(null); }}
         project={concludeProject}
+      />
+
+      <ProposalReviewDialog
+        proposalId={reviewProposalId}
+        open={!!reviewProposalId}
+        onOpenChange={(open) => { if (!open) setReviewProposalId(null); }}
       />
     </div>
   );

@@ -1215,7 +1215,7 @@ export default function ProposalsList() {
                 Gerar Documento — Console de Execução
               </DialogTitle>
             </DialogHeader>
-            <div className="bg-zinc-950 mx-4 mb-4 rounded-lg border border-zinc-800 overflow-hidden">
+            <div className="bg-card mx-4 mb-4 rounded-lg border border-border overflow-hidden">
               <ScrollArea className="h-80">
                 <div className="p-4 font-mono text-sm space-y-2">
                   {consoleLogs.map((entry, i) => (

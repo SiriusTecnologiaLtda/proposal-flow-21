@@ -131,8 +131,8 @@ function StatusBadge({ status }: { status: string }) {
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "running": return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-    case "success": return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-    case "timeout": return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+    case "success": return <CheckCircle2 className="h-4 w-4 text-success" />;
+    case "timeout": return <AlertTriangle className="h-4 w-4 text-warning" />;
     default: return <XCircle className="h-4 w-4 text-destructive" />;
   }
 }

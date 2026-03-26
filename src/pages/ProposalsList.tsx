@@ -481,12 +481,7 @@ export default function ProposalsList() {
     }
   }
 
-  // Console dialog state
-  const [consoleOpen, setConsoleOpen] = useState(false);
-  const [consoleLogs, setConsoleLogs] = useState<LogEntry[]>([]);
-  const [consoleLoading, setConsoleLoading] = useState(false);
-  const [consoleDocUrl, setConsoleDocUrl] = useState<string | null>(null);
-  const consoleEndRef = useRef<HTMLDivElement>(null);
+  // Console state removed — generation now uses background toasts
 
   // Versions dialog state
   const [versionsOpen, setVersionsOpen] = useState(false);

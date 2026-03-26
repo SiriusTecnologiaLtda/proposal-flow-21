@@ -617,6 +617,12 @@ export default function ProjectCreatePage() {
       const computedGroupOrder = groupedScope.map(g => g.templateId || g.groupId).filter(Boolean) as string[];
       const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames, _group_order: computedGroupOrder };
       if (isEditing) {
+        // Sync all attachment scope states to DB before saving project
+        for (const att of attachments) {
+          if (att.id && !att._isNew) {
+            await supabase.from("project_attachments").update({ is_scope: !!att.is_scope }).eq("id", att.id);
+          }
+        }
         // Auto-transition: pendente/rascunho → em_revisao on save (when user modifies)
         const currentStatus = existingProject?.status;
         const autoStatus = (currentStatus === "pendente" || currentStatus === "rascunho") ? "em_revisao" : undefined;

@@ -94,6 +94,7 @@ export default function ProposalCreate() {
   const { data: existingProposal, isLoading: loadingProposal, error: proposalError } = useProposal(isEditing ? id : duplicateId || undefined);
 
   const [loaded, setLoaded] = useState(false);
+  const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");

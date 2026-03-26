@@ -975,7 +975,7 @@ export default function ProposalsList() {
                       <TooltipTrigger asChild>
                         <button
                           disabled={propostaCount === 0}
-                          onClick={() => propostaCount > 0 && loadVersions(p.id, "proposta")}
+                          onClick={() => { if (propostaCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("proposta"); setVersionsOpen(true); } }}
                           className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
                             propostaCount > 0
                               ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"

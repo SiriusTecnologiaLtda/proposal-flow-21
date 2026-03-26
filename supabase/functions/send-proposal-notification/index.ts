@@ -36,12 +36,14 @@ function buildRawEmail(
   from: string,
   to: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  cc?: string[]
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
   const rawLines = [
     `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
+    ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -63,9 +65,10 @@ async function sendGmail(
   senderEmail: string,
   recipientEmail: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  cc?: string[]
 ): Promise<void> {
-  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody);
+  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody, cc);
   const rawB64 = btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -141,7 +144,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(
@@ -448,7 +451,7 @@ Deno.serve(async (req) => {
       );
 
       for (const r of recipients) {
-        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml);
+        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc);
       }
 
       return new Response(
@@ -500,7 +503,7 @@ Deno.serve(async (req) => {
       senderProfile.gmail_refresh_token
     );
 
-    await sendGmail(accessToken, senderName, senderEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, senderName, senderEmail, recipientEmail!, subject!, bodyHtml!, cc);
 
     return new Response(
       JSON.stringify({

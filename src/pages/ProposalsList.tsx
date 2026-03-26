@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -241,12 +241,24 @@ export default function ProposalsList() {
   const [notifProposal, setNotifProposal] = useState<any>(null);
   const [notifMessage, setNotifMessage] = useState("");
   const [notifSending, setNotifSending] = useState(false);
+  const [notifCcEmails, setNotifCcEmails] = useState<string[]>([]);
+  const [notifCcInput, setNotifCcInput] = useState("");
 
   function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
     setNotifProposal(proposal);
     setNotifType(type);
     setNotifMessage("");
+    setNotifCcEmails([]);
+    setNotifCcInput("");
     setNotifDialogOpen(true);
+  }
+
+  function addNotifCcEmail() {
+    const email = notifCcInput.trim().toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifCcEmails.includes(email)) {
+      setNotifCcEmails([...notifCcEmails, email]);
+      setNotifCcInput("");
+    }
   }
 
   // CRA notification state
@@ -351,6 +363,7 @@ export default function ProposalsList() {
             type: notifType,
             message: notifMessage,
             proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
+            cc: notifCcEmails.length > 0 ? notifCcEmails : undefined,
           }),
         }
       );
@@ -1475,11 +1488,47 @@ export default function ProposalsList() {
             {notifProposal && gmailAuthorized && (
               <div className="space-y-4">
                 <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-                  <p><span className="font-medium text-muted-foreground">Proposta:</span> {notifProposal.number}</p>
+                  <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {notifProposal.number}</p>
                   <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
                   <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
+                  <p><span className="font-medium text-muted-foreground">Destinatário:</span> {notifType === "solicitar_ajuste"
+                    ? `${(notifProposal as any).arquiteto?.name || "—"} (${(notifProposal as any).arquiteto?.email || "sem email"})`
+                    : `${(notifProposal as any).sales_team?.name || "—"} (${(notifProposal as any).sales_team?.email || "sem email"})`
+                  }</p>
                   <p><span className="font-medium text-muted-foreground">Remetente:</span> {user?.email}</p>
                 </div>
+
+                {/* CC Recipients */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    <UserPlus className="h-3 w-3" /> Cópia (CC)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={notifCcInput}
+                      onChange={(e) => setNotifCcInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNotifCcEmail())}
+                      placeholder="email@exemplo.com"
+                      className="text-sm h-8"
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={addNotifCcEmail} className="h-8 px-3">
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {notifCcEmails.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {notifCcEmails.map((email) => (
+                        <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
+                          {email}
+                          <button onClick={() => setNotifCcEmails(notifCcEmails.filter(e => e !== email))} className="ml-0.5 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs">Mensagem (opcional)</Label>
                   <Textarea

@@ -1493,7 +1493,7 @@ export default function ProposalsList() {
                   <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
                   <p><span className="font-medium text-muted-foreground">Destinatário:</span> {notifType === "solicitar_ajuste"
                     ? `${(notifProposal as any).arquiteto?.name || "—"} (${(notifProposal as any).arquiteto?.email || "sem email"})`
-                    : `${(notifProposal as any).esn?.name || "—"} (${(notifProposal as any).esn?.email || "sem email"})`
+                    : `${(notifProposal as any).sales_team?.name || "—"} (${(notifProposal as any).sales_team?.email || "sem email"})`
                   }</p>
                   <p><span className="font-medium text-muted-foreground">Remetente:</span> {user?.email}</p>
                 </div>

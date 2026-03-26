@@ -28,8 +28,8 @@ type FeatureRequest = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  pending: { label: "Pendente", icon: Clock, color: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
-  accepted: { label: "Aceito", icon: Check, color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
+  pending: { label: "Pendente", icon: Clock, color: "bg-warning/15 text-warning border-warning/30" },
+  accepted: { label: "Aceito", icon: Check, color: "bg-success/15 text-success border-success/30" },
   rejected: { label: "Recusado", icon: X, color: "bg-destructive/15 text-destructive border-destructive/30" },
   implemented: { label: "Implementado", icon: Rocket, color: "bg-primary/15 text-primary border-primary/30" },
 };

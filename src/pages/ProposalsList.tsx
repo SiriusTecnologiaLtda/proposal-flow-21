@@ -363,6 +363,7 @@ export default function ProposalsList() {
             type: notifType,
             message: notifMessage,
             proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
+            cc: notifCcEmails.length > 0 ? notifCcEmails : undefined,
           }),
         }
       );

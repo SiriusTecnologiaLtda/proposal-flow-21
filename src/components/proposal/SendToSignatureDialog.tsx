@@ -6,13 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import {
   Plus, Trash2, UserPlus, Users, Send, Lock, Building,
-  FileText, Paperclip, ChevronDown, ChevronRight, AlertTriangle,
-  File, BookOpen
+  FileText, Paperclip, ChevronRight, AlertTriangle,
+  BookOpen, ExternalLink, Eye, FileQuestion, CheckCircle2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +39,7 @@ interface EnvelopeDoc {
   hasWarning?: boolean;
   warningMessage?: string;
   fileUrl?: string;
+  driveFileId?: string;
 }
 
 interface Props {
@@ -52,6 +53,34 @@ const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
 let localCounter = 0;
 function newLocalId() {
   return `sig_${Date.now()}_${++localCounter}`;
+}
+
+/** Extract Google Drive file ID from various URL formats */
+function extractDriveFileId(url: string | undefined): string | null {
+  if (!url) return null;
+  // Google Docs URL: https://docs.google.com/document/d/{id}/...
+  let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  // Drive file URL: https://drive.google.com/file/d/{id}/...
+  match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  // Open URL: https://drive.google.com/open?id={id}
+  match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  return null;
+}
+
+/** Build preview URL for a Google Drive document */
+function buildPreviewUrl(doc: EnvelopeDoc): string | null {
+  const fileId = doc.driveFileId;
+  if (!fileId) return null;
+
+  // For Google Docs (proposals), use the document preview
+  if (doc.origin === "Proposta" && doc.fileUrl?.includes("docs.google.com/document")) {
+    return `https://docs.google.com/document/d/${fileId}/preview`;
+  }
+  // For other Drive files, use the generic file preview
+  return `https://drive.google.com/file/d/${fileId}/preview`;
 }
 
 export default function SendToSignatureDialog({ proposal, open, onOpenChange }: Props) {
@@ -68,11 +97,13 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   // Envelope documents
   const [envelopeDocs, setEnvelopeDocs] = useState<EnvelopeDoc[]>([]);
-  const [docsOpen, setDocsOpen] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
   // Project info
   const [projectInfo, setProjectInfo] = useState<any>(null);
+
+  // Preview state
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
 
   useEffect(() => {
     if (pendingScrollId && scrollRef.current) {
@@ -91,8 +122,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       loadContacts();
       loadPreviousSignatories();
       loadEnvelopeDocuments();
+      setActiveDocId(null);
     }
   }, [open, clientId]);
+
+  // Auto-select first doc for preview when docs load
+  useEffect(() => {
+    if (envelopeDocs.length > 0 && !activeDocId) {
+      setActiveDocId(envelopeDocs[0].id);
+    }
+  }, [envelopeDocs, activeDocId]);
 
   // ─── Load envelope documents ──────────────────────────────────────
   async function loadEnvelopeDocuments() {
@@ -124,6 +163,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     }
 
     if (officialDoc) {
+      const driveFileId = extractDriveFileId(officialDoc.doc_url) || officialDoc.doc_id;
       docs.push({
         id: `proposal_${officialDoc.id}`,
         name: `${officialDoc.file_name} (v${officialDoc.version})`,
@@ -131,11 +171,11 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         mandatory: true,
         selected: true,
         fileUrl: officialDoc.doc_url,
+        driveFileId,
       });
     }
 
     // 2. Project attachments with is_scope = true
-    // Find linked project
     const { data: project } = await supabase
       .from("projects")
       .select("id, product, clients(name)")
@@ -156,6 +196,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       if (attachments?.length) {
         for (const att of attachments) {
           const hasUrl = !!att.file_url;
+          const driveFileId = extractDriveFileId(att.file_url);
           docs.push({
             id: `attach_${att.id}`,
             name: att.file_name,
@@ -165,6 +206,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             hasWarning: !hasUrl,
             warningMessage: !hasUrl ? "Arquivo não acessível no Drive" : undefined,
             fileUrl: att.file_url,
+            driveFileId: driveFileId || undefined,
           });
         }
       }
@@ -360,12 +402,11 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
     setSending(true);
     try {
-      // 1. Save new contacts to client_contacts (upsert by email to avoid duplicates)
+      // 1. Save new contacts to client_contacts (upsert by email)
       const newSignatories = signatories.filter((s) => s.isNew && s.name && s.email);
       const contactIdMap = new Map<string, string>();
 
       for (const sig of newSignatories) {
-        // Check if contact with same email already exists for this client
         const { data: existing } = await supabase
           .from("client_contacts")
           .select("id")
@@ -374,7 +415,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
           .limit(1);
 
         if (existing && existing.length > 0) {
-          // Update existing contact fields if different
           await supabase.from("client_contacts").update({
             name: sig.name,
             phone: sig.phone || null,
@@ -426,7 +466,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       toast({ title: "Enviando ao TAE..." });
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Build selected attachment IDs (exclude the proposal doc itself)
       const selectedAttachmentIds = envelopeDocs
         .filter((d) => d.origin === "Anexo do Projeto" && d.selected && !d.hasWarning)
         .map((d) => d.id.replace("attach_", ""));
@@ -479,276 +518,388 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   const clientName = (proposal as any)?.clients?.name || "Cliente";
   const selectedDocsCount = envelopeDocs.filter((d) => d.selected).length;
-  const scopeDocsCount = envelopeDocs.filter((d) => d.origin === "Anexo do Projeto" && d.selected).length;
+  const activeDoc = envelopeDocs.find((d) => d.id === activeDocId) || null;
+  const previewUrl = activeDoc ? buildPreviewUrl(activeDoc) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col gap-0">
+      <DialogContent className="sm:max-w-[95vw] w-[1400px] max-h-[92vh] flex flex-col gap-0 p-0">
         {/* ─── Header ─────────────────────────────────── */}
-        <DialogHeader className="shrink-0 pb-4">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Send className="h-5 w-5 text-primary" />
-            Enviar para Assinatura
-          </DialogTitle>
-          <DialogDescription className="text-sm">
-            Proposta <span className="font-medium text-foreground">{proposal?.number}</span> — {clientName}
+        <div className="shrink-0 px-6 pt-6 pb-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 text-lg">
+              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+                <Send className="h-4 w-4 text-primary" />
+              </div>
+              Enviar para Assinatura
+            </DialogTitle>
+            <DialogDescription className="text-sm mt-1">
+              Revise os documentos e signatários antes de enviar o envelope para assinatura eletrônica.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Context bar */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              Proposta <span className="font-medium text-foreground">{proposal?.number}</span>
+            </span>
+            <span className="text-border">·</span>
+            <span>{clientName}</span>
             {projectInfo && (
-              <span className="text-muted-foreground"> · Projeto: {projectInfo.product}</span>
+              <>
+                <span className="text-border">·</span>
+                <span className="flex items-center gap-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  Projeto: {projectInfo.product}
+                </span>
+              </>
             )}
-          </DialogDescription>
-        </DialogHeader>
+            <span className="text-border">·</span>
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+              {selectedDocsCount} doc{selectedDocsCount !== 1 ? "s" : ""} no envelope
+            </span>
+            <span className="text-border">·</span>
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              {signatories.length} signatário{signatories.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
 
         <Separator />
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 py-4 -mx-6 px-6 space-y-5">
-          {/* ─── Context summary ─────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Documentos</p>
-              <p className="text-xl font-semibold text-foreground mt-0.5">{selectedDocsCount}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Escopo</p>
-              <p className="text-xl font-semibold text-foreground mt-0.5">{scopeDocsCount}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Signatários</p>
-              <p className="text-xl font-semibold text-foreground mt-0.5">{signatories.length}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Projeto</p>
-              <p className="text-sm font-medium text-foreground mt-1 truncate">{projectInfo ? "Sim" : "Não"}</p>
-            </div>
+        {/* ─── Split layout ─────────────────────────────── */}
+        <div className="flex-1 min-h-0 flex">
+          {/* ─── LEFT COLUMN ─────────────────────────── */}
+          <div className="w-[45%] min-w-[380px] border-r border-border flex flex-col">
+            <ScrollArea className="flex-1">
+              <div ref={scrollRef} className="p-5 space-y-5">
+
+                {/* ── Documents Section ──────────────── */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Documentos do Envelope</h3>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-auto">
+                      {selectedDocsCount} de {envelopeDocs.length}
+                    </Badge>
+                  </div>
+
+                  {loadingDocs ? (
+                    <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                      <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+                    </div>
+                  ) : envelopeDocs.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                      <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro para incluir no envelope.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {envelopeDocs.map((doc) => {
+                        const isActive = doc.id === activeDocId;
+                        return (
+                          <button
+                            key={doc.id}
+                            type="button"
+                            onClick={() => setActiveDocId(doc.id)}
+                            className={`w-full flex items-center gap-3 rounded-lg border px-3.5 py-3 transition-all text-left group ${
+                              doc.hasWarning
+                                ? "border-destructive/40 bg-destructive/5"
+                                : isActive
+                                ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                                : doc.selected
+                                ? "border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02]"
+                                : "border-border bg-muted/30 opacity-60 hover:opacity-80"
+                            }`}
+                          >
+                            <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
+                              <Checkbox
+                                checked={doc.selected}
+                                disabled={doc.mandatory}
+                                className={doc.mandatory ? "opacity-60" : ""}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {doc.origin === "Proposta" ? (
+                                  <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                                ) : (
+                                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                )}
+                                <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
+                                {doc.mandatory && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                    <Lock className="h-2.5 w-2.5" /> Obrigatório
+                                  </span>
+                                )}
+                              </div>
+                              {doc.hasWarning && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <AlertTriangle className="h-3 w-3 text-destructive" />
+                                  <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                                </div>
+                              )}
+                            </div>
+                            {isActive && (
+                              <Eye className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                            {!isActive && (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* No project linked warning */}
+                  {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
+                    <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+                      <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos no envelope.
+                      </p>
+                    </div>
+                  )}
+                </section>
+
+                <Separator />
+
+                {/* ── Signatories Section ────────────── */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Signatários</h3>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-auto">
+                      {signatories.length}
+                    </Badge>
+                  </div>
+
+                  {/* Contact selection */}
+                  <div className="flex gap-2 mb-2">
+                    <Select onValueChange={addSignatoryFromContact}>
+                      <SelectTrigger className="flex-1 h-9 text-sm">
+                        <SelectValue placeholder={loadingContacts ? "Carregando..." : contacts.length === 0 ? "Nenhum contato cadastrado" : "Adicionar contato do cliente"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contacts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} — {c.email} {c.role ? `(${c.role})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" className="h-9 px-2.5" onClick={addNewSignatory} title="Adicionar novo">
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs mb-3"
+                    onClick={loadUnitContacts}
+                    disabled={loadingUnitContacts}
+                  >
+                    <Building className="h-3.5 w-3.5" />
+                    {loadingUnitContacts ? "Carregando..." : "Carregar Signatários Internos"}
+                  </Button>
+
+                  {signatories.length > 0 ? (
+                    <div className="space-y-2">
+                      {signatories.map((sig, idx) => (
+                        <div
+                          key={sig.id}
+                          data-sig-id={sig.id}
+                          className={`rounded-lg border p-3 space-y-2 ${
+                            sig.isLoggedUser
+                              ? "border-primary/30 bg-primary/5"
+                              : "border-border bg-card"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {sig.isLoggedUser ? (
+                                <span className="flex items-center gap-1 text-primary">
+                                  <Lock className="h-3 w-3" /> Você
+                                </span>
+                              ) : (
+                                <>#{idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
+                              )}
+                            </span>
+                            {!sig.isLoggedUser && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => removeSignatory(sig.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="grid gap-2 grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">Nome *</Label>
+                              <Input
+                                value={sig.name}
+                                onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
+                                placeholder="Nome completo"
+                                readOnly={!sig.isNew || sig.isLoggedUser}
+                                className={`h-8 text-sm ${!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
+                              <Input
+                                value={sig.email}
+                                onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
+                                placeholder="email@empresa.com"
+                                readOnly={!sig.isNew || sig.isLoggedUser}
+                                className={`h-8 text-sm ${!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">Celular</Label>
+                              <Input
+                                value={sig.phone}
+                                onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)}
+                                placeholder="(00) 00000-0000"
+                                readOnly={!sig.isNew}
+                                className={`h-8 text-sm ${!sig.isNew ? "bg-muted" : ""}`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">Função</Label>
+                              <Select
+                                value={sig.role}
+                                onValueChange={(v) => updateSignatory(sig.id, "role", v)}
+                              >
+                                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {ROLES.map((r) => (
+                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center">
+                      <Users className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Nenhum signatário adicionado</p>
+                      <Button variant="outline" size="sm" className="mt-3 h-8 text-xs" onClick={addNewSignatory}>
+                        <Plus className="mr-1.5 h-3 w-3" />
+                        Adicionar Signatário
+                      </Button>
+                    </div>
+                  )}
+                </section>
+              </div>
+            </ScrollArea>
           </div>
 
-          {/* ─── Envelope Documents (collapsible, default closed) ── */}
-          <Collapsible open={docsOpen} onOpenChange={setDocsOpen}>
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3 hover:bg-muted/40 transition-colors text-left">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Documentos do Envelope</span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {selectedDocsCount} de {envelopeDocs.length}
+          {/* ─── RIGHT COLUMN: Preview ──────────────── */}
+          <div className="flex-1 flex flex-col bg-muted/20">
+            {/* Preview header */}
+            {activeDoc && (
+              <div className="shrink-0 px-5 py-3 border-b border-border bg-card/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Eye className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
+                  <Badge
+                    variant={activeDoc.origin === "Proposta" ? "default" : "outline"}
+                    className="text-[10px] px-1.5 py-0 shrink-0"
+                  >
+                    {activeDoc.origin}
                   </Badge>
+                  {activeDoc.mandatory && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5 shrink-0">
+                      <Lock className="h-2.5 w-2.5" />
+                      Obrigatório
+                    </Badge>
+                  )}
                 </div>
-                {docsOpen ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                {activeDoc.fileUrl && (
+                  <a
+                    href={activeDoc.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0"
+                  >
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                      <ExternalLink className="h-3 w-3" />
+                      Abrir
+                    </Button>
+                  </a>
                 )}
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              {loadingDocs ? (
-                <div className="rounded-lg border border-dashed border-border p-6 text-center">
-                  <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+              </div>
+            )}
+
+            {/* Preview body */}
+            <div className="flex-1 min-h-0">
+              {!activeDoc ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
+                  </div>
                 </div>
-              ) : envelopeDocs.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border p-6 text-center">
-                  <FileText className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Nenhum documento encontrado. Gere a proposta primeiro.</p>
-                </div>
+              ) : previewUrl ? (
+                <iframe
+                  key={activeDocId}
+                  src={previewUrl}
+                  className="w-full h-full border-0"
+                  title={`Preview: ${activeDoc.name}`}
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                />
               ) : (
-                <div className="space-y-2">
-                  {envelopeDocs.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                        doc.hasWarning
-                          ? "border-destructive/40 bg-destructive/5"
-                          : doc.selected
-                          ? "border-primary/30 bg-primary/5"
-                          : "border-border bg-background"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={doc.selected}
-                        disabled={doc.mandatory}
-                        onCheckedChange={() => toggleDocSelected(doc.id)}
-                        className={doc.mandatory ? "opacity-60" : ""}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {doc.origin === "Proposta" ? (
-                            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                          ) : (
-                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          )}
-                          <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
-                        </div>
-                        {doc.hasWarning && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <AlertTriangle className="h-3 w-3 text-destructive" />
-                            <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant={doc.origin === "Proposta" ? "default" : "outline"}
-                          className="text-[10px] px-1.5 py-0"
-                        >
-                          {doc.origin}
-                        </Badge>
-                        {doc.mandatory && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
-                            <Lock className="h-2.5 w-2.5" />
-                            Obrigatório
-                          </Badge>
-                        )}
-                      </div>
+                <div className="h-full flex items-center justify-center p-8">
+                  <div className="text-center max-w-sm">
+                    <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
+                      <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
                     </div>
-                  ))}
+                    <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Não foi possível gerar a pré-visualização deste documento.
+                    </p>
+                    {activeDoc.fileUrl && (
+                      <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="gap-1.5">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Abrir no Drive
+                        </Button>
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
-            </CollapsibleContent>
-          </Collapsible>
-
-          <Separator />
-
-          {/* ─── Signatories ─────────────────────────── */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Users className="h-4 w-4 text-primary" />
-                Signatários
-              </Label>
             </div>
-
-            {/* Contact selection row */}
-            <div className="flex gap-2">
-              <Select onValueChange={addSignatoryFromContact}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={loadingContacts ? "Carregando..." : contacts.length === 0 ? "Nenhum contato cadastrado" : "Selecione um contato do cliente"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} — {c.email} {c.role ? `(${c.role})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" onClick={addNewSignatory} title="Adicionar novo signatário">
-                <UserPlus className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-1.5"
-              onClick={loadUnitContacts}
-              disabled={loadingUnitContacts}
-            >
-              <Building className="h-3.5 w-3.5" />
-              {loadingUnitContacts ? "Carregando..." : "Carregar Signatários Internos (Unidade)"}
-            </Button>
-
-            {signatories.length > 0 && (
-              <div className="space-y-2">
-                {signatories.map((sig, idx) => (
-                  <div
-                    key={sig.id}
-                    data-sig-id={sig.id}
-                    className={`rounded-lg border p-3 space-y-2 ${sig.isLoggedUser ? "border-primary/40 bg-primary/5" : "border-border"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {sig.isLoggedUser ? (
-                          <span className="flex items-center gap-1 text-primary">
-                            <Lock className="h-3 w-3" /> Você (obrigatório)
-                          </span>
-                        ) : (
-                          <>Signatário {idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
-                        )}
-                      </span>
-                      {sig.isLoggedUser ? (
-                        <Lock className="h-4 w-4 text-muted-foreground/50" />
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => removeSignatory(sig.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Nome *</Label>
-                        <Input
-                          value={sig.name}
-                          onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
-                          placeholder="Nome completo"
-                          readOnly={!sig.isNew || sig.isLoggedUser}
-                          className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
-                        <Input
-                          value={sig.email}
-                          onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
-                          placeholder="email@empresa.com"
-                          readOnly={!sig.isNew || sig.isLoggedUser}
-                          className={!sig.isNew || sig.isLoggedUser ? "bg-muted" : ""}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Celular</Label>
-                        <Input
-                          value={sig.phone}
-                          onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)}
-                          placeholder="(00) 00000-0000"
-                          readOnly={!sig.isNew}
-                          className={!sig.isNew ? "bg-muted" : ""}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Função</Label>
-                        <Select
-                          value={sig.role}
-                          onValueChange={(v) => updateSignatory(sig.id, "role", v)}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map((r) => (
-                              <SelectItem key={r} value={r}>{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {signatories.length === 0 && (
-              <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Selecione contatos existentes ou adicione novos signatários</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={addNewSignatory}>
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Adicionar Signatário
-                </Button>
-              </div>
-            )}
           </div>
         </div>
 
         {/* ─── Footer ────────────────────────────────── */}
         <Separator />
-        <div className="shrink-0 flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSend} disabled={sending || signatories.length === 0}>
-            <Send className="mr-2 h-4 w-4" />
-            {sending ? "Enviando..." : "Enviar para Assinatura"}
-          </Button>
+        <div className="shrink-0 flex items-center justify-between px-6 py-4">
+          <p className="text-xs text-muted-foreground">
+            {selectedDocsCount} documento{selectedDocsCount !== 1 ? "s" : ""} · {signatories.length} signatário{signatories.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSend} disabled={sending || signatories.length === 0}>
+              <Send className="mr-2 h-4 w-4" />
+              {sending ? "Enviando..." : "Enviar para Assinatura"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

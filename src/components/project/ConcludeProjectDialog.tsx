@@ -342,7 +342,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <CheckCircle className="h-5 w-5 text-success" />
             Concluir Projeto
           </DialogTitle>
         </DialogHeader>

@@ -1458,9 +1458,9 @@ export default function ProposalCreate() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[300px] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Pesquisar Arquiteto..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
+                      <CommandInput placeholder="Pesquisar Eng. Valor..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
                       <CommandList>
-                        <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum Eng. Valor encontrado.</CommandEmpty>
                         <CommandGroup>
                           {(() => {
                             const clientUnitId = selectedClient?.unit_id;

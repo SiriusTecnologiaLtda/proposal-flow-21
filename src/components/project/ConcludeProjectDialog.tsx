@@ -31,8 +31,8 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const proposalId = proposalData?.id || fullProject?.proposal_id || project?.proposal_id;
   const [fullProject, setFullProject] = useState<any>(null);
+  const proposalId = proposalData?.id || fullProject?.proposal_id || project?.proposal_id;
 
   async function resolveProjectLinkage() {
     if (!project?.id) {

@@ -46,7 +46,7 @@ function BrowserFrame({ children, className = "" }: { children: React.ReactNode;
 const testimonials = [
   { name: "Marcos Oliveira", role: "Executivo de Negócios (ESN)", quote: "Reduzi em 70% o tempo que gastava montando propostas. Com os templates de escopo e cálculos automáticos, foco no que importa: vender.", avatar: "MO" },
   { name: "Carla Mendes", role: "Gerente de Negócios (GSN)", quote: "A visão consolidada do dashboard me dá controle total sobre o pipeline. Acompanho metas, conversão e ticket médio da minha equipe em tempo real.", avatar: "CM" },
-  { name: "Rafael Souza", role: "Arquiteto de Soluções", quote: "Os templates padronizaram nossas entregas. Consigo revisar escopos detalhados e me comunicar com o ESN diretamente nos itens da proposta.", avatar: "RS" },
+  { name: "Rafael Souza", role: "Engenheiro de Valor", quote: "Os templates padronizaram nossas entregas. Consigo revisar escopos detalhados e me comunicar com o ESN diretamente nos itens da proposta.", avatar: "RS" },
 ];
 
 const impactNumbers = [

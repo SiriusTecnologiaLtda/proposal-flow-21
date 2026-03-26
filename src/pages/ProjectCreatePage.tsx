@@ -557,7 +557,7 @@ export default function ProjectCreatePage() {
             {[
               ["Cliente", selectedClient?.name || "—"],
               ["Produto", form.product || "—"],
-              ["Arquiteto", selectedArquiteto?.name || "—"],
+              ["Eng. Valor", selectedArquiteto?.name || "—"],
               ["Status", statusLabel],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">

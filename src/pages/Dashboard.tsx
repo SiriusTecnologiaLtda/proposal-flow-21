@@ -624,8 +624,15 @@ export default function Dashboard() {
     return resultadoData.reduce((s, m) => s + m.meta, 0);
   }, [resultadoData, resultadoMode, currentMonth]);
 
-  const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
-  const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
+  const totalRealizado = useMemo(() => {
+    const data = resultadoMode === "ytd" ? resultadoData.filter(m => m.month <= currentMonth) : resultadoData;
+    return data.reduce((s, m) => s + m.realizado, 0);
+  }, [resultadoData, resultadoMode, currentMonth]);
+
+  const totalPrevisto = useMemo(() => {
+    const data = resultadoMode === "ytd" ? resultadoData.filter(m => m.month <= currentMonth) : resultadoData;
+    return data.reduce((s, m) => s + m.previsto, 0);
+  }, [resultadoData, resultadoMode, currentMonth]);
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
   const totalGap = totalMeta - totalRealizado;
 

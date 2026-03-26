@@ -41,14 +41,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
+    const adminSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Validate user via anon client
+    const anonSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await anonSupabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -65,8 +70,8 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, {}, 400);
     }
 
-    // 3. Find active signature record for this proposal
-    const { data: sigRecord, error: sigErr } = await supabase
+    // 3. Find active signature record using admin client (bypasses RLS)
+    const { data: sigRecord, error: sigErr } = await adminSupabase
       .from("proposal_signatures")
       .select("*")
       .eq("proposal_id", proposalId)
@@ -75,23 +80,22 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (sigErr || !sigRecord) {
-      log(logs, "Dados", "error", `Nenhum registro de assinatura ativo encontrado para esta proposta`);
+    if (sigErr) {
+      log(logs, "Dados", "error", `Erro ao buscar assinatura: ${sigErr.message}`);
+      return respondWithLogs(logs, {}, 500);
+    }
+
+    if (!sigRecord) {
+      log(logs, "Dados", "error", `Nenhum registro de assinatura ativo encontrado (status pending/sent) para esta proposta`);
       return respondWithLogs(logs, {}, 400);
     }
 
-    log(logs, "Dados", "ok", `Registro de assinatura encontrado: ${sigRecord.id}`);
+    log(logs, "Dados", "ok", `Registro de assinatura encontrado: ${sigRecord.id} (status: ${sigRecord.status})`);
 
     const taeDocumentId = sigRecord.tae_document_id;
-    const taePublicationId = sigRecord.tae_publication_id;
 
-    if (!taeDocumentId && !taePublicationId) {
-      log(logs, "TAE", "info", "Sem IDs do TAE — cancelamento apenas local");
-      // Cancel locally only
-      const adminSupabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
+    if (!taeDocumentId) {
+      log(logs, "TAE", "info", "Sem ID de documento TAE — cancelamento apenas local");
       await adminSupabase
         .from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
@@ -102,11 +106,11 @@ Deno.serve(async (req) => {
         .eq("id", proposalId);
 
       log(logs, "Finalização", "ok", "Cancelamento local concluído (sem registro no TAE)");
-      return respondWithLogs(logs);
+      return respondWithLogs(logs, { cancelled: true, taeStatus: "local_only" });
     }
 
     // 4. Get TAE config
-    const { data: taeConfig } = await supabase.from("tae_config").select("*").maybeSingle();
+    const { data: taeConfig } = await adminSupabase.from("tae_config").select("*").maybeSingle();
     if (!taeConfig) {
       log(logs, "TAE Config", "error", "Configuração TAE não encontrada");
       return respondWithLogs(logs, {}, 500);
@@ -146,40 +150,32 @@ Deno.serve(async (req) => {
     }
     log(logs, "TAE Login", "ok", "Login TAE realizado com sucesso");
 
-    // 6. Try to cancel/delete publication in TAE
-    // The TAE API supports DELETE /documents/v1/publicacoes/{id} for the author to cancel
-    // We try the publication ID first, then fall back to the document ID
-    const idToCancel = taePublicationId || taeDocumentId;
-    log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${idToCancel} no TAE...`);
+    // 6. Cancel publication in TAE using POST /v1/publicacoes/{id}/cancelar
+    // This is the correct endpoint for cancelling published documents (not DELETE which is for drafts only)
+    log(logs, "TAE Cancelamento", "info", `Cancelando documento ${taeDocumentId} no TAE via POST /v1/publicacoes/{id}/cancelar...`);
 
-    const cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${idToCancel}`, {
-      method: "DELETE",
+    const cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taeDocumentId}/cancelar`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${taeToken}`,
         "Accept": "application/json",
+        "Content-Type": "application/json",
       },
     });
 
     const cancelRaw = await cancelRes.text();
 
     if (cancelRes.ok) {
-      log(logs, "TAE Cancelamento", "ok", `Publicação cancelada no TAE com sucesso`);
+      log(logs, "TAE Cancelamento", "ok", `Documento cancelado no TAE com sucesso`);
     } else if (cancelRes.status === 400) {
-      // 400 can mean the document is already signed/cancelled or not in draft state
-      // Log the error but proceed with local cancellation
       log(logs, "TAE Cancelamento", "info", `TAE retornou 400: ${cancelRaw.substring(0, 300)}. O documento pode já estar finalizado/cancelado. Prosseguindo com cancelamento local.`);
     } else if (cancelRes.status === 403 || cancelRes.status === 401) {
-      log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: sem permissão para cancelar. O usuário de serviço pode não ser o autor. Prosseguindo com cancelamento local.`);
+      log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: sem permissão para cancelar. Prosseguindo com cancelamento local.`);
     } else {
       log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: ${cancelRaw.substring(0, 300)}. Prosseguindo com cancelamento local.`);
     }
 
     // 7. Update local records regardless of TAE result
-    const adminSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
     await adminSupabase
       .from("proposal_signatures")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })

@@ -489,12 +489,12 @@ export default function ProjectCreatePage() {
         if (id) {
           await supabase.from("project_attachments").insert({
             project_id: id, file_name: file.name, file_url: urlData.publicUrl,
-            file_size: file.size, mime_type: file.type, uploaded_by: user.id,
+            file_size: file.size, mime_type: file.type, uploaded_by: user.id, is_scope: false,
           });
         }
         setAttachments((prev) => [...prev, {
           id: crypto.randomUUID(), file_name: file.name, file_url: urlData.publicUrl,
-          file_size: file.size, mime_type: file.type, _isNew: !id,
+          file_size: file.size, mime_type: file.type, is_scope: false, _isNew: !id,
         }]);
       }
       toast({ title: "Arquivo(s) anexado(s)" });

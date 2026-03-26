@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(
@@ -460,6 +460,18 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    } else if (type === "projeto_concluido") {
+      // Direct email with custom body
+      if (!to || !customSubject || !customHtmlBody) {
+        return new Response(
+          JSON.stringify({ error: "Missing to, subject, or htmlBody for projeto_concluido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      recipientEmail = to;
+      recipientName = to;
+      subject = customSubject;
+      bodyHtml = customHtmlBody;
     } else {
       return new Response(JSON.stringify({ error: "Invalid notification type" }), {
         status: 400,

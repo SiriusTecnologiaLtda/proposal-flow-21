@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, Clock, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useProjects, useDeleteProject, useUpdateProjectStatus } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,7 @@ export default function ProjectsPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [concludeProject, setConcludeProject] = useState<any>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();
@@ -305,20 +307,15 @@ export default function ProjectsPage() {
                           <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />Abrir
                           </DropdownMenuItem>
-                          {project.status === "rascunho" && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "em_revisao")}>
-                              <Clock className="mr-2 h-4 w-4" />Enviar para Revisão
+                          {(project.status === "rascunho" || project.status === "em_revisao") && project.proposal_id && (
+                            <DropdownMenuItem onClick={() => setConcludeProject(project)}>
+                              <CheckCircle className="mr-2 h-4 w-4" />Concluir Projeto
                             </DropdownMenuItem>
                           )}
                           {project.status === "em_revisao" && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, "concluido")}>
-                                <CheckCircle className="mr-2 h-4 w-4" />Concluir
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(project.id, "rascunho")}>
-                                <PenLine className="mr-2 h-4 w-4" />Voltar para Rascunho
-                              </DropdownMenuItem>
-                            </>
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "rascunho")}>
+                              <PenLine className="mr-2 h-4 w-4" />Voltar para Rascunho
+                            </DropdownMenuItem>
                           )}
                           {role === "admin" && (
                             <>
@@ -338,6 +335,12 @@ export default function ProjectsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <ConcludeProjectDialog
+        open={!!concludeProject}
+        onOpenChange={(open) => { if (!open) setConcludeProject(null); }}
+        project={concludeProject}
+      />
     </div>
   );
 }

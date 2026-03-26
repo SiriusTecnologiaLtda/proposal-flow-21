@@ -277,7 +277,7 @@ export default function WhatsAppConfigPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <MessageCircle className="h-6 w-6 text-green-600" />
+            <MessageCircle className="h-6 w-6 text-success" />
             WhatsApp + IA
           </h1>
           <p className="text-sm text-muted-foreground">Configure a integração com WhatsApp via Twilio e o modelo de IA para respostas inteligentes</p>

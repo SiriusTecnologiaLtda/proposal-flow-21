@@ -58,7 +58,7 @@ const localStatusMap: Record<string, { label: string; className: string; icon: t
 };
 
 function SignerIcon({ status }: { status: string }) {
-  if (status === "signed" || status === "Assinado") return <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />;
+  if (status === "signed" || status === "Assinado") return <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />;
   if (status === "rejected" || status === "Rejeitado") return <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />;
   return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
 }

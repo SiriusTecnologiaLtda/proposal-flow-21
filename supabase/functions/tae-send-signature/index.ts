@@ -513,17 +513,10 @@ Deno.serve(async (req) => {
         tipoEnvioDocumento: 1,
       }));
 
-    // Load proposal to get number for email subject
-    const { data: proposal } = await supabase
-      .from("proposals")
-      .select("number, clients(name)")
-      .eq("id", sigRecord.proposal_id)
-      .single();
-
     // Sanitize: remove characters not accepted by TAE (only allow: _@.,()!?:+-%$ and alphanumeric)
     const sanitize = (str: string) => str.replace(/[—–""'']/g, "-").replace(/[^\w\s@.,()!?:+\-%$]/g, "");
 
-    // Use custom subject/body from frontend if provided, else fallback
+    // Load proposal to get number for email subject fallback
     const { data: proposal } = await supabase
       .from("proposals")
       .select("number, clients(name)")

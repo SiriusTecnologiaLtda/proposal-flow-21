@@ -601,7 +601,7 @@ export default function GoogleIntegrationPage() {
                               <Star className={`h-4 w-4 ${item.is_default ? "fill-primary text-primary" : "text-muted-foreground"}`} />
                             </Button>
                             <Button variant="ghost" size="icon" title="Testar conexão" onClick={() => runTest(item)}>
-                              <Play className="h-4 w-4 text-green-600" />
+                              <Play className="h-4 w-4 text-success" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                               <Pencil className="h-4 w-4" />

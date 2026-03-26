@@ -614,7 +614,16 @@ export default function Dashboard() {
     return months;
   }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
 
-  const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
+  const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+
+  const totalMeta = useMemo(() => {
+    if (resultadoMode === "ytd") {
+      return resultadoData.filter(m => m.month <= currentMonth).reduce((s, m) => s + m.meta, 0);
+    }
+    return resultadoData.reduce((s, m) => s + m.meta, 0);
+  }, [resultadoData, resultadoMode, currentMonth]);
+
   const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
   const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;
@@ -950,9 +959,28 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Resultado ═══ */}
         <TabsContent value="resultado" className="space-y-6">
+          {/* YTD / Anual toggle */}
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="mr-1 text-xs text-muted-foreground">Visão:</span>
+            {(["ytd", "anual"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setResultadoMode(mode)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+                  resultadoMode === mode
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                )}
+              >
+                {mode === "ytd" ? "YTD" : "Anual"}
+              </button>
+            ))}
+          </div>
+
           {/* KPI summary */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <KpiCard icon={Target} label="Meta Total" value={formatCurrency(totalMeta)} subValue={`Ano ${targetYear}`} colorClass="text-primary" bgClass="bg-primary/15" delay={0} />
+            <KpiCard icon={Target} label="Meta Total" value={formatCurrency(totalMeta)} subValue={resultadoMode === "ytd" ? `Jan–${resultadoData[currentMonth - 1]?.label || ""} ${targetYear}` : `Ano ${targetYear}`} colorClass="text-primary" bgClass="bg-primary/15" delay={0} />
             <KpiCard icon={TrendingUp} label="Realizado" value={formatCurrency(totalRealizado)} subValue="propostas ganhas" colorClass="text-success" bgClass="bg-success/15" delay={0.05} />
             <KpiCard icon={Trophy} label="Atingimento" value={`${atingimentoPercent.toFixed(1)}%`} subValue="realizado / meta" colorClass={atingimentoPercent >= 100 ? "text-success" : "text-warning"} bgClass={atingimentoPercent >= 100 ? "bg-success/15" : "bg-warning/15"} delay={0.1} />
             <KpiCard icon={TrendingDown} label="GAP" value={formatCurrency(totalGap)} subValue="meta − realizado" colorClass={totalGap <= 0 ? "text-success" : "text-destructive"} bgClass={totalGap <= 0 ? "bg-success/15" : "bg-destructive/15"} delay={0.15} />

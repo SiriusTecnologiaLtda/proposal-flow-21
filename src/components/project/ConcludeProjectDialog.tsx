@@ -80,14 +80,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   }, [open, proposalId, project?.id]);
 
   const scopeSummary = useMemo(() => {
-    if (!project) return [];
-    const items = project.project_scope_items || [];
-    const groupNotes = project.group_notes || {};
+    const proj = fullProject;
+    if (!proj) return [];
+    const items = proj.project_scope_items || [];
+    const groupNotes = proj.group_notes || {};
     const processGroupMap: Record<string, string> = groupNotes._process_group_map || {};
     const manualGroups: Record<string, string> = groupNotes._manual_groups || {};
     const groupOrder: string[] = groupNotes._group_order || [];
 
-    // Build reverse map: groupId -> parent item IDs
     const groupToParents = new Map<string, string[]>();
     for (const [parentId, groupId] of Object.entries(processGroupMap)) {
       if (!groupToParents.has(groupId as string)) groupToParents.set(groupId as string, []);
@@ -97,7 +97,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const result: { name: string; hours: number }[] = [];
     const accountedParents = new Set<string>();
 
-    // Follow defined group order
     for (const groupId of groupOrder) {
       const groupName = manualGroups[groupId] || groupId;
       const parentIds = groupToParents.get(groupId) || [];
@@ -110,7 +109,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       if (hours > 0) result.push({ name: groupName, hours });
     }
 
-    // Any unaccounted parents go to "Itens Avulsos"
     const ungroupedParents = items.filter((i: any) => !i.parent_id && !accountedParents.has(i.id));
     let ungroupedHours = 0;
     for (const p of ungroupedParents) {
@@ -120,7 +118,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     if (ungroupedHours > 0) result.push({ name: "Itens Avulsos", hours: ungroupedHours });
 
     return result;
-  }, [project]);
+  }, [fullProject]);
 
   const totalHours = scopeSummary.reduce((s, g) => s + g.hours, 0);
 

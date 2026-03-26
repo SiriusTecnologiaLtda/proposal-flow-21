@@ -717,19 +717,19 @@ export default function GoogleIntegrationPage() {
             <DialogTitle>Console — Teste de Conexão</DialogTitle>
             <DialogDescription>Conexão: {testLabel}</DialogDescription>
           </DialogHeader>
-          <div className="bg-gray-950 mx-4 mb-4 rounded-lg border border-gray-800">
+          <div className="bg-card mx-4 mb-4 rounded-lg border border-border">
             <ScrollArea className="h-[350px] p-4">
               <div className="space-y-1 font-mono text-xs">
                 {testLogs.map((entry, i) => (
                   <div key={i} className="flex gap-2 leading-relaxed">
-                    <span className="shrink-0 text-gray-500 select-none">
+                    <span className="shrink-0 text-muted-foreground select-none">
                       {new Date(entry.timestamp).toLocaleTimeString()}
                     </span>
                     <span className="shrink-0">{statusIcon(entry.status)}</span>
                     <span className={
-                      entry.status === "ok" ? "text-green-300" :
-                      entry.status === "error" ? "text-red-300" :
-                      "text-gray-300"
+                      entry.status === "ok" ? "text-success" :
+                      entry.status === "error" ? "text-destructive" :
+                      "text-foreground"
                     }>
                       {entry.message}
                     </span>

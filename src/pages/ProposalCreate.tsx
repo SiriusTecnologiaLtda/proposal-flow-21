@@ -324,7 +324,8 @@ export default function ProposalCreate() {
     }
 
     setLoaded(true);
-  }, [existingProposal, loaded, isDuplicating]);
+    setLastHydratedAt((existingProposal as any)?.updated_at || null);
+  }, [existingProposal, loaded, isDuplicating, lastHydratedAt]);
 
   // Load defaults for new proposals
   useEffect(() => {

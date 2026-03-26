@@ -378,7 +378,8 @@ export default function ProposalCreate() {
   );
 
   const availableTemplates = useMemo(() => {
-    let templates = scopeTemplates;
+    // Only show approved templates in proposals
+    let templates = scopeTemplates.filter((t: any) => (t as any).status === "aprovado");
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
       templates = templates.filter((t) => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q) || t.product.toLowerCase().includes(q));

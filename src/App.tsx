@@ -13,6 +13,7 @@ import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";
 import ClientsList from "@/pages/ClientsList";
 import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
+import ScopeTemplateEditPage from "@/pages/ScopeTemplateEditPage";
 import ProductsCategoriesPage from "@/pages/ProductsCategoriesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -125,6 +126,8 @@ function ProtectedRoutes() {
         <Route path="/produtos-categorias" element={<Navigate to="/cadastros/produtos" replace />} />
         <Route path="/time" element={<Navigate to="/cadastros/time" replace />} />
         <Route path="/templates" element={<GuardedRoute path="/templates"><ScopeTemplatesPage /></GuardedRoute>} />
+        <Route path="/templates/novo" element={<GuardedRoute path="/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
+        <Route path="/templates/:id" element={<GuardedRoute path="/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
         <Route path="/configuracoes" element={<GuardedRoute path="/configuracoes"><SettingsPage /></GuardedRoute>} />
         <Route path="/configuracoes/parametros" element={<GuardedRoute path="/configuracoes"><ProposalDefaultsPage /></GuardedRoute>} />
         <Route path="/configuracoes/google" element={<GuardedRoute path="/configuracoes"><GoogleIntegrationPage /></GuardedRoute>} />

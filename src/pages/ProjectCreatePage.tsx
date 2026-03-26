@@ -542,7 +542,7 @@ export default function ProjectCreatePage() {
 
   const isAdmin = userRole === "admin";
   const isReadOnly = existingProject?.status === "concluido" && !isAdmin;
-  const statusLabel = STATUS_MAP[existingProject?.status || "rascunho"] || "Rascunho";
+  const statusLabel = STATUS_MAP[existingProject?.status || "pendente"] || "Pendente";
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">

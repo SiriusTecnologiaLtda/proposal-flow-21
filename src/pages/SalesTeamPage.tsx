@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const roleLabels: Record<string, string> = {
   esn: "Executivo de Vendas (ESN)",
   gsn: "Gerente de Vendas (GSN)",
-  arquiteto: "Arquiteto de Soluções",
+  arquiteto: "Engenheiro de Valor",
 };
 
 const roleColors: Record<string, string> = {

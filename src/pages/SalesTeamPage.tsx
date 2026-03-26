@@ -111,10 +111,21 @@ export default function SalesTeamPage() {
     }
   };
 
+  const activeFilterCount = [filterRole, filterUnitId, filterGsnId].filter(Boolean).length;
+
   const filteredTeam = salesTeam.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q);
+    if (search) {
+      const q = search.toLowerCase();
+      if (!m.name.toLowerCase().includes(q) && !m.code.toLowerCase().includes(q)) return false;
+    }
+    if (filterRole && m.role !== filterRole) return false;
+    if (filterUnitId && m.unit_id !== filterUnitId) return false;
+    if (filterGsnId) {
+      if (m.role === "esn" && m.linked_gsn_id !== filterGsnId) return false;
+      if (m.role === "gsn" && m.id !== filterGsnId) return false;
+      if (m.role === "arquiteto") return false;
+    }
+    return true;
   });
 
   const grouped = filteredTeam.reduce<Record<string, typeof salesTeam>>((acc, m) => {
@@ -122,12 +133,14 @@ export default function SalesTeamPage() {
     return acc;
   }, {});
 
+  const clearFilters = () => { setFilterRole(""); setFilterUnitId(""); setFilterGsnId(""); };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Time de Vendas</h1>
-          <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados</p>
+          <p className="text-sm text-muted-foreground">{salesTeam.length} membros cadastrados{filteredTeam.length !== salesTeam.length ? ` · ${filteredTeam.length} exibidos` : ""}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setBatchCommissionOpen(true)}>
@@ -138,14 +151,61 @@ export default function SalesTeamPage() {
           </Button>
         </div>
       </div>
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Pesquisar por nome ou código..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+
+      {/* Filter bar */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Filter className="h-4 w-4" />
+          <span>Filtros</span>
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="text-xs">{activeFilterCount} ativo{activeFilterCount > 1 ? "s" : ""}</Badge>
+          )}
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-3 w-3" /> Limpar filtros
+            </button>
+          )}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome ou código..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={filterRole} onValueChange={(v) => setFilterRole(v === "all" ? "" : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Classificação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as classificações</SelectItem>
+              <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
+              <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
+              <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterUnitId} onValueChange={(v) => setFilterUnitId(v === "all" ? "" : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Unidade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as unidades</SelectItem>
+              {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+          <Select value={filterGsnId} onValueChange={(v) => setFilterGsnId(v === "all" ? "" : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="GSN vinculado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os GSNs</SelectItem>
+              {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

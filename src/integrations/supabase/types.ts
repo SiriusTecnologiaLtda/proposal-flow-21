@@ -1494,26 +1494,38 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          created_by: string | null
+          created_by_name: string | null
           id: string
           name: string
           product: string
+          status: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           category: string
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           id?: string
           name: string
           product: string
+          status?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           category?: string
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           id?: string
           name?: string
           product?: string
+          status?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }

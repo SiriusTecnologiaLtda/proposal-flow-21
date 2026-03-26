@@ -30,13 +30,23 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const qc = useQueryClient();
 
   const proposalId = project?.proposal_id;
+  const [fullProject, setFullProject] = useState<any>(null);
 
   useEffect(() => {
-    if (!open || !proposalId) return;
+    if (!open || !proposalId || !project?.id) return;
     setMessage("");
     setCcEmails([]);
     setCcInput("");
+    setFullProject(null);
     (async () => {
+      // Fetch full project data with group_notes and complete scope items
+      const { data: fullProj } = await supabase
+        .from("projects")
+        .select("*, project_scope_items(*)")
+        .eq("id", project.id)
+        .single();
+      setFullProject(fullProj);
+
       const { data: proposal } = await supabase
         .from("proposals")
         .select("id, number, esn_id, client_id, status")
@@ -70,14 +80,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   }, [open, proposalId, project?.id]);
 
   const scopeSummary = useMemo(() => {
-    if (!project) return [];
-    const items = project.project_scope_items || [];
-    const groupNotes = project.group_notes || {};
+    const proj = fullProject;
+    if (!proj) return [];
+    const items = proj.project_scope_items || [];
+    const groupNotes = proj.group_notes || {};
     const processGroupMap: Record<string, string> = groupNotes._process_group_map || {};
     const manualGroups: Record<string, string> = groupNotes._manual_groups || {};
     const groupOrder: string[] = groupNotes._group_order || [];
 
-    // Build reverse map: groupId -> parent item IDs
     const groupToParents = new Map<string, string[]>();
     for (const [parentId, groupId] of Object.entries(processGroupMap)) {
       if (!groupToParents.has(groupId as string)) groupToParents.set(groupId as string, []);
@@ -87,7 +97,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const result: { name: string; hours: number }[] = [];
     const accountedParents = new Set<string>();
 
-    // Follow defined group order
     for (const groupId of groupOrder) {
       const groupName = manualGroups[groupId] || groupId;
       const parentIds = groupToParents.get(groupId) || [];
@@ -100,7 +109,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       if (hours > 0) result.push({ name: groupName, hours });
     }
 
-    // Any unaccounted parents go to "Itens Avulsos"
     const ungroupedParents = items.filter((i: any) => !i.parent_id && !accountedParents.has(i.id));
     let ungroupedHours = 0;
     for (const p of ungroupedParents) {
@@ -110,7 +118,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     if (ungroupedHours > 0) result.push({ name: "Itens Avulsos", hours: ungroupedHours });
 
     return result;
-  }, [project]);
+  }, [fullProject]);
 
   const totalHours = scopeSummary.reduce((s, g) => s + g.hours, 0);
 
@@ -147,7 +155,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         }
       }
 
-      await includeProjectInOpportunity(project, proposalId);
+      await includeProjectInOpportunity(fullProject || project, proposalId);
       await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", proposalId);
 
       if (esnEmail) {

@@ -630,14 +630,35 @@ export default function ProposalsList() {
   async function handleCancelSignature() {
     if (!cancelSignatureId) return;
     try {
-      await updateStatus.mutateAsync({ id: cancelSignatureId, status: "proposta_gerada" });
-      // Update signature record
-      await supabase
-        .from("proposal_signatures")
-        .update({ status: "cancelled", cancelled_at: new Date().toISOString() } as any)
-        .eq("proposal_id", cancelSignatureId)
-        .eq("status", "pending");
-      toast({ title: "Processo de assinatura cancelado. Status voltou para Proposta Gerada." });
+      toast({ title: "Cancelando assinatura no TAE..." });
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const taeRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-cancel-signature`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ proposalId: cancelSignatureId }),
+        }
+      );
+      const taeData = await taeRes.json();
+
+      if (!taeRes.ok || taeData.logs?.some((l: any) => l.status === "error")) {
+        const errorMsg = taeData.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ")
+          || "Erro ao cancelar no TAE";
+        toast({ title: "Falha no cancelamento", description: errorMsg, variant: "destructive" });
+      } else {
+        const taeStatus = taeData.taeStatus === "cancelled_in_tae"
+          ? "Cancelamento realizado no TAE e localmente."
+          : "Cancelamento local realizado. TAE pode requerer cancelamento manual.";
+        toast({ title: "Processo de assinatura cancelado", description: taeStatus });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }

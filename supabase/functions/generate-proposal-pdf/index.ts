@@ -615,8 +615,19 @@ async function buildOrderedGroups(
   const groupData: Record<string, { name: string; parents: any[]; children: Record<string, any[]> }> = {};
 
   for (const parent of parentItems.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))) {
-    // Determine group key: check processGroupMap first, then template_id, then fallback
-    let groupKey = processGroupMap[parent.id] || parent.template_id || "__ungrouped__";
+    // Determine group key: check processGroupMap first, then build composite key for project items, then template_id
+    let groupKey = processGroupMap[parent.id] || "";
+    
+    if (!groupKey) {
+      // For items from a project, build the composite key _project_{projectId}_{templateId|manualKey}
+      if (parent.project_id && parent.template_id) {
+        groupKey = `_project_${parent.project_id}_${parent.template_id}`;
+      } else if (parent.template_id) {
+        groupKey = parent.template_id;
+      } else {
+        groupKey = "__ungrouped__";
+      }
+    }
     
     // Determine group name
     let groupName: string;
@@ -624,7 +635,6 @@ async function buildOrderedGroups(
       groupName = manualGroups[groupKey];
     } else if (parent.template_id && templateNames[parent.template_id]) {
       groupName = templateNames[parent.template_id];
-      groupKey = parent.template_id; // normalize key
     } else if (processGroupMap[parent.id] && manualGroups[processGroupMap[parent.id]]) {
       groupName = manualGroups[processGroupMap[parent.id]];
       groupKey = processGroupMap[parent.id];

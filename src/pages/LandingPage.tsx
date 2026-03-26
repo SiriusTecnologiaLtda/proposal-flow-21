@@ -334,7 +334,7 @@ export default function LandingPage() {
                   { icon: Shield, title: "Admin", desc: "Acesso total: cadastros, configurações, metas, permissões e todos os dados" },
                   { icon: UserCheck, title: "Vendedor (ESN)", desc: "Vê apenas seus clientes e propostas. Cria e gerencia seu pipeline" },
                   { icon: Users, title: "GSN", desc: "Supervisiona a equipe vinculada. Vê propostas onde é gestor atribuído" },
-                  { icon: Layers, title: "Arquiteto", desc: "Revisa escopos técnicos das propostas onde está vinculado" },
+                  { icon: Layers, title: "Eng. Valor", desc: "Revisa escopos técnicos das propostas onde está vinculado" },
                   { icon: Eye, title: "Consulta CRA", desc: "Leitura apenas de propostas ganhas nas unidades autorizadas" },
                 ].map((p, i) => (
                   <div key={i} className="flex items-start gap-3">

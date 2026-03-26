@@ -538,6 +538,19 @@ Deno.serve(async (req) => {
       || sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`);
     const body = sanitize(bodyRaw);
 
+    const publishBody = {
+      idDocumento: taeDocumentId,
+      destinatarios,
+      observadores,
+      utilizaWorkflow: false,
+      publicacaoOpcoes: {
+        assuntoMensagem: subject,
+        corpoMensagem: body,
+        permiteRejeitarDocumento: true,
+        intervaloLembrete: 3,
+      },
+    };
+
     const publishRes = await fetch(`${baseUrl}/documents/v1/publicacoes`, {
       method: "POST",
       headers: {

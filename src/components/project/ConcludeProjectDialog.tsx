@@ -231,20 +231,34 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
 
     setLoading(true);
     try {
-      await supabase.from("projects").update({ status: "concluido" }).eq("id", project.id);
+      await writeSyncLog("project_conclude_started", {
+        project_scope_items_count: (fullProject?.project_scope_items || project?.project_scope_items || []).length,
+        scope_summary_count: scopeSummary.length,
+        total_hours: totalHours,
+      });
+
+      await supabase
+        .from("projects")
+        .update({ status: "concluido", proposal_id: proposalId, proposal_number: proposalData.number })
+        .eq("id", project.id);
 
       if (replaceMode === "replace" && existingProjects.length > 0) {
         for (const ep of existingProjects) {
           await supabase.from("projects").update({ proposal_id: null, proposal_number: null }).eq("id", ep.id);
           await supabase.from("proposal_scope_items").delete().eq("proposal_id", proposalId).eq("project_id", ep.id);
         }
+        await writeSyncLog("project_conclude_replaced_existing", {
+          removed_project_ids: existingProjects.map((ep) => ep.id),
+        });
       }
 
       await includeProjectInOpportunity(fullProject || project, proposalId);
+      await writeSyncLog("project_conclude_scope_synced", { proposal_id: proposalId, project_id: project.id });
+
       await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", proposalId);
+      await writeSyncLog("project_conclude_proposal_updated", { proposal_status: "analise_ev_concluida" });
 
       if (esnEmail) {
-        // Build scope summary for email
         const scopeHtml = scopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");
         const totalRow = `<tr style="background:#f0f0f0;font-weight:bold"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${totalHours}h</td></tr>`;
 
@@ -253,11 +267,11 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #1a1a2e;">Projeto Concluído</h2>
             <p>Olá <strong>${esnName || "ESN"}</strong>,</p>
-            <p>O projeto vinculado à oportunidade <strong>${project.proposal_number || ""}</strong> foi concluído.</p>
+            <p>O projeto vinculado à oportunidade <strong>${project.proposal_number || proposalData.number || ""}</strong> foi concluído.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
               <tr style="border-bottom: 1px solid #e0e0e0;">
                 <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
-                <td style="padding: 8px;">${project.proposal_number || ""}</td>
+                <td style="padding: 8px;">${project.proposal_number || proposalData.number || ""}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e0e0e0;">
                 <td style="padding: 8px; font-weight: bold; color: #555;">Produto</td>
@@ -297,13 +311,15 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 proposalId,
                 type: "projeto_concluido",
                 to: esnEmail,
-                subject: `[OPP ${project.proposal_number || ""}] Projeto Concluído`,
+                subject: `[OPP ${project.proposal_number || proposalData.number || ""}] Projeto Concluído`,
                 htmlBody,
                 cc: ccEmails.length > 0 ? ccEmails : undefined,
               }),
             }
           );
-        } catch (emailErr) {
+          await writeSyncLog("project_conclude_email_sent", { to: esnEmail, cc_count: ccEmails.length });
+        } catch (emailErr: any) {
+          await writeSyncLog("project_conclude_email_error", {}, "warn", emailErr?.message || "Email send failed");
           console.error("Email send failed:", emailErr);
         }
       }
@@ -314,6 +330,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       toast({ title: "Projeto concluído", description: "O escopo foi incluído na oportunidade e o ESN foi notificado." });
       onOpenChange(false);
     } catch (err: any) {
+      await writeSyncLog("project_conclude_error", {}, "error", err.message);
       toast({ title: "Erro ao concluir", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);

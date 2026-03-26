@@ -1605,7 +1605,7 @@ export default function ProposalCreate() {
                           <p className="text-sm font-medium text-foreground">{project.description || "Projeto"}</p>
                           <p className="text-xs text-muted-foreground">
                             {statusLabel} · {scopeCount} itens · {totalHrs}h
-                            {project.sales_team?.name ? ` · Arq: ${project.sales_team.name}` : ""}
+                            {project.sales_team?.name ? ` · E.V: ${project.sales_team.name}` : ""}
                             {project.created_at ? ` · ${new Date(project.created_at).toLocaleDateString("pt-BR")}` : ""}
                           </p>
                         </div>

@@ -1026,6 +1026,35 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             </div>
           </div>
 
+          {/* Signatories - BEFORE message, matching step order */}
+          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Signatários ({signatories.length})
+              </h4>
+              <Button variant="ghost" size="sm" className="h-6 text-xs text-primary" onClick={() => setCurrentStep(0)}>
+                Editar
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              {signatories.map((sig) => (
+                <div key={sig.id} className="flex items-center gap-3 text-sm">
+                  <div className={cn(
+                    "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
+                    sig.isLoggedUser ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  )}>
+                    {sig.name.charAt(0).toUpperCase() || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{sig.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{sig.email}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">{sig.role}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Email */}
           <div className="rounded-lg border border-border bg-card p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -1065,35 +1094,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   <span className="text-foreground truncate">{doc.name}</span>
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 ml-auto">{doc.origin}</Badge>
                   {doc.mandatory && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Signatories */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Signatários ({signatories.length})
-              </h4>
-              <Button variant="ghost" size="sm" className="h-6 text-xs text-primary" onClick={() => setCurrentStep(0)}>
-                Editar
-              </Button>
-            </div>
-            <div className="space-y-1.5">
-              {signatories.map((sig) => (
-                <div key={sig.id} className="flex items-center gap-3 text-sm">
-                  <div className={cn(
-                    "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
-                    sig.isLoggedUser ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {sig.name.charAt(0).toUpperCase() || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{sig.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{sig.email}</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">{sig.role}</Badge>
                 </div>
               ))}
             </div>

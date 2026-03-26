@@ -117,7 +117,8 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const accountedParents = new Set<string>();
 
     for (const groupId of groupOrder) {
-      const groupName = manualGroups[groupId] || groupId;
+      // Resolve name: manual group name, or template name, or fallback to groupId
+      const groupName = manualGroups[groupId] || templateNames[groupId] || groupId;
       const parentIds = groupToParents.get(groupId) || [];
       let hours = 0;
       for (const pid of parentIds) {

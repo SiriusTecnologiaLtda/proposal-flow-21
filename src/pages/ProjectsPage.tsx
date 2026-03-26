@@ -307,14 +307,14 @@ export default function ProjectsPage() {
                           <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />Abrir
                           </DropdownMenuItem>
-                          {(project.status === "rascunho" || project.status === "em_revisao") && (project.proposal_id || project.proposal_number) && (
+                          {(project.status === "pendente" || project.status === "rascunho" || project.status === "em_revisao") && (project.proposal_id || project.proposal_number) && (
                             <DropdownMenuItem onClick={() => setConcludeProject(project)}>
                               <CheckCircle className="mr-2 h-4 w-4" />Concluir Projeto
                             </DropdownMenuItem>
                           )}
                           {project.status === "em_revisao" && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "rascunho")}>
-                              <PenLine className="mr-2 h-4 w-4" />Voltar para Rascunho
+                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
+                              <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
                             </DropdownMenuItem>
                           )}
                           {role === "admin" && (

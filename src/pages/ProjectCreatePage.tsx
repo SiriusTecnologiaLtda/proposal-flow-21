@@ -180,8 +180,9 @@ export default function ProjectCreatePage() {
       setGroupNotes(loadedGroupNotes);
       setManualGroupNames(loadedManualGroups);
       setLoaded(true);
+      setLastHydratedAt((existingProject as any)?.updated_at || null);
     }
-  }, [existingProject, loaded]);
+  }, [existingProject, loaded, lastHydratedAt]);
 
   const availableTemplates = useMemo(() => {
     const search = templateSearch.toLowerCase();

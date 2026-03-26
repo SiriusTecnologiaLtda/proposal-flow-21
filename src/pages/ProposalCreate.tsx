@@ -1265,62 +1265,6 @@ export default function ProposalCreate() {
       {/* ═══ Step 1: Dados Gerais ═══════════════════════════════════ */}
       {currentStep === 1 && (
         <div className="space-y-5">
-          {/* ── Informações da Proposta ─────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                <FileText className="h-3.5 w-3.5 text-primary" />
-              </div>
-              Informações da Oportunidade
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Número da Proposta (OPP)</Label>
-                <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} className="h-10" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Tipo de Oportunidade</Label>
-                <Select value={proposalType} onValueChange={setProposalType}>
-                  <SelectTrigger id="proposalType" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {proposalTypes.map((pt: any) => (
-                      <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Produto</Label>
-                <Select value={product} onValueChange={setProduct}>
-                  <SelectTrigger id="product" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {productsList.map((p) => (
-                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nível do Escopo</Label>
-                <Select value={scopeType} onValueChange={setScopeType}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="detalhado">Detalhado</SelectItem>
-                    <SelectItem value="macro">Macro Escopo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label className="text-xs text-muted-foreground">Descrição do Projeto</Label>
-                <Textarea placeholder="Descreva o objetivo central da oportunidade e o valor esperado para o cliente..." value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[80px] resize-none" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Data Prevista de Fechamento</Label>
-                <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} className="h-10" />
-              </div>
-            </div>
-          </div>
-
           {/* ── Contexto do Cliente ─────────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -1398,6 +1342,62 @@ export default function ProposalCreate() {
                 />
               </div>
             )}
+          </div>
+
+          {/* ── Informações da Proposta ─────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Informações da Oportunidade
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Número da Proposta (OPP)</Label>
+                <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo de Oportunidade</Label>
+                <Select value={proposalType} onValueChange={setProposalType}>
+                  <SelectTrigger id="proposalType" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {proposalTypes.map((pt: any) => (
+                      <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Produto</Label>
+                <Select value={product} onValueChange={setProduct}>
+                  <SelectTrigger id="product" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {productsList.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nível do Escopo</Label>
+                <Select value={scopeType} onValueChange={setScopeType}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="detalhado">Detalhado</SelectItem>
+                    <SelectItem value="macro">Macro Escopo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Descrição do Projeto</Label>
+                <Textarea placeholder="Descreva o objetivo central da oportunidade e o valor esperado para o cliente..." value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[80px] resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data Prevista de Fechamento</Label>
+                <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} className="h-10" />
+              </div>
+            </div>
           </div>
 
           {/* ── Time Responsável ────────────────────────────────────── */}

@@ -8,7 +8,7 @@ export function useProjects() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id), project_attachments(id), proposal_id, proposal_number")
+        .select("*, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id), project_attachments(id), proposal_id, proposal_number, proposals!projects_proposal_id_fkey(id, status, number)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;

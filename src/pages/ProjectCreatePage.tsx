@@ -515,11 +515,14 @@ export default function ProjectCreatePage() {
       const computedGroupOrder = groupedScope.map(g => g.templateId || g.groupId).filter(Boolean) as string[];
       const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames, _group_order: computedGroupOrder };
       if (isEditing) {
-        await updateProject.mutateAsync({ id, ...form, group_notes: savedGroupNotes, scopeItems: flatScope });
+        // Auto-transition: pendente/rascunho → em_revisao on save (when user modifies)
+        const currentStatus = existingProject?.status;
+        const autoStatus = (currentStatus === "pendente" || currentStatus === "rascunho") ? "em_revisao" : undefined;
+        await updateProject.mutateAsync({ id, ...form, group_notes: savedGroupNotes, scopeItems: flatScope, ...(autoStatus ? { status: autoStatus } : {}) });
       } else {
         const projectId = crypto.randomUUID();
         await createProject.mutateAsync({
-          id: projectId, ...form, group_notes: savedGroupNotes, created_by: user!.id, scopeItems: flatScope,
+          id: projectId, ...form, status: "pendente", group_notes: savedGroupNotes, created_by: user!.id, scopeItems: flatScope,
         });
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({

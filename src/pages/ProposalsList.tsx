@@ -387,6 +387,12 @@ export default function ProposalsList() {
           queryClient.invalidateQueries({ queryKey: ["projects"] });
         }
         
+        // If notificar_esn, change status to analise_ev_concluida
+        if (notifType === "notificar_esn") {
+          await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", notifProposal.id);
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        }
+        
         toast({
           title: "Email enviado com sucesso",
           description: `Enviado de ${data.senderEmail} para ${data.recipientName} (${data.recipientEmail})`,

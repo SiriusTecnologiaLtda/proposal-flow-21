@@ -929,7 +929,8 @@ export default function ProposalsList() {
                       );
                     })()}
                     {p.status !== "ganha" && (
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                        {status.icon}
                         {status.label}
                       </span>
                     )}

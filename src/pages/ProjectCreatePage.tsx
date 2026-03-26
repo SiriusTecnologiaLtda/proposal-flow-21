@@ -43,7 +43,8 @@ function localId() {
 }
 
 const STATUS_MAP: Record<string, string> = {
-  rascunho: "Rascunho",
+  pendente: "Pendente",
+  rascunho: "Pendente", // legacy fallback
   em_revisao: "Em Revisão",
   concluido: "Concluído",
 };

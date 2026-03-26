@@ -756,11 +756,12 @@ export default function ProjectCreatePage() {
                           {arquitetos.map((a: any) => (
                             <CommandItem
                               key={a.id}
-                              value={`${a.name} ${a.code || ""} ${a.email || ""}`}
+                              value={`${a.name} ${a.code || ""} ${a.email || ""} ${a.unit_info?.name || ""}`}
                               onSelect={() => { setForm((f) => ({ ...f, arquiteto_id: a.id })); setArquitetoPopoverOpen(false); }}
                             >
                               <Check className={cn("mr-2 h-4 w-4", form.arquiteto_id === a.id ? "opacity-100" : "opacity-0")} />
                               {a.code} - {a.name}
+                              {a.unit_info?.name && <span className="ml-1 text-xs text-muted-foreground">({a.unit_info.name})</span>}
                             </CommandItem>
                           ))}
                         </CommandGroup>

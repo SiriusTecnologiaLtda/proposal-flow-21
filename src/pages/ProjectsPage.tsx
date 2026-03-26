@@ -125,7 +125,6 @@ export default function ProjectsPage() {
 
         if (proposal?.group_notes) {
           const notes = { ...(proposal.group_notes as any) };
-          // Remove _project_${id}_ prefixed keys
           Object.keys(notes).forEach((key) => {
             if (key.startsWith(`_project_${project.id}_`)) delete notes[key];
           });
@@ -135,11 +134,23 @@ export default function ProjectsPage() {
         // Revert proposal status to pendente
         await supabase.from("proposals").update({ status: "pendente" }).eq("id", project.proposal_id);
 
-        // TODO: notify ESN via email (future enhancement)
+        // Notify ESN via email
+        try {
+          await supabase.functions.invoke("send-proposal-notification", {
+            body: {
+              proposalId: project.proposal_id,
+              type: "projeto_excluido",
+              _origin: window.location.origin,
+            },
+          });
+        } catch (emailErr) {
+          console.error("Falha ao enviar notificação ao ESN:", emailErr);
+          // Don't block deletion if email fails
+        }
       }
 
       await deleteProject.mutateAsync(project.id);
-      toast({ title: "Projeto excluído", description: project.proposal_id ? "A oportunidade foi revertida para Pendente." : undefined });
+      toast({ title: "Projeto excluído", description: project.proposal_id ? "A oportunidade foi revertida para Pendente e o ESN foi notificado." : undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
     } finally {

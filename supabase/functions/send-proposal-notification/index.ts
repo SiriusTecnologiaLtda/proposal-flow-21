@@ -478,6 +478,51 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    } else if (type === "projeto_excluido") {
+      // Notify ESN that a project was deleted from the opportunity
+      const esn = (proposal as any).esn;
+      if (!esn?.email) {
+        return new Response(
+          JSON.stringify({ error: "ESN não possui email cadastrado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      recipientEmail = esn.email;
+      recipientName = esn.name;
+      subject = `[Oportunidade ${proposalNumber}] Projeto Excluído`;
+
+      const opportunityLinkHtml = _origin
+        ? `<p style="margin: 16px 0;"><a href="${_origin}/oportunidades/${proposalId}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Oportunidade na Plataforma</a></p>`
+        : "";
+
+      bodyHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #c0392b;">Projeto Excluído da Oportunidade</h2>
+          <p>Olá <strong>${recipientName}</strong>,</p>
+          <p><strong>${senderName}</strong> excluiu um projeto vinculado à sua oportunidade. As seguintes ações foram realizadas automaticamente:</p>
+          <ul style="margin: 12px 0; padding-left: 20px; color: #333;">
+            <li>O escopo do projeto foi removido da oportunidade</li>
+            <li>A oportunidade retornou ao status <strong>Pendente</strong></li>
+          </ul>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="border-bottom: 1px solid #e0e0e0;">
+              <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
+              <td style="padding: 8px;">${proposalNumber}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e0e0e0;">
+              <td style="padding: 8px; font-weight: bold; color: #555;">Cliente</td>
+              <td style="padding: 8px;">${clientName}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e0e0e0;">
+              <td style="padding: 8px; font-weight: bold; color: #555;">Produto</td>
+              <td style="padding: 8px;">${proposalProduct}</td>
+            </tr>
+          </table>
+          ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Motivo:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+          ${opportunityLinkHtml}
+          <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de oportunidades.</p>
+        </div>
+      `;
     } else if (type === "projeto_concluido") {
       // Direct email with custom body
       if (!to || !customSubject || !customHtmlBody) {

@@ -235,6 +235,7 @@ export default function ProjectsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>OPP</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>ESN</TableHead>
               <TableHead>GSN</TableHead>
@@ -271,6 +272,7 @@ export default function ProjectsPage() {
                   : "—";
                 return (
                   <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
+                    <TableCell className="text-sm text-muted-foreground">{project.proposal_number || "—"}</TableCell>
                     <TableCell className="font-medium">
                       <div>{project.clients?.name || "—"}</div>
                       {project.clients?.code && (

@@ -32,6 +32,7 @@ interface LogEntry {
 
 const statusMap: Record<string, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
+  em_analise_ev: { label: "Em Análise E.V.", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
   proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
@@ -363,6 +364,28 @@ export default function ProposalsList() {
         return;
       }
       if (res.ok && data.success) {
+        // If solicitar_ajuste, change status to em_analise_ev and create project
+        if (notifType === "solicitar_ajuste") {
+          await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", notifProposal.id);
+          
+          // Auto-create project linked to this proposal
+          const projectId = crypto.randomUUID();
+          await supabase.from("projects").insert({
+            id: projectId,
+            client_id: notifProposal.client_id,
+            product: notifProposal.product,
+            description: notifProposal.description || "",
+            arquiteto_id: notifProposal.arquiteto_id,
+            created_by: user!.id,
+            status: "rascunho",
+            proposal_id: notifProposal.id,
+            proposal_number: notifProposal.number,
+          } as any);
+          
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
+        
         toast({
           title: "Email enviado com sucesso",
           description: `Enviado de ${data.senderEmail} para ${data.recipientName} (${data.recipientEmail})`,
@@ -1034,11 +1057,11 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.arquiteto_id && !isArquiteto && (
+                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
-                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Enviar para Eng. Valor
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Eng. Valor
                                 </DropdownMenuItem>
                               </>
                             )}
@@ -1397,7 +1420,7 @@ export default function ProposalsList() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {notifType === "solicitar_ajuste" ? (
-                  <><MessageSquare className="h-5 w-5" /> Enviar para Eng. Valor</>
+                  <><MessageSquare className="h-5 w-5" /> Solicitar Eng. Valor</>
                 ) : (
                   <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
                 )}

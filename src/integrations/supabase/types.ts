@@ -719,6 +719,8 @@ export type Database = {
           group_notes: Json | null
           id: string
           product: string
+          proposal_id: string | null
+          proposal_number: string | null
           status: string
           updated_at: string
         }
@@ -731,6 +733,8 @@ export type Database = {
           group_notes?: Json | null
           id?: string
           product?: string
+          proposal_id?: string | null
+          proposal_number?: string | null
           status?: string
           updated_at?: string
         }
@@ -743,6 +747,8 @@ export type Database = {
           group_notes?: Json | null
           id?: string
           product?: string
+          proposal_id?: string | null
+          proposal_number?: string | null
           status?: string
           updated_at?: string
         }
@@ -759,6 +765,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
         ]
@@ -1893,6 +1906,7 @@ export type Database = {
       proposal_status:
         | "pendente"
         | "proposta_gerada"
+        | "em_analise_ev"
         | "em_assinatura"
         | "ganha"
         | "cancelada"
@@ -2030,6 +2044,7 @@ export const Constants = {
       proposal_status: [
         "pendente",
         "proposta_gerada",
+        "em_analise_ev",
         "em_assinatura",
         "ganha",
         "cancelada",

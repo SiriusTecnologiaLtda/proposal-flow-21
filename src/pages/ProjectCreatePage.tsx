@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { useProject, useCreateProject, useUpdateProject } from "@/hooks/useProjects";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useClients, useSalesTeam, useProducts, useCategories, useScopeTemplates, useUnits } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -534,7 +535,9 @@ export default function ProjectCreatePage() {
     return <div className="flex items-center justify-center py-12 text-muted-foreground">Carregando...</div>;
   }
 
-  const isReadOnly = existingProject?.status === "concluido";
+  const { role: userRole } = useUserRole();
+  const isAdmin = userRole === "admin";
+  const isReadOnly = existingProject?.status === "concluido" && !isAdmin;
   const statusLabel = STATUS_MAP[existingProject?.status || "rascunho"] || "Rascunho";
 
   return (

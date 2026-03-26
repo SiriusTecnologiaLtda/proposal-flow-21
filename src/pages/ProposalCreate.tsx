@@ -549,6 +549,13 @@ export default function ProposalCreate() {
   const requireProject = currentProposalTypeConfig?.require_project ?? false;
   const allowStandaloneScope = currentProposalTypeConfig?.allow_standalone_scope ?? true;
 
+  // Lock scope editing when projects are linked (non-admin)
+  const isAdmin = userRole === "admin";
+  const hasLinkedProject = addedProjectIds.size > 0;
+  const scopeLocked = hasLinkedProject && !isAdmin;
+  const proposalStatus = (existingProposal as any)?.status || "pendente";
+  const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
+
   // Round up to nearest multiple of rounding factor
   function roundUpFactor(val: number) {
     return Math.ceil(val / roundingFactor) * roundingFactor;
@@ -1501,12 +1508,12 @@ export default function ProposalCreate() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
             <div className="flex items-center gap-2">
-              {clientId && allowProject && (
+              {clientId && allowProject && !hideIncluirProjeto && (
                 <Button variant="outline" size="sm" onClick={() => { setProjectSearch(""); refetchProjects(); setProjectDialogOpen(true); }}>
                   <FolderKanban className="mr-1 h-3.5 w-3.5" /> Incluir Projeto
                 </Button>
               )}
-              {allowStandaloneScope && (
+              {allowStandaloneScope && !scopeLocked && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
                     <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template
@@ -1673,13 +1680,17 @@ export default function ProposalCreate() {
                           groupKey.startsWith("_project_") ? (
                             <p className="text-sm font-semibold text-foreground">{manualGroupNames[group.groupId] || "Grupo"}</p>
                           ) : (
-                            <Input
-                              value={manualGroupNames[group.groupId] || ""}
-                              onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
-                              onClick={(e) => e.stopPropagation()}
-                              className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
-                              placeholder="Nome do grupo"
-                            />
+                            scopeLocked ? (
+                              <p className="text-sm font-semibold text-foreground">{manualGroupNames[group.groupId] || "Grupo"}</p>
+                            ) : (
+                              <Input
+                                value={manualGroupNames[group.groupId] || ""}
+                                onChange={(e) => setManualGroupNames((prev) => ({ ...prev, [group.groupId!]: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                                placeholder="Nome do grupo"
+                              />
+                            )
                           )
                         ) : (
                           <p className="text-sm font-semibold text-foreground">{group.templateName}</p>
@@ -1702,43 +1713,45 @@ export default function ProposalCreate() {
                       >
                         <MessageSquare className="h-4 w-4" />
                       </button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (group.templateId?.startsWith("_project_")) {
-                            const gid = group.templateId;
-                            setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
-                            setGroupOrder((prev) => prev.filter((key) => key !== gid));
-                            setAddedTemplateIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(gid);
-                              return next;
-                            });
-                            const projectId = gid.replace("_project_", "").split("_")[0];
-                            const remainingProjectGroups = scopeProcesses.filter(
-                              (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
-                            );
-                            if (remainingProjectGroups.length === 0) {
-                              setAddedProjectIds((prev) => {
+                      {!scopeLocked && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (group.templateId?.startsWith("_project_")) {
+                              const gid = group.templateId;
+                              setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                              setGroupOrder((prev) => prev.filter((key) => key !== gid));
+                              setAddedTemplateIds((prev) => {
                                 const next = new Set(prev);
-                                next.delete(projectId);
+                                next.delete(gid);
                                 return next;
                               });
+                              const projectId = gid.replace("_project_", "").split("_")[0];
+                              const remainingProjectGroups = scopeProcesses.filter(
+                                (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
+                              );
+                              if (remainingProjectGroups.length === 0) {
+                                setAddedProjectIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(projectId);
+                                  return next;
+                                });
+                              }
+                            } else if (group.templateId) {
+                              removeTemplateFromScope(group.templateId);
+                            } else if (group.groupId) {
+                              setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                              setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
+                              setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                             }
-                          } else if (group.templateId) {
-                            removeTemplateFromScope(group.templateId);
-                          } else if (group.groupId) {
-                            setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
-                            setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
-                            setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
 
@@ -1797,6 +1810,7 @@ export default function ProposalCreate() {
                                   onChange={(e) => updateProcessDescription(proc.id, e.target.value)}
                                   placeholder="Nome do processo"
                                   className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                                  readOnly={scopeLocked}
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
                                 <button
@@ -1810,10 +1824,12 @@ export default function ProposalCreate() {
                                 >
                                   <MessageSquare className="h-3.5 w-3.5" />
                                 </button>
-                                <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
-                                <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} disabled={scopeLocked} />
+                                {!scopeLocked && (
+                                  <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
 
                               {/* Children (Level 2) */}
@@ -1828,6 +1844,7 @@ export default function ProposalCreate() {
                                           onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
                                           placeholder="Descrição do item"
                                           className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                                          readOnly={scopeLocked}
                                         />
                                         <Input
                                           type="number"
@@ -1835,7 +1852,7 @@ export default function ProposalCreate() {
                                           value={child.hours}
                                           onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
                                           className="h-7 w-16 text-center text-xs"
-                                          disabled={!child.included || !proc.included}
+                                          disabled={!child.included || !proc.included || scopeLocked}
                                         />
                                         <button
                                           onClick={() => openNotesDialog(
@@ -1851,35 +1868,40 @@ export default function ProposalCreate() {
                                         <Switch
                                           checked={child.included}
                                           onCheckedChange={() => toggleChild(proc.id, child.id)}
-                                          disabled={!proc.included}
+                                          disabled={!proc.included || scopeLocked}
                                         />
-                                        <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
+                                        {!scopeLocked && (
+                                          <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   ))}
-                                  <button
-                                    onClick={() => addChild(proc.id)}
-                                    className="flex w-full items-center gap-1 border-t border-border/50 px-3 py-2 pl-14 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                                  >
-                                    <Plus className="h-3 w-3" /> Adicionar item
-                                  </button>
+                                  {!scopeLocked && (
+                                    <button
+                                      onClick={() => addChild(proc.id)}
+                                      className="flex w-full items-center gap-1 border-t border-border/50 px-3 py-2 pl-14 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                    >
+                                      <Plus className="h-3 w-3" /> Adicionar item
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
                           );
                         })}
-                        {/* Add process button inside group */}
-                        <button
-                          onClick={() => {
-                            const gid = group.groupId || group.templateId;
-                            if (gid) addProcessToGroup(gid);
-                          }}
-                          className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                        >
-                          <Plus className="h-3 w-3" /> Adicionar Processo
-                        </button>
+                        {!scopeLocked && (
+                          <button
+                            onClick={() => {
+                              const gid = group.groupId || group.templateId;
+                              if (gid) addProcessToGroup(gid);
+                            }}
+                            className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          >
+                            <Plus className="h-3 w-3" /> Adicionar Processo
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

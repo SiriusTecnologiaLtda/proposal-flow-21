@@ -120,9 +120,9 @@ function statusLabel(status: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
-    case "success": return <Badge className="bg-green-600/10 text-green-600 text-[10px]">Sucesso</Badge>;
+    case "success": return <Badge className="bg-success/10 text-success text-[10px]">Sucesso</Badge>;
     case "error": return <Badge variant="destructive" className="text-[10px]">Erro</Badge>;
-    case "timeout": return <Badge className="bg-yellow-600/10 text-yellow-600 text-[10px]">Timeout</Badge>;
+    case "timeout": return <Badge className="bg-warning/10 text-warning text-[10px]">Timeout</Badge>;
     case "running": return <Badge variant="secondary" className="text-[10px]">Executando</Badge>;
     default: return <Badge variant="secondary" className="text-[10px]">{status}</Badge>;
   }

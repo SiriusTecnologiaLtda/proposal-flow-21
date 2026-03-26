@@ -6,7 +6,7 @@ import { canAccessRoute } from "@/lib/permissions";
 const cards = [
   { title: "Clientes", desc: "Gerenciar cadastro de clientes", path: "/cadastros/clientes", resource: "cadastros/clientes", icon: Users },
   { title: "Unidades", desc: "Unidades TOTVS (CNPJ, endereço, fator imposto)", path: "/cadastros/unidades", resource: "cadastros/unidades", icon: Building },
-  { title: "Time de Vendas", desc: "ESN, GSN e Arquitetos", path: "/cadastros/time", resource: "cadastros/time", icon: UserCog },
+  { title: "Time de Vendas", desc: "ESN, GSN e Engenheiros de Valor", path: "/cadastros/time", resource: "cadastros/time", icon: UserCog },
   { title: "Produtos", desc: "Produtos disponíveis para templates e oportunidades", path: "/cadastros/produtos", resource: "cadastros/produtos", icon: Package },
   { title: "Categorias", desc: "Categorias de escopo para templates", path: "/cadastros/categorias", resource: "cadastros/categorias", icon: Tag },
   { title: "Tipos de Oportunidade", desc: "Tipos e templates Google Docs vinculados", path: "/cadastros/tipos-proposta", resource: "cadastros/tipos-proposta", icon: FileText },

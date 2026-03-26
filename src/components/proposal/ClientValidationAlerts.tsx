@@ -50,7 +50,7 @@ export default function ClientValidationAlerts({ warnings, onEditClient }: Props
   return (
     <div className="space-y-2">
       {warnings.map((w, i) => (
-        <Alert key={i} variant="destructive" className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600">
+        <Alert key={i} className="border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between gap-2">
             <span className="text-sm">{w.message}</span>

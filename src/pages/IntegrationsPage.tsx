@@ -799,7 +799,7 @@ export default function IntegrationsPage() {
                   <p>Página atual: {syncLog.pages_processed || 0}</p>
                   <p>Offset: {syncLog.current_offset || 0}</p>
                   <p>Registros lidos: {syncLog.records_fetched || syncLog.total_records || 0}</p>
-                  <p className="text-green-600">Inseridos: {syncLog.inserted}</p>
+                  <p className="text-success">Inseridos: {syncLog.inserted}</p>
                   <p className="text-primary">Atualizados: {syncLog.updated}</p>
                   {syncLog.errors > 0 && <p className="text-destructive">Erros: {syncLog.errors}</p>}
                   {syncLog.heartbeat_at && (

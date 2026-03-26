@@ -956,8 +956,8 @@ function ImportHistory() {
                   {log.summary && <p className="text-xs text-muted-foreground">{log.summary}</p>}
                   <div className="grid grid-cols-4 gap-2 text-xs">
                     <div><span className="text-muted-foreground">Total:</span> <span className="font-medium">{log.total_rows}</span></div>
-                    <div><span className="text-muted-foreground">Inseridos:</span> <span className="font-medium text-emerald-600">{log.imported}</span></div>
-                    <div><span className="text-muted-foreground">Atualizados:</span> <span className="font-medium text-blue-600">{log.updated}</span></div>
+                    <div><span className="text-muted-foreground">Inseridos:</span> <span className="font-medium text-success">{log.imported}</span></div>
+                    <div><span className="text-muted-foreground">Atualizados:</span> <span className="font-medium text-primary">{log.updated}</span></div>
                     <div><span className="text-muted-foreground">Erros:</span> <span className="font-medium text-destructive">{log.errors}</span></div>
                   </div>
                   {log.duration_ms && (

@@ -579,56 +579,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const activeDoc = envelopeDocs.find((d) => d.id === activeDocId) || null;
   const previewUrl = activeDoc ? buildPreviewUrl(activeDoc) : null;
 
-  // ─── Stepper ──────────────────────────────────────────────────────
-  function renderStepper() {
-    return (
-      <div className="flex items-center justify-center gap-0 px-4">
-        {STEPS.map((step, idx) => {
-          const StepIcon = step.icon;
-          const isCompleted = idx < currentStep;
-          const isCurrent = idx === currentStep;
-
-          return (
-            <div key={step.key} className="flex items-center">
-              {idx > 0 && (
-                <div className={cn(
-                  "w-12 h-[2px] mx-1",
-                  isCompleted ? "bg-primary" : "bg-border"
-                )} />
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  // Allow navigating to completed or current steps
-                  if (idx <= currentStep) setCurrentStep(idx);
-                }}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
-                  isCurrent && "bg-primary/10",
-                  idx <= currentStep ? "cursor-pointer" : "cursor-default"
-                )}
-              >
-                <div className={cn(
-                  "flex items-center justify-center h-7 w-7 rounded-full text-xs font-semibold transition-all shrink-0",
-                  isCompleted && "bg-primary text-primary-foreground",
-                  isCurrent && "bg-primary text-primary-foreground",
-                  !isCompleted && !isCurrent && "border border-border text-muted-foreground bg-muted/30"
-                )}>
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : <StepIcon className="h-3.5 w-3.5" />}
-                </div>
-                <span className={cn(
-                  "text-xs font-medium hidden sm:inline",
-                  isCurrent ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {step.label}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+  const progress = useMemo(() => ((currentStep + 1) / STEPS.length) * 100, [currentStep]);
 
   // ─── Step 1: Signatários ──────────────────────────────────────────
   function renderSignatarios() {

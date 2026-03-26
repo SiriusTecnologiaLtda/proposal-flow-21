@@ -65,9 +65,10 @@ async function sendGmail(
   senderEmail: string,
   recipientEmail: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  cc?: string[]
 ): Promise<void> {
-  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody);
+  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody, cc);
   const rawB64 = btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")

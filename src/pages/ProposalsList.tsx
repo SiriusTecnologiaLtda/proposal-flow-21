@@ -122,7 +122,7 @@ export default function ProposalsList() {
   const [generatingDocs, setGeneratingDocs] = useState<Record<string, "proposta" | "mit">>({});
 
   // Gmail auth state
-  const [gmailAuthorized, setGmailAuthor= useState<boolean | null>(null);
+  const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);
   const [gmailAuthLoading, setGmailAuthLoading] = useState(false);
 
   // Check Gmail authorization on mount

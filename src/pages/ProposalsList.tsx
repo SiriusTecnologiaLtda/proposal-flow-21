@@ -1035,11 +1035,11 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.arquiteto_id && !isArquiteto && (
+                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
-                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Enviar para Eng. Valor
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Eng. Valor
                                 </DropdownMenuItem>
                               </>
                             )}

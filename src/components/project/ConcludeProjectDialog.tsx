@@ -138,7 +138,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     if (ungroupedHours > 0) result.push({ name: "Itens Avulsos", hours: ungroupedHours });
 
     return result;
-  }, [fullProject]);
+  }, [fullProject, templateNames]);
 
   const totalHours = scopeSummary.reduce((s, g) => s + g.hours, 0);
 

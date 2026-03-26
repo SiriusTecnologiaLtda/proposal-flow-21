@@ -177,35 +177,31 @@ export default function SalesTeamPage() {
               className="pl-9"
             />
           </div>
-          <Select value={filterRole} onValueChange={(v) => setFilterRole(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Classificação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as classificações</SelectItem>
-              <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
-              <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-              <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterUnitId} onValueChange={(v) => setFilterUnitId(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Unidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as unidades</SelectItem>
-              {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Select value={filterGsnId} onValueChange={(v) => setFilterGsnId(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="GSN vinculado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os GSNs</SelectItem>
-              {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          <MultiSelectCombobox
+            options={[
+              { value: "esn", label: "Executivo de Vendas (ESN)" },
+              { value: "gsn", label: "Gerente de Vendas (GSN)" },
+              { value: "arquiteto", label: "Engenheiro de Valor" },
+            ]}
+            selected={filterRoles}
+            onChange={setFilterRoles}
+            placeholder="Classificação"
+            searchPlaceholder="Pesquisar classificação..."
+          />
+          <MultiSelectCombobox
+            options={units.map((u) => ({ value: u.id, label: u.name }))}
+            selected={filterUnitIds}
+            onChange={setFilterUnitIds}
+            placeholder="Unidade"
+            searchPlaceholder="Pesquisar unidade..."
+          />
+          <MultiSelectCombobox
+            options={gsnMembers.map((m) => ({ value: m.id, label: `${m.code} - ${m.name}` }))}
+            selected={filterGsnIds}
+            onChange={setFilterGsnIds}
+            placeholder="GSN vinculado"
+            searchPlaceholder="Pesquisar GSN..."
+          />
         </div>
       </div>
 

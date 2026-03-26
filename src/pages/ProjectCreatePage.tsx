@@ -505,7 +505,9 @@ export default function ProjectCreatePage() {
     setSaving(true);
     try {
       const flatScope = flattenScope();
-      const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames };
+      // Compute group order from current groupedScope for persistence
+      const computedGroupOrder = groupedScope.map(g => g.templateId || g.groupId).filter(Boolean) as string[];
+      const savedGroupNotes = { ...groupNotes, _manual_groups: manualGroupNames, _group_order: computedGroupOrder };
       if (isEditing) {
         await updateProject.mutateAsync({ id, ...form, group_notes: savedGroupNotes, scopeItems: flatScope });
       } else {

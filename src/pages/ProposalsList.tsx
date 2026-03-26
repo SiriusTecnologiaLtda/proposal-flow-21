@@ -1238,7 +1238,7 @@ export default function ProposalsList() {
                     </div>
                   ))}
                   {consoleLoading && (
-                    <div className="flex items-center gap-2 text-zinc-400">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Processando...</span>
                     </div>

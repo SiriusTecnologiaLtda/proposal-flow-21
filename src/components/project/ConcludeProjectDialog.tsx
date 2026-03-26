@@ -155,7 +155,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         }
       }
 
-      await includeProjectInOpportunity(project, proposalId);
+      await includeProjectInOpportunity(fullProject || project, proposalId);
       await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", proposalId);
 
       if (esnEmail) {

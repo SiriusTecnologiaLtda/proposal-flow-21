@@ -25,13 +25,6 @@ import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
 import SignatureMonitorDialog from "@/components/proposal/SignatureMonitorDialog";
 import DocumentManagementDialog from "@/components/proposal/DocumentManagementDialog";
 
-interface LogEntry {
-  step: string;
-  status: "ok" | "error" | "info";
-  message: string;
-  timestamp: string;
-}
-
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
   em_analise_ev: { label: "Em Análise E.V.", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
@@ -56,11 +49,9 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   const scopeItems = proposal.proposal_scope_items;
   if (!scopeItems || scopeItems.length === 0) return null;
 
-  // Find the rounding factor from the proposal type config
   const typeConfig = proposalTypes.find((pt: any) => pt.slug === proposal.type);
   const roundingFactor = typeConfig?.rounding_factor || 8;
 
-  // Sum hours of included children (items with parent_id)
   const totalHours = roundUpFactor(
     scopeItems
       .filter((item: any) => item.included && item.parent_id)
@@ -72,11 +63,6 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
-function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
-  if (status === "error") return <XCircle className="h-4 w-4 text-destructive shrink-0" />;
-  return <Info className="h-4 w-4 text-primary shrink-0" />;
-}
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");

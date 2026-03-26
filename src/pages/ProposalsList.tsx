@@ -679,39 +679,7 @@ export default function ProposalsList() {
     setChangeLogLoading(false);
   }
 
-  async function loadVersions(proposalId: string, docType: string = "proposta") {
-    setVersionsProposalId(proposalId);
-    setVersionsDocType(docType);
-    setVersionsLoading(true);
-    setVersionsOpen(true);
-    try {
-      const { data, error } = await supabase
-        .from("proposal_documents")
-        .select("*")
-        .eq("proposal_id", proposalId)
-        .eq("doc_type", docType)
-        .order("version", { ascending: false });
-      if (error) throw error;
-      setVersions((data || []) as any);
-    } catch (err: any) {
-      toast({ title: "Erro ao carregar versões", description: err.message, variant: "destructive" });
-      setVersions([]);
-    }
-    setVersionsLoading(false);
-  }
 
-  async function toggleOfficial(docId: string, currentOfficial: boolean) {
-    try {
-      if (!currentOfficial && versionsProposalId) {
-        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId).eq("doc_type", versionsDocType);
-      }
-      await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
-      if (versionsProposalId) await loadVersions(versionsProposalId, versionsDocType);
-      toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
-  }
 
   const isLocked = (status: string) => ["em_assinatura", "ganha", "cancelada"].includes(status);
 

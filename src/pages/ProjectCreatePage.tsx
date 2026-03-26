@@ -100,8 +100,16 @@ export default function ProjectCreatePage() {
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
-  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
+
+  const filteredClients = useMemo(() => {
+    if (clientSearch.length < 2) return [];
+    const q = clientSearch.toLowerCase();
+    return clients.filter((c: any) =>
+      c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q) || c.cnpj?.includes(clientSearch)
+    ).slice(0, 50);
+  }, [clients, clientSearch]);
 
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notesDialogValue, setNotesDialogValue] = useState("");

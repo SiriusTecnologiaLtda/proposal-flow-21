@@ -559,14 +559,37 @@ export default function ProposalsList() {
     );
   });
 
+  // Check for linked projects when deleting
+  const deleteProposalData = deleteId ? proposals.find((p: any) => p.id === deleteId) : null;
+  const [linkedProjects, setLinkedProjects] = useState<any[]>([]);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!deleteId) { setLinkedProjects([]); return; }
+    supabase
+      .from("projects")
+      .select("id, product, status, clients(name)")
+      .eq("proposal_id", deleteId)
+      .then(({ data }) => setLinkedProjects(data || []));
+  }, [deleteId]);
+
   async function handleDelete() {
     if (!deleteId) return;
+    setDeleteLoading(true);
     try {
+      // Delete linked projects first
+      for (const proj of linkedProjects) {
+        await supabase.from("project_scope_items").delete().eq("project_id", proj.id);
+        await supabase.from("project_attachments").delete().eq("project_id", proj.id);
+        await supabase.from("projects").delete().eq("id", proj.id);
+      }
       await deleteProposal.mutateAsync(deleteId);
-      toast({ title: "Proposta excluída com sucesso" });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast({ title: "Oportunidade excluída", description: linkedProjects.length > 0 ? `${linkedProjects.length} projeto(s) vinculado(s) também removido(s).` : undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
     }
+    setDeleteLoading(false);
     setDeleteId(null);
   }
 

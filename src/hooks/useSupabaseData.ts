@@ -1,6 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+function formatDateOnly(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function getDefaultPaymentDueDate() {
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30);
+  return formatDateOnly(dueDate);
+}
+
+function normalizeProposalPayments(payments: any[] | undefined) {
+  if (!payments || payments.length === 0) return [];
+
+  const fallbackDueDate = payments.find((payment) => payment?.due_date)?.due_date || getDefaultPaymentDueDate();
+
+  return payments.map((payment: any, index: number) => ({
+    ...payment,
+    installment: payment.installment || index + 1,
+    due_date: payment.due_date || fallbackDueDate,
+    amount: Number(payment.amount) || 0,
+  }));
+}
+
 // ============ UNITS ============
 export function useUnits() {
   return useQuery({
@@ -319,7 +342,7 @@ export function useCreateProposal() {
       await updateProposalProcessGroupMap(proposalId, scopeItems, localToReal, proposalData.group_notes);
 
       if (payments && payments.length > 0) {
-        const paymentRows = payments.map((p: any) => ({
+        const paymentRows = normalizeProposalPayments(payments).map((p: any) => ({
           id: p.id || crypto.randomUUID(),
           ...p,
           proposal_id: proposalId,
@@ -358,7 +381,7 @@ export function useUpdateProposal() {
       // Replace payments
       await supabase.from("payment_conditions").delete().eq("proposal_id", id);
       if (payments && payments.length > 0) {
-        const paymentRows = payments.map((p: any) => ({ ...p, proposal_id: id }));
+        const paymentRows = normalizeProposalPayments(payments).map((p: any) => ({ ...p, proposal_id: id }));
         const { error: payError } = await supabase.from("payment_conditions").insert(paymentRows);
         if (payError) throw payError;
       }

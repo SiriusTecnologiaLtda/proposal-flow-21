@@ -62,6 +62,35 @@ function localId() {
   return `local_${Date.now()}_${++idCounter}`;
 }
 
+function formatDateForInput(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function getDefaultFirstDueDate() {
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30);
+  return formatDateForInput(dueDate);
+}
+
+function addMonthsToDate(dateStr: string, months: number) {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setMonth(date.getMonth() + months);
+  return formatDateForInput(date);
+}
+
+function buildLinearPayments(count: number, total: number, startDate: string): PaymentCondition[] {
+  if (count <= 0) return [];
+
+  const perInstallment = Math.round((total / count) * 100) / 100;
+  const remainder = Math.round((total - perInstallment * (count - 1)) * 100) / 100;
+
+  return Array.from({ length: count }, (_, index) => ({
+    installment: index + 1,
+    dueDate: startDate ? addMonthsToDate(startDate, index) : "",
+    amount: index === count - 1 ? remainder : perInstallment,
+  }));
+}
+
 export default function ProposalCreate() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -315,12 +344,13 @@ export default function ProposalCreate() {
       const loadedPayments = pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount }));
       setPayments(loadedPayments);
       setNumInstallments(loadedPayments.length);
-      if (loadedPayments[0]?.dueDate) setFirstDueDate(loadedPayments[0].dueDate);
+      setFirstDueDate(loadedPayments[0]?.dueDate || getDefaultFirstDueDate());
       const amounts = loadedPayments.map((p: any) => p.amount);
       const allEqual = amounts.every((a: number) => Math.abs(a - amounts[0]) < 0.02);
       setPaymentMode(allEqual ? "linear" : "custom");
     } else {
       setPayments([]);
+      setFirstDueDate(getDefaultFirstDueDate());
     }
 
     setLoaded(true);
@@ -346,10 +376,7 @@ export default function ProposalCreate() {
       setExpectedCloseDate(lastDay.toISOString().split("T")[0]);
 
       // Default first payment due date = 30 days from today
-      const due30 = new Date();
-      due30.setDate(due30.getDate() + 30);
-      const due30Str = due30.toISOString().split("T")[0];
-      setFirstDueDate(due30Str);
+      setFirstDueDate(getDefaultFirstDueDate());
 
       setDefaultsLoaded(true);
     }
@@ -883,23 +910,9 @@ export default function ProposalCreate() {
 
   function generateLinearPayments(count: number, total: number, startDate: string) {
     if (count <= 0) return;
-    const perInstallment = Math.round((total / count) * 100) / 100;
-    const remainder = Math.round((total - perInstallment * (count - 1)) * 100) / 100;
-    const newPayments: PaymentCondition[] = [];
-    for (let i = 0; i < count; i++) {
-      let dueDate = "";
-      if (startDate) {
-        const d = new Date(startDate + "T00:00:00");
-        d.setMonth(d.getMonth() + i);
-        dueDate = d.toISOString().split("T")[0];
-      }
-      newPayments.push({
-        installment: i + 1,
-        dueDate,
-        amount: i === count - 1 ? remainder : perInstallment,
-      });
-    }
-    setPayments(newPayments);
+    const effectiveStartDate = startDate || getDefaultFirstDueDate();
+    if (!startDate) setFirstDueDate(effectiveStartDate);
+    setPayments(buildLinearPayments(count, total, effectiveStartDate));
   }
 
   function handleNumInstallmentsChange(val: number) {
@@ -1013,11 +1026,44 @@ export default function ProposalCreate() {
       }
     }
 
-    const paymentRows = payments.filter((p) => p.amount > 0).map((p) => ({
-      installment: p.installment,
-      due_date: p.dueDate || null,
-      amount: p.amount,
-    }));
+    const hasCalculatedFinancials = rawScopeHours > 0 && totalValue > 0;
+    const effectiveFirstDueDate = firstDueDate || payments.find((p) => p.dueDate)?.dueDate || getDefaultFirstDueDate();
+
+    const normalizedPayments = paymentMode === "linear"
+      ? buildLinearPayments(Math.max(1, numInstallments), totalValue, effectiveFirstDueDate)
+      : (payments.length > 0
+          ? payments.map((payment, index) => ({
+              ...payment,
+              installment: payment.installment || index + 1,
+              dueDate: payment.dueDate || addMonthsToDate(effectiveFirstDueDate, index),
+            }))
+          : (hasCalculatedFinancials ? buildLinearPayments(Math.max(1, numInstallments), totalValue, effectiveFirstDueDate) : []));
+
+    const paymentRows = normalizedPayments
+      .filter((payment) => Number.isFinite(payment.amount) && payment.amount > 0)
+      .map((payment, index) => ({
+        installment: payment.installment || index + 1,
+        due_date: payment.dueDate || addMonthsToDate(effectiveFirstDueDate, index),
+        amount: Math.round(payment.amount * 100) / 100,
+      }));
+
+    if (hasCalculatedFinancials && paymentRows.length === 0) {
+      paymentRows.push({
+        installment: 1,
+        due_date: effectiveFirstDueDate,
+        amount: Math.round(totalValue * 100) / 100,
+      });
+    }
+
+    if (hasCalculatedFinancials && !paymentRows[0]?.due_date) {
+      toast({
+        title: "Data do primeiro vencimento inválida",
+        description: "Não foi possível definir a data automaticamente para as parcelas.",
+        variant: "destructive",
+      });
+      setCurrentStep(3);
+      return;
+    }
 
     // When editing, never downgrade status. If not generating, keep existing status.
     const existingStatus = existingProposal?.status;
@@ -1086,6 +1132,8 @@ export default function ProposalCreate() {
           authenticated_user_id: authenticatedUserId,
           context_user_id: user?.id || null,
           using_client_generated_ids: !isEditing,
+          effective_first_due_date: effectiveFirstDueDate,
+          auto_generated_payments: hasCalculatedFinancials,
         },
       });
 

@@ -557,15 +557,16 @@ export default function ProjectCreatePage() {
         const driveUrl = result.drive_url;
         const driveFileId = result.drive_file_id;
 
+        const attId = crypto.randomUUID();
         if (id) {
           await supabase.from("project_attachments").insert({
-            project_id: id, file_name: file.name, file_url: driveUrl,
+            id: attId, project_id: id, file_name: file.name, file_url: driveUrl,
             file_size: file.size, mime_type: file.type, uploaded_by: user.id, is_scope: false,
-            description: driveFileId, // store drive file id in description for reference
+            description: driveFileId,
           });
         }
         setAttachments((prev) => [...prev, {
-          id: crypto.randomUUID(), file_name: file.name, file_url: driveUrl,
+          id: attId, file_name: file.name, file_url: driveUrl,
           file_size: file.size, mime_type: file.type, is_scope: false, _isNew: !id,
           _convertible: convertible, description: driveFileId,
         }]);

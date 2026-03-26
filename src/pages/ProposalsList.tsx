@@ -508,7 +508,7 @@ export default function ProposalsList() {
         if (docType === "proposta") {
           // Only upgrade status if currently pendente
           const currentProposal = proposals.find(p => p.id === proposalId);
-          if (currentProposal?.status === "pendente") {
+          if (currentProposal?.status === "pendente" || currentProposal?.status === "analise_ev_concluida") {
             updateFields.status = "proposta_gerada";
           }
         }

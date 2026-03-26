@@ -704,6 +704,12 @@ export default function ProjectCreatePage() {
               Informações do Projeto
             </div>
             <div className="grid gap-4 md:grid-cols-2">
+              {(existingProject as any)?.proposal_number && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Oportunidade Vinculada</Label>
+                  <Input value={(existingProject as any).proposal_number} disabled className="h-10 bg-muted/50" />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Produto *</Label>
                 <Select value={form.product} onValueChange={(v) => setForm((f) => ({ ...f, product: v }))} disabled={isReadOnly}>

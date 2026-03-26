@@ -24,7 +24,7 @@ export function useProject(id: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, clients(name), project_scope_items(*), project_attachments(*)")
+        .select("*, clients(name), project_scope_items(*), project_attachments(*), proposal_id, proposal_number")
         .eq("id", id!)
         .single();
       if (error) throw error;

@@ -43,7 +43,45 @@ function localId() {
   return `local_${Date.now()}_${++idCounter}`;
 }
 
-const STATUS_MAP: Record<string, string> = {
+// PDF-convertible MIME types (files that Google Drive can convert to PDF or are already PDF)
+const PDF_CONVERTIBLE_MIMES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+  "text/html",
+  "text/rtf",
+  "application/rtf",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/bmp",
+  "image/tiff",
+  "image/webp",
+  "image/svg+xml",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+]);
+
+const PDF_CONVERTIBLE_EXTS = new Set([
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "txt", "csv", "html", "htm", "rtf",
+  "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg",
+  "odt", "ods", "odp",
+]);
+
+function isFileConvertibleToPdf(fileName: string, mimeType: string): boolean {
+  if (PDF_CONVERTIBLE_MIMES.has(mimeType)) return true;
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  return PDF_CONVERTIBLE_EXTS.has(ext);
+}
+
   pendente: "Pendente",
   rascunho: "Pendente", // legacy fallback
   em_revisao: "Em Revisão",

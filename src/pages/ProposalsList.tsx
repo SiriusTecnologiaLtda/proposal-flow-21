@@ -32,6 +32,7 @@ interface LogEntry {
 
 const statusMap: Record<string, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
+  em_analise_ev: { label: "Em Análise E.V.", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
   proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },

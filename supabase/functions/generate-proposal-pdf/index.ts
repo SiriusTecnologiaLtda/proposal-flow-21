@@ -588,33 +588,80 @@ async function insertPaymentRows(
   }
 }
 
+async function buildOrderedGroups(
+  scopeItems: any[],
+  groupNotes: any,
+  templateNames: Record<string, string>,
+): { name: string; parents: any[]; children: Record<string, any[]> }[] {
+  const manualGroups: Record<string, string> = groupNotes?._manual_groups || {};
+  const processGroupMap: Record<string, string> = groupNotes?._process_group_map || {};
+  const groupOrder: string[] = Array.isArray(groupNotes?._group_order) ? groupNotes._group_order : [];
+
+  const includedItems = scopeItems.filter((i: any) => i.included);
+  const parentItems = includedItems.filter((i: any) => !i.parent_id);
+  const childItems = includedItems.filter((i: any) => i.parent_id);
+
+  // Build children lookup
+  const childrenByParent: Record<string, any[]> = {};
+  for (const child of childItems) {
+    if (!childrenByParent[child.parent_id]) childrenByParent[child.parent_id] = [];
+    childrenByParent[child.parent_id].push(child);
+  }
+  for (const arr of Object.values(childrenByParent)) {
+    arr.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  }
+
+  // Assign each parent to a group key
+  const groupData: Record<string, { name: string; parents: any[]; children: Record<string, any[]> }> = {};
+
+  for (const parent of parentItems.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))) {
+    // Determine group key: check processGroupMap first, then template_id, then fallback
+    let groupKey = processGroupMap[parent.id] || parent.template_id || "__ungrouped__";
+    
+    // Determine group name
+    let groupName: string;
+    if (manualGroups[groupKey]) {
+      groupName = manualGroups[groupKey];
+    } else if (parent.template_id && templateNames[parent.template_id]) {
+      groupName = templateNames[parent.template_id];
+      groupKey = parent.template_id; // normalize key
+    } else if (processGroupMap[parent.id] && manualGroups[processGroupMap[parent.id]]) {
+      groupName = manualGroups[processGroupMap[parent.id]];
+      groupKey = processGroupMap[parent.id];
+    } else {
+      groupName = "Outros";
+    }
+
+    if (!groupData[groupKey]) {
+      groupData[groupKey] = { name: groupName, parents: [], children: {} };
+    }
+    groupData[groupKey].parents.push(parent);
+    groupData[groupKey].children[parent.id] = childrenByParent[parent.id] || [];
+  }
+
+  // Order groups according to _group_order, then any remaining
+  const orderedKeys: string[] = [];
+  for (const key of groupOrder) {
+    if (groupData[key]) orderedKeys.push(key);
+  }
+  for (const key of Object.keys(groupData)) {
+    if (!orderedKeys.includes(key)) orderedKeys.push(key);
+  }
+
+  return orderedKeys.map(key => groupData[key]);
+}
+
 async function appendDetailedScope(
   accessToken: string, docId: string, scopeItems: any[],
-  templateNames: Record<string, string>, logs: LogEntry[]
+  templateNames: Record<string, string>, groupNotes: any, logs: LogEntry[]
 ) {
-  // Group scope items by template
-  const grouped: Record<string, { parents: any[]; children: Record<string, any[]> }> = {};
+  const groups = await buildOrderedGroups(scopeItems, groupNotes, templateNames);
   
-  for (const item of scopeItems) {
-    const tmplId = item.template_id || "__other__";
-    if (!grouped[tmplId]) grouped[tmplId] = { parents: [], children: {} };
-    
-    if (!item.parent_id) {
-      grouped[tmplId].parents.push(item);
-    } else {
-      if (!grouped[tmplId].children[item.parent_id]) grouped[tmplId].children[item.parent_id] = [];
-      grouped[tmplId].children[item.parent_id].push(item);
-    }
+  if (groups.length === 0) {
+    log(logs, "Escopo detalhado", "info", "Nenhum grupo de escopo encontrado");
+    return;
   }
-  
-  // Sort parents by sort_order
-  for (const g of Object.values(grouped)) {
-    g.parents.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
-    for (const children of Object.values(g.children)) {
-      children.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
-    }
-  }
-  
+
   // Insert page break and main title first
   let doc = await getDocumentStructure(accessToken, docId);
   let endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
@@ -648,11 +695,8 @@ async function appendDetailedScope(
   
   await docBatchUpdate(accessToken, docId, initRequests);
   
-  // Process each template group one at a time to avoid index shifting issues
-  const groupEntries = Object.entries(grouped).filter(([_, g]) => g.parents.length > 0);
-  
-  for (const [tmplId, group] of groupEntries) {
-    const tmplName = templateNames[tmplId] || "Outros";
+  for (const group of groups) {
+    const tmplName = group.name;
     
     // Re-read doc to get current end index
     doc = await getDocumentStructure(accessToken, docId);
@@ -721,7 +765,6 @@ async function appendDetailedScope(
     doc = await getDocumentStructure(accessToken, docId);
     const bodyContent = doc.body?.content || [];
     
-    // Find the last table in the document (the one we just inserted)
     let tableEl: any = null;
     for (let i = bodyContent.length - 1; i >= 0; i--) {
       if (bodyContent[i].table) {
@@ -757,7 +800,6 @@ async function appendDetailedScope(
       }
     }
     
-    // Sort inserts by descending index
     fillRequests.sort((a: any, b: any) => {
       const aIdx = a.insertText?.location?.index || 0;
       const bIdx = b.insertText?.location?.index || 0;
@@ -842,7 +884,7 @@ async function appendDetailedScope(
     }
   }
   
-  log(logs, "Escopo detalhado", "ok", `${groupEntries.length} grupo(s) de template adicionado(s) ao final do documento`);
+  log(logs, "Escopo detalhado", "ok", `${groups.length} grupo(s) adicionado(s) ao final do documento`);
 }
 
 // ─── Formatters ─────────────────────────────────────────────────────
@@ -1021,13 +1063,10 @@ Deno.serve(async (req) => {
     const accompAnalystHours = roundUp(Math.ceil(totalAnalystHours * (accompAnalyst / 100)), roundingFactor);
     const accompGPHours = roundUp(Math.ceil(gpHours * (accompGP / 100)), roundingFactor);
 
-    // Build macro scope names: templates + non-template groups
-    const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
-    // Check if there are included parent items without template_id
-    const nonTemplateParents = parentItems.filter((i: any) => !i.template_id);
-    if (nonTemplateParents.length > 0) {
-      macroScopeNames.push("Outros");
-    }
+    // Build macro scope names using group_notes to respect UI ordering
+    const proposalGroupNotes = proposal.group_notes || {};
+    const orderedGroups = await buildOrderedGroups(scopeItems, proposalGroupNotes, templateNames);
+    const macroScopeNames = orderedGroups.map(g => g.name);
     const isProjeto = proposal.type === "projeto";
     const client = proposal.clients;
     const esn = proposal.esn;
@@ -1210,7 +1249,7 @@ Deno.serve(async (req) => {
     if (scopeItems.length > 0) {
       log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");
       try {
-        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, logs);
+        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, proposalGroupNotes, logs);
       } catch (e: any) {
         log(logs, "Escopo detalhado", "error", `Falha ao adicionar escopo detalhado: ${e.message}`);
       }

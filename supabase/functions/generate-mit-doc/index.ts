@@ -532,7 +532,35 @@ Deno.serve(async (req) => {
     }
 
     // ─── Build placeholders ─────────────────────────────────────
-    const macroScopeNames = templateIds.map((id: string) => templateNames[id] || "Outros");
+    // Build macro scope names using group_notes to respect UI ordering
+    const proposalGroupNotes = proposal.group_notes || {};
+    const manualGroups: Record<string, string> = proposalGroupNotes._manual_groups || {};
+    const processGroupMap: Record<string, string> = proposalGroupNotes._process_group_map || {};
+    const groupOrderList: string[] = Array.isArray(proposalGroupNotes._group_order) ? proposalGroupNotes._group_order : [];
+    
+    // Build groups from included parents
+    const groupMap: Record<string, string> = {};
+    for (const parent of parentItems) {
+      let groupKey = processGroupMap[parent.id] || parent.template_id || "__ungrouped__";
+      let groupName: string;
+      if (manualGroups[groupKey]) {
+        groupName = manualGroups[groupKey];
+      } else if (parent.template_id && templateNames[parent.template_id]) {
+        groupName = templateNames[parent.template_id];
+        groupKey = parent.template_id;
+      } else if (processGroupMap[parent.id] && manualGroups[processGroupMap[parent.id]]) {
+        groupName = manualGroups[processGroupMap[parent.id]];
+        groupKey = processGroupMap[parent.id];
+      } else {
+        groupName = "Outros";
+      }
+      groupMap[groupKey] = groupName;
+    }
+    // Order
+    const orderedKeys: string[] = [];
+    for (const key of groupOrderList) { if (groupMap[key]) orderedKeys.push(key); }
+    for (const key of Object.keys(groupMap)) { if (!orderedKeys.includes(key)) orderedKeys.push(key); }
+    const macroScopeNames = orderedKeys.map(k => groupMap[k]);
     const placeholders: Record<string, string> = {
       "{{ID_PROPOSTA}}": proposal.number || "",
       "{{CLIENTE}}": client?.name || "—",

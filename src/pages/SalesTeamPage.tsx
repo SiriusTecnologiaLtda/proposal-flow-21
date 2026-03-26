@@ -112,18 +112,18 @@ export default function SalesTeamPage() {
     }
   };
 
-  const activeFilterCount = [filterRole, filterUnitId, filterGsnId].filter(Boolean).length;
+  const activeFilterCount = [filterRoles.length, filterUnitIds.length, filterGsnIds.length].filter((n) => n > 0).length;
 
   const filteredTeam = salesTeam.filter((m) => {
     if (search) {
       const q = search.toLowerCase();
       if (!m.name.toLowerCase().includes(q) && !m.code.toLowerCase().includes(q)) return false;
     }
-    if (filterRole && m.role !== filterRole) return false;
-    if (filterUnitId && m.unit_id !== filterUnitId) return false;
-    if (filterGsnId) {
-      if (m.role === "esn" && m.linked_gsn_id !== filterGsnId) return false;
-      if (m.role === "gsn" && m.id !== filterGsnId) return false;
+    if (filterRoles.length > 0 && !filterRoles.includes(m.role)) return false;
+    if (filterUnitIds.length > 0 && (!m.unit_id || !filterUnitIds.includes(m.unit_id))) return false;
+    if (filterGsnIds.length > 0) {
+      if (m.role === "esn" && (!m.linked_gsn_id || !filterGsnIds.includes(m.linked_gsn_id))) return false;
+      if (m.role === "gsn" && !filterGsnIds.includes(m.id)) return false;
       if (m.role === "arquiteto") return false;
     }
     return true;
@@ -134,7 +134,7 @@ export default function SalesTeamPage() {
     return acc;
   }, {});
 
-  const clearFilters = () => { setFilterRole(""); setFilterUnitId(""); setFilterGsnId(""); };
+  const clearFilters = () => { setFilterRoles([]); setFilterUnitIds([]); setFilterGsnIds([]); };
 
   return (
     <div className="space-y-6">

@@ -512,6 +512,14 @@ export default function ProjectCreatePage() {
     setAttachments((prev) => prev.filter((a) => a.id !== att.id));
   };
 
+  const toggleAttachmentScope = async (att: any) => {
+    const newVal = !att.is_scope;
+    setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: newVal } : a));
+    if (att.id && !att._isNew) {
+      await supabase.from("project_attachments").update({ is_scope: newVal }).eq("id", att.id);
+    }
+  };
+
   // Save
   const handleSave = async () => {
     if (!form.client_id || !form.product) {

@@ -219,7 +219,7 @@ export default function ScopeTemplatesPage() {
                       }
                       className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                         active
-                          ? `${filterClass} border-current ring-1 ring-current/30`
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
                           : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
                       }`}
                     >

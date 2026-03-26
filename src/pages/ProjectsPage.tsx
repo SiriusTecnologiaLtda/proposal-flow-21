@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock } from "lucide-react";
+import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle } from "lucide-react";
 import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
@@ -47,6 +49,8 @@ export default function ProjectsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [concludeProject, setConcludeProject] = useState<any>(null);
   const [reviewProposalId, setReviewProposalId] = useState<string | null>(null);
+  const [deleteConfirmProject, setDeleteConfirmProject] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();
@@ -104,12 +108,43 @@ export default function ProjectsPage() {
 
   const activeFilterCount = statusFilter.length + proposalStatusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteConfirmed = async (project: any) => {
+    setIsDeleting(true);
     try {
-      await deleteProject.mutateAsync(id);
-      toast({ title: "Projeto excluído" });
+      // If project is linked to a proposal, clean up the opportunity
+      if (project.proposal_id) {
+        // Remove project scope items from the proposal
+        await supabase.from("proposal_scope_items").delete().eq("project_id", project.id);
+
+        // Clean project references from group_notes
+        const { data: proposal } = await supabase
+          .from("proposals")
+          .select("group_notes")
+          .eq("id", project.proposal_id)
+          .single();
+
+        if (proposal?.group_notes) {
+          const notes = { ...(proposal.group_notes as any) };
+          // Remove _project_${id}_ prefixed keys
+          Object.keys(notes).forEach((key) => {
+            if (key.startsWith(`_project_${project.id}_`)) delete notes[key];
+          });
+          await supabase.from("proposals").update({ group_notes: notes }).eq("id", project.proposal_id);
+        }
+
+        // Revert proposal status to pendente
+        await supabase.from("proposals").update({ status: "pendente" }).eq("id", project.proposal_id);
+
+        // TODO: notify ESN via email (future enhancement)
+      }
+
+      await deleteProject.mutateAsync(project.id);
+      toast({ title: "Projeto excluído", description: project.proposal_id ? "A oportunidade foi revertida para Pendente." : undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmProject(null);
     }
   };
 
@@ -145,10 +180,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
           <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
         </div>
-        <Button onClick={() => navigate("/projetos/novo")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Projeto
-        </Button>
+{/* Projetos criados apenas via Solicitar Eng. Valor */}
       </div>
 
       <div className="relative">
@@ -438,7 +470,7 @@ export default function ProjectsPage() {
                           {role === "admin" && (
                             <>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(project.id)}>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirmProject(project)}>
                                 <Trash2 className="mr-2 h-4 w-4" />Excluir
                               </DropdownMenuItem>
                             </>
@@ -465,6 +497,47 @@ export default function ProjectsPage() {
         open={!!reviewProposalId}
         onOpenChange={(open) => { if (!open) setReviewProposalId(null); }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmProject} onOpenChange={(open) => { if (!open) setDeleteConfirmProject(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <AlertDialogTitle>Excluir Projeto</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <span className="block">
+                Tem certeza que deseja excluir o projeto de <strong>{deleteConfirmProject?.clients?.name || "—"}</strong>?
+              </span>
+              {deleteConfirmProject?.proposal_id && (
+                <span className="block rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                  <strong>Atenção:</strong> Este projeto está vinculado à Oportunidade <strong>{deleteConfirmProject?.proposal_number || ""}</strong>. 
+                  Ao confirmar a exclusão:
+                  <ul className="mt-2 list-disc pl-5 space-y-1">
+                    <li>O ESN responsável será notificado sobre a exclusão</li>
+                    <li>O escopo do projeto será removido da oportunidade</li>
+                    <li>A oportunidade voltará ao status <strong>Pendente</strong></li>
+                  </ul>
+                </span>
+              )}
+              <span className="block text-xs text-muted-foreground">Esta ação não pode ser desfeita.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmProject && handleDeleteConfirmed(deleteConfirmProject)}
+            >
+              {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

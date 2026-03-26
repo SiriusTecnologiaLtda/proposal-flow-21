@@ -2226,7 +2226,7 @@ export default function ProposalCreate() {
       {/* Floating Navigation Bar */}
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
-          <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
             <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
               <ArrowLeft className="mr-2 h-4 w-4" />Anterior
             </Button>

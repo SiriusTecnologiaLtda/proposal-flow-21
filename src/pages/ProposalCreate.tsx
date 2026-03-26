@@ -1897,6 +1897,7 @@ export default function ProposalCreate() {
                           >
                             <Plus className="h-3 w-3" /> Adicionar Processo
                           </button>
+                        )}
                       </div>
                     )}
                   </div>

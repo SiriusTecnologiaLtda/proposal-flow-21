@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle, FolderKanban, Replace, Plus, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle, FolderKanban, Replace, Plus, Send, Mail, UserPlus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,9 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const [replaceMode, setReplaceMode] = useState<"add" | "replace" | null>(null);
   const [proposalData, setProposalData] = useState<any>(null);
   const [esnEmail, setEsnEmail] = useState<string | null>(null);
+  const [esnName, setEsnName] = useState<string | null>(null);
+  const [ccEmails, setCcEmails] = useState<string[]>([]);
+  const [ccInput, setCcInput] = useState("");
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -29,6 +33,9 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
 
   useEffect(() => {
     if (!open || !proposalId) return;
+    setMessage("");
+    setCcEmails([]);
+    setCcInput("");
     (async () => {
       const { data: proposal } = await supabase
         .from("proposals")
@@ -44,6 +51,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           .eq("id", proposal.esn_id)
           .single();
         setEsnEmail(esn?.email || null);
+        setEsnName(esn?.name || null);
       }
 
       const { data: linkedProjects } = await supabase
@@ -115,6 +123,18 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
 
   const totalHours = scopeSummary.reduce((s, g) => s + g.hours, 0);
 
+  function addCcEmail() {
+    const email = ccInput.trim().toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !ccEmails.includes(email)) {
+      setCcEmails([...ccEmails, email]);
+      setCcInput("");
+    }
+  }
+
+  function removeCcEmail(email: string) {
+    setCcEmails(ccEmails.filter((e) => e !== email));
+  }
+
   const handleConclude = async () => {
     if (!proposalId || !proposalData) {
       toast({ title: "Erro", description: "Projeto não possui oportunidade vinculada.", variant: "destructive" });
@@ -139,30 +159,66 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       await includeProjectInOpportunity(project, proposalId);
       await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", proposalId);
 
-      if (esnEmail && message.trim()) {
-        const scopeHtml = scopeSummary.map(g => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${g.name}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${g.hours}h</td></tr>`).join("");
+      if (esnEmail) {
+        // Build scope summary for email
+        const scopeHtml = scopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");
+        const totalRow = `<tr style="background:#f0f0f0;font-weight:bold"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${totalHours}h</td></tr>`;
+
+        const proposalLink = `${window.location.origin}/propostas/${proposalId}`;
         const htmlBody = `
-          <div style="font-family:sans-serif;max-width:600px">
-            <h3>Projeto Concluído — OPP ${project.proposal_number || ""}</h3>
-            <p>${message.replace(/\n/g, "<br>")}</p>
-            <h4>Resumo do Escopo</h4>
-            <table style="width:100%;border-collapse:collapse;font-size:14px">
-              <thead><tr style="background:#f5f5f5"><th style="padding:6px 8px;text-align:left">Grupo</th><th style="padding:6px 8px;text-align:right">Horas</th></tr></thead>
-              <tbody>${scopeHtml}</tbody>
-              <tfoot><tr style="font-weight:bold;background:#f0f0f0"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${totalHours}h</td></tr></tfoot>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #1a1a2e;">Projeto Concluído</h2>
+            <p>Olá <strong>${esnName || "ESN"}</strong>,</p>
+            <p>O projeto vinculado à oportunidade <strong>${project.proposal_number || ""}</strong> foi concluído.</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
+                <td style="padding: 8px;">${project.proposal_number || ""}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #e0e0e0;">
+                <td style="padding: 8px; font-weight: bold; color: #555;">Produto</td>
+                <td style="padding: 8px;">${project.product || ""}</td>
+              </tr>
             </table>
+            ${scopeSummary.length > 0 ? `
+              <div style="margin: 16px 0;">
+                <strong style="color: #555;">Resumo do Escopo:</strong>
+                <table style="width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;">
+                  <tr style="background: #f0f0f0;">
+                    <th style="padding: 6px 8px; text-align: left; border: 1px solid #ddd;">Grupo</th>
+                    <th style="padding: 6px 8px; text-align: right; border: 1px solid #ddd;">Horas</th>
+                  </tr>
+                  ${scopeHtml}
+                  ${totalRow}
+                </table>
+              </div>
+            ` : ""}
+            ${message.trim() ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem do Eng. Valor:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+            <p style="margin: 16px 0;"><a href="${proposalLink}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Oportunidade na Plataforma</a></p>
+            <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de oportunidades.</p>
           </div>
         `;
         try {
-          await supabase.functions.invoke("send-proposal-notification", {
-            body: {
-              proposalId,
-              type: "projeto_concluido",
-              to: esnEmail,
-              subject: `Projeto Concluído — OPP ${project.proposal_number || ""}`,
-              htmlBody,
-            },
-          });
+          const session = (await supabase.auth.getSession()).data.session;
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({
+                proposalId,
+                type: "projeto_concluido",
+                to: esnEmail,
+                subject: `[OPP ${project.proposal_number || ""}] Projeto Concluído`,
+                htmlBody,
+                cc: ccEmails.length > 0 ? ccEmails : undefined,
+              }),
+            }
+          );
         } catch (emailErr) {
           console.error("Email send failed:", emailErr);
         }
@@ -181,7 +237,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -190,17 +246,18 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         </DialogHeader>
 
         <div className="space-y-4">
-          {proposalData && (
-            <div className="rounded-lg border border-border bg-accent/30 p-3">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Oportunidade Vinculada</p>
-              <p className="text-sm font-semibold">OPP {proposalData.number}</p>
-            </div>
-          )}
-
           {!proposalId && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-              <p className="text-sm text-destructive">Este projeto não possui uma oportunidade vinculada. A conclusão não poderá incluir o escopo automaticamente.</p>
+              <p className="text-sm text-destructive">Este projeto não possui uma oportunidade vinculada.</p>
+            </div>
+          )}
+
+          {proposalData && (
+            <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
+              <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {proposalData.number}</p>
+              <p><span className="font-medium text-muted-foreground">Produto:</span> {project?.product}</p>
+              <p><span className="font-medium text-muted-foreground">Destinatário:</span> {esnName || "—"} ({esnEmail || "sem email"})</p>
             </div>
           )}
 
@@ -239,64 +296,61 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 </Button>
               </div>
               {replaceMode === "replace" && (
-                <p className="text-xs text-muted-foreground">O(s) projeto(s) existente(s) serão desvinculados e seu escopo removido da oportunidade.</p>
+                <p className="text-xs text-muted-foreground">O(s) projeto(s) existente(s) serão desvinculados.</p>
               )}
               {replaceMode === "add" && (
-                <p className="text-xs text-muted-foreground">Este projeto será adicionado à oportunidade mantendo os existentes.</p>
+                <p className="text-xs text-muted-foreground">Este projeto será adicionado mantendo os existentes.</p>
               )}
             </div>
           )}
 
-          {scopeSummary.length > 0 && (
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Resumo do Escopo</Label>
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-accent/50">
-                      <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Grupo</th>
-                      <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Horas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scopeSummary.map((g, i) => (
-                      <tr key={i} className="border-t border-border/50">
-                        <td className="px-3 py-1.5">{g.name}</td>
-                        <td className="px-3 py-1.5 text-right font-medium">{g.hours}h</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border bg-accent/30 font-semibold">
-                      <td className="px-3 py-1.5">Total</td>
-                      <td className="px-3 py-1.5 text-right">{totalHours}h</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+          {/* CC Recipients */}
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1">
+              <UserPlus className="h-3 w-3" /> Cópia (CC)
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                value={ccInput}
+                onChange={(e) => setCcInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCcEmail())}
+                placeholder="email@exemplo.com"
+                className="text-sm h-8"
+              />
+              <Button type="button" size="sm" variant="outline" onClick={addCcEmail} className="h-8 px-3">
+                <Plus className="h-3 w-3" />
+              </Button>
             </div>
-          )}
+            {ccEmails.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {ccEmails.map((email) => (
+                  <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
+                    {email}
+                    <button onClick={() => removeCcEmail(email)} className="ml-0.5 hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mensagem para o ESN</Label>
+            <Label className="text-xs">Mensagem (opcional)</Label>
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escreva uma mensagem para o Executivo de Soluções sobre a conclusão deste projeto..."
+              placeholder="Descreva o resumo e observações sobre a conclusão do projeto..."
               rows={4}
+              className="text-sm"
             />
-            {esnEmail && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Send className="h-3 w-3" /> Será enviado para: {esnEmail}
-              </p>
-            )}
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
           <Button onClick={handleConclude} disabled={loading || (!proposalId) || (existingProjects.length > 0 && !replaceMode)}>
-            {loading ? "Concluindo..." : "Concluir Projeto"}
+            {loading ? "Concluindo..." : <><Send className="mr-2 h-4 w-4" /> Concluir Projeto</>}
           </Button>
         </DialogFooter>
       </DialogContent>

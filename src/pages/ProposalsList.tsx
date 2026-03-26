@@ -241,12 +241,24 @@ export default function ProposalsList() {
   const [notifProposal, setNotifProposal] = useState<any>(null);
   const [notifMessage, setNotifMessage] = useState("");
   const [notifSending, setNotifSending] = useState(false);
+  const [notifCcEmails, setNotifCcEmails] = useState<string[]>([]);
+  const [notifCcInput, setNotifCcInput] = useState("");
 
   function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
     setNotifProposal(proposal);
     setNotifType(type);
     setNotifMessage("");
+    setNotifCcEmails([]);
+    setNotifCcInput("");
     setNotifDialogOpen(true);
+  }
+
+  function addNotifCcEmail() {
+    const email = notifCcInput.trim().toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifCcEmails.includes(email)) {
+      setNotifCcEmails([...notifCcEmails, email]);
+      setNotifCcInput("");
+    }
   }
 
   // CRA notification state

@@ -30,13 +30,23 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const qc = useQueryClient();
 
   const proposalId = project?.proposal_id;
+  const [fullProject, setFullProject] = useState<any>(null);
 
   useEffect(() => {
-    if (!open || !proposalId) return;
+    if (!open || !proposalId || !project?.id) return;
     setMessage("");
     setCcEmails([]);
     setCcInput("");
+    setFullProject(null);
     (async () => {
+      // Fetch full project data with group_notes and complete scope items
+      const { data: fullProj } = await supabase
+        .from("projects")
+        .select("*, project_scope_items(*)")
+        .eq("id", project.id)
+        .single();
+      setFullProject(fullProj);
+
       const { data: proposal } = await supabase
         .from("proposals")
         .select("id, number, esn_id, client_id, status")

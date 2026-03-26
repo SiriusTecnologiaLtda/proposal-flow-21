@@ -430,7 +430,7 @@ Deno.serve(async (req) => {
     const subjectRaw = proposal
       ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}`
       : "Documento para assinatura";
-    const subject = sanitize(subjectRaw);
+    const subject = sanitize(subjectRaw).substring(0, 60);
 
     const publishBody = {
       idDocumento: taeDocumentId,

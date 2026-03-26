@@ -564,8 +564,11 @@ export default function ClientsList() {
                                 onChange={(e) => updateContact(contact.id, "email", e.target.value)}
                                 placeholder="email@empresa.com"
                                 type="email"
-                                className="h-8 text-sm"
+                                className={`h-8 text-sm ${contacts.some((c) => c.id !== contact.id && c.email && contact.email && c.email.trim().toLowerCase() === contact.email.trim().toLowerCase()) ? "border-destructive ring-1 ring-destructive" : ""}`}
                               />
+                              {contacts.some((c) => c.id !== contact.id && c.email && contact.email && c.email.trim().toLowerCase() === contact.email.trim().toLowerCase()) && (
+                                <p className="text-xs text-destructive">E-mail já utilizado por outro contato</p>
+                              )}
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Telefone</Label>

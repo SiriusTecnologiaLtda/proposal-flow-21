@@ -180,10 +180,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
           <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
         </div>
-        <Button onClick={() => navigate("/projetos/novo")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Projeto
-        </Button>
+{/* Projetos criados apenas via Solicitar Eng. Valor */}
       </div>
 
       <div className="relative">

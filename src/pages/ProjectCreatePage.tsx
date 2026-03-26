@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { useProject, useCreateProject, useUpdateProject } from "@/hooks/useProjects";
@@ -42,9 +43,48 @@ function localId() {
   return `local_${Date.now()}_${++idCounter}`;
 }
 
+// PDF-convertible MIME types (files that Google Drive can convert to PDF or are already PDF)
+const PDF_CONVERTIBLE_MIMES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+  "text/html",
+  "text/rtf",
+  "application/rtf",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/bmp",
+  "image/tiff",
+  "image/webp",
+  "image/svg+xml",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+]);
+
+const PDF_CONVERTIBLE_EXTS = new Set([
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "txt", "csv", "html", "htm", "rtf",
+  "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg",
+  "odt", "ods", "odp",
+]);
+
+function isFileConvertibleToPdf(fileName: string, mimeType: string): boolean {
+  if (PDF_CONVERTIBLE_MIMES.has(mimeType)) return true;
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  return PDF_CONVERTIBLE_EXTS.has(ext);
+}
+
 const STATUS_MAP: Record<string, string> = {
   pendente: "Pendente",
-  rascunho: "Pendente", // legacy fallback
+  rascunho: "Pendente",
   em_revisao: "Em Revisão",
   concluido: "Concluído",
 };
@@ -475,29 +515,62 @@ export default function ProjectCreatePage() {
     return allItems;
   }
 
-  // File upload
+  // Build a project label for the Drive folder name
+  const projectLabel = useMemo(() => {
+    const clientName = selectedClient?.name || "";
+    const product = form.product || "";
+    return [clientName, product].filter(Boolean).join(" - ") || "Novo Projeto";
+  }, [selectedClient, form.product]);
+
+  // File upload — uploads to Google Drive via edge function
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !user) return;
     setUploading(true);
     try {
+      const projectId = id || "new";
       for (const file of Array.from(files)) {
-        const path = `${id || "new"}/${crypto.randomUUID()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from("project-attachments").upload(path, file);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from("project-attachments").getPublicUrl(path);
+        const convertible = isFileConvertibleToPdf(file.name, file.type);
+
+        // Upload to Google Drive via edge function
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("project_id", projectId);
+        formData.append("project_label", projectLabel);
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token || "";
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const resp = await fetch(`${supabaseUrl}/functions/v1/upload-project-attachment`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: formData,
+        });
+
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.error || "Erro ao enviar para o Drive");
+
+        const driveUrl = result.drive_url;
+        const driveFileId = result.drive_file_id;
+
         if (id) {
           await supabase.from("project_attachments").insert({
-            project_id: id, file_name: file.name, file_url: urlData.publicUrl,
+            project_id: id, file_name: file.name, file_url: driveUrl,
             file_size: file.size, mime_type: file.type, uploaded_by: user.id, is_scope: false,
+            description: driveFileId, // store drive file id in description for reference
           });
         }
         setAttachments((prev) => [...prev, {
-          id: crypto.randomUUID(), file_name: file.name, file_url: urlData.publicUrl,
+          id: crypto.randomUUID(), file_name: file.name, file_url: driveUrl,
           file_size: file.size, mime_type: file.type, is_scope: false, _isNew: !id,
+          _convertible: convertible, description: driveFileId,
         }]);
       }
-      toast({ title: "Arquivo(s) anexado(s)" });
+      toast({ title: "Arquivo(s) anexado(s) ao Google Drive" });
     } catch (err: any) {
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     }
@@ -513,6 +586,11 @@ export default function ProjectCreatePage() {
   };
 
   const toggleAttachmentScope = async (att: any) => {
+    const convertible = att._convertible ?? isFileConvertibleToPdf(att.file_name || "", att.mime_type || "");
+    if (!convertible) {
+      toast({ title: "Arquivo não pode compor escopo", description: "Este tipo de arquivo não pode ser convertido para PDF.", variant: "destructive" });
+      return;
+    }
     const newVal = !att.is_scope;
     setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: newVal } : a));
     if (att.id && !att._isNew) {
@@ -545,7 +623,8 @@ export default function ProjectCreatePage() {
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({
             project_id: projectId, file_name: att.file_name, file_url: att.file_url,
-            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id, is_scope: att.is_scope || false,
+            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id,
+            is_scope: att.is_scope || false, description: att.description || "",
           });
         }
       }
@@ -1094,7 +1173,7 @@ export default function ProjectCreatePage() {
                 <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-center hover:bg-accent/50 transition-colors">
                   <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
                   <span className="text-sm text-muted-foreground">
-                    {uploading ? "Enviando..." : "Clique para anexar documentos (relatórios, levantamentos, etc.)"}
+                    {uploading ? "Enviando para o Google Drive..." : "Clique para anexar documentos ao Google Drive (relatórios, levantamentos, etc.)"}
                   </span>
                 </div>
               </Label>
@@ -1103,7 +1182,10 @@ export default function ProjectCreatePage() {
           )}
 
           <div className="space-y-2">
-            {attachments.map((att) => (
+            <TooltipProvider>
+            {attachments.map((att) => {
+              const convertible = att._convertible ?? isFileConvertibleToPdf(att.file_name || "", att.mime_type || "");
+              return (
               <div key={att.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
                 <FileIcon className="h-5 w-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -1115,17 +1197,31 @@ export default function ProjectCreatePage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5" title="Compõe Escopo?">
-                    <Switch
-                      checked={!!att.is_scope}
-                      onCheckedChange={() => toggleAttachmentScope(att)}
-                      disabled={isReadOnly}
-                      className="scale-75"
-                    />
-                    <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
-                      Escopo
-                    </span>
-                  </div>
+                  {!convertible ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-help">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="text-[10px] font-medium text-amber-500">Não conversível</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px]">
+                        <p className="text-xs">Este arquivo não pode ser convertido para PDF e portanto não pode compor o escopo.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <div className="flex items-center gap-1.5" title="Compõe Escopo?">
+                      <Switch
+                        checked={!!att.is_scope}
+                        onCheckedChange={() => toggleAttachmentScope(att)}
+                        disabled={isReadOnly}
+                        className="scale-75"
+                      />
+                      <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
+                        Escopo
+                      </span>
+                    </div>
+                  )}
                   {!isReadOnly && (
                     <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
                       <X className="h-4 w-4" />
@@ -1133,7 +1229,9 @@ export default function ProjectCreatePage() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
+            </TooltipProvider>
             {attachments.length === 0 && (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <Paperclip className="mx-auto h-8 w-8 mb-2 opacity-40" />

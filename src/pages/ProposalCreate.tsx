@@ -1840,6 +1840,7 @@ export default function ProposalCreate() {
                                           onChange={(e) => updateChildDescription(proc.id, child.id, e.target.value)}
                                           placeholder="Descrição do item"
                                           className="h-7 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+                                          readOnly={scopeLocked}
                                         />
                                         <Input
                                           type="number"
@@ -1847,7 +1848,7 @@ export default function ProposalCreate() {
                                           value={child.hours}
                                           onChange={(e) => updateChildHours(proc.id, child.id, Number(e.target.value))}
                                           className="h-7 w-16 text-center text-xs"
-                                          disabled={!child.included || !proc.included}
+                                          disabled={!child.included || !proc.included || scopeLocked}
                                         />
                                         <button
                                           onClick={() => openNotesDialog(
@@ -1863,20 +1864,24 @@ export default function ProposalCreate() {
                                         <Switch
                                           checked={child.included}
                                           onCheckedChange={() => toggleChild(proc.id, child.id)}
-                                          disabled={!proc.included}
+                                          disabled={!proc.included || scopeLocked}
                                         />
-                                        <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
+                                        {!scopeLocked && (
+                                          <button onClick={() => removeChild(proc.id, child.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   ))}
-                                  <button
-                                    onClick={() => addChild(proc.id)}
-                                    className="flex w-full items-center gap-1 border-t border-border/50 px-3 py-2 pl-14 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                                  >
-                                    <Plus className="h-3 w-3" /> Adicionar item
-                                  </button>
+                                  {!scopeLocked && (
+                                    <button
+                                      onClick={() => addChild(proc.id)}
+                                      className="flex w-full items-center gap-1 border-t border-border/50 px-3 py-2 pl-14 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                                    >
+                                      <Plus className="h-3 w-3" /> Adicionar item
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>

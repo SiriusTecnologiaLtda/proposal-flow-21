@@ -148,6 +148,50 @@ export default function ProposalsList() {
       });
   }, [user]);
 
+  // Realtime: subscribe to proposals & proposal_signatures changes
+  useEffect(() => {
+    const statusLabels: Record<string, string> = {
+      ganha: "Ganha",
+      cancelada: "Cancelada",
+      em_assinatura: "Em Assinatura",
+      proposta_gerada: "Proposta Gerada",
+      pendente: "Pendente",
+      em_analise_ev: "Em Análise E.V.",
+      analise_ev_concluida: "Análise E.V. Concluída",
+    };
+
+    const channel = supabase
+      .channel("proposals-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "proposals" },
+        (payload) => {
+          const oldStatus = (payload.old as any)?.status;
+          const newStatus = (payload.new as any)?.status;
+          const number = (payload.new as any)?.number || "";
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            toast({
+              title: `Oportunidade ${number} atualizada`,
+              description: `Status alterado para: ${statusLabels[newStatus] || newStatus}`,
+            });
+          }
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "proposal_signatures" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, toast]);
+
   // Listen for Gmail OAuth callback
   const handleGmailOAuthMessage = useCallback(
     async (event: MessageEvent) => {

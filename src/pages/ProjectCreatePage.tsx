@@ -515,29 +515,62 @@ export default function ProjectCreatePage() {
     return allItems;
   }
 
-  // File upload
+  // Build a project label for the Drive folder name
+  const projectLabel = useMemo(() => {
+    const clientName = selectedClient?.name || "";
+    const product = form.product || "";
+    return [clientName, product].filter(Boolean).join(" - ") || "Novo Projeto";
+  }, [selectedClient, form.product]);
+
+  // File upload — uploads to Google Drive via edge function
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !user) return;
     setUploading(true);
     try {
+      const projectId = id || "new";
       for (const file of Array.from(files)) {
-        const path = `${id || "new"}/${crypto.randomUUID()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from("project-attachments").upload(path, file);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from("project-attachments").getPublicUrl(path);
+        const convertible = isFileConvertibleToPdf(file.name, file.type);
+
+        // Upload to Google Drive via edge function
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("project_id", projectId);
+        formData.append("project_label", projectLabel);
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token || "";
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const resp = await fetch(`${supabaseUrl}/functions/v1/upload-project-attachment`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: formData,
+        });
+
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.error || "Erro ao enviar para o Drive");
+
+        const driveUrl = result.drive_url;
+        const driveFileId = result.drive_file_id;
+
         if (id) {
           await supabase.from("project_attachments").insert({
-            project_id: id, file_name: file.name, file_url: urlData.publicUrl,
+            project_id: id, file_name: file.name, file_url: driveUrl,
             file_size: file.size, mime_type: file.type, uploaded_by: user.id, is_scope: false,
+            description: driveFileId, // store drive file id in description for reference
           });
         }
         setAttachments((prev) => [...prev, {
-          id: crypto.randomUUID(), file_name: file.name, file_url: urlData.publicUrl,
+          id: crypto.randomUUID(), file_name: file.name, file_url: driveUrl,
           file_size: file.size, mime_type: file.type, is_scope: false, _isNew: !id,
+          _convertible: convertible, description: driveFileId,
         }]);
       }
-      toast({ title: "Arquivo(s) anexado(s)" });
+      toast({ title: "Arquivo(s) anexado(s) ao Google Drive" });
     } catch (err: any) {
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     }
@@ -553,6 +586,11 @@ export default function ProjectCreatePage() {
   };
 
   const toggleAttachmentScope = async (att: any) => {
+    const convertible = att._convertible ?? isFileConvertibleToPdf(att.file_name || "", att.mime_type || "");
+    if (!convertible) {
+      toast({ title: "Arquivo não pode compor escopo", description: "Este tipo de arquivo não pode ser convertido para PDF.", variant: "destructive" });
+      return;
+    }
     const newVal = !att.is_scope;
     setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: newVal } : a));
     if (att.id && !att._isNew) {

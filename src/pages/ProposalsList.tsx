@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
 import SignatureMonitorDialog from "@/components/proposal/SignatureMonitorDialog";
+import DocumentManagementDialog from "@/components/proposal/DocumentManagementDialog";
 
 interface LogEntry {
   step: string;
@@ -443,21 +444,9 @@ export default function ProposalsList() {
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Versions dialog state
-  interface ProposalDoc {
-    id: string;
-    doc_id: string;
-    doc_url: string;
-    file_name: string;
-    version: number;
-    is_official: boolean;
-    created_at: string;
-    doc_type: string;
-  }
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
   const [versionsDocType, setVersionsDocType] = useState<string>("proposta");
-  const [versions, setVersions] = useState<ProposalDoc[]>([]);
-  const [versionsLoading, setVersionsLoading] = useState(false);
 
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -680,39 +669,7 @@ export default function ProposalsList() {
     setChangeLogLoading(false);
   }
 
-  async function loadVersions(proposalId: string, docType: string = "proposta") {
-    setVersionsProposalId(proposalId);
-    setVersionsDocType(docType);
-    setVersionsLoading(true);
-    setVersionsOpen(true);
-    try {
-      const { data, error } = await supabase
-        .from("proposal_documents")
-        .select("*")
-        .eq("proposal_id", proposalId)
-        .eq("doc_type", docType)
-        .order("version", { ascending: false });
-      if (error) throw error;
-      setVersions((data || []) as any);
-    } catch (err: any) {
-      toast({ title: "Erro ao carregar versões", description: err.message, variant: "destructive" });
-      setVersions([]);
-    }
-    setVersionsLoading(false);
-  }
 
-  async function toggleOfficial(docId: string, currentOfficial: boolean) {
-    try {
-      if (!currentOfficial && versionsProposalId) {
-        await supabase.from("proposal_documents").update({ is_official: false }).eq("proposal_id", versionsProposalId).eq("doc_type", versionsDocType);
-      }
-      await supabase.from("proposal_documents").update({ is_official: !currentOfficial }).eq("id", docId);
-      if (versionsProposalId) await loadVersions(versionsProposalId, versionsDocType);
-      toast({ title: currentOfficial ? "Versão desmarcada como oficial" : "Versão definida como oficial" });
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    }
-  }
 
   const isLocked = (status: string) => ["em_assinatura", "ganha", "cancelada"].includes(status);
 
@@ -974,7 +931,7 @@ export default function ProposalsList() {
                       <TooltipTrigger asChild>
                         <button
                           disabled={propostaCount === 0}
-                          onClick={() => propostaCount > 0 && loadVersions(p.id, "proposta")}
+                          onClick={() => { if (propostaCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("proposta"); setVersionsOpen(true); } }}
                           className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
                             propostaCount > 0
                               ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
@@ -994,7 +951,7 @@ export default function ProposalsList() {
                       <TooltipTrigger asChild>
                         <button
                           disabled={mitCount === 0}
-                          onClick={() => mitCount > 0 && loadVersions(p.id, "mit")}
+                          onClick={() => { if (mitCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("mit"); setVersionsOpen(true); } }}
                           className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
                             mitCount > 0
                               ? "bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"
@@ -1343,80 +1300,13 @@ export default function ProposalsList() {
           </DialogContent>
         </Dialog>
 
-        {/* Versions dialog */}
-        <Dialog open={versionsOpen} onOpenChange={setVersionsOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FolderOpen className="h-5 w-5" />
-                {versionsDocType === "mit" ? "MIT-065 Gerados" : "Propostas Geradas"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2">
-              {versionsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : versions.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum documento gerado ainda.</p>
-              ) : (
-                <ScrollArea className="max-h-80">
-                  <div className="space-y-2 pr-2">
-                    {versions.map((doc, idx) => (
-                      <div
-                        key={doc.id}
-                        className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                          doc.is_official
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-accent/50"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-foreground truncate">{doc.file_name}</p>
-                            {doc.is_official && (
-                              <Badge variant="default" className="text-[10px] px-1.5 py-0">
-                                Oficial
-                              </Badge>
-                            )}
-                            {idx === 0 && !doc.is_official && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                Mais recente
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            v{doc.version} · {new Date(doc.created_at).toLocaleDateString("pt-BR")} às {new Date(doc.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 ml-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title={doc.is_official ? "Desmarcar como oficial" : "Definir como oficial"}
-                            onClick={() => toggleOfficial(doc.id, doc.is_official)}
-                          >
-                            <Star className={`h-4 w-4 ${doc.is_official ? "fill-primary text-primary" : "text-muted-foreground"}`} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Abrir documento"
-                            onClick={() => window.open(doc.doc_url, "_blank")}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Document Management Dialog */}
+        <DocumentManagementDialog
+          open={versionsOpen}
+          onOpenChange={setVersionsOpen}
+          proposalId={versionsProposalId}
+          docType={versionsDocType}
+        />
 
         {/* Send to Signature dialog */}
         <SendToSignatureDialog

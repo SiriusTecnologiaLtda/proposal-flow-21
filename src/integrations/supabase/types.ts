@@ -1907,6 +1907,7 @@ export type Database = {
         | "pendente"
         | "proposta_gerada"
         | "em_analise_ev"
+        | "analise_ev_concluida"
         | "em_assinatura"
         | "ganha"
         | "cancelada"
@@ -2045,6 +2046,7 @@ export const Constants = {
         "pendente",
         "proposta_gerada",
         "em_analise_ev",
+        "analise_ev_concluida",
         "em_assinatura",
         "ganha",
         "cancelada",

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, SearchCheck, CircleCheckBig } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -30,9 +30,10 @@ interface LogEntry {
   timestamp: string;
 }
 
-const statusMap: Record<string, { label: string; className: string }> = {
+const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Análise E.V.", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
+  em_analise_ev: { label: "Em Análise E.V.", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400", icon: <SearchCheck className="h-3.5 w-3.5" /> },
+  analise_ev_concluida: { label: "Análise E.V. Concluída", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: <CircleCheckBig className="h-3.5 w-3.5" /> },
   proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
@@ -384,6 +385,12 @@ export default function ProposalsList() {
           
           queryClient.invalidateQueries({ queryKey: ["proposals"] });
           queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
+        
+        // If notificar_esn, change status to analise_ev_concluida
+        if (notifType === "notificar_esn") {
+          await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", notifProposal.id);
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
         }
         
         toast({
@@ -928,7 +935,8 @@ export default function ProposalsList() {
                       );
                     })()}
                     {p.status !== "ganha" && (
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                        {status.icon}
                         {status.label}
                       </span>
                     )}

@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const roleLabels: Record<string, string> = {
   esn: "Executivo de Vendas (ESN)",
   gsn: "Gerente de Vendas (GSN)",
-  arquiteto: "Arquiteto de Soluções",
+  arquiteto: "Engenheiro de Valor",
 };
 
 const roleColors: Record<string, string> = {
@@ -174,7 +174,7 @@ export default function SalesTeamPage() {
                 <SelectContent>
                   <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
                   <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-                  <SelectItem value="arquiteto">Arquiteto de Soluções</SelectItem>
+                  <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
                 </SelectContent>
               </Select>
             </div>

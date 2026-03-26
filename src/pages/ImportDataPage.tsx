@@ -1028,7 +1028,7 @@ export default function ImportDataPage() {
           entity="sales_team"
           icon={UserCog}
           title="Time de Vendas"
-          description="ESN, GSN e Arquitetos"
+          description="ESN, GSN e Engenheiros de Valor"
           templateFn={generateSalesTeamTemplate}
           templateFilename="modelo_time_vendas.xlsx"
           clearFn={clearSalesTeam}

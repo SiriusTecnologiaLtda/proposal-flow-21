@@ -46,7 +46,7 @@ function BrowserFrame({ children, className = "" }: { children: React.ReactNode;
 const testimonials = [
   { name: "Marcos Oliveira", role: "Executivo de Negócios (ESN)", quote: "Reduzi em 70% o tempo que gastava montando propostas. Com os templates de escopo e cálculos automáticos, foco no que importa: vender.", avatar: "MO" },
   { name: "Carla Mendes", role: "Gerente de Negócios (GSN)", quote: "A visão consolidada do dashboard me dá controle total sobre o pipeline. Acompanho metas, conversão e ticket médio da minha equipe em tempo real.", avatar: "CM" },
-  { name: "Rafael Souza", role: "Arquiteto de Soluções", quote: "Os templates padronizaram nossas entregas. Consigo revisar escopos detalhados e me comunicar com o ESN diretamente nos itens da proposta.", avatar: "RS" },
+  { name: "Rafael Souza", role: "Engenheiro de Valor", quote: "Os templates padronizaram nossas entregas. Consigo revisar escopos detalhados e me comunicar com o ESN diretamente nos itens da proposta.", avatar: "RS" },
 ];
 
 const impactNumbers = [
@@ -334,7 +334,7 @@ export default function LandingPage() {
                   { icon: Shield, title: "Admin", desc: "Acesso total: cadastros, configurações, metas, permissões e todos os dados" },
                   { icon: UserCheck, title: "Vendedor (ESN)", desc: "Vê apenas seus clientes e propostas. Cria e gerencia seu pipeline" },
                   { icon: Users, title: "GSN", desc: "Supervisiona a equipe vinculada. Vê propostas onde é gestor atribuído" },
-                  { icon: Layers, title: "Arquiteto", desc: "Revisa escopos técnicos das propostas onde está vinculado" },
+                  { icon: Layers, title: "Eng. Valor", desc: "Revisa escopos técnicos das propostas onde está vinculado" },
                   { icon: Eye, title: "Consulta CRA", desc: "Leitura apenas de propostas ganhas nas unidades autorizadas" },
                 ].map((p, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -378,7 +378,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex gap-2 mt-3">
                       {[
-                        { l: "A", n: "Admin" }, { l: "V", n: "Vendedor" }, { l: "G", n: "GSN" }, { l: "Q", n: "Arquiteto" }, { l: "C", n: "Consulta" },
+                        { l: "A", n: "Admin" }, { l: "V", n: "Vendedor" }, { l: "G", n: "GSN" }, { l: "E", n: "Eng. Valor" }, { l: "C", n: "Consulta" },
                       ].map((r, i) => (
                         <span key={i} className="text-[8px] text-muted-foreground">{r.l}={r.n}</span>
                       ))}
@@ -453,7 +453,7 @@ export default function LandingPage() {
               </p>
               <ul className="mt-6 space-y-3">
                 {[
-                  "Identifica ESN, GSN, Arquiteto ou Consulta pelo telefone",
+                  "Identifica ESN, GSN, Eng. Valor ou Consulta pelo telefone",
                   "Aplica filtros de acesso idênticos ao sistema (RLS)",
                   "Contexto conversacional com histórico de mensagens",
                   "Múltiplos modelos de IA configuráveis (Gemini, GPT)",

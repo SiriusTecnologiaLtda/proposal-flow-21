@@ -1446,9 +1446,9 @@ export default function ProposalCreate() {
                 </div>
               </div>
 
-              {/* Arquiteto */}
+              {/* Engenheiro de Valor */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Arquiteto de Solução</Label>
+                <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
@@ -1458,9 +1458,9 @@ export default function ProposalCreate() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[300px] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Pesquisar Arquiteto..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
+                      <CommandInput placeholder="Pesquisar Eng. Valor..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
                       <CommandList>
-                        <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum Eng. Valor encontrado.</CommandEmpty>
                         <CommandGroup>
                           {(() => {
                             const clientUnitId = selectedClient?.unit_id;
@@ -1605,7 +1605,7 @@ export default function ProposalCreate() {
                           <p className="text-sm font-medium text-foreground">{project.description || "Projeto"}</p>
                           <p className="text-xs text-muted-foreground">
                             {statusLabel} · {scopeCount} itens · {totalHrs}h
-                            {project.sales_team?.name ? ` · Arq: ${project.sales_team.name}` : ""}
+                            {project.sales_team?.name ? ` · E.V: ${project.sales_team.name}` : ""}
                             {project.created_at ? ` · ${new Date(project.created_at).toLocaleDateString("pt-BR")}` : ""}
                           </p>
                         </div>

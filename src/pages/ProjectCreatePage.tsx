@@ -557,7 +557,7 @@ export default function ProjectCreatePage() {
             {[
               ["Cliente", selectedClient?.name || "—"],
               ["Produto", form.product || "—"],
-              ["Arquiteto", selectedArquiteto?.name || "—"],
+              ["Eng. Valor", selectedArquiteto?.name || "—"],
               ["Status", statusLabel],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
@@ -716,7 +716,7 @@ export default function ProjectCreatePage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Arquiteto Responsável</Label>
+                <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal h-10">
@@ -728,9 +728,9 @@ export default function ProjectCreatePage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Pesquisar arquiteto..." />
+                      <CommandInput placeholder="Pesquisar engenheiro de valor..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum arquiteto encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum engenheiro de valor encontrado.</CommandEmpty>
                         <CommandGroup>
                           {arquitetos.map((a: any) => (
                             <CommandItem

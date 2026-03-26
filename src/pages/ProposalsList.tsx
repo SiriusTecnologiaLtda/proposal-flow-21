@@ -364,6 +364,28 @@ export default function ProposalsList() {
         return;
       }
       if (res.ok && data.success) {
+        // If solicitar_ajuste, change status to em_analise_ev and create project
+        if (notifType === "solicitar_ajuste") {
+          await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", notifProposal.id);
+          
+          // Auto-create project linked to this proposal
+          const projectId = crypto.randomUUID();
+          await supabase.from("projects").insert({
+            id: projectId,
+            client_id: notifProposal.client_id,
+            product: notifProposal.product,
+            description: notifProposal.description || "",
+            arquiteto_id: notifProposal.arquiteto_id,
+            created_by: user!.id,
+            status: "rascunho",
+            proposal_id: notifProposal.id,
+            proposal_number: notifProposal.number,
+          } as any);
+          
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
+        
         toast({
           title: "Email enviado com sucesso",
           description: `Enviado de ${data.senderEmail} para ${data.recipientName} (${data.recipientEmail})`,

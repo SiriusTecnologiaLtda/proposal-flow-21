@@ -1,16 +1,16 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LayoutTemplate, ChevronDown, ChevronRight, Edit2, Plus, CheckCircle2, XCircle, Clock, Filter } from "lucide-react";
+import { Search, LayoutTemplate, ChevronDown, ChevronRight, ChevronUp, Edit2, Plus, CheckCircle2, XCircle, Clock, SlidersHorizontal, CalendarRange, FileText, X } from "lucide-react";
+import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { useScopeTemplates } from "@/hooks/useSupabaseData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_CONFIG: Record<string, { label: string; icon: any; badgeClass: string }> = {
-  em_revisao: { label: "Em Revisão", icon: Clock, badgeClass: "bg-warning/10 text-warning border-warning/20" },
-  aprovado: { label: "Aprovado", icon: CheckCircle2, badgeClass: "bg-success/10 text-success border-success/20" },
-  inativo: { label: "Inativo", icon: XCircle, badgeClass: "bg-muted text-muted-foreground border-border" },
+const STATUS_CONFIG: Record<string, { label: string; icon: any; badgeClass: string; filterClass: string }> = {
+  em_revisao: { label: "Em Revisão", icon: Clock, badgeClass: "bg-warning/10 text-warning border-warning/20", filterClass: "text-warning" },
+  aprovado: { label: "Aprovado", icon: CheckCircle2, badgeClass: "bg-success/10 text-success border-success/20", filterClass: "text-success" },
+  inativo: { label: "Inativo", icon: XCircle, badgeClass: "bg-muted text-muted-foreground border-border", filterClass: "text-muted-foreground" },
 };
 
 interface ScopeItemForm {
@@ -25,24 +25,20 @@ interface ScopeItemForm {
 export default function ScopeTemplatesPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data: templates = [] } = useScopeTemplates();
 
   function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
     const parents = flatItems.filter((it: any) => !it.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
     return parents.map((p: any) => ({
-      id: p.id,
-      description: p.description,
-      default_hours: p.default_hours,
-      sort_order: p.sort_order,
-      parent_id: null,
-      children: flatItems
-        .filter((c: any) => c.parent_id === p.id)
-        .sort((a: any, b: any) => a.sort_order - b.sort_order)
-        .map((c: any) => ({
-          id: c.id, description: c.description, default_hours: c.default_hours, sort_order: c.sort_order, parent_id: p.id,
-        })),
+      id: p.id, description: p.description, default_hours: p.default_hours, sort_order: p.sort_order, parent_id: null,
+      children: flatItems.filter((c: any) => c.parent_id === p.id).sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((c: any) => ({ id: c.id, description: c.description, default_hours: c.default_hours, sort_order: c.sort_order, parent_id: p.id })),
     }));
   }
 
@@ -51,11 +47,39 @@ export default function ScopeTemplatesPage() {
     return parent.children.reduce((sum, c) => sum + (c.default_hours || 0), 0);
   }
 
+  // Date range
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: new Date(customStart), end: new Date(customEnd + "T23:59:59") };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
   const filtered = useMemo(() => {
     let result = templates;
-    if (statusFilter !== "todos") {
-      result = result.filter((t: any) => (t as any).status === statusFilter);
+
+    // Status filter
+    if (statusFilter.length > 0) {
+      result = result.filter((t: any) => statusFilter.includes((t as any).status || "em_revisao"));
     }
+
+    // Period filter
+    if (dateRange) {
+      result = result.filter((t) => {
+        const d = new Date(t.created_at);
+        return d >= dateRange.start && d <= dateRange.end;
+      });
+    }
+
+    // Search
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -67,62 +91,155 @@ export default function ScopeTemplatesPage() {
       );
     }
     return result;
-  }, [templates, search, statusFilter]);
+  }, [templates, search, statusFilter, dateRange]);
 
   const grouped = filtered.reduce<Record<string, typeof filtered>>((acc, t) => {
     (acc[t.product] = acc[t.product] || []).push(t);
     return acc;
   }, {});
 
-  // Status counts
-  const counts = useMemo(() => {
-    const c = { em_revisao: 0, aprovado: 0, inativo: 0, total: templates.length };
-    templates.forEach((t: any) => {
-      const s = (t as any).status || "em_revisao";
-      if (s in c) (c as any)[s]++;
-    });
-    return c;
-  }, [templates]);
+  const activeFilterCount =
+    (statusFilter.length > 0 ? 1 : 0) +
+    (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Templates de Escopo</h1>
-          <p className="text-sm text-muted-foreground">{templates.length} templates disponíveis</p>
+          <p className="text-sm text-muted-foreground">{filtered.length} de {templates.length} templates</p>
         </div>
         <Button onClick={() => navigate("/templates/novo")}>
           <Plus className="mr-2 h-4 w-4" />Novo Template
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar por nome, produto, categoria ou criador..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos ({counts.total})</SelectItem>
-            <SelectItem value="em_revisao">Em Revisão ({counts.em_revisao})</SelectItem>
-            <SelectItem value="aprovado">Aprovado ({counts.aprovado})</SelectItem>
-            <SelectItem value="inativo">Inativo ({counts.inativo})</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input placeholder="Buscar por nome, produto, categoria ou criador..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      </div>
+
+      {/* Filters - pill style like Oportunidades */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+          </div>
+          {activeFilterCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+          <div className="flex-1" />
+          {activeFilterCount > 0 && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setStatusFilter([]);
+                setPeriodFilter("este_ano");
+                setCustomStart("");
+                setCustomEnd("");
+              }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Limpar tudo
+            </span>
+          )}
+          {filtersOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {filtersOpen && (
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+            {/* Period */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: "este_mes", label: "Este mês" },
+                  { key: "ultimo_mes", label: "Último mês" },
+                  { key: "este_trimestre", label: "Este trimestre" },
+                  { key: "este_ano", label: "Este ano" },
+                  { key: "personalizado", label: "Personalizado" },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      periodFilter === key
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {periodFilter === "personalizado" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Status */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(STATUS_CONFIG).map(([key, { label, filterClass }]) => {
+                  const active = statusFilter.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() =>
+                        setStatusFilter((prev) =>
+                          active ? prev.filter((s) => s !== key) : [...prev, key]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? `${filterClass} border-current ring-1 ring-current/30`
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Template List */}
       <div className="space-y-4">
-        {Object.entries(grouped).map(([product, templates]) => (
+        {Object.entries(grouped).map(([product, tpls]) => (
           <div key={product}>
             <h2 className="mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">{product}</h2>
             <div className="space-y-2">
-              {templates.map((template) => {
+              {tpls.map((template) => {
                 const isOpen = expandedId === template.id;
                 const flatItems = (template as any).scope_template_items || [];
                 const hierarchy = buildHierarchy(flatItems);

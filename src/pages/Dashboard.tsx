@@ -614,7 +614,16 @@ export default function Dashboard() {
     return months;
   }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
 
-  const totalMeta = resultadoData.reduce((s, m) => s + m.meta, 0);
+  const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+
+  const totalMeta = useMemo(() => {
+    if (resultadoMode === "ytd") {
+      return resultadoData.filter(m => m.month <= currentMonth).reduce((s, m) => s + m.meta, 0);
+    }
+    return resultadoData.reduce((s, m) => s + m.meta, 0);
+  }, [resultadoData, resultadoMode, currentMonth]);
+
   const totalRealizado = resultadoData.reduce((s, m) => s + m.realizado, 0);
   const totalPrevisto = resultadoData.reduce((s, m) => s + m.previsto, 0);
   const atingimentoPercent = totalMeta > 0 ? (totalRealizado / totalMeta * 100) : 0;

@@ -559,14 +559,37 @@ export default function ProposalsList() {
     );
   });
 
+  // Check for linked projects when deleting
+  const deleteProposalData = deleteId ? proposals.find((p: any) => p.id === deleteId) : null;
+  const [linkedProjects, setLinkedProjects] = useState<any[]>([]);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!deleteId) { setLinkedProjects([]); return; }
+    supabase
+      .from("projects")
+      .select("id, product, status, clients(name)")
+      .eq("proposal_id", deleteId)
+      .then(({ data }) => setLinkedProjects(data || []));
+  }, [deleteId]);
+
   async function handleDelete() {
     if (!deleteId) return;
+    setDeleteLoading(true);
     try {
+      // Delete linked projects first
+      for (const proj of linkedProjects) {
+        await supabase.from("project_scope_items").delete().eq("project_id", proj.id);
+        await supabase.from("project_attachments").delete().eq("project_id", proj.id);
+        await supabase.from("projects").delete().eq("id", proj.id);
+      }
       await deleteProposal.mutateAsync(deleteId);
-      toast({ title: "Proposta excluída com sucesso" });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast({ title: "Oportunidade excluída", description: linkedProjects.length > 0 ? `${linkedProjects.length} projeto(s) vinculado(s) também removido(s).` : undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
     }
+    setDeleteLoading(false);
     setDeleteId(null);
   }
 
@@ -1241,16 +1264,47 @@ export default function ProposalsList() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete confirmation */}
+        {/* Delete confirmation with linked projects warning */}
         <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="sm:max-w-lg">
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir proposta?</AlertDialogTitle>
-              <AlertDialogDescription>Esta ação não pode ser desfeita. A proposta e todos os dados relacionados serão removidos permanentemente.</AlertDialogDescription>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Excluir oportunidade?
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>Esta ação não pode ser desfeita. A oportunidade e todos os dados relacionados (escopo, parcelas, documentos) serão removidos permanentemente.</p>
+                  {linkedProjects.length > 0 && (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                      <p className="text-sm font-medium text-destructive flex items-center gap-1.5">
+                        <HardHat className="h-4 w-4" />
+                        {linkedProjects.length} projeto(s) vinculado(s) será(ão) excluído(s):
+                      </p>
+                      <ul className="text-xs space-y-1 text-muted-foreground">
+                        {linkedProjects.map((proj) => (
+                          <li key={proj.id} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive/50 shrink-0" />
+                            <span className="font-medium">{proj.product}</span>
+                            <span>— {(proj as any).clients?.name || "—"}</span>
+                            <Badge variant="outline" className="text-[10px] ml-auto">{proj.status}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-destructive/80">
+                        Todos os itens de escopo e anexos desses projetos também serão removidos.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+              <AlertDialogCancel disabled={deleteLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} disabled={deleteLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {deleteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Excluir {linkedProjects.length > 0 ? "Tudo" : ""}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

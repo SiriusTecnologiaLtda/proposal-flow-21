@@ -551,6 +551,15 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
           .update({ status: "cancelled", cancelled_at: new Date().toISOString() } as any)
           .eq("id", sigRecord.id);
 
+        // Log failure event
+        await supabase.from("signature_events" as any).insert({
+          signature_id: sigRecord.id,
+          proposal_id: proposal.id,
+          event_type: "cancelled",
+          title: "Falha no envio ao TAE",
+          description: taeData.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ") || "Erro desconhecido",
+        });
+
         const errorMsg = taeData.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ")
           || "Erro ao enviar para o TAE";
         toast({
@@ -563,6 +572,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
           .from("proposals")
           .update({ status: "em_assinatura" } as any)
           .eq("id", proposal.id);
+
+        // Log sent event
+        await supabase.from("signature_events" as any).insert({
+          signature_id: sigRecord.id,
+          proposal_id: proposal.id,
+          event_type: "sent",
+          title: "Enviado para assinatura",
+          description: `Envelope enviado ao TAE com ${signatories.length} signatário(s) e ${selectedDocsCount} documento(s).`,
+        });
+
         toast({ title: "Proposta enviada para assinatura no TAE com sucesso!" });
       }
 

@@ -174,6 +174,17 @@ Deno.serve(async (req) => {
         .ilike("email", email);
     }
 
+    // Helper to log signature events
+    async function logEvent(eventType: string, title: string, description: string) {
+      await supabase.from("signature_events").insert({
+        signature_id: sigRecord.id,
+        proposal_id: sigRecord.proposal_id,
+        event_type: eventType,
+        title,
+        description,
+      });
+    }
+
     // Update proposal/signature status based on TAE status
     if (taeStatus === 2) {
       // Finalizado → completed / ganha
@@ -191,9 +202,10 @@ Deno.serve(async (req) => {
         .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
         .eq("id", sigRecord.proposal_id);
 
+      await logEvent("success", "Assinatura finalizada", "Todos os signatários assinaram. Oportunidade marcada como Ganha.");
       console.log(`[tae-webhook] Signature ${sigRecord.id} → completed, proposal → ganha`);
-    } else if (taeStatus === 4 || taeStatus === 7) {
-      // Rejeitado ou Cancelado → cancelled / proposta_gerada
+    } else if (taeStatus === 4) {
+      // Rejeitado → cancelled / proposta_gerada
       await supabase
         .from("proposal_signatures")
         .update({
@@ -208,10 +220,34 @@ Deno.serve(async (req) => {
         .update({ status: "proposta_gerada" })
         .eq("id", sigRecord.proposal_id);
 
+      const rejectorEmail = singleSignerEmail || "Signatário não identificado";
+      await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Proposta Gerada.`);
+      console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → proposta_gerada`);
+    } else if (taeStatus === 7) {
+      // Cancelado → cancelled / proposta_gerada
+      await supabase
+        .from("proposal_signatures")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          tae_publication_id: publicationId || sigRecord.tae_publication_id,
+        })
+        .eq("id", sigRecord.id);
+
+      await supabase
+        .from("proposals")
+        .update({ status: "proposta_gerada" })
+        .eq("id", sigRecord.proposal_id);
+
+      await logEvent("cancelled", "Assinatura cancelada", "O processo de assinatura foi cancelado. Status da oportunidade revertido para Proposta Gerada.");
       console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → proposta_gerada`);
     } else if (taeStatus === 1) {
       // Assinado parcialmente
+      await logEvent("info", "Assinatura parcial", `${singleSignerEmail || "Um signatário"} assinou. Aguardando demais signatários.`);
       console.log(`[tae-webhook] Signature ${sigRecord.id} → partially signed`);
+    } else if (taeStatus === 0 || taeStatus === 6) {
+      // Pendente
+      await logEvent("info", "Pendente de assinatura", "Aguardando ação dos signatários.");
     }
 
     return new Response(

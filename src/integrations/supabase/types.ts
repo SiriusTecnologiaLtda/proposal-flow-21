@@ -1532,6 +1532,51 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          proposal_id: string
+          signature_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          proposal_id: string
+          signature_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          proposal_id?: string
+          signature_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_events_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_signatures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_log_events: {
         Row: {
           created_at: string

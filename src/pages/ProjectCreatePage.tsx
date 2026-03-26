@@ -595,7 +595,12 @@ export default function ProjectCreatePage() {
     const newVal = !att.is_scope;
     setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: newVal } : a));
     if (att.id && !att._isNew) {
-      await supabase.from("project_attachments").update({ is_scope: newVal }).eq("id", att.id);
+      const { error } = await supabase.from("project_attachments").update({ is_scope: newVal }).eq("id", att.id);
+      if (error) {
+        console.error("Erro ao atualizar escopo do anexo:", error);
+        toast({ title: "Erro ao atualizar escopo", description: error.message, variant: "destructive" });
+        setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: !newVal } : a));
+      }
     }
   };
 

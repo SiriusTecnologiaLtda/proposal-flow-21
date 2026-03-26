@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -32,9 +33,9 @@ const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id:
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
   const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState<string>("");
-  const [filterUnitId, setFilterUnitId] = useState<string>("");
-  const [filterGsnId, setFilterGsnId] = useState<string>("");
+  const [filterRoles, setFilterRoles] = useState<string[]>([]);
+  const [filterUnitIds, setFilterUnitIds] = useState<string[]>([]);
+  const [filterGsnIds, setFilterGsnIds] = useState<string[]>([]);
   const { data: units = [] } = useUnits();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -111,18 +112,18 @@ export default function SalesTeamPage() {
     }
   };
 
-  const activeFilterCount = [filterRole, filterUnitId, filterGsnId].filter(Boolean).length;
+  const activeFilterCount = [filterRoles.length, filterUnitIds.length, filterGsnIds.length].filter((n) => n > 0).length;
 
   const filteredTeam = salesTeam.filter((m) => {
     if (search) {
       const q = search.toLowerCase();
       if (!m.name.toLowerCase().includes(q) && !m.code.toLowerCase().includes(q)) return false;
     }
-    if (filterRole && m.role !== filterRole) return false;
-    if (filterUnitId && m.unit_id !== filterUnitId) return false;
-    if (filterGsnId) {
-      if (m.role === "esn" && m.linked_gsn_id !== filterGsnId) return false;
-      if (m.role === "gsn" && m.id !== filterGsnId) return false;
+    if (filterRoles.length > 0 && !filterRoles.includes(m.role)) return false;
+    if (filterUnitIds.length > 0 && (!m.unit_id || !filterUnitIds.includes(m.unit_id))) return false;
+    if (filterGsnIds.length > 0) {
+      if (m.role === "esn" && (!m.linked_gsn_id || !filterGsnIds.includes(m.linked_gsn_id))) return false;
+      if (m.role === "gsn" && !filterGsnIds.includes(m.id)) return false;
       if (m.role === "arquiteto") return false;
     }
     return true;
@@ -133,7 +134,7 @@ export default function SalesTeamPage() {
     return acc;
   }, {});
 
-  const clearFilters = () => { setFilterRole(""); setFilterUnitId(""); setFilterGsnId(""); };
+  const clearFilters = () => { setFilterRoles([]); setFilterUnitIds([]); setFilterGsnIds([]); };
 
   return (
     <div className="space-y-6">
@@ -176,35 +177,31 @@ export default function SalesTeamPage() {
               className="pl-9"
             />
           </div>
-          <Select value={filterRole} onValueChange={(v) => setFilterRole(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Classificação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as classificações</SelectItem>
-              <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
-              <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-              <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterUnitId} onValueChange={(v) => setFilterUnitId(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Unidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as unidades</SelectItem>
-              {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Select value={filterGsnId} onValueChange={(v) => setFilterGsnId(v === "all" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="GSN vinculado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os GSNs</SelectItem>
-              {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
+          <MultiSelectCombobox
+            options={[
+              { value: "esn", label: "Executivo de Vendas (ESN)" },
+              { value: "gsn", label: "Gerente de Vendas (GSN)" },
+              { value: "arquiteto", label: "Engenheiro de Valor" },
+            ]}
+            selected={filterRoles}
+            onChange={setFilterRoles}
+            placeholder="Classificação"
+            searchPlaceholder="Pesquisar classificação..."
+          />
+          <MultiSelectCombobox
+            options={units.map((u) => ({ value: u.id, label: u.name }))}
+            selected={filterUnitIds}
+            onChange={setFilterUnitIds}
+            placeholder="Unidade"
+            searchPlaceholder="Pesquisar unidade..."
+          />
+          <MultiSelectCombobox
+            options={gsnMembers.map((m) => ({ value: m.id, label: `${m.code} - ${m.name}` }))}
+            selected={filterGsnIds}
+            onChange={setFilterGsnIds}
+            placeholder="GSN vinculado"
+            searchPlaceholder="Pesquisar GSN..."
+          />
         </div>
       </div>
 

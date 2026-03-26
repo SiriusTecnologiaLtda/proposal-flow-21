@@ -538,7 +538,7 @@ export default function ProjectCreatePage() {
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">
       {/* ─── Hero Header ─────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(215,28%,17%)] via-[hsl(217,33%,22%)] to-[hsl(185,100%,40%)] p-5 text-white shadow-lg dark:from-[hsl(222,47%,8%)] dark:via-[hsl(217,33%,14%)] dark:to-[hsl(185,100%,30%)]">
+      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(215,28%,17%)] via-[hsl(217,33%,22%)] to-[hsl(217,91%,40%)] p-5 text-white shadow-lg dark:from-[hsl(222,47%,8%)] dark:via-[hsl(217,33%,14%)] dark:to-[hsl(217,91%,30%)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-3">
             <button onClick={() => navigate("/projetos")} className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors">

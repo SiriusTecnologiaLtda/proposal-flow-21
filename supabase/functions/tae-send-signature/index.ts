@@ -523,23 +523,20 @@ Deno.serve(async (req) => {
     // Sanitize: remove characters not accepted by TAE (only allow: _@.,()!?:+-%$ and alphanumeric)
     const sanitize = (str: string) => str.replace(/[—–""'']/g, "-").replace(/[^\w\s@.,()!?:+\-%$]/g, "");
 
-    const subjectRaw = proposal
-      ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}`
-      : "Documento para assinatura";
+    // Use custom subject/body from frontend if provided, else fallback
+    const { data: proposal } = await supabase
+      .from("proposals")
+      .select("number, clients(name)")
+      .eq("id", sigRecord.proposal_id)
+      .single();
+
+    const subjectRaw = customSubject
+      || (proposal ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}` : "Documento para assinatura");
     const subject = sanitize(subjectRaw).substring(0, 60);
 
-    const publishBody = {
-      idDocumento: taeDocumentId,
-      destinatarios,
-      observadores,
-      utilizaWorkflow: false,
-      publicacaoOpcoes: {
-        assuntoMensagem: subject,
-        corpoMensagem: sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`),
-        permiteRejeitarDocumento: true,
-        intervaloLembrete: 3,
-      },
-    };
+    const bodyRaw = customBody
+      || sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`);
+    const body = sanitize(bodyRaw);
 
     const publishRes = await fetch(`${baseUrl}/documents/v1/publicacoes`, {
       method: "POST",

@@ -489,12 +489,12 @@ export default function ProjectCreatePage() {
         if (id) {
           await supabase.from("project_attachments").insert({
             project_id: id, file_name: file.name, file_url: urlData.publicUrl,
-            file_size: file.size, mime_type: file.type, uploaded_by: user.id,
+            file_size: file.size, mime_type: file.type, uploaded_by: user.id, is_scope: false,
           });
         }
         setAttachments((prev) => [...prev, {
           id: crypto.randomUUID(), file_name: file.name, file_url: urlData.publicUrl,
-          file_size: file.size, mime_type: file.type, _isNew: !id,
+          file_size: file.size, mime_type: file.type, is_scope: false, _isNew: !id,
         }]);
       }
       toast({ title: "Arquivo(s) anexado(s)" });
@@ -510,6 +510,14 @@ export default function ProjectCreatePage() {
       await supabase.from("project_attachments").delete().eq("id", att.id);
     }
     setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+  };
+
+  const toggleAttachmentScope = async (att: any) => {
+    const newVal = !att.is_scope;
+    setAttachments((prev) => prev.map((a) => a.id === att.id ? { ...a, is_scope: newVal } : a));
+    if (att.id && !att._isNew) {
+      await supabase.from("project_attachments").update({ is_scope: newVal }).eq("id", att.id);
+    }
   };
 
   // Save
@@ -537,7 +545,7 @@ export default function ProjectCreatePage() {
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({
             project_id: projectId, file_name: att.file_name, file_url: att.file_url,
-            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id,
+            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id, is_scope: att.is_scope || false,
           });
         }
       }
@@ -1106,11 +1114,24 @@ export default function ProjectCreatePage() {
                     <p className="text-xs text-muted-foreground">{(att.file_size / 1024).toFixed(0)} KB</p>
                   )}
                 </div>
-                {!isReadOnly && (
-                  <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5" title="Compõe Escopo?">
+                    <Switch
+                      checked={!!att.is_scope}
+                      onCheckedChange={() => toggleAttachmentScope(att)}
+                      disabled={isReadOnly}
+                      className="scale-75"
+                    />
+                    <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
+                      Escopo
+                    </span>
+                  </div>
+                  {!isReadOnly && (
+                    <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {attachments.length === 0 && (

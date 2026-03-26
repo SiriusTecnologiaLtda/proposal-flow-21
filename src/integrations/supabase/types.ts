@@ -612,6 +612,7 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          is_scope: boolean
           mime_type: string | null
           project_id: string
           uploaded_by: string
@@ -623,6 +624,7 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          is_scope?: boolean
           mime_type?: string | null
           project_id: string
           uploaded_by: string
@@ -634,6 +636,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          is_scope?: boolean
           mime_type?: string | null
           project_id?: string
           uploaded_by?: string

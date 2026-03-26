@@ -477,6 +477,12 @@ export default function Dashboard() {
   const isArquiteto = mySalesTeamMember?.role === "arquiteto";
 
   const myClients = useMemo(() => {
+    // When ESN filter is active, scope clients to selected ESNs
+    if (effectiveEsnFilter && effectiveEsnFilter.length > 0) {
+      return clients.filter((c: any) => effectiveEsnFilter.includes(c.esn_id));
+    }
+    // No filter active
+    if (role === "admin" && !effectiveEsnFilter) return clients;
     if (!mySalesTeamId) {
       if (role === "admin") return clients;
       return [];
@@ -493,7 +499,6 @@ export default function Dashboard() {
       return clients.filter((c: any) => linkedEsnIds.includes(c.esn_id) || c.gsn_id === mySalesTeamId);
     }
     if (memberRole === "arquiteto") {
-      // Use filteredProposals so arquiteto client count respects filters
       const clientIdsWithArquiteto = new Set(
         filteredProposals
           .filter((p: any) => p.arquiteto_id === mySalesTeamId)
@@ -502,7 +507,7 @@ export default function Dashboard() {
       return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
     }
     return [];
-  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, filteredProposals, role]);
+  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, filteredProposals, role, effectiveEsnFilter]);
 
   const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
 

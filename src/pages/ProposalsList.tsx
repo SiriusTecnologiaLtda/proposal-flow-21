@@ -558,6 +558,12 @@ export default function ProposalsList() {
         variant: "destructive",
         duration: 10000,
       });
+    } finally {
+      setGeneratingDocs(prev => {
+        const next = { ...prev };
+        delete next[proposalId];
+        return next;
+      });
     }
   }
 

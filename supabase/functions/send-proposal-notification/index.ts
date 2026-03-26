@@ -36,12 +36,14 @@ function buildRawEmail(
   from: string,
   to: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  cc?: string[]
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
   const rawLines = [
     `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
+    ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,

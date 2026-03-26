@@ -244,6 +244,7 @@ export default function ScopeTemplatesPage() {
                 const flatItems = (template as any).scope_template_items || [];
                 const hierarchy = buildHierarchy(flatItems);
                 const totalItems = flatItems.length;
+                const totalHours = flatItems.reduce((s: number, it: any) => s + (Number(it.default_hours) || 0), 0);
                 const tplStatus = (template as any).status || "em_revisao";
                 const sCfg = STATUS_CONFIG[tplStatus] || STATUS_CONFIG.em_revisao;
                 const SIcon = sCfg.icon;

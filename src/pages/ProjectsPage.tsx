@@ -335,6 +335,12 @@ export default function ProjectsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <ConcludeProjectDialog
+        open={!!concludeProject}
+        onOpenChange={(open) => { if (!open) setConcludeProject(null); }}
+        project={concludeProject}
+      />
     </div>
   );
 }

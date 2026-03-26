@@ -186,11 +186,13 @@ export default function ProjectCreatePage() {
 
   const availableTemplates = useMemo(() => {
     const search = templateSearch.toLowerCase();
-    return templates.filter((t: any) =>
-      (t.name || "").toLowerCase().includes(search) ||
-      (t.category || "").toLowerCase().includes(search) ||
-      (t.product || "").toLowerCase().includes(search)
-    );
+    return templates
+      .filter((t: any) => (t as any).status === "aprovado")
+      .filter((t: any) =>
+        (t.name || "").toLowerCase().includes(search) ||
+        (t.category || "").toLowerCase().includes(search) ||
+        (t.product || "").toLowerCase().includes(search)
+      );
   }, [templates, templateSearch]);
 
   const groupedScope = useMemo(() => {

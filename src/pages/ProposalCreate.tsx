@@ -549,6 +549,13 @@ export default function ProposalCreate() {
   const requireProject = currentProposalTypeConfig?.require_project ?? false;
   const allowStandaloneScope = currentProposalTypeConfig?.allow_standalone_scope ?? true;
 
+  // Lock scope editing when projects are linked (non-admin)
+  const isAdmin = userRole === "admin";
+  const hasLinkedProject = addedProjectIds.size > 0;
+  const scopeLocked = hasLinkedProject && !isAdmin;
+  const proposalStatus = (existingProposal as any)?.status || "pendente";
+  const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
+
   // Round up to nearest multiple of rounding factor
   function roundUpFactor(val: number) {
     return Math.ceil(val / roundingFactor) * roundingFactor;

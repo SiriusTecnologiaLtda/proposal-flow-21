@@ -489,7 +489,7 @@ Deno.serve(async (req) => {
     }
     log(logs, "TAE Upload", "ok", `Envelope enviado — ID TAE: ${taeDocumentId} (${1 + attachmentBlobs.length} arquivo(s))`);
 
-    // 10. Publish with signatories
+    // 11. Publish with signatories
     log(logs, "TAE Publicação", "info", "Publicando documento com signatários...");
     const signatories = sigRecord.proposal_signatories || [];
 

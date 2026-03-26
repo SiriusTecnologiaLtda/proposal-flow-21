@@ -379,9 +379,27 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
     .eq("id", proposalId)
     .single();
   const currentGroupNotes = proposal?.group_notes as any || {};
-  const currentManualGroups = currentGroupNotes._manual_groups || {};
-  const currentGroupOrder: string[] = currentGroupNotes._group_order || [];
-  const currentProcessGroupMap = currentGroupNotes._process_group_map || {};
+  let currentManualGroups = { ...(currentGroupNotes._manual_groups || {}) };
+  let currentGroupOrder: string[] = [...(currentGroupNotes._group_order || [])];
+  let currentProcessGroupMap = { ...(currentGroupNotes._process_group_map || {}) };
+
+  // --- Clean up any previous inclusion of THIS project ---
+  // Remove old proposal_scope_items for this project
+  await supabase.from("proposal_scope_items").delete()
+    .eq("proposal_id", proposalId)
+    .eq("project_id", project.id);
+
+  // Remove old group_notes entries for this project
+  const projectPrefix = `_project_${project.id}_`;
+  currentGroupOrder = currentGroupOrder.filter(g => !g.startsWith(projectPrefix));
+  for (const key of Object.keys(currentManualGroups)) {
+    if (key.startsWith(projectPrefix)) delete currentManualGroups[key];
+  }
+  for (const key of Object.keys(currentProcessGroupMap)) {
+    if ((currentProcessGroupMap as any)[key]?.startsWith?.(projectPrefix)) {
+      delete currentProcessGroupMap[key];
+    }
+  }
 
   const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
   const childrenMap = new Map<string, any[]>();

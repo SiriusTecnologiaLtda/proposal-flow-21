@@ -112,7 +112,9 @@ export default function ProjectCreatePage() {
 
   // Load existing project data
   useEffect(() => {
-    if (existingProject && !loaded) {
+    const projectUpdatedAt = (existingProject as any)?.updated_at;
+    const needsRehydration = loaded && projectUpdatedAt && projectUpdatedAt !== lastHydratedAt;
+    if (!existingProject || (loaded && !needsRehydration)) return;
       setForm({
         client_id: existingProject.client_id,
         arquiteto_id: existingProject.arquiteto_id || "",

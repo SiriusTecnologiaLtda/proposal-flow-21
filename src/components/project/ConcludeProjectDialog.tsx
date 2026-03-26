@@ -264,6 +264,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
 
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["proposals"] });
+      qc.invalidateQueries({ queryKey: ["proposal", proposalId] });
       toast({ title: "Projeto concluído", description: "O escopo foi incluído na oportunidade e o ESN foi notificado." });
       onOpenChange(false);
     } catch (err: any) {

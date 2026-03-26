@@ -414,6 +414,7 @@ export default function ProposalsList() {
           await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", notifProposal.id);
         }
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        queryClient.invalidateQueries({ queryKey: ["proposal", notifProposal.id] });
         
         toast({
           title: "Email enviado com sucesso",
@@ -510,6 +511,7 @@ export default function ProposalsList() {
         }
         await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });
       } else if (!data?.logs) {
         setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);
       }

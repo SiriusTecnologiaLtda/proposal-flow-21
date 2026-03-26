@@ -193,6 +193,32 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     setCcEmails(ccEmails.filter((e) => e !== email));
   }
 
+  async function writeSyncLog(stage: string, payload: Record<string, any> = {}, severity: "info" | "warn" | "error" = "info", errorMessage?: string) {
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData.user;
+    if (!authUser) return;
+
+    await supabase.from("proposal_process_logs").insert({
+      stage,
+      severity,
+      action: "project_conclude_sync",
+      proposal_id: proposalId || null,
+      proposal_number: project?.proposal_number || proposalData?.number || null,
+      client_id: project?.client_id || proposalData?.client_id || null,
+      user_id: authUser.id,
+      user_email: authUser.email || null,
+      user_name: (authUser.user_metadata?.display_name as string | undefined) || authUser.email || null,
+      payload,
+      metadata: {
+        project_id: project?.id,
+        project_status: project?.status,
+        replace_mode: replaceMode,
+        existing_projects_count: existingProjects.length,
+      },
+      error_message: errorMessage || null,
+    });
+  }
+
   const handleConclude = async () => {
     if (!proposalId || !proposalData) {
       toast({ title: "Erro", description: "Projeto não possui oportunidade vinculada.", variant: "destructive" });

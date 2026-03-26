@@ -53,12 +53,12 @@ interface TaeStatus {
 const localStatusMap: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
   pending: { label: "Pendente", className: "bg-muted text-muted-foreground", icon: Clock },
   sent: { label: "Enviado ao TAE", className: "bg-primary/15 text-primary", icon: Mail },
-  completed: { label: "Finalizado", className: "bg-green-500/15 text-green-600", icon: CheckCircle2 },
+  completed: { label: "Finalizado", className: "bg-success/15 text-success", icon: CheckCircle2 },
   cancelled: { label: "Cancelado", className: "bg-destructive/15 text-destructive", icon: XCircle },
 };
 
 function SignerIcon({ status }: { status: string }) {
-  if (status === "signed" || status === "Assinado") return <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />;
+  if (status === "signed" || status === "Assinado") return <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />;
   if (status === "rejected" || status === "Rejeitado") return <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />;
   return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
 }
@@ -326,7 +326,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                                       variant="outline"
                                       className={`text-[10px] ${
                                         displayStatus === "Assinado"
-                                          ? "border-green-500/30 text-green-600"
+                                          ? "border-success/30 text-success"
                                           : displayStatus === "Rejeitado"
                                           ? "border-destructive/30 text-destructive"
                                           : ""
@@ -348,7 +348,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
 
                         {/* Completion/cancellation info */}
                         {sig.completed_at && (
-                          <p className="text-xs text-green-600">
+                          <p className="text-xs text-success">
                             ✅ Finalizado em {new Date(sig.completed_at).toLocaleDateString("pt-BR")} às{" "}
                             {new Date(sig.completed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                           </p>

@@ -94,7 +94,7 @@ export default function LandingPage() {
               Gerencie pipeline, comissões e metas com dashboards inteligentes. Atenda seu cliente até pelo WhatsApp.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20" asChild>
+              <Button size="lg" className="h-12 px-8 text-base shadow-sm" asChild>
                 <a href="#cta-final">
                   Agendar Demonstração <ArrowRight className="ml-2 h-4 w-4" />
                 </a>

@@ -453,9 +453,9 @@ export default function GoogleIntegrationPage() {
   }
 
   function statusIcon(status: LogEntry["status"]) {
-    if (status === "ok") return <span className="text-green-400">✓</span>;
-    if (status === "error") return <span className="text-red-400">✗</span>;
-    return <span className="text-blue-400">›</span>;
+    if (status === "ok") return <span className="text-success">✓</span>;
+    if (status === "error") return <span className="text-destructive">✗</span>;
+    return <span className="text-primary">›</span>;
   }
 
   function authLabel(authType: string) {
@@ -561,8 +561,8 @@ export default function GoogleIntegrationPage() {
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           isOAuth
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-warning/10 text-warning"
                         }`}>
                           {authLabel(item.auth_type)}
                         </span>
@@ -573,14 +573,14 @@ export default function GoogleIntegrationPage() {
                       <TableCell>
                         {isOAuth ? (
                           hasRefreshToken ? (
-                            <Badge className="bg-green-600/10 text-green-600 text-[10px]">
+                            <Badge className="bg-success/10 text-success text-[10px]">
                               <CheckCircle2 className="h-3 w-3 mr-1" /> Autorizado
                             </Badge>
                           ) : (
                             <Badge variant="destructive" className="text-[10px]">Não autorizado</Badge>
                           )
                         ) : (
-                          <Badge className="bg-green-600/10 text-green-600 text-[10px]">Configurado</Badge>
+                          <Badge className="bg-success/10 text-success text-[10px]">Configurado</Badge>
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{item.output_folder_id || "—"}</TableCell>
@@ -589,7 +589,7 @@ export default function GoogleIntegrationPage() {
                           <div className="flex gap-1">
                             {isOAuth && !hasRefreshToken && item.oauth_client_id && (
                               <Button variant="ghost" size="icon" title="Autorizar com Google" onClick={() => startGoogleAuth(item.id, item.oauth_client_id!)}>
-                                <LogIn className="h-4 w-4 text-blue-600" />
+                                <LogIn className="h-4 w-4 text-primary" />
                               </Button>
                             )}
                             {isOAuth && hasRefreshToken && (
@@ -601,7 +601,7 @@ export default function GoogleIntegrationPage() {
                               <Star className={`h-4 w-4 ${item.is_default ? "fill-primary text-primary" : "text-muted-foreground"}`} />
                             </Button>
                             <Button variant="ghost" size="icon" title="Testar conexão" onClick={() => runTest(item)}>
-                              <Play className="h-4 w-4 text-green-600" />
+                              <Play className="h-4 w-4 text-success" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                               <Pencil className="h-4 w-4" />
@@ -667,7 +667,7 @@ export default function GoogleIntegrationPage() {
                     onChange={(e) => setForm({ ...form, oauth_client_secret: e.target.value })}
                   />
                 </div>
-                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <div className="rounded-md bg-primary/5 p-3 text-xs text-primary space-y-1">
                   <p className="font-medium">Como funciona:</p>
                   <ol className="list-decimal list-inside space-y-0.5">
                     <li>Preencha Client ID e Client Secret do Google Cloud Console</li>
@@ -717,26 +717,26 @@ export default function GoogleIntegrationPage() {
             <DialogTitle>Console — Teste de Conexão</DialogTitle>
             <DialogDescription>Conexão: {testLabel}</DialogDescription>
           </DialogHeader>
-          <div className="bg-gray-950 mx-4 mb-4 rounded-lg border border-gray-800">
+          <div className="bg-card mx-4 mb-4 rounded-lg border border-border">
             <ScrollArea className="h-[350px] p-4">
               <div className="space-y-1 font-mono text-xs">
                 {testLogs.map((entry, i) => (
                   <div key={i} className="flex gap-2 leading-relaxed">
-                    <span className="shrink-0 text-gray-500 select-none">
+                    <span className="shrink-0 text-muted-foreground select-none">
                       {new Date(entry.timestamp).toLocaleTimeString()}
                     </span>
                     <span className="shrink-0">{statusIcon(entry.status)}</span>
                     <span className={
-                      entry.status === "ok" ? "text-green-300" :
-                      entry.status === "error" ? "text-red-300" :
-                      "text-gray-300"
+                      entry.status === "ok" ? "text-success" :
+                      entry.status === "error" ? "text-destructive" :
+                      "text-foreground"
                     }>
                       {entry.message}
                     </span>
                   </div>
                 ))}
                 {testRunning && (
-                  <div className="flex gap-2 text-gray-400 animate-pulse">
+                  <div className="flex gap-2 text-muted-foreground animate-pulse">
                     <span>⏳</span>
                     <span>Executando...</span>
                   </div>

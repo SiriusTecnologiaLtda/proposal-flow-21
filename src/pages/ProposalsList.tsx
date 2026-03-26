@@ -32,8 +32,8 @@ interface LogEntry {
 
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Análise E.V.", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: <HardHat className="h-3.5 w-3.5" /> },
-  analise_ev_concluida: { label: "Análise E.V. Concluída", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", icon: <HardHat className="h-3.5 w-3.5" /> },
+  em_analise_ev: { label: "Em Análise E.V.", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
+  analise_ev_concluida: { label: "Análise E.V. Concluída", className: "bg-success/15 text-success", icon: <HardHat className="h-3.5 w-3.5" /> },
   proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
@@ -71,9 +71,9 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
 }
 
 function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
-  if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
-  return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
+  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
+  if (status === "error") return <XCircle className="h-4 w-4 text-destructive shrink-0" />;
+  return <Info className="h-4 w-4 text-primary shrink-0" />;
 }
 
 export default function ProposalsList() {
@@ -942,7 +942,7 @@ export default function ProposalsList() {
                       return hasTae ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-600 px-2 py-0.5 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 text-success px-2 py-0.5 text-xs font-medium">
                               <ShieldCheck className="h-3.5 w-3.5" />
                               {status.label}
                             </span>
@@ -952,7 +952,7 @@ export default function ProposalsList() {
                       ) : (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-600 px-2 py-0.5 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 text-success px-2 py-0.5 text-xs font-medium">
                               <PenLine className="h-3.5 w-3.5" />
                               {status.label}
                             </span>
@@ -1215,22 +1215,22 @@ export default function ProposalsList() {
                 Gerar Documento — Console de Execução
               </DialogTitle>
             </DialogHeader>
-            <div className="bg-zinc-950 mx-4 mb-4 rounded-lg border border-zinc-800 overflow-hidden">
+            <div className="bg-card mx-4 mb-4 rounded-lg border border-border overflow-hidden">
               <ScrollArea className="h-80">
                 <div className="p-4 font-mono text-sm space-y-2">
                   {consoleLogs.map((entry, i) => (
                     <div key={i} className="flex items-start gap-2">
                       <StatusIcon status={entry.status} />
                       <div className="min-w-0 flex-1">
-                        <span className="text-zinc-400 text-xs mr-2">
+                        <span className="text-muted-foreground text-xs mr-2">
                           {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
                         </span>
-                        <span className="text-zinc-200 font-semibold">{entry.step}</span>
-                        <span className="text-zinc-400 mx-1">—</span>
+                        <span className="text-foreground font-semibold">{entry.step}</span>
+                        <span className="text-muted-foreground mx-1">—</span>
                         <span className={
-                          entry.status === "error" ? "text-red-400" :
-                          entry.status === "ok" ? "text-green-400" :
-                          "text-blue-400"
+                          entry.status === "error" ? "text-destructive" :
+                          entry.status === "ok" ? "text-success" :
+                          "text-primary"
                         }>
                           {entry.message}
                         </span>
@@ -1238,7 +1238,7 @@ export default function ProposalsList() {
                     </div>
                   ))}
                   {consoleLoading && (
-                    <div className="flex items-center gap-2 text-zinc-400">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Processando...</span>
                     </div>

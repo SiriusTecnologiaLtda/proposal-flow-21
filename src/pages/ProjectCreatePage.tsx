@@ -98,6 +98,7 @@ export default function ProjectCreatePage() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
 
@@ -111,74 +112,76 @@ export default function ProjectCreatePage() {
 
   // Load existing project data
   useEffect(() => {
-    if (existingProject && !loaded) {
-      setForm({
-        client_id: existingProject.client_id,
-        arquiteto_id: existingProject.arquiteto_id || "",
-        product: existingProject.product,
-        description: existingProject.description || "",
-      });
+    const projectUpdatedAt = (existingProject as any)?.updated_at;
+    const needsRehydration = loaded && projectUpdatedAt && projectUpdatedAt !== lastHydratedAt;
+    if (!existingProject || (loaded && !needsRehydration)) return;
+    setForm({
+      client_id: existingProject.client_id,
+      arquiteto_id: existingProject.arquiteto_id || "",
+      product: existingProject.product,
+      description: existingProject.description || "",
+    });
 
-      const flat = existingProject.project_scope_items || [];
-      const parents = flat.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
-      const processes: ScopeProcess[] = [];
-      const templateIds = new Set<string>();
+    const flat = existingProject.project_scope_items || [];
+    const parents = flat.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const processes: ScopeProcess[] = [];
+    const templateIds = new Set<string>();
 
-      const loadedGroupNotes = (existingProject as any).group_notes || {};
-      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
-      const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
+    const loadedGroupNotes = (existingProject as any).group_notes || {};
+    const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+    const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
 
-      parents.forEach((p: any) => {
-        const pid = localId();
-        const children = flat
-          .filter((c: any) => c.parent_id === p.id)
-          .sort((a: any, b: any) => a.sort_order - b.sort_order)
-          .map((c: any) => ({
-            id: localId(),
-            description: c.description,
-            hours: c.hours,
-            included: c.included,
-            notes: c.notes || "",
-          }));
-        let groupId: string | undefined;
-        if (!p.template_id) {
-          groupId = processGroupMapping[p.id];
-          if (!groupId) {
-            const existingGroupIds = Object.keys(loadedManualGroups);
-            if (existingGroupIds.length > 0) {
-              groupId = existingGroupIds[0];
-            } else {
-              const defaultGid = localId();
-              loadedManualGroups[defaultGid] = loadedGroupNotes._avulso_name || "Itens Avulsos";
-              groupId = defaultGid;
-            }
+    parents.forEach((p: any) => {
+      const pid = localId();
+      const children = flat
+        .filter((c: any) => c.parent_id === p.id)
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((c: any) => ({
+          id: localId(),
+          description: c.description,
+          hours: c.hours,
+          included: c.included,
+          notes: c.notes || "",
+        }));
+      let groupId: string | undefined;
+      if (!p.template_id) {
+        groupId = processGroupMapping[p.id];
+        if (!groupId) {
+          const existingGroupIds = Object.keys(loadedManualGroups);
+          if (existingGroupIds.length > 0) {
+            groupId = existingGroupIds[0];
+          } else {
+            const defaultGid = localId();
+            loadedManualGroups[defaultGid] = loadedGroupNotes._avulso_name || "Itens Avulsos";
+            groupId = defaultGid;
           }
         }
-        processes.push({
-          id: pid,
-          _dbId: p.id,
-          description: p.description,
-          included: p.included,
-          templateId: p.template_id || undefined,
-          groupId,
-          notes: p.notes || "",
-          children,
-        } as any);
-        if (p.template_id) {
-          templateIds.add(p.template_id);
-        }
-      });
+      }
+      processes.push({
+        id: pid,
+        _dbId: p.id,
+        description: p.description,
+        included: p.included,
+        templateId: p.template_id || undefined,
+        groupId,
+        notes: p.notes || "",
+        children,
+      } as any);
+      if (p.template_id) {
+        templateIds.add(p.template_id);
+      }
+    });
 
-      setScopeProcesses(processes);
-      setAddedTemplateIds(templateIds);
-      setExpandedProcessIds(new Set());
-      setExpandedTemplateIds(new Set());
-      setAttachments(existingProject.project_attachments || []);
-      setGroupNotes(loadedGroupNotes);
-      setManualGroupNames(loadedManualGroups);
-      setLoaded(true);
-    }
-  }, [existingProject, loaded]);
+    setScopeProcesses(processes);
+    setAddedTemplateIds(templateIds);
+    setExpandedProcessIds(new Set());
+    setExpandedTemplateIds(new Set());
+    setAttachments(existingProject.project_attachments || []);
+    setGroupNotes(loadedGroupNotes);
+    setManualGroupNames(loadedManualGroups);
+    setLoaded(true);
+    setLastHydratedAt((existingProject as any)?.updated_at || null);
+  }, [existingProject, loaded, lastHydratedAt]);
 
   const availableTemplates = useMemo(() => {
     const search = templateSearch.toLowerCase();

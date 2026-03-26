@@ -1249,7 +1249,7 @@ Deno.serve(async (req) => {
     if (scopeItems.length > 0) {
       log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");
       try {
-        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, logs);
+        await appendDetailedScope(accessToken, newDocId, scopeItems, templateNames, proposalGroupNotes, logs);
       } catch (e: any) {
         log(logs, "Escopo detalhado", "error", `Falha ao adicionar escopo detalhado: ${e.message}`);
       }

@@ -367,11 +367,104 @@ Deno.serve(async (req) => {
     }
     log(logs, "TAE Login", "ok", "Login TAE realizado com sucesso");
 
-    // 9. Upload document to TAE
-    log(logs, "TAE Upload", "info", "Fazendo upload do PDF no TAE...");
+    // 9. Fetch project attachment files from Drive (if any selected)
+    const attachmentBlobs: { name: string; blob: Blob }[] = [];
+    if (selectedAttachmentIds.length > 0) {
+      log(logs, "Anexos", "info", `Buscando ${selectedAttachmentIds.length} anexo(s) do projeto...`);
+
+      // Load attachment records from DB
+      const { data: attachmentRecords } = await supabase
+        .from("project_attachments")
+        .select("id, file_name, file_url, mime_type")
+        .in("id", selectedAttachmentIds);
+
+      if (attachmentRecords?.length) {
+        for (const att of attachmentRecords) {
+          try {
+            if (!att.file_url) {
+              log(logs, "Anexos", "info", `Anexo "${att.file_name}" sem URL — ignorado`);
+              continue;
+            }
+
+            // Extract Drive file ID from the URL
+            let driveFileId: string | null = null;
+            let match = att.file_url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match) driveFileId = match[1];
+            if (!driveFileId) {
+              match = att.file_url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+              if (match) driveFileId = match[1];
+            }
+
+            if (!driveFileId) {
+              log(logs, "Anexos", "info", `Não foi possível extrair ID do Drive para "${att.file_name}" — ignorado`);
+              continue;
+            }
+
+            // Determine if we need to export (Google Docs) or download (binary file)
+            const mimeType = (att.mime_type || "").toLowerCase();
+            const isGoogleDoc = att.file_url.includes("docs.google.com/document");
+            const isGoogleSheet = att.file_url.includes("docs.google.com/spreadsheets");
+            const isGoogleSlide = att.file_url.includes("docs.google.com/presentation");
+
+            let fileRes: Response;
+            let outputFileName = att.file_name;
+
+            if (isGoogleDoc) {
+              // Export Google Docs as PDF
+              fileRes = await fetch(
+                `https://docs.google.com/document/d/${driveFileId}/export?format=pdf`,
+                { headers: { Authorization: `Bearer ${googleToken}` }, redirect: "follow" }
+              );
+              if (!outputFileName.toLowerCase().endsWith(".pdf")) outputFileName += ".pdf";
+            } else if (isGoogleSheet) {
+              fileRes = await fetch(
+                `https://docs.google.com/spreadsheets/d/${driveFileId}/export?format=pdf`,
+                { headers: { Authorization: `Bearer ${googleToken}` }, redirect: "follow" }
+              );
+              if (!outputFileName.toLowerCase().endsWith(".pdf")) outputFileName += ".pdf";
+            } else if (isGoogleSlide) {
+              fileRes = await fetch(
+                `https://docs.google.com/presentation/d/${driveFileId}/export?format=pdf`,
+                { headers: { Authorization: `Bearer ${googleToken}` }, redirect: "follow" }
+              );
+              if (!outputFileName.toLowerCase().endsWith(".pdf")) outputFileName += ".pdf";
+            } else {
+              // Regular Drive file — download binary content
+              fileRes = await fetch(
+                `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+                { headers: { Authorization: `Bearer ${googleToken}` } }
+              );
+            }
+
+            if (!fileRes.ok) {
+              const errText = await fileRes.text();
+              log(logs, "Anexos", "info", `Falha ao baixar "${att.file_name}" (${fileRes.status}): ${errText.substring(0, 150)}`);
+              continue;
+            }
+
+            const attBlob = await fileRes.blob();
+            attachmentBlobs.push({ name: outputFileName, blob: attBlob });
+            log(logs, "Anexos", "ok", `Anexo "${att.file_name}" baixado (${(attBlob.size / 1024).toFixed(1)} KB)`);
+          } catch (attErr: any) {
+            log(logs, "Anexos", "info", `Erro ao processar anexo "${att.file_name}": ${attErr.message}`);
+          }
+        }
+      }
+      log(logs, "Anexos", "ok", `${attachmentBlobs.length} anexo(s) pronto(s) para envio`);
+    }
+
+    // 10. Upload all documents to TAE (proposal + attachments in same envelope)
+    log(logs, "TAE Upload", "info", `Fazendo upload de ${1 + attachmentBlobs.length} documento(s) no TAE...`);
     const formData = new FormData();
     const fileName = `${officialDoc.file_name || "proposta"}.pdf`;
     formData.append("Envelope", new File([pdfBlob], fileName, { type: "application/pdf" }));
+
+    // Append attachment files to the same envelope
+    for (const att of attachmentBlobs) {
+      const attMime = att.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+      formData.append("Envelope", new File([att.blob], att.name, { type: attMime }));
+    }
+
     formData.append("NomeEnvelope", fileName);
 
     const uploadRes = await fetch(`${baseUrl}/documents/v1/envelopes/upload`, {
@@ -394,7 +487,7 @@ Deno.serve(async (req) => {
       log(logs, "TAE Upload", "error", `ID do documento não retornado: ${uploadBody.substring(0, 300)}`);
       return respondWithLogs(logs, {}, 500);
     }
-    log(logs, "TAE Upload", "ok", `Documento enviado — ID TAE: ${taeDocumentId}`);
+    log(logs, "TAE Upload", "ok", `Envelope enviado — ID TAE: ${taeDocumentId} (${1 + attachmentBlobs.length} arquivo(s))`);
 
     // 10. Publish with signatories
     log(logs, "TAE Publicação", "info", "Publicando documento com signatários...");

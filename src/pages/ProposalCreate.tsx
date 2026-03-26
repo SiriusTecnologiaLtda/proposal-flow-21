@@ -51,10 +51,10 @@ interface PaymentCondition {
 }
 
 const steps = [
-  { id: 1, label: "Dados Gerais" },
-  { id: 2, label: "Escopo" },
-  { id: 3, label: "Financeiro" },
-  { id: 4, label: "Revisão" },
+  { id: 1, label: "Dados Gerais", icon: FileText },
+  { id: 2, label: "Escopo", icon: ClipboardList },
+  { id: 3, label: "Financeiro", icon: Landmark },
+  { id: 4, label: "Revisão", icon: Sparkles },
 ];
 
 let idCounter = 0;

@@ -1141,6 +1141,15 @@ export default function ProposalCreate() {
 
   const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating;
 
+  const progress = useMemo(() => (currentStep / steps.length) * 100, [currentStep]);
+
+  const statusLabel = useMemo(() => {
+    if (!isEditing) return "Novo";
+    const s = (existingProposal as any)?.status;
+    const map: Record<string, string> = { pendente: "Pendente", proposta_gerada: "Proposta Gerada", em_assinatura: "Em Assinatura", ganha: "Ganha", cancelada: "Cancelada" };
+    return map[s] || s || "—";
+  }, [isEditing, existingProposal]);
+
   if ((isEditing || isDuplicating) && loadingProposal) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1171,15 +1180,6 @@ export default function ProposalCreate() {
   if (isEditing && !loaded && !loadingProposal && !existingProposal && !proposalError) {
     console.warn("[ProposalCreate] Proposta não encontrada (sem erro):", { id, loadingProposal, proposalError });
   }
-
-  const progress = useMemo(() => (currentStep / steps.length) * 100, [currentStep]);
-
-  const statusLabel = useMemo(() => {
-    if (!isEditing) return "Novo";
-    const s = (existingProposal as any)?.status;
-    const map: Record<string, string> = { pendente: "Pendente", proposta_gerada: "Proposta Gerada", em_assinatura: "Em Assinatura", ganha: "Ganha", cancelada: "Cancelada" };
-    return map[s] || s || "—";
-  }, [isEditing, existingProposal]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">

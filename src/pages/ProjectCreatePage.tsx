@@ -536,7 +536,6 @@ export default function ProjectCreatePage() {
     return <div className="flex items-center justify-center py-12 text-muted-foreground">Carregando...</div>;
   }
 
-  const { role: userRole } = useUserRole();
   const isAdmin = userRole === "admin";
   const isReadOnly = existingProject?.status === "concluido" && !isAdmin;
   const statusLabel = STATUS_MAP[existingProject?.status || "rascunho"] || "Rascunho";

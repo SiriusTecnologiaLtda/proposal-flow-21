@@ -1597,7 +1597,7 @@ export default function ProposalCreate() {
                     const totalHrs = (project.project_scope_items || [])
                       .filter((i: any) => i.included && !i.parent_id)
                       .reduce((s: number, i: any) => s + Number(i.hours || 0), 0);
-                    const statusLabel = project.status === "concluido" ? "Concluído" : project.status === "em_revisao" ? "Em Revisão" : "Rascunho";
+                    const statusLabel = project.status === "concluido" ? "Concluído" : project.status === "em_revisao" ? "Em Revisão" : "Pendente";
                     return (
                       <div
                         key={project.id}

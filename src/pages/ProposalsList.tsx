@@ -373,7 +373,7 @@ export default function ProposalsList() {
             description: notifProposal.description || "",
             arquiteto_id: notifProposal.arquiteto_id,
             created_by: user!.id,
-            status: "rascunho",
+            status: "pendente",
             proposal_id: notifProposal.id,
             proposal_number: notifProposal.number,
           } as any);

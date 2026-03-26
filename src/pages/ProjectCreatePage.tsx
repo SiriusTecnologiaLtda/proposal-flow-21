@@ -1114,11 +1114,24 @@ export default function ProjectCreatePage() {
                     <p className="text-xs text-muted-foreground">{(att.file_size / 1024).toFixed(0)} KB</p>
                   )}
                 </div>
-                {!isReadOnly && (
-                  <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5" title="Compõe Escopo?">
+                    <Switch
+                      checked={!!att.is_scope}
+                      onCheckedChange={() => toggleAttachmentScope(att)}
+                      disabled={isReadOnly}
+                      className="scale-75"
+                    />
+                    <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
+                      Escopo
+                    </span>
+                  </div>
+                  {!isReadOnly && (
+                    <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {attachments.length === 0 && (

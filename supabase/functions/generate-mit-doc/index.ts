@@ -541,13 +541,21 @@ Deno.serve(async (req) => {
     // Build groups from included parents
     const groupMap: Record<string, string> = {};
     for (const parent of parentItems) {
-      let groupKey = processGroupMap[parent.id] || parent.template_id || "__ungrouped__";
+      let groupKey = processGroupMap[parent.id] || "";
+      if (!groupKey) {
+        if (parent.project_id && parent.template_id) {
+          groupKey = `_project_${parent.project_id}_${parent.template_id}`;
+        } else if (parent.template_id) {
+          groupKey = parent.template_id;
+        } else {
+          groupKey = "__ungrouped__";
+        }
+      }
       let groupName: string;
       if (manualGroups[groupKey]) {
         groupName = manualGroups[groupKey];
       } else if (parent.template_id && templateNames[parent.template_id]) {
         groupName = templateNames[parent.template_id];
-        groupKey = parent.template_id;
       } else if (processGroupMap[parent.id] && manualGroups[processGroupMap[parent.id]]) {
         groupName = manualGroups[processGroupMap[parent.id]];
         groupKey = processGroupMap[parent.id];

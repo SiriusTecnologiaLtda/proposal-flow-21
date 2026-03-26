@@ -100,8 +100,16 @@ export default function ProjectCreatePage() {
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
-  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
+
+  const filteredClients = useMemo(() => {
+    if (clientSearch.length < 2) return [];
+    const q = clientSearch.toLowerCase();
+    return clients.filter((c: any) =>
+      c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q) || c.cnpj?.includes(clientSearch)
+    ).slice(0, 50);
+  }, [clients, clientSearch]);
 
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notesDialogValue, setNotesDialogValue] = useState("");
@@ -676,37 +684,40 @@ export default function ProjectCreatePage() {
                 </div>
               </div>
             ) : (
-              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal h-10">
-                    Selecione o cliente
-                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar cliente..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {clients.map((c: any) => (
-                          <CommandItem
-                            key={c.id}
-                            value={`${c.name} ${c.code || ""} ${c.cnpj || ""}`}
-                            onSelect={() => { setForm((f) => ({ ...f, client_id: c.id })); setClientPopoverOpen(false); }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", form.client_id === c.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex flex-col">
-                              <span>{c.name}</span>
-                              <span className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar cliente por nome, código ou CNPJ..."
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    disabled={isReadOnly}
+                    className="h-10 pl-9"
+                  />
+                </div>
+                {clientSearch.length >= 2 && (
+                  <div className="max-h-48 overflow-auto rounded-xl border border-border bg-card shadow-md">
+                    {filteredClients.map((c: any) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setForm((f) => ({ ...f, client_id: c.id })); setClientSearch(""); }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {c.name?.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground truncate block">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <p className="px-4 py-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

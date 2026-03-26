@@ -329,7 +329,7 @@ export default function FeatureRequestsPanel() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                          className="h-7 text-xs text-success hover:text-success hover:bg-success/10"
                           onClick={() => updateStatusMutation.mutate({ id: req.id, status: "accepted" })}
                         >
                           <Check className="h-3 w-3 mr-1" /> Aceitar

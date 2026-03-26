@@ -915,7 +915,7 @@ function ImportHistory() {
 
   const entityLabel: Record<string, string> = { clients: "Clientes", templates: "Templates", sales_team: "Time de Vendas", sales_targets: "Metas de Vendas" };
   const statusIcon = (s: string) => {
-    if (s === "success") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+    if (s === "success") return <CheckCircle2 className="h-4 w-4 text-success" />;
     if (s === "error") return <XCircle className="h-4 w-4 text-destructive" />;
     if (s === "running") return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
     return <AlertTriangle className="h-4 w-4 text-warning" />;

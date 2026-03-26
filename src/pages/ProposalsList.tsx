@@ -995,7 +995,7 @@ export default function ProposalsList() {
                       <TooltipTrigger asChild>
                         <button
                           disabled={mitCount === 0}
-                          onClick={() => mitCount > 0 && loadVersions(p.id, "mit")}
+                          onClick={() => { if (mitCount > 0) { setVersionsProposalId(p.id); setVersionsDocType("mit"); setVersionsOpen(true); } }}
                           className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors ${
                             mitCount > 0
                               ? "bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"

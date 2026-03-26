@@ -561,8 +561,8 @@ export default function GoogleIntegrationPage() {
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           isOAuth
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-warning/10 text-warning"
                         }`}>
                           {authLabel(item.auth_type)}
                         </span>

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
   Plus, Trash2, UserPlus, Users, Send, Lock, Building,
   FileText, Paperclip, ChevronRight, AlertTriangle,
   BookOpen, ExternalLink, Eye, FileQuestion, CheckCircle2,
-  Check, Mail, ClipboardList, ArrowLeft, ArrowRight
+  Check, Mail, ClipboardList, ArrowLeft, ArrowRight, Sparkles, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,10 +54,10 @@ interface Props {
 const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
 
 const STEPS = [
-  { key: "signatarios", label: "Signatários", icon: Users },
-  { key: "mensagem", label: "Mensagem", icon: Mail },
-  { key: "documentos", label: "Documentos", icon: FileText },
-  { key: "revisao", label: "Revisão", icon: ClipboardList },
+  { id: 0, key: "signatarios", label: "Signatários", icon: Users },
+  { id: 1, key: "mensagem", label: "Mensagem", icon: Mail },
+  { id: 2, key: "documentos", label: "Documentos", icon: FileText },
+  { id: 3, key: "revisao", label: "Revisão", icon: Sparkles },
 ];
 
 let localCounter = 0;
@@ -579,71 +579,25 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const activeDoc = envelopeDocs.find((d) => d.id === activeDocId) || null;
   const previewUrl = activeDoc ? buildPreviewUrl(activeDoc) : null;
 
-  // ─── Stepper ──────────────────────────────────────────────────────
-  function renderStepper() {
-    return (
-      <div className="flex items-center justify-center gap-0 px-4">
-        {STEPS.map((step, idx) => {
-          const StepIcon = step.icon;
-          const isCompleted = idx < currentStep;
-          const isCurrent = idx === currentStep;
-
-          return (
-            <div key={step.key} className="flex items-center">
-              {idx > 0 && (
-                <div className={cn(
-                  "w-12 h-[2px] mx-1",
-                  isCompleted ? "bg-primary" : "bg-border"
-                )} />
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  // Allow navigating to completed or current steps
-                  if (idx <= currentStep) setCurrentStep(idx);
-                }}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
-                  isCurrent && "bg-primary/10",
-                  idx <= currentStep ? "cursor-pointer" : "cursor-default"
-                )}
-              >
-                <div className={cn(
-                  "flex items-center justify-center h-7 w-7 rounded-full text-xs font-semibold transition-all shrink-0",
-                  isCompleted && "bg-primary text-primary-foreground",
-                  isCurrent && "bg-primary text-primary-foreground",
-                  !isCompleted && !isCurrent && "border border-border text-muted-foreground bg-muted/30"
-                )}>
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : <StepIcon className="h-3.5 w-3.5" />}
-                </div>
-                <span className={cn(
-                  "text-xs font-medium hidden sm:inline",
-                  isCurrent ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {step.label}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+  const progress = useMemo(() => ((currentStep + 1) / STEPS.length) * 100, [currentStep]);
 
   // ─── Step 1: Signatários ──────────────────────────────────────────
-  function renderSignatarios() {
+  function renderSignatariosPage() {
     return (
-      <ScrollArea className="flex-1">
-        <div ref={scrollRef} className="p-6 space-y-5 max-w-3xl mx-auto">
-          <div>
-            <h3 className="text-base font-semibold text-foreground mb-1">Quem irá assinar?</h3>
-            <p className="text-sm text-muted-foreground">
-              Defina os participantes do processo de assinatura. Ao menos um signatário é obrigatório.
-            </p>
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-3.5 w-3.5 text-primary" />
+            </div>
+            Quem irá assinar?
           </div>
+          <p className="text-sm text-muted-foreground mb-5">
+            Defina os participantes do processo de assinatura. Ao menos um signatário é obrigatório.
+          </p>
 
           {/* Contact selection */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4 space-y-3 mb-5">
             <Label className="text-xs font-medium text-muted-foreground">Adicionar participantes</Label>
             <div className="flex gap-2">
               <Select onValueChange={addSignatoryFromContact}>
@@ -676,16 +630,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
           {/* Signatory list */}
           {signatories.length > 0 ? (
-            <div className="space-y-3">
+            <div ref={scrollRef} className="space-y-3">
               {signatories.map((sig, idx) => (
                 <div
                   key={sig.id}
                   data-sig-id={sig.id}
                   className={cn(
-                    "rounded-lg border p-4 space-y-3",
+                    "rounded-xl border p-4 space-y-3",
                     sig.isLoggedUser
                       ? "border-primary/30 bg-primary/5"
-                      : "border-border bg-card"
+                      : "border-border bg-gradient-to-r from-accent/30 to-transparent"
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -699,12 +653,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                       )}
                     </span>
                     {!sig.isLoggedUser && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeSignatory(sig.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSignatory(sig.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     )}
@@ -712,45 +661,22 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   <div className="grid gap-3 grid-cols-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Nome *</Label>
-                      <Input
-                        value={sig.name}
-                        onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
-                        placeholder="Nome completo"
-                        readOnly={!sig.isNew || sig.isLoggedUser}
-                        className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")}
-                      />
+                      <Input value={sig.name} onChange={(e) => updateSignatory(sig.id, "name", e.target.value)} placeholder="Nome completo" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
-                      <Input
-                        value={sig.email}
-                        onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
-                        placeholder="email@empresa.com"
-                        readOnly={!sig.isNew || sig.isLoggedUser}
-                        className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")}
-                      />
+                      <Input value={sig.email} onChange={(e) => updateSignatory(sig.id, "email", e.target.value)} placeholder="email@empresa.com" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Celular</Label>
-                      <Input
-                        value={sig.phone}
-                        onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)}
-                        placeholder="(00) 00000-0000"
-                        readOnly={!sig.isNew}
-                        className={cn("h-9 text-sm", !sig.isNew && "bg-muted")}
-                      />
+                      <Input value={sig.phone} onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)} placeholder="(00) 00000-0000" readOnly={!sig.isNew} className={cn("h-9 text-sm", !sig.isNew && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Função</Label>
-                      <Select
-                        value={sig.role}
-                        onValueChange={(v) => updateSignatory(sig.id, "role", v)}
-                      >
+                      <Select value={sig.role} onValueChange={(v) => updateSignatory(sig.id, "role", v)}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((r) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
+                          {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -759,33 +685,35 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Nenhum signatário adicionado</p>
               <Button variant="outline" size="sm" className="mt-3 h-8 text-xs" onClick={addNewSignatory}>
-                <Plus className="mr-1.5 h-3 w-3" />
-                Adicionar Signatário
+                <Plus className="mr-1.5 h-3 w-3" /> Adicionar Signatário
               </Button>
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
   // ─── Step 2: Mensagem ─────────────────────────────────────────────
-  function renderMensagem() {
+  function renderMensagemPage() {
     return (
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-6 max-w-2xl mx-auto">
-          <div>
-            <h3 className="text-base font-semibold text-foreground mb-1">Conteúdo da comunicação</h3>
-            <p className="text-sm text-muted-foreground">
-              Defina o assunto e a mensagem que será enviada junto ao envelope de assinatura.
-            </p>
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Mail className="h-3.5 w-3.5 text-primary" />
+            </div>
+            Conteúdo da comunicação
           </div>
+          <p className="text-sm text-muted-foreground mb-5">
+            Defina o assunto e a mensagem que será enviada junto ao envelope de assinatura.
+          </p>
 
-          <div className="rounded-lg border border-border bg-card p-5 space-y-5">
+          <div className="space-y-5">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Assunto do e-mail *</Label>
@@ -818,7 +746,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                 onChange={(e) => setEmailBody(e.target.value)}
                 placeholder="Mensagem que acompanha o envelope..."
                 rows={8}
-                className="text-sm resize-none"
+                className="text-sm resize-y"
               />
               <p className="text-[11px] text-muted-foreground">
                 Esta mensagem será enviada aos destinatários junto com o link para assinatura.
@@ -826,167 +754,166 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
   // ─── Step 3: Documentos (split view) ──────────────────────────────
-  function renderDocumentos() {
+  function renderDocumentosPage() {
     return (
-      <div className="flex-1 min-h-0 flex">
-        {/* Left: document list */}
-        <div className="w-[42%] min-w-[320px] border-r border-border flex flex-col">
-          <div className="px-5 pt-5 pb-3">
-            <h3 className="text-base font-semibold text-foreground mb-1">Documentos do envelope</h3>
-            <p className="text-xs text-muted-foreground">
-              Confira os documentos que serão enviados. A proposta é obrigatória.
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="p-5">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Documentos do envelope
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Confira os documentos que serão enviados. A proposta é obrigatória. Clique para visualizar.
             </p>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="px-5 pb-5 space-y-2">
-              {loadingDocs ? (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                  <p className="text-sm text-muted-foreground">Carregando documentos...</p>
-                </div>
-              ) : envelopeDocs.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                  <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
-                </div>
-              ) : (
-                envelopeDocs.map((doc) => {
-                  const isActive = doc.id === activeDocId;
-                  return (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => setActiveDocId(doc.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 rounded-lg border px-3.5 py-3 transition-all text-left group",
-                        doc.hasWarning
-                          ? "border-destructive/40 bg-destructive/5"
-                          : isActive
-                          ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                          : doc.selected
-                          ? "border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02]"
-                          : "border-border bg-muted/30 opacity-60 hover:opacity-80"
-                      )}
-                    >
-                      <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
-                        <Checkbox
-                          checked={doc.selected}
-                          disabled={doc.mandatory}
-                          className={doc.mandatory ? "opacity-60" : ""}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {doc.origin === "Proposta" ? (
-                            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                          ) : (
-                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+
+          <div className="flex border-t border-border" style={{ minHeight: "500px" }}>
+            {/* Left: document list */}
+            <div className="w-[42%] min-w-[300px] border-r border-border flex flex-col">
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-2">
+                  {loadingDocs ? (
+                    <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                      <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+                    </div>
+                  ) : envelopeDocs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                      <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
+                    </div>
+                  ) : (
+                    envelopeDocs.map((doc) => {
+                      const isActive = doc.id === activeDocId;
+                      return (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => setActiveDocId(doc.id)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-all text-left group",
+                            doc.hasWarning
+                              ? "border-destructive/40 bg-destructive/5"
+                              : isActive
+                              ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                              : doc.selected
+                              ? "border-border bg-gradient-to-r from-accent/30 to-transparent hover:border-primary/30"
+                              : "border-border bg-muted/30 opacity-60 hover:opacity-80"
                           )}
-                          <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
-                          {doc.mandatory && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Lock className="h-2.5 w-2.5" /> Obrigatório
-                            </span>
-                          )}
-                        </div>
-                        {doc.hasWarning && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <AlertTriangle className="h-3 w-3 text-destructive" />
-                            <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                        >
+                          <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
+                            <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
                           </div>
-                        )}
-                      </div>
-                      {isActive ? (
-                        <Eye className="h-4 w-4 text-primary shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
-                      )}
-                    </button>
-                  );
-                })
-              )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {doc.origin === "Proposta" ? (
+                                <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                              ) : (
+                                <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
+                              {doc.mandatory && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                  <Lock className="h-2.5 w-2.5" /> Obrigatório
+                                </span>
+                              )}
+                            </div>
+                            {doc.hasWarning && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <AlertTriangle className="h-3 w-3 text-destructive" />
+                                <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                              </div>
+                            )}
+                          </div>
+                          {isActive ? (
+                            <Eye className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
 
-              {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
-                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
-                  </p>
+                  {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
+                      <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
 
-        {/* Right: preview */}
-        <div className="flex-1 flex flex-col bg-muted/20">
-          {activeDoc && (
-            <div className="shrink-0 px-5 py-3 border-b border-border bg-card/50 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Eye className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
-                <Badge
-                  variant={activeDoc.origin === "Proposta" ? "default" : "outline"}
-                  className="text-[10px] px-1.5 py-0 shrink-0"
-                >
-                  {activeDoc.origin}
-                </Badge>
-              </div>
-              {activeDoc.fileUrl && (
-                <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                    <ExternalLink className="h-3 w-3" />
-                    Abrir
-                  </Button>
-                </a>
-              )}
-            </div>
-          )}
-          <div className="flex-1 min-h-0">
-            {!activeDoc ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
-                </div>
-              </div>
-            ) : previewUrl ? (
-              <iframe
-                key={activeDocId}
-                src={previewUrl}
-                className="w-full h-full border-0"
-                title={`Preview: ${activeDoc.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center p-8">
-                <div className="text-center max-w-sm">
-                  <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
-                    <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
+            {/* Right: preview */}
+            <div className="flex-1 flex flex-col bg-muted/20">
+              {activeDoc && (
+                <div className="shrink-0 px-5 py-3 border-b border-border bg-card/50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Eye className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
+                    <Badge variant={activeDoc.origin === "Proposta" ? "default" : "outline"} className="text-[10px] px-1.5 py-0 shrink-0">
+                      {activeDoc.origin}
+                    </Badge>
                   </div>
-                  <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Não foi possível gerar a pré-visualização deste documento.
-                  </p>
                   {activeDoc.fileUrl && (
-                    <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Abrir no Drive
+                    <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                        <ExternalLink className="h-3 w-3" /> Abrir
                       </Button>
                     </a>
                   )}
                 </div>
+              )}
+              <div className="flex-1 min-h-[400px]">
+                {!activeDoc ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
+                    </div>
+                  </div>
+                ) : previewUrl ? (
+                  <iframe
+                    key={activeDocId}
+                    src={previewUrl}
+                    className="w-full h-full border-0 min-h-[400px]"
+                    title={`Preview: ${activeDoc.name}`}
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center p-8">
+                    <div className="text-center max-w-sm">
+                      <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
+                        <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
+                      <p className="text-xs text-muted-foreground mb-4">Não foi possível gerar a pré-visualização.</p>
+                      {activeDoc.fileUrl && (
+                        <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <ExternalLink className="h-3.5 w-3.5" /> Abrir no Drive
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -994,22 +921,24 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   // ─── Step 4: Revisão ──────────────────────────────────────────────
-  function renderRevisao() {
+  function renderRevisaoPage() {
     const selectedDocs = envelopeDocs.filter((d) => d.selected);
 
     return (
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-5 max-w-3xl mx-auto">
-          <div>
-            <h3 className="text-base font-semibold text-foreground mb-1">Conferência final</h3>
-            <p className="text-sm text-muted-foreground">
-              Revise todas as informações antes de enviar o envelope para assinatura eletrônica.
-            </p>
+      <div className="space-y-5">
+        {/* Context */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+            </div>
+            Conferência final
           </div>
+          <p className="text-sm text-muted-foreground mb-5">
+            Revise todas as informações antes de enviar o envelope para assinatura eletrônica.
+          </p>
 
-          {/* Context */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Oportunidade</h4>
+          <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4">
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground text-xs">Proposta</span>
@@ -1025,119 +954,197 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Signatories - BEFORE message, matching step order */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Signatários ({signatories.length})
-              </h4>
-              <Button variant="ghost" size="sm" className="h-6 text-xs text-primary" onClick={() => setCurrentStep(0)}>
-                Editar
-              </Button>
+        {/* Signatories */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Users className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Signatários ({signatories.length})
             </div>
-            <div className="space-y-1.5">
-              {signatories.map((sig) => (
-                <div key={sig.id} className="flex items-center gap-3 text-sm">
-                  <div className={cn(
-                    "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
-                    sig.isLoggedUser ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {sig.name.charAt(0).toUpperCase() || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{sig.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{sig.email}</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">{sig.role}</Badge>
-                </div>
-              ))}
-            </div>
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setCurrentStep(0)}>
+              Editar
+            </Button>
           </div>
+          <div className="space-y-2">
+            {signatories.map((sig) => (
+              <div key={sig.id} className="flex items-center gap-3 text-sm rounded-xl border border-border bg-gradient-to-r from-accent/30 to-transparent px-3 py-2.5">
+                <div className={cn(
+                  "h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0",
+                  sig.isLoggedUser ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  {sig.name.charAt(0).toUpperCase() || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{sig.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{sig.email}</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">{sig.role}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          {/* Email */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem</h4>
-              <Button variant="ghost" size="sm" className="h-6 text-xs text-primary" onClick={() => setCurrentStep(1)}>
-                Editar
-              </Button>
+        {/* Email */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Mail className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Mensagem
             </div>
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setCurrentStep(1)}>
+              Editar
+            </Button>
+          </div>
+          <div className="space-y-3">
             <div className="text-sm">
-              <p className="text-muted-foreground text-xs">Assunto</p>
+              <p className="text-muted-foreground text-xs mb-0.5">Assunto</p>
               <p className="font-medium text-foreground">{emailSubject}</p>
             </div>
             <div className="text-sm">
-              <p className="text-muted-foreground text-xs">Corpo</p>
-              <p className="text-foreground text-xs whitespace-pre-line line-clamp-3">{emailBody}</p>
-            </div>
-          </div>
-
-          {/* Documents */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Documentos ({selectedDocs.length})
-              </h4>
-              <Button variant="ghost" size="sm" className="h-6 text-xs text-primary" onClick={() => setCurrentStep(2)}>
-                Editar
-              </Button>
-            </div>
-            <div className="space-y-1.5">
-              {selectedDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 text-sm">
-                  {doc.origin === "Proposta" ? (
-                    <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                  ) : (
-                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  )}
-                  <span className="text-foreground truncate">{doc.name}</span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 ml-auto">{doc.origin}</Badge>
-                  {doc.mandatory && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
-                </div>
-              ))}
+              <p className="text-muted-foreground text-xs mb-0.5">Corpo</p>
+              <p className="text-foreground text-xs whitespace-pre-line line-clamp-4">{emailBody}</p>
             </div>
           </div>
         </div>
-      </ScrollArea>
+
+        {/* Documents */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Documentos ({selectedDocs.length})
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setCurrentStep(2)}>
+              Editar
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {selectedDocs.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-2 text-sm rounded-xl border border-border bg-gradient-to-r from-accent/30 to-transparent px-3 py-2.5">
+                {doc.origin === "Proposta" ? (
+                  <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                ) : (
+                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+                <span className="text-foreground truncate">{doc.name}</span>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 ml-auto">{doc.origin}</Badge>
+                {doc.mandatory && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
   // ─── Render ───────────────────────────────────────────────────────
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[95vw] w-[1100px] max-h-[92vh] flex flex-col gap-0 p-0">
-        {/* Header */}
-        <div className="shrink-0 px-6 pt-5 pb-4 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-lg">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-                <Send className="h-4 w-4 text-primary" />
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-[92vw] lg:max-w-[80vw] xl:max-w-[70vw] p-0 flex flex-col gap-0 overflow-hidden [&>button]:hidden">
+        {/* Scrollable content area */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="mx-auto max-w-5xl space-y-5 p-5 pb-28">
+            {/* ─── Hero Header (same as ProposalCreate) ──────────────── */}
+            <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] p-5 text-white shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => onOpenChange(false)}
+                    className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                      Enviar para Assinatura
+                    </h1>
+                    <p className="mt-1 text-sm text-white/70">
+                      {proposal?.number || ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {[
+                    ["Proposta", proposal?.number || "—"],
+                    ["Cliente", clientName],
+                    ["Projeto", projectInfo?.product || "—"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</div>
+                      <div className="mt-0.5 truncate text-sm font-semibold">{value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              Enviar para Assinatura
-            </DialogTitle>
-            <DialogDescription className="text-sm mt-1">
-              Proposta <span className="font-medium text-foreground">{proposal?.number}</span> · {clientName}
-            </DialogDescription>
-          </DialogHeader>
+            </div>
 
-          {/* Stepper */}
-          {renderStepper()}
-        </div>
+            {/* ─── Step Navigator (same as ProposalCreate) ───────────── */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Etapa <span className="font-semibold text-foreground">{currentStep + 1}</span> de {STEPS.length}
+                </div>
+                <Badge variant="secondary" className="rounded-full text-xs">
+                  {Math.round(progress)}% concluído
+                </Badge>
+              </div>
+              <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {STEPS.map((step) => {
+                  const Icon = step.icon;
+                  const active = step.id === currentStep;
+                  const completed = step.id < currentStep;
+                  return (
+                    <button
+                      key={step.id}
+                      onClick={() => { if (step.id <= currentStep) setCurrentStep(step.id); }}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : completed
+                          ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40 cursor-pointer"
+                          : "border-border bg-card text-muted-foreground cursor-default"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                      )}>
+                        {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{step.label}</div>
+                        <div className={cn("text-[11px]", active ? "text-white/70" : "text-muted-foreground")}>
+                          {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <Separator />
+            {/* ─── Step Content ───────────────────────────────────────── */}
+            {currentStep === 0 && renderSignatariosPage()}
+            {currentStep === 1 && renderMensagemPage()}
+            {currentStep === 2 && renderDocumentosPage()}
+            {currentStep === 3 && renderRevisaoPage()}
+          </div>
+        </ScrollArea>
 
-        {/* Step Content */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {currentStep === 0 && renderSignatarios()}
-          {currentStep === 1 && renderMensagem()}
-          {currentStep === 2 && renderDocumentos()}
-          {currentStep === 3 && renderRevisao()}
-        </div>
-
-        {/* Footer */}
-        <Separator />
-        <div className="shrink-0 flex items-center justify-between px-6 py-4">
+        {/* ─── Fixed Footer ──────────────────────────────────────────── */}
+        <div className="shrink-0 border-t border-border bg-card px-6 py-4 flex items-center justify-between">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -1161,7 +1168,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

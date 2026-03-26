@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
       const arq = (proposal as any).arquiteto;
       if (!arq?.email) {
         return new Response(
-          JSON.stringify({ error: "Arquiteto não possui email cadastrado" }),
+          JSON.stringify({ error: "Engenheiro de Valor não possui email cadastrado" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

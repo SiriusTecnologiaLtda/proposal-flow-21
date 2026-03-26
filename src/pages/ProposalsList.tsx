@@ -71,9 +71,9 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
 }
 
 function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
-  if (status === "error") return <XCircle className="h-4 w-4 text-red-400 shrink-0" />;
-  return <Info className="h-4 w-4 text-blue-400 shrink-0" />;
+  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
+  if (status === "error") return <XCircle className="h-4 w-4 text-destructive shrink-0" />;
+  return <Info className="h-4 w-4 text-primary shrink-0" />;
 }
 
 export default function ProposalsList() {

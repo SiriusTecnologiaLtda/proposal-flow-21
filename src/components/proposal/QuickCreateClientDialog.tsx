@@ -88,7 +88,7 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto p-0">
         {/* Header com gradiente similar à oportunidade */}
-        <div className="rounded-t-lg bg-gradient-to-r from-[hsl(215,28%,17%)] via-[hsl(217,33%,22%)] to-[hsl(217,91%,40%)] px-6 py-5 text-white">
+        <div className="rounded-t-lg bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 text-white">
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-lg font-semibold text-white">Novo Cliente</DialogTitle>
             <DialogDescription className="text-sm text-white/70">

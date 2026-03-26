@@ -602,7 +602,7 @@ export default function ProjectCreatePage() {
                 onClick={() => setCurrentStep(step.id)}
                 className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
                   active
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
                     : completed
                     ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40"
                     : "border-border bg-card text-muted-foreground hover:border-border hover:bg-accent/50"

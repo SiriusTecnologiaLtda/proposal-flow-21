@@ -499,7 +499,7 @@ export default function IntegrationsPage() {
               {clientsIntegration.last_sync_at && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {clientsIntegration.last_sync_status === "success" ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                    <CheckCircle2 className="h-3 w-3 text-success" />
                   ) : clientsIntegration.last_sync_status === "error" ? (
                     <XCircle className="h-3 w-3 text-destructive" />
                   ) : (

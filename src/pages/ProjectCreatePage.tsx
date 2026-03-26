@@ -555,6 +555,7 @@ export default function ProjectCreatePage() {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
+              ...((existingProject as any)?.proposal_number ? [["Oportunidade", (existingProject as any).proposal_number]] : []),
               ["Cliente", selectedClient?.name || "—"],
               ["Produto", form.product || "—"],
               ["Eng. Valor", selectedArquiteto?.name || "—"],

@@ -1488,11 +1488,47 @@ export default function ProposalsList() {
             {notifProposal && gmailAuthorized && (
               <div className="space-y-4">
                 <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-                  <p><span className="font-medium text-muted-foreground">Proposta:</span> {notifProposal.number}</p>
+                  <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {notifProposal.number}</p>
                   <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
                   <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
+                  <p><span className="font-medium text-muted-foreground">Destinatário:</span> {notifType === "solicitar_ajuste"
+                    ? `${(notifProposal as any).arquiteto?.name || "—"} (${(notifProposal as any).arquiteto?.email || "sem email"})`
+                    : `${(notifProposal as any).esn?.name || "—"} (${(notifProposal as any).esn?.email || "sem email"})`
+                  }</p>
                   <p><span className="font-medium text-muted-foreground">Remetente:</span> {user?.email}</p>
                 </div>
+
+                {/* CC Recipients */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    <UserPlus className="h-3 w-3" /> Cópia (CC)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={notifCcInput}
+                      onChange={(e) => setNotifCcInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNotifCcEmail())}
+                      placeholder="email@exemplo.com"
+                      className="text-sm h-8"
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={addNotifCcEmail} className="h-8 px-3">
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {notifCcEmails.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {notifCcEmails.map((email) => (
+                        <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
+                          {email}
+                          <button onClick={() => setNotifCcEmails(notifCcEmails.filter(e => e !== email))} className="ml-0.5 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs">Mensagem (opcional)</Label>
                   <Textarea

@@ -192,7 +192,9 @@ export default function ProposalCreate() {
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
-    if (!existingProposal || (loaded && !isDuplicating)) return;
+    const proposalUpdatedAt = (existingProposal as any)?.updated_at;
+    const needsRehydration = loaded && proposalUpdatedAt && proposalUpdatedAt !== lastHydratedAt;
+    if (!existingProposal || (loaded && !isDuplicating && !needsRehydration)) return;
 
     setProposalNumber(isDuplicating ? "" : existingProposal.number);
     setProposalType(existingProposal.type);

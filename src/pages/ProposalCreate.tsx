@@ -2245,18 +2245,13 @@ export default function ProposalCreate() {
                   )}
                   <Button
                     variant="outline"
-                    onClick={() => handleSave("pendente")}
+                    onClick={() => handleSave(currentStep === 4 && generateOnSave ? "proposta_gerada" : "pendente")}
                     disabled={isSaving}
                   >
                     <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? "Salvando..." : "Salvar"}
+                    {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
-                  {currentStep === 4 ? (
-                    <Button onClick={() => handleSave(generateOnSave ? "proposta_gerada" : "pendente")} disabled={isSaving}>
-                      <Check className="mr-2 h-4 w-4" />
-                      {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Confirmar"}
-                    </Button>
-                  ) : (
+                  {currentStep < 4 && (
                     <Button onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}>
                       Próximo<ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

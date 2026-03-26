@@ -451,7 +451,7 @@ Deno.serve(async (req) => {
       );
 
       for (const r of recipients) {
-        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml);
+        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc);
       }
 
       return new Response(

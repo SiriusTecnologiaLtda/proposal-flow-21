@@ -243,26 +243,59 @@ export default function ClientsList() {
       toast({ title: "Preencha nome e email de todos os contatos", variant: "destructive" });
       return;
     }
+
+    // Validate duplicate emails within the list
+    const emailCount = new Map<string, number>();
+    for (const c of contacts) {
+      const key = c.email.trim().toLowerCase();
+      emailCount.set(key, (emailCount.get(key) || 0) + 1);
+    }
+    const duplicates = [...emailCount.entries()].filter(([, count]) => count > 1).map(([email]) => email);
+    if (duplicates.length > 0) {
+      toast({ title: "E-mails duplicados", description: `Os seguintes e-mails estão repetidos: ${duplicates.join(", ")}`, variant: "destructive" });
+      return;
+    }
+
     setSavingContacts(true);
     try {
-      // Upsert: insert new, update existing
       for (const contact of contacts) {
         if (contact.isNew) {
-          const { error } = await supabase.from("client_contacts").insert({
-            client_id: selectedClientId,
-            name: contact.name,
-            email: contact.email,
-            phone: contact.phone || null,
-            role: contact.role || null,
-            department: contact.department || "",
-            position: contact.position || "",
-            notes: contact.notes || "",
-          });
-          if (error) throw error;
+          // Check if email already exists for this client in DB
+          const { data: existing } = await supabase
+            .from("client_contacts")
+            .select("id")
+            .eq("client_id", selectedClientId)
+            .ilike("email", contact.email.trim())
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            // Update existing instead of inserting
+            const { error } = await supabase.from("client_contacts").update({
+              name: contact.name,
+              phone: contact.phone || null,
+              role: contact.role || null,
+              department: contact.department || "",
+              position: contact.position || "",
+              notes: contact.notes || "",
+            }).eq("id", existing[0].id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from("client_contacts").insert({
+              client_id: selectedClientId,
+              name: contact.name,
+              email: contact.email.trim(),
+              phone: contact.phone || null,
+              role: contact.role || null,
+              department: contact.department || "",
+              position: contact.position || "",
+              notes: contact.notes || "",
+            });
+            if (error) throw error;
+          }
         } else {
           const { error } = await supabase.from("client_contacts").update({
             name: contact.name,
-            email: contact.email,
+            email: contact.email.trim(),
             phone: contact.phone || null,
             role: contact.role || null,
             department: contact.department || "",
@@ -531,8 +564,11 @@ export default function ClientsList() {
                                 onChange={(e) => updateContact(contact.id, "email", e.target.value)}
                                 placeholder="email@empresa.com"
                                 type="email"
-                                className="h-8 text-sm"
+                                className={`h-8 text-sm ${contacts.some((c) => c.id !== contact.id && c.email && contact.email && c.email.trim().toLowerCase() === contact.email.trim().toLowerCase()) ? "border-destructive ring-1 ring-destructive" : ""}`}
                               />
+                              {contacts.some((c) => c.id !== contact.id && c.email && contact.email && c.email.trim().toLowerCase() === contact.email.trim().toLowerCase()) && (
+                                <p className="text-xs text-destructive">E-mail já utilizado por outro contato</p>
+                              )}
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Telefone</Label>

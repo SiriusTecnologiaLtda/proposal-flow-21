@@ -360,20 +360,38 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
     setSending(true);
     try {
-      // 1. Save new contacts to client_contacts for future use
+      // 1. Save new contacts to client_contacts (upsert by email to avoid duplicates)
       const newSignatories = signatories.filter((s) => s.isNew && s.name && s.email);
       const contactIdMap = new Map<string, string>();
 
       for (const sig of newSignatories) {
-        const { data, error } = await supabase.from("client_contacts").insert({
-          client_id: clientId,
-          name: sig.name,
-          email: sig.email,
-          phone: sig.phone || null,
-          role: sig.role || "Signatário",
-        }).select().single();
-        if (!error && data) {
-          contactIdMap.set(sig.id, data.id);
+        // Check if contact with same email already exists for this client
+        const { data: existing } = await supabase
+          .from("client_contacts")
+          .select("id")
+          .eq("client_id", clientId)
+          .ilike("email", sig.email.trim())
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          // Update existing contact fields if different
+          await supabase.from("client_contacts").update({
+            name: sig.name,
+            phone: sig.phone || null,
+            role: sig.role || "Signatário",
+          }).eq("id", existing[0].id);
+          contactIdMap.set(sig.id, existing[0].id);
+        } else {
+          const { data, error } = await supabase.from("client_contacts").insert({
+            client_id: clientId,
+            name: sig.name,
+            email: sig.email.trim(),
+            phone: sig.phone || null,
+            role: sig.role || "Signatário",
+          }).select().single();
+          if (!error && data) {
+            contactIdMap.set(sig.id, data.id);
+          }
         }
       }
 

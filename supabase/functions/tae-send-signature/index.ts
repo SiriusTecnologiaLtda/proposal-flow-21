@@ -173,12 +173,14 @@ Deno.serve(async (req) => {
     log(logs, "Autenticação", "ok", `Usuário: ${user.email}`);
 
     // 2. Parse body
-    const { signatureId, attachmentIds } = await req.json();
+    const { signatureId, attachmentIds, emailSubject, emailBody } = await req.json();
     if (!signatureId) {
       log(logs, "Validação", "error", "signatureId é obrigatório");
       return respondWithLogs(logs, {}, 400);
     }
     const selectedAttachmentIds: string[] = Array.isArray(attachmentIds) ? attachmentIds : [];
+    const customSubject: string | null = typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : null;
+    const customBody: string | null = typeof emailBody === "string" && emailBody.trim() ? emailBody.trim() : null;
 
     // 3. Load signature record with signatories
     const { data: sigRecord, error: sigErr } = await supabase
@@ -511,20 +513,23 @@ Deno.serve(async (req) => {
         tipoEnvioDocumento: 1,
       }));
 
-    // Load proposal to get number for email subject
+    // Sanitize: remove characters not accepted by TAE (only allow: _@.,()!?:+-%$ and alphanumeric)
+    const sanitize = (str: string) => str.replace(/[—–""'']/g, "-").replace(/[^\w\s@.,()!?:+\-%$]/g, "");
+
+    // Load proposal to get number for email subject fallback
     const { data: proposal } = await supabase
       .from("proposals")
       .select("number, clients(name)")
       .eq("id", sigRecord.proposal_id)
       .single();
 
-    // Sanitize: remove characters not accepted by TAE (only allow: _@.,()!?:+-%$ and alphanumeric)
-    const sanitize = (str: string) => str.replace(/[—–""'']/g, "-").replace(/[^\w\s@.,()!?:+\-%$]/g, "");
-
-    const subjectRaw = proposal
-      ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}`
-      : "Documento para assinatura";
+    const subjectRaw = customSubject
+      || (proposal ? `Proposta ${proposal.number} - ${(proposal as any).clients?.name || ""}` : "Documento para assinatura");
     const subject = sanitize(subjectRaw).substring(0, 60);
+
+    const bodyRaw = customBody
+      || sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`);
+    const body = sanitize(bodyRaw);
 
     const publishBody = {
       idDocumento: taeDocumentId,
@@ -533,7 +538,7 @@ Deno.serve(async (req) => {
       utilizaWorkflow: false,
       publicacaoOpcoes: {
         assuntoMensagem: subject,
-        corpoMensagem: sanitize(`Prezado(a), segue documento para sua assinatura: ${subjectRaw}`),
+        corpoMensagem: body,
         permiteRejeitarDocumento: true,
         intervaloLembrete: 3,
       },

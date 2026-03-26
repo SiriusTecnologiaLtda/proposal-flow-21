@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, X, Filter } from "lucide-react";
 import { UserCog, Plus, Edit2, Trash2, ArrowRightLeft, Percent } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import BatchCommissionDialog from "@/components/sales-team/BatchCommissionDialog";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
 import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";

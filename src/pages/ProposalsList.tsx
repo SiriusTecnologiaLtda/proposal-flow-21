@@ -364,6 +364,7 @@ export default function ProposalsList() {
             message: notifMessage,
             proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
             cc: notifCcEmails.length > 0 ? notifCcEmails : undefined,
+            _origin: window.location.origin,
           }),
         }
       );

@@ -342,7 +342,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <CheckCircle className="h-5 w-5 text-success" />
             Concluir Projeto
           </DialogTitle>
         </DialogHeader>
@@ -364,11 +364,11 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           )}
 
           {existingProjects.length > 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-3">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-400">A oportunidade já possui projeto(s) vinculado(s):</p>
+                  <p className="text-sm font-medium text-warning">A oportunidade já possui projeto(s) vinculado(s):</p>
                   {existingProjects.map((ep) => (
                     <Badge key={ep.id} variant="outline" className="mt-1 mr-1 text-xs">
                       <FolderKanban className="mr-1 h-3 w-3" />

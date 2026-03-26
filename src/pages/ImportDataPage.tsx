@@ -507,9 +507,9 @@ function ImportCard({
   const statusBadge = () => {
     if (!run) return null;
     if (run.status === "running") return <Badge variant="secondary" className="gap-1 text-xs animate-pulse"><Loader2 className="h-3 w-3 animate-spin" />Processando</Badge>;
-    if (run.status === "success") return <Badge className="gap-1 text-xs bg-emerald-500/15 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
+    if (run.status === "success") return <Badge className="gap-1 text-xs bg-success/15 text-success border-success/30 hover:bg-success/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
     if (run.status === "error") return <Badge variant="destructive" className="gap-1 text-xs"><XCircle className="h-3 w-3" />Erro</Badge>;
-    if (run.status === "interrupted") return <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-300"><AlertTriangle className="h-3 w-3" />Interrompido</Badge>;
+    if (run.status === "interrupted") return <Badge variant="outline" className="gap-1 text-xs text-warning border-warning/30"><AlertTriangle className="h-3 w-3" />Interrompido</Badge>;
     return null;
   };
 
@@ -544,12 +544,12 @@ function ImportCard({
           <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="h-2 w-2 rounded-full bg-success" />
                 <span className="text-muted-foreground">Inseridos:</span>
                 <span className="font-medium">{run.imported}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <div className="h-2 w-2 rounded-full bg-primary" />
                 <span className="text-muted-foreground">Atualizados:</span>
                 <span className="font-medium">{run.updated}</span>
               </div>
@@ -609,10 +609,10 @@ function ImportCard({
                 <div className="space-y-0.5 font-mono text-[11px]">
                   {run.logs.map((entry, i) => (
                     <div key={i} className="flex items-start gap-1.5">
-                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />}
+                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
                       {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
                       {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                      <span className={entry.status === "ok" ? "text-emerald-600 dark:text-emerald-400" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                      <span className={entry.status === "ok" ? "text-success" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
                         {entry.message}
                       </span>
                     </div>
@@ -778,7 +778,7 @@ function MetasImportCard({ importFn }: { importFn: (file: File, year: number) =>
   const statusBadge = () => {
     if (!run) return null;
     if (run.status === "running") return <Badge variant="secondary" className="gap-1 text-xs animate-pulse"><Loader2 className="h-3 w-3 animate-spin" />Processando</Badge>;
-    if (run.status === "success") return <Badge className="gap-1 text-xs bg-emerald-500/15 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
+    if (run.status === "success") return <Badge className="gap-1 text-xs bg-success/15 text-success border-success/30 hover:bg-success/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
     if (run.status === "error") return <Badge variant="destructive" className="gap-1 text-xs"><XCircle className="h-3 w-3" />Erro</Badge>;
     return null;
   };
@@ -815,12 +815,12 @@ function MetasImportCard({ importFn }: { importFn: (file: File, year: number) =>
           <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="h-2 w-2 rounded-full bg-success" />
                 <span className="text-muted-foreground">Inseridos:</span>
                 <span className="font-medium">{run.imported}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <div className="h-2 w-2 rounded-full bg-primary" />
                 <span className="text-muted-foreground">Atualizados:</span>
                 <span className="font-medium">{run.updated}</span>
               </div>
@@ -877,10 +877,10 @@ function MetasImportCard({ importFn }: { importFn: (file: File, year: number) =>
                 <div className="space-y-0.5 font-mono text-[11px]">
                   {run.logs.map((entry, i) => (
                     <div key={i} className="flex items-start gap-1.5">
-                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />}
+                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
                       {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
                       {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                      <span className={entry.status === "ok" ? "text-emerald-600 dark:text-emerald-400" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                      <span className={entry.status === "ok" ? "text-success" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
                         {entry.message}
                       </span>
                     </div>
@@ -915,10 +915,10 @@ function ImportHistory() {
 
   const entityLabel: Record<string, string> = { clients: "Clientes", templates: "Templates", sales_team: "Time de Vendas", sales_targets: "Metas de Vendas" };
   const statusIcon = (s: string) => {
-    if (s === "success") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+    if (s === "success") return <CheckCircle2 className="h-4 w-4 text-success" />;
     if (s === "error") return <XCircle className="h-4 w-4 text-destructive" />;
     if (s === "running") return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-    return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+    return <AlertTriangle className="h-4 w-4 text-warning" />;
   };
 
   return (
@@ -956,8 +956,8 @@ function ImportHistory() {
                   {log.summary && <p className="text-xs text-muted-foreground">{log.summary}</p>}
                   <div className="grid grid-cols-4 gap-2 text-xs">
                     <div><span className="text-muted-foreground">Total:</span> <span className="font-medium">{log.total_rows}</span></div>
-                    <div><span className="text-muted-foreground">Inseridos:</span> <span className="font-medium text-emerald-600">{log.imported}</span></div>
-                    <div><span className="text-muted-foreground">Atualizados:</span> <span className="font-medium text-blue-600">{log.updated}</span></div>
+                    <div><span className="text-muted-foreground">Inseridos:</span> <span className="font-medium text-success">{log.imported}</span></div>
+                    <div><span className="text-muted-foreground">Atualizados:</span> <span className="font-medium text-primary">{log.updated}</span></div>
                     <div><span className="text-muted-foreground">Erros:</span> <span className="font-medium text-destructive">{log.errors}</span></div>
                   </div>
                   {log.duration_ms && (

@@ -120,9 +120,9 @@ function statusLabel(status: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
-    case "success": return <Badge className="bg-green-600/10 text-green-600 text-[10px]">Sucesso</Badge>;
+    case "success": return <Badge className="bg-success/10 text-success text-[10px]">Sucesso</Badge>;
     case "error": return <Badge variant="destructive" className="text-[10px]">Erro</Badge>;
-    case "timeout": return <Badge className="bg-yellow-600/10 text-yellow-600 text-[10px]">Timeout</Badge>;
+    case "timeout": return <Badge className="bg-warning/10 text-warning text-[10px]">Timeout</Badge>;
     case "running": return <Badge variant="secondary" className="text-[10px]">Executando</Badge>;
     default: return <Badge variant="secondary" className="text-[10px]">{status}</Badge>;
   }
@@ -131,8 +131,8 @@ function StatusBadge({ status }: { status: string }) {
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "running": return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-    case "success": return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-    case "timeout": return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+    case "success": return <CheckCircle2 className="h-4 w-4 text-success" />;
+    case "timeout": return <AlertTriangle className="h-4 w-4 text-warning" />;
     default: return <XCircle className="h-4 w-4 text-destructive" />;
   }
 }
@@ -499,7 +499,7 @@ export default function IntegrationsPage() {
               {clientsIntegration.last_sync_at && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   {clientsIntegration.last_sync_status === "success" ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                    <CheckCircle2 className="h-3 w-3 text-success" />
                   ) : clientsIntegration.last_sync_status === "error" ? (
                     <XCircle className="h-3 w-3 text-destructive" />
                   ) : (
@@ -799,7 +799,7 @@ export default function IntegrationsPage() {
                   <p>Página atual: {syncLog.pages_processed || 0}</p>
                   <p>Offset: {syncLog.current_offset || 0}</p>
                   <p>Registros lidos: {syncLog.records_fetched || syncLog.total_records || 0}</p>
-                  <p className="text-green-600">Inseridos: {syncLog.inserted}</p>
+                  <p className="text-success">Inseridos: {syncLog.inserted}</p>
                   <p className="text-primary">Atualizados: {syncLog.updated}</p>
                   {syncLog.errors > 0 && <p className="text-destructive">Erros: {syncLog.errors}</p>}
                   {syncLog.heartbeat_at && (

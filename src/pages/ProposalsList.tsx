@@ -19,17 +19,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SendToSignatureDialog from "@/components/proposal/SendToSignatureDialog";
 import SignatureMonitorDialog from "@/components/proposal/SignatureMonitorDialog";
 import DocumentManagementDialog from "@/components/proposal/DocumentManagementDialog";
-
-interface LogEntry {
-  step: string;
-  status: "ok" | "error" | "info";
-  message: string;
-  timestamp: string;
-}
 
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
@@ -55,11 +49,9 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   const scopeItems = proposal.proposal_scope_items;
   if (!scopeItems || scopeItems.length === 0) return null;
 
-  // Find the rounding factor from the proposal type config
   const typeConfig = proposalTypes.find((pt: any) => pt.slug === proposal.type);
   const roundingFactor = typeConfig?.rounding_factor || 8;
 
-  // Sum hours of included children (items with parent_id)
   const totalHours = roundUpFactor(
     scopeItems
       .filter((item: any) => item.included && item.parent_id)
@@ -71,11 +63,6 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
-function StatusIcon({ status }: { status: LogEntry["status"] }) {
-  if (status === "ok") return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
-  if (status === "error") return <XCircle className="h-4 w-4 text-destructive shrink-0" />;
-  return <Info className="h-4 w-4 text-primary shrink-0" />;
-}
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
@@ -480,21 +467,13 @@ export default function ProposalsList() {
     }
   }
 
-  // Console dialog state
-  const [consoleOpen, setConsoleOpen] = useState(false);
-  const [consoleLogs, setConsoleLogs] = useState<LogEntry[]>([]);
-  const [consoleLoading, setConsoleLoading] = useState(false);
-  const [consoleDocUrl, setConsoleDocUrl] = useState<string | null>(null);
-  const consoleEndRef = useRef<HTMLDivElement>(null);
+  // Console state removed — generation now uses background toasts
 
   // Versions dialog state
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
   const [versionsDocType, setVersionsDocType] = useState<string>("proposta");
 
-  useEffect(() => {
-    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [consoleLogs]);
 
   // Auto-trigger generation when navigating from ProposalCreate with ?generate=<id>
   useEffect(() => {
@@ -507,10 +486,14 @@ export default function ProposalsList() {
   }, []);
 
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
-    setConsoleLogs([]);
-    setConsoleDocUrl(null);
-    setConsoleLoading(true);
-    setConsoleOpen(true);
+    const docLabel = docType === "mit" ? "MIT-065" : "Proposta";
+    
+    // Show background processing toast that auto-closes after 4 seconds
+    toast({
+      title: `Gerando ${docLabel}...`,
+      description: "O processo será executado em background. Você será avisado ao concluir.",
+      duration: 4000,
+    });
 
     const endpoint = docType === "mit" ? "generate-mit-doc" : "generate-proposal-pdf";
 
@@ -530,16 +513,10 @@ export default function ProposalsList() {
 
       const data = await response.json();
 
-      if (data?.logs) {
-        setConsoleLogs(data.logs);
-      }
-
       if (response.ok && data?.docUrl) {
-        setConsoleDocUrl(data.docUrl);
         // Clear needs_regen flag and update status to proposta_gerada if generating proposal doc
         const updateFields: Record<string, any> = { needs_regen: false };
         if (docType === "proposta") {
-          // Only upgrade status if currently pendente
           const currentProposal = proposals.find(p => p.id === proposalId);
           if (currentProposal?.status === "pendente" || currentProposal?.status === "analise_ev_concluida") {
             updateFields.status = "proposta_gerada";
@@ -548,13 +525,34 @@ export default function ProposalsList() {
         await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });
-      } else if (!data?.logs) {
-        setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);
+
+        toast({
+          title: `${docLabel} gerada com sucesso!`,
+          description: "Clique para abrir o documento.",
+          duration: 8000,
+          action: (
+            <ToastAction altText="Abrir" onClick={() => window.open(data.docUrl, "_blank")}>
+              Abrir
+            </ToastAction>
+          ),
+        });
+      } else {
+        const errorMsg = data?.logs?.find((l: any) => l.status === "error")?.message || data?.error || "Erro desconhecido";
+        toast({
+          title: `Erro ao gerar ${docLabel}`,
+          description: errorMsg,
+          variant: "destructive",
+          duration: 10000,
+        });
       }
     } catch (err: any) {
-      setConsoleLogs(prev => [...prev, { step: "Erro de rede", status: "error", message: err.message, timestamp: new Date().toISOString() }]);
+      toast({
+        title: `Erro ao gerar ${docLabel}`,
+        description: err.message,
+        variant: "destructive",
+        duration: 10000,
+      });
     }
-    setConsoleLoading(false);
   }
 
   const periodRange = useMemo(() => {
@@ -1251,62 +1249,7 @@ export default function ProposalsList() {
           )}
         </div>
 
-        {/* Generation console dialog */}
-        <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
-          <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-            <DialogHeader className="px-6 pt-6 pb-3">
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Gerar Documento — Console de Execução
-              </DialogTitle>
-            </DialogHeader>
-            <div className="bg-card mx-4 mb-4 rounded-lg border border-border overflow-hidden">
-              <ScrollArea className="h-80">
-                <div className="p-4 font-mono text-sm space-y-2">
-                  {consoleLogs.map((entry, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <StatusIcon status={entry.status} />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground text-xs mr-2">
-                          {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
-                        </span>
-                        <span className="text-foreground font-semibold">{entry.step}</span>
-                        <span className="text-muted-foreground mx-1">—</span>
-                        <span className={
-                          entry.status === "error" ? "text-destructive" :
-                          entry.status === "ok" ? "text-success" :
-                          "text-primary"
-                        }>
-                          {entry.message}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {consoleLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Processando...</span>
-                    </div>
-                  )}
-                  <div ref={consoleEndRef} />
-                </div>
-              </ScrollArea>
-            </div>
-            {!consoleLoading && consoleLogs.length > 0 && (
-              <div className="px-6 pb-4 flex gap-2 justify-end">
-                {consoleDocUrl && (
-                  <Button onClick={() => window.open(consoleDocUrl, "_blank")}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Abrir Documento
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setConsoleOpen(false)}>
-                  Fechar
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Generation console removed — now uses background toast notifications */}
 
         {/* Delete confirmation with linked projects warning */}
         <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

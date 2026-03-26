@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     }
 
     const linkHtml = proposalLink
-      ? `<p style="margin: 16px 0;"><a href="${proposalLink}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Proposta na Plataforma</a></p>`
+      ? `<p style="margin: 16px 0;"><a href="${proposalLink}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Oportunidade na Plataforma</a></p>`
       : "";
 
     if (type === "solicitar_ajuste") {
@@ -236,14 +236,29 @@ Deno.serve(async (req) => {
       recipientEmail = arq.email;
       recipientName = arq.name;
       subject = `[Proposta ${proposalNumber}] Envio para Engenharia de Valor`;
+
+      // Find linked project to build project link
+      let projectLinkHtml = "";
+      if (_origin) {
+        const { data: linkedProject } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("proposal_id", proposalId)
+          .limit(1)
+          .maybeSingle();
+        if (linkedProject) {
+          projectLinkHtml = `<p style="margin: 16px 0;"><a href="${_origin}/projetos/${linkedProject.id}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Projeto na Plataforma</a></p>`;
+        }
+      }
+
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a2e;">Envio para Engenharia de Valor</h2>
           <p>Olá <strong>${recipientName}</strong>,</p>
-          <p><strong>${senderName}</strong> enviou a seguinte proposta para análise de engenharia de valor:</p>
+          <p><strong>${senderName}</strong> enviou a seguinte oportunidade para análise de engenharia de valor:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
             <tr style="border-bottom: 1px solid #e0e0e0;">
-              <td style="padding: 8px; font-weight: bold; color: #555;">Proposta</td>
+              <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
               <td style="padding: 8px;">${proposalNumber}</td>
             </tr>
             <tr style="border-bottom: 1px solid #e0e0e0;">
@@ -257,8 +272,8 @@ Deno.serve(async (req) => {
           </table>
           ${scopeHtml}
           ${message ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
-          ${linkHtml}
-          <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de propostas.</p>
+          ${projectLinkHtml || linkHtml}
+          <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de oportunidades.</p>
         </div>
       `;
     } else if (type === "notificar_esn") {

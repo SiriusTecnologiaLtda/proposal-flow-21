@@ -13,6 +13,7 @@ import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";
 import ClientsList from "@/pages/ClientsList";
 import ScopeTemplatesPage from "@/pages/ScopeTemplatesPage";
+import ScopeTemplateEditPage from "@/pages/ScopeTemplateEditPage";
 import ProductsCategoriesPage from "@/pages/ProductsCategoriesPage";
 import SalesTeamPage from "@/pages/SalesTeamPage";
 import SettingsPage from "@/pages/SettingsPage";

@@ -444,16 +444,6 @@ export default function ProposalsList() {
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Versions dialog state
-  interface ProposalDoc {
-    id: string;
-    doc_id: string;
-    doc_url: string;
-    file_name: string;
-    version: number;
-    is_official: boolean;
-    created_at: string;
-    doc_type: string;
-  }
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [versionsProposalId, setVersionsProposalId] = useState<string | null>(null);
   const [versionsDocType, setVersionsDocType] = useState<string>("proposta");

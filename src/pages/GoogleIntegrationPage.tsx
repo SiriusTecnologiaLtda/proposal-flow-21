@@ -453,9 +453,9 @@ export default function GoogleIntegrationPage() {
   }
 
   function statusIcon(status: LogEntry["status"]) {
-    if (status === "ok") return <span className="text-green-400">✓</span>;
-    if (status === "error") return <span className="text-red-400">✗</span>;
-    return <span className="text-blue-400">›</span>;
+    if (status === "ok") return <span className="text-success">✓</span>;
+    if (status === "error") return <span className="text-destructive">✗</span>;
+    return <span className="text-primary">›</span>;
   }
 
   function authLabel(authType: string) {

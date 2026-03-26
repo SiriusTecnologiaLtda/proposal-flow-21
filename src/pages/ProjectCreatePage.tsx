@@ -1173,7 +1173,7 @@ export default function ProjectCreatePage() {
                 <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-center hover:bg-accent/50 transition-colors">
                   <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
                   <span className="text-sm text-muted-foreground">
-                    {uploading ? "Enviando..." : "Clique para anexar documentos (relatórios, levantamentos, etc.)"}
+                    {uploading ? "Enviando para o Google Drive..." : "Clique para anexar documentos ao Google Drive (relatórios, levantamentos, etc.)"}
                   </span>
                 </div>
               </Label>

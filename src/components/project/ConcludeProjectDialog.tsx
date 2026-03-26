@@ -39,6 +39,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     setCcEmails([]);
     setCcInput("");
     setFullProject(null);
+    setTemplateNames({});
     (async () => {
       // Fetch full project data with group_notes and complete scope items
       const { data: fullProj } = await supabase
@@ -47,6 +48,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         .eq("id", project.id)
         .single();
       setFullProject(fullProj);
+
+      // Fetch template names for resolving template-based group names
+      const { data: tmpls } = await supabase.from("scope_templates").select("id, name");
+      if (tmpls) {
+        const map: Record<string, string> = {};
+        tmpls.forEach((t: any) => { map[t.id] = t.name; });
+        setTemplateNames(map);
+      }
 
       const { data: proposal } = await supabase
         .from("proposals")

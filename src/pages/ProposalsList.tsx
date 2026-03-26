@@ -507,10 +507,14 @@ export default function ProposalsList() {
   }, []);
 
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
-    setConsoleLogs([]);
-    setConsoleDocUrl(null);
-    setConsoleLoading(true);
-    setConsoleOpen(true);
+    const docLabel = docType === "mit" ? "MIT-065" : "Proposta";
+    
+    // Show background processing toast that auto-closes after 4 seconds
+    toast({
+      title: `Gerando ${docLabel}...`,
+      description: "O processo será executado em background. Você será avisado ao concluir.",
+      duration: 4000,
+    });
 
     const endpoint = docType === "mit" ? "generate-mit-doc" : "generate-proposal-pdf";
 
@@ -530,16 +534,10 @@ export default function ProposalsList() {
 
       const data = await response.json();
 
-      if (data?.logs) {
-        setConsoleLogs(data.logs);
-      }
-
       if (response.ok && data?.docUrl) {
-        setConsoleDocUrl(data.docUrl);
         // Clear needs_regen flag and update status to proposta_gerada if generating proposal doc
         const updateFields: Record<string, any> = { needs_regen: false };
         if (docType === "proposta") {
-          // Only upgrade status if currently pendente
           const currentProposal = proposals.find(p => p.id === proposalId);
           if (currentProposal?.status === "pendente" || currentProposal?.status === "analise_ev_concluida") {
             updateFields.status = "proposta_gerada";
@@ -548,13 +546,34 @@ export default function ProposalsList() {
         await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });
-      } else if (!data?.logs) {
-        setConsoleLogs([{ step: "Erro", status: "error", message: data?.error || "Erro desconhecido", timestamp: new Date().toISOString() }]);
+
+        toast({
+          title: `${docLabel} gerada com sucesso!`,
+          description: "Clique para abrir o documento.",
+          duration: 8000,
+          action: (
+            <ToastAction altText="Abrir" onClick={() => window.open(data.docUrl, "_blank")}>
+              Abrir
+            </ToastAction>
+          ),
+        });
+      } else {
+        const errorMsg = data?.logs?.find((l: any) => l.status === "error")?.message || data?.error || "Erro desconhecido";
+        toast({
+          title: `Erro ao gerar ${docLabel}`,
+          description: errorMsg,
+          variant: "destructive",
+          duration: 10000,
+        });
       }
     } catch (err: any) {
-      setConsoleLogs(prev => [...prev, { step: "Erro de rede", status: "error", message: err.message, timestamp: new Date().toISOString() }]);
+      toast({
+        title: `Erro ao gerar ${docLabel}`,
+        description: err.message,
+        variant: "destructive",
+        duration: 10000,
+      });
     }
-    setConsoleLoading(false);
   }
 
   const periodRange = useMemo(() => {

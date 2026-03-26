@@ -60,6 +60,7 @@ export default function ProjectCreatePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { role: userRole } = useUserRole();
 
   const { data: existingProject, isLoading: loadingProject } = useProject(id);
   const { data: clients = [] } = useClients();

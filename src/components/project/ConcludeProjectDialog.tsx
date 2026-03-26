@@ -446,15 +446,28 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
 
   const groupProcesses = new Map<string, any[]>();
   for (const parent of parents) {
+    // Try to find group from processGroupMap, or infer from template_id
     const origGroupId = processGroupMap[parent.id];
     let groupKey: string;
     if (origGroupId && manualGroups[origGroupId]) {
+      // Manual group
       groupKey = `_project_${project.id}_manual_${origGroupId}`;
       newManualGroups[groupKey] = manualGroups[origGroupId];
+    } else if (origGroupId && !manualGroups[origGroupId]) {
+      // Template-based group (origGroupId is the template ID)
+      groupKey = `_project_${project.id}_${origGroupId}`;
     } else if (parent.template_id) {
+      // Fallback: use template_id directly
       groupKey = `_project_${project.id}_${parent.template_id}`;
     } else {
-      groupKey = `_project_${project.id}_ungrouped`;
+      // No group info - check if there's a manual group to use
+      if (Object.keys(manualGroups).length > 0) {
+        const firstGroupId = Object.keys(manualGroups)[0];
+        groupKey = `_project_${project.id}_manual_${firstGroupId}`;
+        newManualGroups[groupKey] = manualGroups[firstGroupId];
+      } else {
+        groupKey = `_project_${project.id}_ungrouped`;
+      }
     }
     if (!groupProcesses.has(groupKey)) {
       groupProcesses.set(groupKey, []);

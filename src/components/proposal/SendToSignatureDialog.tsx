@@ -1056,39 +1056,104 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   // ─── Render ───────────────────────────────────────────────────────
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[95vw] w-[1100px] max-h-[92vh] flex flex-col gap-0 p-0">
-        {/* Header */}
-        <div className="shrink-0 px-6 pt-5 pb-4 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-lg">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-                <Send className="h-4 w-4 text-primary" />
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-[92vw] lg:max-w-[80vw] xl:max-w-[70vw] p-0 flex flex-col gap-0 overflow-hidden [&>button]:hidden">
+        {/* Scrollable content area */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="mx-auto max-w-5xl space-y-5 p-5 pb-28">
+            {/* ─── Hero Header (same as ProposalCreate) ──────────────── */}
+            <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] p-5 text-white shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => onOpenChange(false)}
+                    className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                      Enviar para Assinatura
+                    </h1>
+                    <p className="mt-1 text-sm text-white/70">
+                      {proposal?.number || ""}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {[
+                    ["Proposta", proposal?.number || "—"],
+                    ["Cliente", clientName],
+                    ["Projeto", projectInfo?.product || "—"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</div>
+                      <div className="mt-0.5 truncate text-sm font-semibold">{value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              Enviar para Assinatura
-            </DialogTitle>
-            <DialogDescription className="text-sm mt-1">
-              Proposta <span className="font-medium text-foreground">{proposal?.number}</span> · {clientName}
-            </DialogDescription>
-          </DialogHeader>
+            </div>
 
-          {/* Stepper */}
-          {renderStepper()}
-        </div>
+            {/* ─── Step Navigator (same as ProposalCreate) ───────────── */}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Etapa <span className="font-semibold text-foreground">{currentStep + 1}</span> de {STEPS.length}
+                </div>
+                <Badge variant="secondary" className="rounded-full text-xs">
+                  {Math.round(progress)}% concluído
+                </Badge>
+              </div>
+              <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {STEPS.map((step) => {
+                  const Icon = step.icon;
+                  const active = step.id === currentStep;
+                  const completed = step.id < currentStep;
+                  return (
+                    <button
+                      key={step.id}
+                      onClick={() => { if (step.id <= currentStep) setCurrentStep(step.id); }}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : completed
+                          ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40 cursor-pointer"
+                          : "border-border bg-card text-muted-foreground cursor-default"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                      )}>
+                        {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{step.label}</div>
+                        <div className={cn("text-[11px]", active ? "text-white/70" : "text-muted-foreground")}>
+                          {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <Separator />
+            {/* ─── Step Content ───────────────────────────────────────── */}
+            {currentStep === 0 && renderSignatariosPage()}
+            {currentStep === 1 && renderMensagemPage()}
+            {currentStep === 2 && renderDocumentosPage()}
+            {currentStep === 3 && renderRevisaoPage()}
+          </div>
+        </ScrollArea>
 
-        {/* Step Content */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {currentStep === 0 && renderSignatarios()}
-          {currentStep === 1 && renderMensagem()}
-          {currentStep === 2 && renderDocumentos()}
-          {currentStep === 3 && renderRevisao()}
-        </div>
-
-        {/* Footer */}
-        <Separator />
-        <div className="shrink-0 flex items-center justify-between px-6 py-4">
+        {/* ─── Fixed Footer ──────────────────────────────────────────── */}
+        <div className="shrink-0 border-t border-border bg-card px-6 py-4 flex items-center justify-between">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -1112,7 +1177,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

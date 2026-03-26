@@ -573,7 +573,7 @@ export default function GoogleIntegrationPage() {
                       <TableCell>
                         {isOAuth ? (
                           hasRefreshToken ? (
-                            <Badge className="bg-green-600/10 text-green-600 text-[10px]">
+                            <Badge className="bg-success/10 text-success text-[10px]">
                               <CheckCircle2 className="h-3 w-3 mr-1" /> Autorizado
                             </Badge>
                           ) : (

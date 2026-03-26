@@ -728,9 +728,9 @@ export default function ProjectCreatePage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Pesquisar arquiteto..." />
+                      <CommandInput placeholder="Pesquisar engenheiro de valor..." />
                       <CommandList>
-                        <CommandEmpty>Nenhum arquiteto encontrado.</CommandEmpty>
+                        <CommandEmpty>Nenhum engenheiro de valor encontrado.</CommandEmpty>
                         <CommandGroup>
                           {arquitetos.map((a: any) => (
                             <CommandItem

@@ -240,7 +240,7 @@ export default function ProjectsPage() {
               <TableHead>GSN</TableHead>
               <TableHead>Unidade</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Arquiteto</TableHead>
+              <TableHead>Eng. Valor</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>
               <TableHead>Status</TableHead>

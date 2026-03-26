@@ -174,7 +174,7 @@ export default function SalesTeamPage() {
                 <SelectContent>
                   <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
                   <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-                  <SelectItem value="arquiteto">Arquiteto de Soluções</SelectItem>
+                  <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
                 </SelectContent>
               </Select>
             </div>

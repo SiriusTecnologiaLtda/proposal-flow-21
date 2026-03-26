@@ -1806,6 +1806,7 @@ export default function ProposalCreate() {
                                   onChange={(e) => updateProcessDescription(proc.id, e.target.value)}
                                   placeholder="Nome do processo"
                                   className="h-7 flex-1 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+                                  readOnly={scopeLocked}
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
                                 <button
@@ -1819,10 +1820,12 @@ export default function ProposalCreate() {
                                 >
                                   <MessageSquare className="h-3.5 w-3.5" />
                                 </button>
-                                <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} />
-                                <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <Switch checked={proc.included} onCheckedChange={() => toggleProcess(proc.id)} disabled={scopeLocked} />
+                                {!scopeLocked && (
+                                  <button onClick={() => removeProcess(proc.id)} className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
 
                               {/* Children (Level 2) */}

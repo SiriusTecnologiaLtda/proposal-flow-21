@@ -53,7 +53,7 @@ interface TaeStatus {
 const localStatusMap: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
   pending: { label: "Pendente", className: "bg-muted text-muted-foreground", icon: Clock },
   sent: { label: "Enviado ao TAE", className: "bg-primary/15 text-primary", icon: Mail },
-  completed: { label: "Finalizado", className: "bg-green-500/15 text-green-600", icon: CheckCircle2 },
+  completed: { label: "Finalizado", className: "bg-success/15 text-success", icon: CheckCircle2 },
   cancelled: { label: "Cancelado", className: "bg-destructive/15 text-destructive", icon: XCircle },
 };
 

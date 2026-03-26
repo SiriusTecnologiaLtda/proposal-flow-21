@@ -326,7 +326,7 @@ export default function SignatureMonitorDialog({ proposalId, proposalNumber, ope
                                       variant="outline"
                                       className={`text-[10px] ${
                                         displayStatus === "Assinado"
-                                          ? "border-green-500/30 text-green-600"
+                                          ? "border-success/30 text-success"
                                           : displayStatus === "Rejeitado"
                                           ? "border-destructive/30 text-destructive"
                                           : ""

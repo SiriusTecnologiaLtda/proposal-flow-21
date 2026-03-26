@@ -369,19 +369,32 @@ export default function ProposalsList() {
         if (notifType === "solicitar_ajuste") {
           await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", notifProposal.id);
           
-          // Auto-create project linked to this proposal
-          const projectId = crypto.randomUUID();
-          await supabase.from("projects").insert({
-            id: projectId,
-            client_id: notifProposal.client_id,
-            product: notifProposal.product,
-            description: notifProposal.description || "",
-            arquiteto_id: notifProposal.arquiteto_id,
-            created_by: user!.id,
-            status: "rascunho",
-            proposal_id: notifProposal.id,
-            proposal_number: notifProposal.number,
-          } as any);
+          // Check if a project already exists for this proposal
+          const { data: existingProjects } = await supabase
+            .from("projects")
+            .select("id")
+            .eq("proposal_id", notifProposal.id);
+          
+          if (existingProjects && existingProjects.length > 0) {
+            // Reopen existing project(s) back to em_revisao
+            for (const proj of existingProjects) {
+              await supabase.from("projects").update({ status: "em_revisao" }).eq("id", proj.id);
+            }
+          } else {
+            // Auto-create project linked to this proposal
+            const projectId = crypto.randomUUID();
+            await supabase.from("projects").insert({
+              id: projectId,
+              client_id: notifProposal.client_id,
+              product: notifProposal.product,
+              description: notifProposal.description || "",
+              arquiteto_id: notifProposal.arquiteto_id,
+              created_by: user!.id,
+              status: "rascunho",
+              proposal_id: notifProposal.id,
+              proposal_number: notifProposal.number,
+            } as any);
+          }
           
           queryClient.invalidateQueries({ queryKey: ["proposals"] });
           queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -1065,7 +1078,7 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada") && (
+                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada" || p.status === "analise_ev_concluida") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>

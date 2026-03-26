@@ -30,16 +30,19 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const proposalId = project?.proposal_id;
+  const proposalId = proposalData?.id || project?.proposal_id;
   const [fullProject, setFullProject] = useState<any>(null);
 
   useEffect(() => {
-    if (!open || !proposalId || !project?.id) return;
+    if (!open || !project?.id) return;
     setMessage("");
     setCcEmails([]);
     setCcInput("");
     setFullProject(null);
     setTemplateNames({});
+    setProposalData(null);
+    setExistingProjects([]);
+    setReplaceMode(null);
     (async () => {
       // Fetch full project data with group_notes and complete scope items
       const { data: fullProj } = await supabase
@@ -57,46 +60,63 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         setTemplateNames(map);
       }
 
-      const { data: proposal } = await supabase
-        .from("proposals")
-        .select("id, number, esn_id, client_id, status")
-        .eq("id", proposalId)
-        .single();
-      setProposalData(proposal);
+      let resolvedProposal = null;
+      if (project?.proposal_id) {
+        const { data } = await supabase
+          .from("proposals")
+          .select("id, number, esn_id, client_id, status")
+          .eq("id", project.proposal_id)
+          .maybeSingle();
+        resolvedProposal = data;
+      }
 
-      if (proposal?.esn_id) {
+      if (!resolvedProposal && project?.proposal_number) {
+        const { data } = await supabase
+          .from("proposals")
+          .select("id, number, esn_id, client_id, status")
+          .eq("number", project.proposal_number)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        resolvedProposal = data;
+
+        if (data?.id && !project?.proposal_id) {
+          await supabase
+            .from("projects")
+            .update({ proposal_id: data.id, proposal_number: data.number })
+            .eq("id", project.id);
+        }
+      }
+
+      setProposalData(resolvedProposal);
+
+      if (resolvedProposal?.esn_id) {
         const { data: esn } = await supabase
           .from("sales_team")
           .select("email, name")
-          .eq("id", proposal.esn_id)
+          .eq("id", resolvedProposal.esn_id)
           .single();
         setEsnEmail(esn?.email || null);
         setEsnName(esn?.name || null);
       }
 
+      if (!resolvedProposal?.id) return;
+
       // Check for OTHER projects linked to same proposal
       const { data: linkedProjects } = await supabase
         .from("projects")
         .select("id, description, product, proposal_id, proposal_number")
-        .eq("proposal_id", proposalId)
+        .eq("proposal_id", resolvedProposal.id)
         .neq("id", project.id);
       setExistingProjects(linkedProjects || []);
 
-      // Check if THIS project already has scope items in the proposal
-      const { count: ownScopeCount } = await supabase
-        .from("proposal_scope_items")
-        .select("id", { count: "exact", head: true })
-        .eq("proposal_id", proposalId)
-        .eq("project_id", project.id);
-
-      // If no other projects, auto-add; if this project already has items it's an update
       if (!linkedProjects || linkedProjects.length === 0) {
         setReplaceMode("add");
       } else {
         setReplaceMode(null);
       }
     })();
-  }, [open, proposalId, project?.id]);
+  }, [open, project?.id, project?.proposal_id, project?.proposal_number]);
 
   const scopeSummary = useMemo(() => {
     const proj = fullProject;

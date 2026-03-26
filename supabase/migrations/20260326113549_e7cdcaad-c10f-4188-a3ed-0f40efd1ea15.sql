@@ -1,0 +1,1 @@
+ALTER TABLE public.project_attachments ADD COLUMN is_scope boolean NOT NULL DEFAULT false;

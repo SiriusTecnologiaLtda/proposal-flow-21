@@ -188,6 +188,17 @@ Deno.serve(async (req) => {
 
     log(logs, "Finalização", "ok", "Processo de assinatura cancelado. Status voltou para Proposta Gerada.");
 
+    // Log signature event
+    await adminSupabase.from("signature_events").insert({
+      signature_id: sigRecord.id,
+      proposal_id: proposalId,
+      event_type: "cancelled",
+      title: "Assinatura cancelada pelo usuário",
+      description: cancelRes.ok
+        ? "O processo foi cancelado no TAE e localmente. Status revertido para Proposta Gerada."
+        : "Cancelamento local realizado. O TAE pode requerer cancelamento manual.",
+    });
+
     return respondWithLogs(logs, {
       cancelled: true,
       taeStatus: cancelRes.ok ? "cancelled_in_tae" : "local_only",

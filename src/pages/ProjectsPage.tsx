@@ -497,6 +497,47 @@ export default function ProjectsPage() {
         open={!!reviewProposalId}
         onOpenChange={(open) => { if (!open) setReviewProposalId(null); }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmProject} onOpenChange={(open) => { if (!open) setDeleteConfirmProject(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <AlertDialogTitle>Excluir Projeto</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <span className="block">
+                Tem certeza que deseja excluir o projeto de <strong>{deleteConfirmProject?.clients?.name || "—"}</strong>?
+              </span>
+              {deleteConfirmProject?.proposal_id && (
+                <span className="block rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                  <strong>Atenção:</strong> Este projeto está vinculado à Oportunidade <strong>{deleteConfirmProject?.proposal_number || ""}</strong>. 
+                  Ao confirmar a exclusão:
+                  <ul className="mt-2 list-disc pl-5 space-y-1">
+                    <li>O ESN responsável será notificado sobre a exclusão</li>
+                    <li>O escopo do projeto será removido da oportunidade</li>
+                    <li>A oportunidade voltará ao status <strong>Pendente</strong></li>
+                  </ul>
+                </span>
+              )}
+              <span className="block text-xs text-muted-foreground">Esta ação não pode ser desfeita.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmProject && handleDeleteConfirmed(deleteConfirmProject)}
+            >
+              {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

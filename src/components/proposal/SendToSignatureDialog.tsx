@@ -699,18 +699,21 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   // ─── Step 2: Mensagem ─────────────────────────────────────────────
-  function renderMensagem() {
+  function renderMensagemPage() {
     return (
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-6 max-w-2xl mx-auto">
-          <div>
-            <h3 className="text-base font-semibold text-foreground mb-1">Conteúdo da comunicação</h3>
-            <p className="text-sm text-muted-foreground">
-              Defina o assunto e a mensagem que será enviada junto ao envelope de assinatura.
-            </p>
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Mail className="h-3.5 w-3.5 text-primary" />
+            </div>
+            Conteúdo da comunicação
           </div>
+          <p className="text-sm text-muted-foreground mb-5">
+            Defina o assunto e a mensagem que será enviada junto ao envelope de assinatura.
+          </p>
 
-          <div className="rounded-lg border border-border bg-card p-5 space-y-5">
+          <div className="space-y-5">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Assunto do e-mail *</Label>
@@ -743,7 +746,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                 onChange={(e) => setEmailBody(e.target.value)}
                 placeholder="Mensagem que acompanha o envelope..."
                 rows={8}
-                className="text-sm resize-none"
+                className="text-sm resize-y"
               />
               <p className="text-[11px] text-muted-foreground">
                 Esta mensagem será enviada aos destinatários junto com o link para assinatura.
@@ -751,7 +754,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 

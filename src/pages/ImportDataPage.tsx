@@ -820,7 +820,7 @@ function MetasImportCard({ importFn }: { importFn: (file: File, year: number) =>
                 <span className="font-medium">{run.imported}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <div className="h-2 w-2 rounded-full bg-primary" />
                 <span className="text-muted-foreground">Atualizados:</span>
                 <span className="font-medium">{run.updated}</span>
               </div>

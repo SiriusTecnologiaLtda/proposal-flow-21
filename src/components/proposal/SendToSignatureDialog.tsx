@@ -54,10 +54,10 @@ interface Props {
 const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
 
 const STEPS = [
-  { key: "signatarios", label: "Signatários", icon: Users },
-  { key: "mensagem", label: "Mensagem", icon: Mail },
-  { key: "documentos", label: "Documentos", icon: FileText },
-  { key: "revisao", label: "Revisão", icon: ClipboardList },
+  { id: 0, key: "signatarios", label: "Signatários", icon: Users },
+  { id: 1, key: "mensagem", label: "Mensagem", icon: Mail },
+  { id: 2, key: "documentos", label: "Documentos", icon: FileText },
+  { id: 3, key: "revisao", label: "Revisão", icon: Sparkles },
 ];
 
 let localCounter = 0;

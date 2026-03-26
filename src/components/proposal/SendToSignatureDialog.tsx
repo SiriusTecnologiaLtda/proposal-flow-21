@@ -582,19 +582,22 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const progress = useMemo(() => ((currentStep + 1) / STEPS.length) * 100, [currentStep]);
 
   // ─── Step 1: Signatários ──────────────────────────────────────────
-  function renderSignatarios() {
+  function renderSignatariosPage() {
     return (
-      <ScrollArea className="flex-1">
-        <div ref={scrollRef} className="p-6 space-y-5 max-w-3xl mx-auto">
-          <div>
-            <h3 className="text-base font-semibold text-foreground mb-1">Quem irá assinar?</h3>
-            <p className="text-sm text-muted-foreground">
-              Defina os participantes do processo de assinatura. Ao menos um signatário é obrigatório.
-            </p>
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-3.5 w-3.5 text-primary" />
+            </div>
+            Quem irá assinar?
           </div>
+          <p className="text-sm text-muted-foreground mb-5">
+            Defina os participantes do processo de assinatura. Ao menos um signatário é obrigatório.
+          </p>
 
           {/* Contact selection */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4 space-y-3 mb-5">
             <Label className="text-xs font-medium text-muted-foreground">Adicionar participantes</Label>
             <div className="flex gap-2">
               <Select onValueChange={addSignatoryFromContact}>
@@ -627,16 +630,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
           {/* Signatory list */}
           {signatories.length > 0 ? (
-            <div className="space-y-3">
+            <div ref={scrollRef} className="space-y-3">
               {signatories.map((sig, idx) => (
                 <div
                   key={sig.id}
                   data-sig-id={sig.id}
                   className={cn(
-                    "rounded-lg border p-4 space-y-3",
+                    "rounded-xl border p-4 space-y-3",
                     sig.isLoggedUser
                       ? "border-primary/30 bg-primary/5"
-                      : "border-border bg-card"
+                      : "border-border bg-gradient-to-r from-accent/30 to-transparent"
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -650,12 +653,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                       )}
                     </span>
                     {!sig.isLoggedUser && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeSignatory(sig.id)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSignatory(sig.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     )}
@@ -663,45 +661,22 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   <div className="grid gap-3 grid-cols-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Nome *</Label>
-                      <Input
-                        value={sig.name}
-                        onChange={(e) => updateSignatory(sig.id, "name", e.target.value)}
-                        placeholder="Nome completo"
-                        readOnly={!sig.isNew || sig.isLoggedUser}
-                        className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")}
-                      />
+                      <Input value={sig.name} onChange={(e) => updateSignatory(sig.id, "name", e.target.value)} placeholder="Nome completo" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
-                      <Input
-                        value={sig.email}
-                        onChange={(e) => updateSignatory(sig.id, "email", e.target.value)}
-                        placeholder="email@empresa.com"
-                        readOnly={!sig.isNew || sig.isLoggedUser}
-                        className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")}
-                      />
+                      <Input value={sig.email} onChange={(e) => updateSignatory(sig.id, "email", e.target.value)} placeholder="email@empresa.com" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Celular</Label>
-                      <Input
-                        value={sig.phone}
-                        onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)}
-                        placeholder="(00) 00000-0000"
-                        readOnly={!sig.isNew}
-                        className={cn("h-9 text-sm", !sig.isNew && "bg-muted")}
-                      />
+                      <Input value={sig.phone} onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)} placeholder="(00) 00000-0000" readOnly={!sig.isNew} className={cn("h-9 text-sm", !sig.isNew && "bg-muted")} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">Função</Label>
-                      <Select
-                        value={sig.role}
-                        onValueChange={(v) => updateSignatory(sig.id, "role", v)}
-                      >
+                      <Select value={sig.role} onValueChange={(v) => updateSignatory(sig.id, "role", v)}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((r) => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
+                          {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -710,17 +685,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+            <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Nenhum signatário adicionado</p>
               <Button variant="outline" size="sm" className="mt-3 h-8 text-xs" onClick={addNewSignatory}>
-                <Plus className="mr-1.5 h-3 w-3" />
-                Adicionar Signatário
+                <Plus className="mr-1.5 h-3 w-3" /> Adicionar Signatário
               </Button>
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 

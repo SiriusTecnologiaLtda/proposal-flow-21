@@ -118,8 +118,11 @@ export default function ProposalsList() {
   const [changeLogEntries, setChangeLogEntries] = useState<any[]>([]);
   const [changeLogLoading, setChangeLogLoading] = useState(false);
 
+  // Track which proposals are currently generating docs (proposalId -> docType)
+  const [generatingDocs, setGeneratingDocs] = useState<Record<string, "proposta" | "mit">>({});
+
   // Gmail auth state
-  const [gmailAuthorized, setGmailAuthorized] = useState<boolean | null>(null);
+  const [gmailAuthorized, setGmailAuthor= useState<boolean | null>(null);
   const [gmailAuthLoading, setGmailAuthLoading] = useState(false);
 
   // Check Gmail authorization on mount

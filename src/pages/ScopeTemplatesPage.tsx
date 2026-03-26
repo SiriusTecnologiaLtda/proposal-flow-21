@@ -244,6 +244,7 @@ export default function ScopeTemplatesPage() {
                 const flatItems = (template as any).scope_template_items || [];
                 const hierarchy = buildHierarchy(flatItems);
                 const totalItems = flatItems.length;
+                const totalHours = flatItems.reduce((s: number, it: any) => s + (Number(it.default_hours) || 0), 0);
                 const tplStatus = (template as any).status || "em_revisao";
                 const sCfg = STATUS_CONFIG[tplStatus] || STATUS_CONFIG.em_revisao;
                 const SIcon = sCfg.icon;
@@ -266,7 +267,7 @@ export default function ScopeTemplatesPage() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {totalItems} itens · {template.category}
+                            {totalItems} itens · {totalHours}h · {template.category}
                             {(template as any).created_by_name && ` · por ${(template as any).created_by_name}`}
                             {template.created_at && ` · ${new Date(template.created_at).toLocaleDateString("pt-BR")}`}
                           </p>

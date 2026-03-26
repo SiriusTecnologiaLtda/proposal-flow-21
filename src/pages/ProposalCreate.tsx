@@ -191,143 +191,136 @@ export default function ProposalCreate() {
 
   // Load existing proposal data for editing or duplicating
   useEffect(() => {
-    if (existingProposal && !loaded) {
-      setProposalNumber(isDuplicating ? "" : existingProposal.number);
-      setProposalType(existingProposal.type);
-      setProduct(existingProposal.product);
-      setClientId(existingProposal.client_id);
-      setEsnId(existingProposal.esn_id || "");
-      setArquitetoId(existingProposal.arquiteto_id || "");
-      setScopeType(existingProposal.scope_type);
-      setHourlyRate(existingProposal.hourly_rate);
-      setGpPercentage(existingProposal.gp_percentage);
-      setAccompAnalyst(existingProposal.accomp_analyst);
-      setAccompGP(existingProposal.accomp_gp);
-      setNegotiation(existingProposal.negotiation || "");
-      setDescription(existingProposal.description || "");
-      setTravelLocalHours(existingProposal.travel_local_hours);
-      setTravelTripHours(existingProposal.travel_trip_hours);
-      setTravelHourlyRate(existingProposal.travel_hourly_rate);
-      setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
-      setAdditionalGpRate(existingProposal.additional_gp_rate);
-      setExpectedCloseDate(existingProposal.expected_close_date || "");
-      const loadedGroupNotes = (existingProposal as any).group_notes || {};
-      setGroupNotes(loadedGroupNotes);
-      // Restore manual group names
-      const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
-      if (Object.keys(loadedManualGroups).length > 0) {
-        setManualGroupNames(loadedManualGroups);
-      } else if (loadedGroupNotes._avulso_name) {
-        // Legacy: migrate old single avulso name to a manual group
-        const legacyGid = localId();
-        setManualGroupNames({ [legacyGid]: loadedGroupNotes._avulso_name });
-      }
-      setDefaultsLoaded(true);
+    if (!existingProposal || (loaded && !isDuplicating)) return;
 
-      // Rebuild two-level hierarchy from flat proposal_scope_items
-      const items = (existingProposal as any).proposal_scope_items || [];
-      const processes: ScopeProcess[] = [];
-      const parentMap = new Map<string, ScopeProcess>();
-      const parentItems = items.filter((i: any) => !i.parent_id);
-      const childItems = items.filter((i: any) => i.parent_id);
+    setProposalNumber(isDuplicating ? "" : existingProposal.number);
+    setProposalType(existingProposal.type);
+    setProduct(existingProposal.product);
+    setClientId(existingProposal.client_id);
+    setEsnId(existingProposal.esn_id || "");
+    setArquitetoId(existingProposal.arquiteto_id || "");
+    setScopeType(existingProposal.scope_type);
+    setHourlyRate(existingProposal.hourly_rate);
+    setGpPercentage(existingProposal.gp_percentage);
+    setAccompAnalyst(existingProposal.accomp_analyst);
+    setAccompGP(existingProposal.accomp_gp);
+    setNegotiation(existingProposal.negotiation || "");
+    setDescription(existingProposal.description || "");
+    setTravelLocalHours(existingProposal.travel_local_hours);
+    setTravelTripHours(existingProposal.travel_trip_hours);
+    setTravelHourlyRate(existingProposal.travel_hourly_rate);
+    setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
+    setAdditionalGpRate(existingProposal.additional_gp_rate);
+    setExpectedCloseDate(existingProposal.expected_close_date || "");
+    const loadedGroupNotes = (existingProposal as any).group_notes || {};
+    setGroupNotes(loadedGroupNotes);
+    const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
+    if (Object.keys(loadedManualGroups).length > 0) {
+      setManualGroupNames(loadedManualGroups);
+    } else if (loadedGroupNotes._avulso_name) {
+      const legacyGid = localId();
+      setManualGroupNames({ [legacyGid]: loadedGroupNotes._avulso_name });
+    } else {
+      setManualGroupNames({});
+    }
+    setDefaultsLoaded(true);
 
-      if (parentItems.length === 0 && childItems.length === 0) {
-        // No items
-      } else if (childItems.length === 0) {
-        for (const item of items) {
-          processes.push({
-            id: item.id,
+    const items = (existingProposal as any).proposal_scope_items || [];
+    const processes: ScopeProcess[] = [];
+    const parentMap = new Map<string, ScopeProcess>();
+    const parentItems = items.filter((i: any) => !i.parent_id);
+    const childItems = items.filter((i: any) => i.parent_id);
+
+    if (childItems.length === 0) {
+      for (const item of items) {
+        processes.push({
+          id: item.id,
+          description: item.description,
+          included: item.included,
+          templateId: item.template_id || undefined,
+          children: [{
+            id: localId(),
             description: item.description,
+            hours: item.hours,
             included: item.included,
-            templateId: item.template_id || undefined,
-            children: [{
-              id: localId(),
-              description: item.description,
-              hours: item.hours,
-              included: item.included,
-            }],
+          }],
+        });
+      }
+    } else {
+      const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
+      for (const item of parentItems) {
+        const mappedGroupId = processGroupMap[item.id] || undefined;
+        let templateId = item.template_id || undefined;
+        let projectId: string | undefined = undefined;
+        if (item.project_id) {
+          projectId = item.project_id;
+          templateId = item.template_id ? `_project_${item.project_id}_${item.template_id}` : undefined;
+        }
+        const proc: ScopeProcess = {
+          id: item.id,
+          description: item.description,
+          included: item.included,
+          templateId,
+          projectId,
+          groupId: mappedGroupId,
+          notes: item.notes || "",
+          children: [],
+        };
+        parentMap.set(item.id, proc);
+        processes.push(proc);
+      }
+      for (const child of childItems) {
+        const parent = parentMap.get(child.parent_id);
+        if (parent) {
+          parent.children.push({
+            id: child.id,
+            description: child.description,
+            hours: child.hours,
+            included: child.included,
+            notes: child.notes || "",
           });
         }
-      } else {
-        const processGroupMap: Record<string, string> = loadedGroupNotes._process_group_map || {};
-        for (const item of parentItems) {
-          const mappedGroupId = processGroupMap[item.id] || undefined;
-          let templateId = item.template_id || undefined;
-          let projectId: string | undefined = undefined;
-          if (item.project_id) {
-            projectId = item.project_id;
-            templateId = item.template_id
-              ? `_project_${item.project_id}_${item.template_id}`
-              : undefined;
-          }
-          const proc: ScopeProcess = {
-            id: item.id,
-            description: item.description,
-            included: item.included,
-            templateId,
-            projectId,
-            groupId: mappedGroupId,
-            notes: item.notes || "",
-            children: [],
-          };
-          parentMap.set(item.id, proc);
-          processes.push(proc);
-        }
-        for (const child of childItems) {
-          const parent = parentMap.get(child.parent_id);
-          if (parent) {
-            parent.children.push({
-              id: child.id,
-              description: child.description,
-              hours: child.hours,
-              included: child.included,
-              notes: child.notes || "",
-            });
-          }
-        }
       }
-
-      setScopeProcesses(processes);
-      setExpandedProcessIds(new Set());
-      setExpandedTemplateIds(new Set());
-
-      const tids = new Set<string>();
-      const pids = new Set<string>();
-      const inferredGroupOrder: string[] = [];
-      for (const proc of processes) {
-        if (proc.templateId) tids.add(proc.templateId);
-        if (proc.projectId) pids.add(proc.projectId);
-        const groupKey = proc.templateId || proc.groupId;
-        if (groupKey && !inferredGroupOrder.includes(groupKey)) {
-          inferredGroupOrder.push(groupKey);
-        }
-      }
-      for (const gid of Object.keys(loadedManualGroups)) {
-        if (!inferredGroupOrder.includes(gid)) inferredGroupOrder.push(gid);
-      }
-      const savedGroupOrder = Array.isArray(loadedGroupNotes._group_order) ? loadedGroupNotes._group_order : [];
-      setGroupOrder(savedGroupOrder.length > 0
-        ? [...savedGroupOrder.filter((key: string) => inferredGroupOrder.includes(key)), ...inferredGroupOrder.filter((key) => !savedGroupOrder.includes(key))]
-        : inferredGroupOrder
-      );
-      setAddedTemplateIds(tids);
-      setAddedProjectIds(pids);
-
-      // Load payments
-      const pays = (existingProposal as any).payment_conditions || [];
-      if (pays.length > 0) {
-        const loadedPayments = pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount }));
-        setPayments(loadedPayments);
-        setNumInstallments(loadedPayments.length);
-        if (loadedPayments[0]?.dueDate) setFirstDueDate(loadedPayments[0].dueDate);
-        // Detect if amounts are equal (linear) or not (custom)
-        const amounts = loadedPayments.map((p: any) => p.amount);
-        const allEqual = amounts.every((a: number) => Math.abs(a - amounts[0]) < 0.02);
-        setPaymentMode(allEqual ? "linear" : "custom");
-      }
-
-      setLoaded(true);
     }
+
+    setScopeProcesses(processes);
+    setExpandedProcessIds(new Set());
+    setExpandedTemplateIds(new Set());
+
+    const tids = new Set<string>();
+    const pids = new Set<string>();
+    const inferredGroupOrder: string[] = [];
+    for (const proc of processes) {
+      if (proc.templateId) tids.add(proc.templateId);
+      if (proc.projectId) pids.add(proc.projectId);
+      const groupKey = proc.templateId || proc.groupId;
+      if (groupKey && !inferredGroupOrder.includes(groupKey)) inferredGroupOrder.push(groupKey);
+    }
+    for (const gid of Object.keys(loadedManualGroups)) {
+      if (!inferredGroupOrder.includes(gid)) inferredGroupOrder.push(gid);
+    }
+    const savedGroupOrder = Array.isArray(loadedGroupNotes._group_order) ? loadedGroupNotes._group_order : [];
+    setGroupOrder(savedGroupOrder.length > 0
+      ? [...savedGroupOrder.filter((key: string) => inferredGroupOrder.includes(key)), ...inferredGroupOrder.filter((key) => !savedGroupOrder.includes(key))]
+      : inferredGroupOrder
+    );
+    setAddedTemplateIds(tids);
+    setAddedProjectIds(pids);
+
+    const pays = (existingProposal as any).payment_conditions || [];
+    if (pays.length > 0) {
+      const loadedPayments = pays.map((p: any) => ({ installment: p.installment, dueDate: p.due_date || "", amount: p.amount }));
+      setPayments(loadedPayments);
+      setNumInstallments(loadedPayments.length);
+      if (loadedPayments[0]?.dueDate) setFirstDueDate(loadedPayments[0].dueDate);
+      const amounts = loadedPayments.map((p: any) => p.amount);
+      const allEqual = amounts.every((a: number) => Math.abs(a - amounts[0]) < 0.02);
+      setPaymentMode(allEqual ? "linear" : "custom");
+    } else {
+      setPayments([]);
+    }
+
+    setLoaded(true);
   }, [existingProposal, loaded, isDuplicating]);
 
   // Load defaults for new proposals

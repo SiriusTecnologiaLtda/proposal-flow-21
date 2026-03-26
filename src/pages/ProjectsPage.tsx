@@ -307,7 +307,7 @@ export default function ProjectsPage() {
                           <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />Abrir
                           </DropdownMenuItem>
-                          {(project.status === "rascunho" || project.status === "em_revisao") && project.proposal_id && (
+                          {(project.status === "rascunho" || project.status === "em_revisao") && (project.proposal_id || project.proposal_number) && (
                             <DropdownMenuItem onClick={() => setConcludeProject(project)}>
                               <CheckCircle className="mr-2 h-4 w-4" />Concluir Projeto
                             </DropdownMenuItem>

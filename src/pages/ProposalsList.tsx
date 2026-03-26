@@ -351,15 +351,18 @@ export default function ProposalsList() {
       // For solicitar_ajuste, create/reopen project BEFORE sending email so edge function can find it
       if (notifType === "solicitar_ajuste") {
         await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", notifProposal.id);
-        
+
         const { data: existingProjects } = await supabase
           .from("projects")
-          .select("id")
-          .eq("proposal_id", notifProposal.id);
-        
+          .select("id, proposal_id, proposal_number")
+          .or(`proposal_id.eq.${notifProposal.id},proposal_number.eq.${notifProposal.number}`);
+
         if (existingProjects && existingProjects.length > 0) {
           for (const proj of existingProjects) {
-            await supabase.from("projects").update({ status: "em_revisao" }).eq("id", proj.id);
+            await supabase
+              .from("projects")
+              .update({ status: "em_revisao", proposal_id: notifProposal.id, proposal_number: notifProposal.number })
+              .eq("id", proj.id);
           }
         } else {
           const projectId = crypto.randomUUID();

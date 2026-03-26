@@ -589,7 +589,7 @@ export default function GoogleIntegrationPage() {
                           <div className="flex gap-1">
                             {isOAuth && !hasRefreshToken && item.oauth_client_id && (
                               <Button variant="ghost" size="icon" title="Autorizar com Google" onClick={() => startGoogleAuth(item.id, item.oauth_client_id!)}>
-                                <LogIn className="h-4 w-4 text-blue-600" />
+                                <LogIn className="h-4 w-4 text-primary" />
                               </Button>
                             )}
                             {isOAuth && hasRefreshToken && (

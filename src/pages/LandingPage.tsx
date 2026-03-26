@@ -453,7 +453,7 @@ export default function LandingPage() {
               </p>
               <ul className="mt-6 space-y-3">
                 {[
-                  "Identifica ESN, GSN, Arquiteto ou Consulta pelo telefone",
+                  "Identifica ESN, GSN, Eng. Valor ou Consulta pelo telefone",
                   "Aplica filtros de acesso idênticos ao sistema (RLS)",
                   "Contexto conversacional com histórico de mensagens",
                   "Múltiplos modelos de IA configuráveis (Gemini, GPT)",

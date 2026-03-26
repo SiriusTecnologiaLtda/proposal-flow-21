@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,10 +51,10 @@ interface PaymentCondition {
 }
 
 const steps = [
-  { id: 1, label: "Dados Gerais" },
-  { id: 2, label: "Escopo" },
-  { id: 3, label: "Financeiro" },
-  { id: 4, label: "Revisão" },
+  { id: 1, label: "Dados Gerais", icon: FileText },
+  { id: 2, label: "Escopo", icon: ClipboardList },
+  { id: 3, label: "Financeiro", icon: Landmark },
+  { id: 4, label: "Revisão", icon: Sparkles },
 ];
 
 let idCounter = 0;
@@ -1139,6 +1141,15 @@ export default function ProposalCreate() {
 
   const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating;
 
+  const progress = useMemo(() => (currentStep / steps.length) * 100, [currentStep]);
+
+  const statusLabel = useMemo(() => {
+    if (!isEditing) return "Novo";
+    const s = (existingProposal as any)?.status;
+    const map: Record<string, string> = { pendente: "Pendente", proposta_gerada: "Proposta Gerada", em_assinatura: "Em Assinatura", ganha: "Ganha", cancelada: "Cancelada" };
+    return map[s] || s || "—";
+  }, [isEditing, existingProposal]);
+
   if ((isEditing || isDuplicating) && loadingProposal) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1171,103 +1182,173 @@ export default function ProposalCreate() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate("/propostas")} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {isEditing ? "Editar Oportunidade" : isDuplicating ? "Duplicar Oportunidade" : "Nova Oportunidade"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isEditing ? "Altere as informações da oportunidade" : "Preencha as informações da oportunidade comercial"}
-          </p>
+    <div className="mx-auto max-w-5xl space-y-5">
+      {/* ─── Hero Header ─────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(215,28%,17%)] via-[hsl(217,33%,22%)] to-[hsl(217,91%,40%)] p-5 text-white shadow-lg dark:from-[hsl(222,47%,8%)] dark:via-[hsl(217,33%,14%)] dark:to-[hsl(217,91%,30%)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-3">
+            <button onClick={() => navigate("/propostas")} className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {isEditing ? "Editar Oportunidade" : isDuplicating ? "Duplicar Oportunidade" : "Nova Oportunidade"}
+              </h1>
+              <p className="mt-1 text-sm text-white/70">
+                {proposalNumber ? `${proposalNumber}` : "Preencha as informações da oportunidade comercial"}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Cliente", selectedClient?.name || "—"],
+              ["Produto", product || "—"],
+              ["Tipo", proposalTypes.find((pt: any) => pt.slug === proposalType)?.name || "—"],
+              ["Status", statusLabel],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</div>
+                <div className="mt-0.5 truncate text-sm font-semibold">{value}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-2">
-        {steps.map((step, i) => (
-          <div key={step.id} className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentStep(step.id)}
-              className={`flex h-8 items-center gap-2 rounded-full px-3 text-xs font-medium transition-colors ${
-                currentStep === step.id ? "bg-primary text-primary-foreground" : currentStep > step.id ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {currentStep > step.id ? <Check className="h-3 w-3" /> : <span>{step.id}</span>}
-              <span className="hidden sm:inline">{step.label}</span>
-            </button>
-            {i < steps.length - 1 && <div className="h-px w-4 bg-border sm:w-8" />}
+      {/* ─── Step Navigator ──────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Etapa <span className="font-semibold text-foreground">{currentStep}</span> de {steps.length}
           </div>
-        ))}
+          <Badge variant="secondary" className="rounded-full text-xs">
+            {Math.round(progress)}% concluído
+          </Badge>
+        </div>
+        <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            const active = step.id === currentStep;
+            const completed = step.id < currentStep;
+            return (
+              <button
+                key={step.id}
+                onClick={() => setCurrentStep(step.id)}
+                className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
+                  active
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : completed
+                    ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40"
+                    : "border-border bg-card text-muted-foreground hover:border-border hover:bg-accent/50"
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                }`}>
+                  {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{step.label}</div>
+                  <div className={`text-[11px] ${active ? "text-white/70" : "text-muted-foreground"}`}>
+                    {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Step 1 */}
+      {/* ═══ Step 1: Dados Gerais ═══════════════════════════════════ */}
       {currentStep === 1 && (
-        <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
-          <h2 className="text-base font-semibold text-foreground">Dados Gerais</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Número da Proposta (OPP)</Label>
-              <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} />
+        <div className="space-y-5">
+          {/* ── Informações da Proposta ─────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Informações da Oportunidade
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tipo de Proposta</Label>
-              <Select value={proposalType} onValueChange={setProposalType}>
-                <SelectTrigger id="proposalType"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {proposalTypes.map((pt: any) => (
-                    <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Produto</Label>
-              <Select value={product} onValueChange={setProduct}>
-                <SelectTrigger id="product"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {productsList.map((p) => (
-                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Escopo</Label>
-              <Select value={scopeType} onValueChange={setScopeType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="detalhado">Detalhado</SelectItem>
-                  <SelectItem value="macro">Macro Escopo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Descrição do Projeto</Label>
-              <Input placeholder="Descreva brevemente o projeto" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data Prevista de Fechamento</Label>
-              <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Número da Proposta (OPP)</Label>
+                <Input id="proposalNumber" placeholder="OPP-2025-XXX" value={proposalNumber} onChange={(e) => setProposalNumber(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tipo de Oportunidade</Label>
+                <Select value={proposalType} onValueChange={setProposalType}>
+                  <SelectTrigger id="proposalType" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {proposalTypes.map((pt: any) => (
+                      <SelectItem key={pt.slug} value={pt.slug}>{pt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Produto</Label>
+                <Select value={product} onValueChange={setProduct}>
+                  <SelectTrigger id="product" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {productsList.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nível do Escopo</Label>
+                <Select value={scopeType} onValueChange={setScopeType}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="detalhado">Detalhado</SelectItem>
+                    <SelectItem value="macro">Macro Escopo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Descrição do Projeto</Label>
+                <Textarea placeholder="Descreva o objetivo central da oportunidade e o valor esperado para o cliente..." value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[80px] resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data Prevista de Fechamento</Label>
+                <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} className="h-10" />
+              </div>
             </div>
           </div>
 
-          {/* Client */}
-          <div className="space-y-3">
-            <Label className="text-xs">Cliente</Label>
+          {/* ── Contexto do Cliente ─────────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <UserRoundSearch className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Contexto do Cliente
+            </div>
+
             {selectedClient ? (
-              <>
-                <div className="flex items-center justify-between rounded-md border border-border bg-accent/50 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{selectedClient.name}</p>
-                    <p className="text-xs text-muted-foreground">{selectedClient.code} · {selectedClient.cnpj}</p>
+              <div className="space-y-3">
+                <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Cliente selecionado</div>
+                      <div className="mt-1 text-lg font-semibold text-foreground tracking-tight">{selectedClient.name}</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.code}</Badge>
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.cnpj}</Badge>
+                        {selectedClient.unit_id && units.find((u: any) => u.id === selectedClient.unit_id) && (
+                          <Badge variant="outline" className="text-[11px] font-normal">
+                            {(units.find((u: any) => u.id === selectedClient.unit_id) as any)?.name}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setClientId("")} className="shrink-0">Alterar</Button>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setClientId("")}>Alterar</Button>
                 </div>
                 <ClientValidationAlerts warnings={clientWarnings} onEditClient={() => setQuickEditOpen(true)} />
                 <QuickEditClientDialog
@@ -1276,33 +1357,36 @@ export default function ProposalCreate() {
                   onOpenChange={setQuickEditOpen}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ["clients"] })}
                 />
-              </>
+              </div>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <div className="relative flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="clientSearch" placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="pl-9" />
-                    </div>
-                    <Button variant="outline" size="icon" onClick={() => setQuickCreateClientOpen(true)} title="Cadastrar novo cliente">
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
+              <div className="space-y-2">
+                <div className="relative flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="clientSearch" placeholder="Buscar cliente por nome, código ou CNPJ..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="h-10 pl-9" />
                   </div>
-                  {clientSearch.length >= 2 && (
-                    <div className="max-h-48 overflow-auto rounded-md border border-border bg-card">
-                      {filteredClients.map((c) => (
-                        <button key={c.id} onClick={() => { setClientId(c.id); setClientSearch(""); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent">
-                          <span className="font-medium text-foreground">{c.name}</span>
-                          <span className="text-xs text-muted-foreground">{c.code}</span>
-                        </button>
-                      ))}
-                      {filteredClients.length === 0 && (
-                        <p className="px-3 py-3 text-center text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
-                      )}
-                    </div>
-                  )}
+                  <Button variant="outline" size="icon" onClick={() => setQuickCreateClientOpen(true)} title="Cadastrar novo cliente" className="h-10 w-10">
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
                 </div>
+                {clientSearch.length >= 2 && (
+                  <div className="max-h-48 overflow-auto rounded-xl border border-border bg-card shadow-md">
+                    {filteredClients.map((c) => (
+                      <button key={c.id} onClick={() => { setClientId(c.id); setClientSearch(""); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {c.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground truncate block">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <p className="px-4 py-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                    )}
+                  </div>
+                )}
                 <QuickCreateClientDialog
                   open={quickCreateClientOpen}
                   onOpenChange={setQuickCreateClientOpen}
@@ -1312,88 +1396,99 @@ export default function ProposalCreate() {
                   }}
                   initialSearch={clientSearch}
                 />
-              </>
+              </div>
             )}
           </div>
 
-
-          {/* Sales Team */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Executivo de Vendas (ESN)</Label>
-              <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
-                    {esnId ? (() => { const m = salesTeam.find(s => s.id === esnId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
-                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar ESN..." value={esnSearch} onValueChange={setEsnSearch} />
-                    <CommandList>
-                      <CommandEmpty>Nenhum ESN encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {salesTeam.filter((m) => m.role === "esn" && (`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(esnSearch.toLowerCase())).map((m) => (
-                          <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setEsnId(m.id); setEsnPopoverOpen(false); setEsnSearch(""); }}>
-                            <Check className={`mr-2 h-4 w-4 ${esnId === m.id ? "opacity-100" : "opacity-0"}`} />
-                            {m.code} - {m.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Gerente de Vendas (GSN)</Label>
-              <div className="flex h-10 items-center rounded-md border border-border bg-muted px-3 text-sm text-muted-foreground">
-                {autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}
+          {/* ── Time Responsável ────────────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Users className="h-3.5 w-3.5 text-primary" />
               </div>
+              Time Responsável
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Arquiteto de Solução</Label>
-              <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
-                    {arquitetoId ? (() => { const m = salesTeam.find(s => s.id === arquitetoId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
-                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar Arquiteto..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
-                    <CommandList>
-                      <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {(() => {
-                          // Determine unit to filter architects: client's unit > logged user's sales_team unit
-                          const clientUnitId = selectedClient?.unit_id;
-                          const loggedUserMember = salesTeam.find(
-                            (m) => m.email && user?.email && m.email.toLowerCase() === user.email.toLowerCase()
-                          );
-                          const filterUnitId = clientUnitId || loggedUserMember?.unit_id || null;
-                          
-                          const filtered = salesTeam.filter((m) => {
-                            if (m.role !== "arquiteto") return false;
-                            if (!(`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())) return false;
-                            if (filterUnitId && m.unit_id) return m.unit_id === filterUnitId;
-                            return true;
-                          });
-                          
-                          return filtered.map((m) => (
-                            <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setArquitetoId(m.id); setArquitetoPopoverOpen(false); setArquitetoSearch(""); }}>
-                              <Check className={`mr-2 h-4 w-4 ${arquitetoId === m.id ? "opacity-100" : "opacity-0"}`} />
+            <div className="grid gap-3 md:grid-cols-3">
+              {/* ESN */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Executivo de Vendas (ESN)</Label>
+                <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+                      {esnId ? (() => { const m = salesTeam.find(s => s.id === esnId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar ESN..." value={esnSearch} onValueChange={setEsnSearch} />
+                      <CommandList>
+                        <CommandEmpty>Nenhum ESN encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {salesTeam.filter((m) => m.role === "esn" && (`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(esnSearch.toLowerCase())).map((m) => (
+                            <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setEsnId(m.id); setEsnPopoverOpen(false); setEsnSearch(""); }}>
+                              <Check className={`mr-2 h-4 w-4 ${esnId === m.id ? "opacity-100" : "opacity-0"}`} />
                               {m.code} - {m.name}
                             </CommandItem>
-                          ));
-                        })()}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* GSN (read-only) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Gerente de Vendas (GSN)</Label>
+                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
+                  {autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}
+                </div>
+              </div>
+
+              {/* Arquiteto */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Arquiteto de Solução</Label>
+                <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+                      {arquitetoId ? (() => { const m = salesTeam.find(s => s.id === arquitetoId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar Arquiteto..." value={arquitetoSearch} onValueChange={setArquitetoSearch} />
+                      <CommandList>
+                        <CommandEmpty>Nenhum Arquiteto encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {(() => {
+                            const clientUnitId = selectedClient?.unit_id;
+                            const loggedUserMember = salesTeam.find(
+                              (m) => m.email && user?.email && m.email.toLowerCase() === user.email.toLowerCase()
+                            );
+                            const filterUnitId = clientUnitId || loggedUserMember?.unit_id || null;
+                            
+                            const filtered = salesTeam.filter((m) => {
+                              if (m.role !== "arquiteto") return false;
+                              if (!(`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())) return false;
+                              if (filterUnitId && m.unit_id) return m.unit_id === filterUnitId;
+                              return true;
+                            });
+                            
+                            return filtered.map((m) => (
+                              <CommandItem key={m.id} value={`${m.code} ${m.name}`} onSelect={() => { setArquitetoId(m.id); setArquitetoPopoverOpen(false); setArquitetoSearch(""); }}>
+                                <Check className={`mr-2 h-4 w-4 ${arquitetoId === m.id ? "opacity-100" : "opacity-0"}`} />
+                                {m.code} - {m.name}
+                              </CommandItem>
+                            ));
+                          })()}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
         </div>
@@ -2131,7 +2226,7 @@ export default function ProposalCreate() {
       {/* Floating Navigation Bar */}
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
-          <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
             <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
               <ArrowLeft className="mr-2 h-4 w-4" />Anterior
             </Button>

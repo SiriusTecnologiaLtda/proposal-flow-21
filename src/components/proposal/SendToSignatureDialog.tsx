@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
   Plus, Trash2, UserPlus, Users, Send, Lock, Building,
   FileText, Paperclip, ChevronRight, AlertTriangle,
   BookOpen, ExternalLink, Eye, FileQuestion, CheckCircle2,
-  Check, Mail, ClipboardList, ArrowLeft, ArrowRight
+  Check, Mail, ClipboardList, ArrowLeft, ArrowRight, Sparkles, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";

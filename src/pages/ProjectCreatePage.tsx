@@ -98,6 +98,7 @@ export default function ProjectCreatePage() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
 

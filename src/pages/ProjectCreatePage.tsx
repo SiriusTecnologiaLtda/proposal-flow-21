@@ -537,7 +537,7 @@ export default function ProjectCreatePage() {
         for (const att of attachments.filter((a) => a._isNew)) {
           await supabase.from("project_attachments").insert({
             project_id: projectId, file_name: att.file_name, file_url: att.file_url,
-            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id,
+            file_size: att.file_size, mime_type: att.mime_type, uploaded_by: user!.id, is_scope: att.is_scope || false,
           });
         }
       }

@@ -470,7 +470,7 @@ export default function ProjectsPage() {
                           {role === "admin" && (
                             <>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(project.id)}>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirmProject(project)}>
                                 <Trash2 className="mr-2 h-4 w-4" />Excluir
                               </DropdownMenuItem>
                             </>

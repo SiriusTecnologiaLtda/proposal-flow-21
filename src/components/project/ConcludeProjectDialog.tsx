@@ -26,6 +26,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const [esnName, setEsnName] = useState<string | null>(null);
   const [ccEmails, setCcEmails] = useState<string[]>([]);
   const [ccInput, setCcInput] = useState("");
+  const [templateNames, setTemplateNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -38,6 +39,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     setCcEmails([]);
     setCcInput("");
     setFullProject(null);
+    setTemplateNames({});
     (async () => {
       // Fetch full project data with group_notes and complete scope items
       const { data: fullProj } = await supabase
@@ -46,6 +48,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         .eq("id", project.id)
         .single();
       setFullProject(fullProj);
+
+      // Fetch template names for resolving template-based group names
+      const { data: tmpls } = await supabase.from("scope_templates").select("id, name");
+      if (tmpls) {
+        const map: Record<string, string> = {};
+        tmpls.forEach((t: any) => { map[t.id] = t.name; });
+        setTemplateNames(map);
+      }
 
       const { data: proposal } = await supabase
         .from("proposals")
@@ -92,22 +102,42 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const proj = fullProject;
     if (!proj) return [];
     const items = proj.project_scope_items || [];
-    const groupNotes = proj.group_notes || {};
-    const processGroupMap: Record<string, string> = groupNotes._process_group_map || {};
-    const manualGroups: Record<string, string> = groupNotes._manual_groups || {};
-    const groupOrder: string[] = groupNotes._group_order || [];
+    const gNotes = proj.group_notes || {};
+    let processGroupMap: Record<string, string> = gNotes._process_group_map || {};
+    const manualGroups: Record<string, string> = gNotes._manual_groups || {};
+    let groupOrder: string[] = gNotes._group_order || [];
+
+    // Fallback: if no _group_order or _process_group_map, infer from items
+    const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+    if (groupOrder.length === 0 && Object.keys(processGroupMap).length === 0 && parents.length > 0) {
+      // Infer groups from template_id or assign to a single manual group
+      const inferredMap: Record<string, string> = {};
+      const inferredOrder: string[] = [];
+      for (const p of parents) {
+        const key = p.template_id || "_manual_default";
+        inferredMap[p.id] = key;
+        if (!inferredOrder.includes(key)) inferredOrder.push(key);
+      }
+      processGroupMap = inferredMap;
+      groupOrder = inferredOrder;
+      // If there's a single manual group and manualGroups has entries, use the first one's name
+      if (inferredOrder.includes("_manual_default") && Object.keys(manualGroups).length > 0) {
+        const firstManualName = Object.values(manualGroups)[0];
+        manualGroups["_manual_default"] = firstManualName;
+      }
+    }
 
     const groupToParents = new Map<string, string[]>();
     for (const [parentId, groupId] of Object.entries(processGroupMap)) {
-      if (!groupToParents.has(groupId as string)) groupToParents.set(groupId as string, []);
-      groupToParents.get(groupId as string)!.push(parentId);
+      if (!groupToParents.has(groupId)) groupToParents.set(groupId, []);
+      groupToParents.get(groupId)!.push(parentId);
     }
 
     const result: { name: string; hours: number }[] = [];
     const accountedParents = new Set<string>();
 
     for (const groupId of groupOrder) {
-      const groupName = manualGroups[groupId] || groupId;
+      const groupName = manualGroups[groupId] || templateNames[groupId] || groupId;
       const parentIds = groupToParents.get(groupId) || [];
       let hours = 0;
       for (const pid of parentIds) {
@@ -127,7 +157,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     if (ungroupedHours > 0) result.push({ name: "Itens Avulsos", hours: ungroupedHours });
 
     return result;
-  }, [fullProject]);
+  }, [fullProject, templateNames]);
 
   const totalHours = scopeSummary.reduce((s, g) => s + g.hours, 0);
 
@@ -416,15 +446,28 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
 
   const groupProcesses = new Map<string, any[]>();
   for (const parent of parents) {
+    // Try to find group from processGroupMap, or infer from template_id
     const origGroupId = processGroupMap[parent.id];
     let groupKey: string;
     if (origGroupId && manualGroups[origGroupId]) {
+      // Manual group
       groupKey = `_project_${project.id}_manual_${origGroupId}`;
       newManualGroups[groupKey] = manualGroups[origGroupId];
+    } else if (origGroupId && !manualGroups[origGroupId]) {
+      // Template-based group (origGroupId is the template ID)
+      groupKey = `_project_${project.id}_${origGroupId}`;
     } else if (parent.template_id) {
+      // Fallback: use template_id directly
       groupKey = `_project_${project.id}_${parent.template_id}`;
     } else {
-      groupKey = `_project_${project.id}_ungrouped`;
+      // No group info - check if there's a manual group to use
+      if (Object.keys(manualGroups).length > 0) {
+        const firstGroupId = Object.keys(manualGroups)[0];
+        groupKey = `_project_${project.id}_manual_${firstGroupId}`;
+        newManualGroups[groupKey] = manualGroups[firstGroupId];
+      } else {
+        groupKey = `_project_${project.id}_ungrouped`;
+      }
     }
     if (!groupProcesses.has(groupKey)) {
       groupProcesses.set(groupKey, []);

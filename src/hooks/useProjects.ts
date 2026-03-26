@@ -98,13 +98,18 @@ async function updateProcessGroupMap(
 ) {
   const processGroupMap: Record<string, string> = {};
   for (const item of scopeItems) {
-    if (item._groupId && !item._parent_local_id) {
+    if (!item._parent_local_id) {
       const realId = localToReal.get(item._local_id || item.id);
       if (realId) {
-        processGroupMap[realId] = item._groupId;
+        // Map to manual groupId or templateId
+        const groupKey = item._groupId || item.template_id;
+        if (groupKey) {
+          processGroupMap[realId] = groupKey;
+        }
       }
     }
   }
+  // Merge with existing group_notes (preserve _group_order, _manual_groups etc.)
   const updatedNotes = { ...(currentGroupNotes || {}), _process_group_map: processGroupMap };
   await supabase.from("projects").update({ group_notes: updatedNotes }).eq("id", projectId);
 }

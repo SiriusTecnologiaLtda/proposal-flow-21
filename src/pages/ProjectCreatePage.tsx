@@ -1181,7 +1181,10 @@ export default function ProjectCreatePage() {
           )}
 
           <div className="space-y-2">
-            {attachments.map((att) => (
+            <TooltipProvider>
+            {attachments.map((att) => {
+              const convertible = att._convertible ?? isFileConvertibleToPdf(att.file_name || "", att.mime_type || "");
+              return (
               <div key={att.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
                 <FileIcon className="h-5 w-5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -1193,17 +1196,31 @@ export default function ProjectCreatePage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5" title="Compõe Escopo?">
-                    <Switch
-                      checked={!!att.is_scope}
-                      onCheckedChange={() => toggleAttachmentScope(att)}
-                      disabled={isReadOnly}
-                      className="scale-75"
-                    />
-                    <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
-                      Escopo
-                    </span>
-                  </div>
+                  {!convertible ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-help">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="text-[10px] font-medium text-amber-500">Não conversível</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px]">
+                        <p className="text-xs">Este arquivo não pode ser convertido para PDF e portanto não pode compor o escopo.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <div className="flex items-center gap-1.5" title="Compõe Escopo?">
+                      <Switch
+                        checked={!!att.is_scope}
+                        onCheckedChange={() => toggleAttachmentScope(att)}
+                        disabled={isReadOnly}
+                        className="scale-75"
+                      />
+                      <span className={cn("text-[10px] font-medium", att.is_scope ? "text-primary" : "text-muted-foreground/60")}>
+                        Escopo
+                      </span>
+                    </div>
+                  )}
                   {!isReadOnly && (
                     <button onClick={() => removeAttachment(att)} className="rounded p-1 text-muted-foreground hover:text-destructive">
                       <X className="h-4 w-4" />
@@ -1211,7 +1228,9 @@ export default function ProjectCreatePage() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
+            </TooltipProvider>
             {attachments.length === 0 && (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <Paperclip className="mx-auto h-8 w-8 mb-2 opacity-40" />

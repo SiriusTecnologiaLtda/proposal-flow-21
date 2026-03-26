@@ -19,6 +19,7 @@ interface ConcludeProjectDialogProps {
 export default function ConcludeProjectDialog({ open, onOpenChange, project }: ConcludeProjectDialogProps) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resolvingLink, setResolvingLink] = useState(false);
   const [existingProjects, setExistingProjects] = useState<any[]>([]);
   const [replaceMode, setReplaceMode] = useState<"add" | "replace" | null>(null);
   const [proposalData, setProposalData] = useState<any>(null);
@@ -30,8 +31,100 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const proposalId = proposalData?.id || project?.proposal_id;
   const [fullProject, setFullProject] = useState<any>(null);
+  const proposalId = proposalData?.id || fullProject?.proposal_id || project?.proposal_id;
+
+  async function resolveProjectLinkage() {
+    if (!project?.id) {
+      return { freshProject: null, resolvedProposal: null, linkedProjects: [] as any[] };
+    }
+
+    const { data: freshProject, error: projectError } = await supabase
+      .from("projects")
+      .select("*, project_scope_items(*)")
+      .eq("id", project.id)
+      .maybeSingle();
+
+    if (projectError) throw projectError;
+    setFullProject(freshProject);
+
+    const projectWithFallback = freshProject || project;
+    let resolvedProposal = null;
+
+    const candidateProposalId = projectWithFallback?.proposal_id;
+    const candidateProposalNumber = projectWithFallback?.proposal_number;
+
+    if (candidateProposalId) {
+      const { data, error } = await supabase
+        .from("proposals")
+        .select("id, number, esn_id, client_id, status")
+        .eq("id", candidateProposalId)
+        .maybeSingle();
+      if (error) throw error;
+      resolvedProposal = data;
+    }
+
+    if (!resolvedProposal && candidateProposalNumber) {
+      const { data, error } = await supabase
+        .from("proposals")
+        .select("id, number, esn_id, client_id, status")
+        .eq("number", candidateProposalNumber)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      resolvedProposal = data;
+
+      if (data?.id && !projectWithFallback?.proposal_id) {
+        await supabase
+          .from("projects")
+          .update({ proposal_id: data.id, proposal_number: data.number })
+          .eq("id", project.id);
+
+        setFullProject((prev: any) => prev ? { ...prev, proposal_id: data.id, proposal_number: data.number } : prev);
+      }
+    }
+
+    setProposalData(resolvedProposal);
+
+    if (resolvedProposal?.esn_id) {
+      const { data: esn, error: esnError } = await supabase
+        .from("sales_team")
+        .select("email, name")
+        .eq("id", resolvedProposal.esn_id)
+        .maybeSingle();
+      if (esnError) throw esnError;
+      setEsnEmail(esn?.email || null);
+      setEsnName(esn?.name || null);
+    } else {
+      setEsnEmail(null);
+      setEsnName(null);
+    }
+
+    if (!resolvedProposal?.id) {
+      setExistingProjects([]);
+      setReplaceMode(null);
+      return { freshProject: projectWithFallback, resolvedProposal: null, linkedProjects: [] as any[] };
+    }
+
+    const { data: linkedProjects, error: linkedError } = await supabase
+      .from("projects")
+      .select("id, description, product, proposal_id, proposal_number")
+      .eq("proposal_id", resolvedProposal.id)
+      .neq("id", project.id);
+
+    if (linkedError) throw linkedError;
+
+    const normalizedLinkedProjects = linkedProjects || [];
+    setExistingProjects(normalizedLinkedProjects);
+    setReplaceMode(normalizedLinkedProjects.length === 0 ? "add" : null);
+
+    return {
+      freshProject: projectWithFallback,
+      resolvedProposal,
+      linkedProjects: normalizedLinkedProjects,
+    };
+  }
 
   useEffect(() => {
     if (!open || !project?.id) return;
@@ -41,82 +134,38 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     setFullProject(null);
     setTemplateNames({});
     setProposalData(null);
+    setEsnEmail(null);
+    setEsnName(null);
     setExistingProjects([]);
     setReplaceMode(null);
+    setResolvingLink(true);
+
+    let active = true;
+
     (async () => {
-      // Fetch full project data with group_notes and complete scope items
-      const { data: fullProj } = await supabase
-        .from("projects")
-        .select("*, project_scope_items(*)")
-        .eq("id", project.id)
-        .single();
-      setFullProject(fullProj);
-
-      // Fetch template names for resolving template-based group names
-      const { data: tmpls } = await supabase.from("scope_templates").select("id, name");
-      if (tmpls) {
-        const map: Record<string, string> = {};
-        tmpls.forEach((t: any) => { map[t.id] = t.name; });
-        setTemplateNames(map);
-      }
-
-      let resolvedProposal = null;
-      if (project?.proposal_id) {
-        const { data } = await supabase
-          .from("proposals")
-          .select("id, number, esn_id, client_id, status")
-          .eq("id", project.proposal_id)
-          .maybeSingle();
-        resolvedProposal = data;
-      }
-
-      if (!resolvedProposal && project?.proposal_number) {
-        const { data } = await supabase
-          .from("proposals")
-          .select("id, number, esn_id, client_id, status")
-          .eq("number", project.proposal_number)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        resolvedProposal = data;
-
-        if (data?.id && !project?.proposal_id) {
-          await supabase
-            .from("projects")
-            .update({ proposal_id: data.id, proposal_number: data.number })
-            .eq("id", project.id);
+      try {
+        const { data: tmpls, error: tmplError } = await supabase.from("scope_templates").select("id, name");
+        if (tmplError) throw tmplError;
+        if (active && tmpls) {
+          const map: Record<string, string> = {};
+          tmpls.forEach((t: any) => { map[t.id] = t.name; });
+          setTemplateNames(map);
         }
-      }
 
-      setProposalData(resolvedProposal);
-
-      if (resolvedProposal?.esn_id) {
-        const { data: esn } = await supabase
-          .from("sales_team")
-          .select("email, name")
-          .eq("id", resolvedProposal.esn_id)
-          .single();
-        setEsnEmail(esn?.email || null);
-        setEsnName(esn?.name || null);
-      }
-
-      if (!resolvedProposal?.id) return;
-
-      // Check for OTHER projects linked to same proposal
-      const { data: linkedProjects } = await supabase
-        .from("projects")
-        .select("id, description, product, proposal_id, proposal_number")
-        .eq("proposal_id", resolvedProposal.id)
-        .neq("id", project.id);
-      setExistingProjects(linkedProjects || []);
-
-      if (!linkedProjects || linkedProjects.length === 0) {
-        setReplaceMode("add");
-      } else {
-        setReplaceMode(null);
+        await resolveProjectLinkage();
+      } catch (err: any) {
+        if (active) {
+          toast({ title: "Erro", description: err.message || "Falha ao carregar vínculo do projeto.", variant: "destructive" });
+        }
+      } finally {
+        if (active) setResolvingLink(false);
       }
     })();
-  }, [open, project?.id, project?.proposal_id, project?.proposal_number]);
+
+    return () => {
+      active = false;
+    };
+  }, [open, project?.id]);
 
   const scopeSummary = useMemo(() => {
     const proj = fullProject;
@@ -127,10 +176,8 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
     const manualGroups: Record<string, string> = gNotes._manual_groups || {};
     let groupOrder: string[] = gNotes._group_order || [];
 
-    // Fallback: if no _group_order or _process_group_map, infer from items
     const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
     if (groupOrder.length === 0 && Object.keys(processGroupMap).length === 0 && parents.length > 0) {
-      // Infer groups from template_id or assign to a single manual group
       const inferredMap: Record<string, string> = {};
       const inferredOrder: string[] = [];
       for (const p of parents) {
@@ -140,7 +187,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       }
       processGroupMap = inferredMap;
       groupOrder = inferredOrder;
-      // If there's a single manual group and manualGroups has entries, use the first one's name
       if (inferredOrder.includes("_manual_default") && Object.keys(manualGroups).length > 0) {
         const firstManualName = Object.values(manualGroups)[0];
         manualGroups["_manual_default"] = firstManualName;
@@ -203,15 +249,15 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       severity,
       action: "project_conclude_sync",
       proposal_id: proposalId || null,
-      proposal_number: project?.proposal_number || proposalData?.number || null,
-      client_id: project?.client_id || proposalData?.client_id || null,
+      proposal_number: fullProject?.proposal_number || project?.proposal_number || proposalData?.number || null,
+      client_id: fullProject?.client_id || project?.client_id || proposalData?.client_id || null,
       user_id: authUser.id,
       user_email: authUser.email || null,
       user_name: (authUser.user_metadata?.display_name as string | undefined) || authUser.email || null,
       payload,
       metadata: {
         project_id: project?.id,
-        project_status: project?.status,
+        project_status: fullProject?.status || project?.status,
         replace_mode: replaceMode,
         existing_projects_count: existingProjects.length,
       },
@@ -220,62 +266,74 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   }
 
   const handleConclude = async () => {
-    if (!proposalId || !proposalData) {
-      toast({ title: "Erro", description: "Projeto não possui oportunidade vinculada.", variant: "destructive" });
-      return;
-    }
-    if (existingProjects.length > 0 && !replaceMode) {
-      toast({ title: "Selecione uma opção", description: "Escolha adicionar ou substituir o projeto existente.", variant: "destructive" });
+    if (resolvingLink) {
+      toast({ title: "Aguarde", description: "Estamos validando o vínculo da oportunidade.", variant: "default" });
       return;
     }
 
     setLoading(true);
     try {
+      const { freshProject, resolvedProposal, linkedProjects } = await resolveProjectLinkage();
+      const effectiveProject = freshProject || fullProject || project;
+      const effectiveProposal = resolvedProposal || proposalData;
+      const effectiveProposalId = effectiveProposal?.id || effectiveProject?.proposal_id;
+      const effectiveProposalNumber = effectiveProposal?.number || effectiveProject?.proposal_number;
+
+      if (!effectiveProposalId || !effectiveProposal) {
+        toast({ title: "Erro", description: "Projeto não possui oportunidade vinculada.", variant: "destructive" });
+        return;
+      }
+
+      if (linkedProjects.length > 0 && !replaceMode) {
+        toast({ title: "Selecione uma opção", description: "Escolha adicionar ou substituir o projeto existente.", variant: "destructive" });
+        return;
+      }
+
       await writeSyncLog("project_conclude_started", {
-        project_scope_items_count: (fullProject?.project_scope_items || project?.project_scope_items || []).length,
+        project_scope_items_count: (effectiveProject?.project_scope_items || []).length,
         scope_summary_count: scopeSummary.length,
         total_hours: totalHours,
       });
 
       await supabase
         .from("projects")
-        .update({ status: "concluido", proposal_id: proposalId, proposal_number: proposalData.number })
+        .update({ status: "concluido", proposal_id: effectiveProposalId, proposal_number: effectiveProposalNumber })
         .eq("id", project.id);
 
-      if (replaceMode === "replace" && existingProjects.length > 0) {
-        for (const ep of existingProjects) {
+      if (replaceMode === "replace" && linkedProjects.length > 0) {
+        for (const ep of linkedProjects) {
           await supabase.from("projects").update({ proposal_id: null, proposal_number: null }).eq("id", ep.id);
-          await supabase.from("proposal_scope_items").delete().eq("proposal_id", proposalId).eq("project_id", ep.id);
+          await supabase.from("proposal_scope_items").delete().eq("proposal_id", effectiveProposalId).eq("project_id", ep.id);
         }
         await writeSyncLog("project_conclude_replaced_existing", {
-          removed_project_ids: existingProjects.map((ep) => ep.id),
+          removed_project_ids: linkedProjects.map((ep) => ep.id),
         });
       }
 
-      await includeProjectInOpportunity(fullProject || project, proposalId);
-      await writeSyncLog("project_conclude_scope_synced", { proposal_id: proposalId, project_id: project.id });
+      await includeProjectInOpportunity(effectiveProject, effectiveProposalId);
+      await writeSyncLog("project_conclude_scope_synced", { proposal_id: effectiveProposalId, project_id: project.id });
 
-      await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", proposalId);
+      await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", effectiveProposalId);
       await writeSyncLog("project_conclude_proposal_updated", { proposal_status: "analise_ev_concluida" });
 
       if (esnEmail) {
         const scopeHtml = scopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");
         const totalRow = `<tr style="background:#f0f0f0;font-weight:bold"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${totalHours}h</td></tr>`;
 
-        const proposalLink = `${window.location.origin}/propostas/${proposalId}`;
+        const proposalLink = `${window.location.origin}/propostas/${effectiveProposalId}`;
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #1a1a2e;">Projeto Concluído</h2>
             <p>Olá <strong>${esnName || "ESN"}</strong>,</p>
-            <p>O projeto vinculado à oportunidade <strong>${project.proposal_number || proposalData.number || ""}</strong> foi concluído.</p>
+            <p>O projeto vinculado à oportunidade <strong>${effectiveProposalNumber || ""}</strong> foi concluído.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
               <tr style="border-bottom: 1px solid #e0e0e0;">
                 <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
-                <td style="padding: 8px;">${project.proposal_number || proposalData.number || ""}</td>
+                <td style="padding: 8px;">${effectiveProposalNumber || ""}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e0e0e0;">
                 <td style="padding: 8px; font-weight: bold; color: #555;">Produto</td>
-                <td style="padding: 8px;">${project.product || ""}</td>
+                <td style="padding: 8px;">${effectiveProject?.product || ""}</td>
               </tr>
             </table>
             ${scopeSummary.length > 0 ? `
@@ -308,10 +366,10 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 Authorization: `Bearer ${session?.access_token}`,
               },
               body: JSON.stringify({
-                proposalId,
+                proposalId: effectiveProposalId,
                 type: "projeto_concluido",
                 to: esnEmail,
-                subject: `[OPP ${project.proposal_number || proposalData.number || ""}] Projeto Concluído`,
+                subject: `[OPP ${effectiveProposalNumber || ""}] Projeto Concluído`,
                 htmlBody,
                 cc: ccEmails.length > 0 ? ccEmails : undefined,
               }),
@@ -325,8 +383,9 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       }
 
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", project.id] });
       qc.invalidateQueries({ queryKey: ["proposals"] });
-      qc.invalidateQueries({ queryKey: ["proposal", proposalId] });
+      qc.invalidateQueries({ queryKey: ["proposal", effectiveProposalId] });
       toast({ title: "Projeto concluído", description: "O escopo foi incluído na oportunidade e o ESN foi notificado." });
       onOpenChange(false);
     } catch (err: any) {
@@ -348,7 +407,14 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         </DialogHeader>
 
         <div className="space-y-4">
-          {!proposalId && (
+          {resolvingLink && (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 flex items-start gap-2">
+              <div className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />
+              <p className="text-sm text-muted-foreground">Validando vínculo da oportunidade e preparando os dados do projeto...</p>
+            </div>
+          )}
+
+          {!resolvingLink && !proposalId && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
               <p className="text-sm text-destructive">Este projeto não possui uma oportunidade vinculada.</p>
@@ -358,7 +424,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           {proposalData && (
             <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
               <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {proposalData.number}</p>
-              <p><span className="font-medium text-muted-foreground">Produto:</span> {project?.product}</p>
+              <p><span className="font-medium text-muted-foreground">Produto:</span> {fullProject?.product || project?.product}</p>
               <p><span className="font-medium text-muted-foreground">Destinatário:</span> {esnName || "—"} ({esnEmail || "sem email"})</p>
             </div>
           )}
@@ -406,7 +472,6 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
             </div>
           )}
 
-          {/* CC Recipients */}
           <div className="space-y-1.5">
             <Label className="text-xs flex items-center gap-1">
               <UserPlus className="h-3 w-3" /> Cópia (CC)
@@ -450,8 +515,8 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleConclude} disabled={loading || (!proposalId) || (existingProjects.length > 0 && !replaceMode)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || resolvingLink}>Cancelar</Button>
+          <Button onClick={handleConclude} disabled={loading || resolvingLink || (!proposalId) || (existingProjects.length > 0 && !replaceMode)}>
             {loading ? "Concluindo..." : <><Send className="mr-2 h-4 w-4" /> Concluir Projeto</>}
           </Button>
         </DialogFooter>

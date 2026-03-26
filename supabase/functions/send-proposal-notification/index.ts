@@ -503,7 +503,7 @@ Deno.serve(async (req) => {
       senderProfile.gmail_refresh_token
     );
 
-    await sendGmail(accessToken, senderName, senderEmail, recipientEmail!, subject!, bodyHtml!);
+    await sendGmail(accessToken, senderName, senderEmail, recipientEmail!, subject!, bodyHtml!, cc);
 
     return new Response(
       JSON.stringify({

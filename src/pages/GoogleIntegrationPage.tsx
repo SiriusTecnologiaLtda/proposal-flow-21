@@ -736,7 +736,7 @@ export default function GoogleIntegrationPage() {
                   </div>
                 ))}
                 {testRunning && (
-                  <div className="flex gap-2 text-gray-400 animate-pulse">
+                  <div className="flex gap-2 text-muted-foreground animate-pulse">
                     <span>⏳</span>
                     <span>Executando...</span>
                   </div>

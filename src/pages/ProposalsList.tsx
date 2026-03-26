@@ -1222,15 +1222,15 @@ export default function ProposalsList() {
                     <div key={i} className="flex items-start gap-2">
                       <StatusIcon status={entry.status} />
                       <div className="min-w-0 flex-1">
-                        <span className="text-zinc-400 text-xs mr-2">
+                        <span className="text-muted-foreground text-xs mr-2">
                           {new Date(entry.timestamp).toLocaleTimeString("pt-BR")}
                         </span>
-                        <span className="text-zinc-200 font-semibold">{entry.step}</span>
-                        <span className="text-zinc-400 mx-1">—</span>
+                        <span className="text-foreground font-semibold">{entry.step}</span>
+                        <span className="text-muted-foreground mx-1">—</span>
                         <span className={
-                          entry.status === "error" ? "text-red-400" :
-                          entry.status === "ok" ? "text-green-400" :
-                          "text-blue-400"
+                          entry.status === "error" ? "text-destructive" :
+                          entry.status === "ok" ? "text-success" :
+                          "text-primary"
                         }>
                           {entry.message}
                         </span>

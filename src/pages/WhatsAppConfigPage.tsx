@@ -316,7 +316,7 @@ export default function WhatsAppConfigPage() {
                 <Badge variant={enabled ? "default" : "secondary"}>{enabled ? "Ativo" : "Inativo"}</Badge>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                {enabled ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-muted-foreground" />}
+                {enabled ? <CheckCircle2 className="h-5 w-5 text-success" /> : <XCircle className="h-5 w-5 text-muted-foreground" />}
                 <span className="text-lg font-semibold">{enabled ? "Online" : "Offline"}</span>
               </div>
             </div>

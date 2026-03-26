@@ -952,7 +952,7 @@ export default function ProposalsList() {
                       ) : (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-600 px-2 py-0.5 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 text-success px-2 py-0.5 text-xs font-medium">
                               <PenLine className="h-3.5 w-3.5" />
                               {status.label}
                             </span>

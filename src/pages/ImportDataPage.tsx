@@ -507,9 +507,9 @@ function ImportCard({
   const statusBadge = () => {
     if (!run) return null;
     if (run.status === "running") return <Badge variant="secondary" className="gap-1 text-xs animate-pulse"><Loader2 className="h-3 w-3 animate-spin" />Processando</Badge>;
-    if (run.status === "success") return <Badge className="gap-1 text-xs bg-emerald-500/15 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
+    if (run.status === "success") return <Badge className="gap-1 text-xs bg-success/15 text-success border-success/30 hover:bg-success/20"><CheckCircle2 className="h-3 w-3" />Concluído</Badge>;
     if (run.status === "error") return <Badge variant="destructive" className="gap-1 text-xs"><XCircle className="h-3 w-3" />Erro</Badge>;
-    if (run.status === "interrupted") return <Badge variant="outline" className="gap-1 text-xs text-amber-600 border-amber-300"><AlertTriangle className="h-3 w-3" />Interrompido</Badge>;
+    if (run.status === "interrupted") return <Badge variant="outline" className="gap-1 text-xs text-warning border-warning/30"><AlertTriangle className="h-3 w-3" />Interrompido</Badge>;
     return null;
   };
 

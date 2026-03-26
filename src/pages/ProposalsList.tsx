@@ -491,6 +491,9 @@ export default function ProposalsList() {
   async function handleGenerateDoc(proposalId: string, docType: "proposta" | "mit" = "proposta") {
     const docLabel = docType === "mit" ? "MIT-065" : "Proposta";
     
+    // Mark as generating
+    setGeneratingDocs(prev => ({ ...prev, [proposalId]: docType }));
+    
     // Show background processing toast that auto-closes after 4 seconds
     toast({
       title: `Gerando ${docLabel}...`,

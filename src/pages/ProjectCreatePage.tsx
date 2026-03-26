@@ -82,8 +82,9 @@ function isFileConvertibleToPdf(fileName: string, mimeType: string): boolean {
   return PDF_CONVERTIBLE_EXTS.has(ext);
 }
 
+const STATUS_MAP: Record<string, string> = {
   pendente: "Pendente",
-  rascunho: "Pendente", // legacy fallback
+  rascunho: "Pendente",
   em_revisao: "Em Revisão",
   concluido: "Concluído",
 };

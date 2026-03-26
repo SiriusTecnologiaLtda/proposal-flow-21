@@ -1,0 +1,1 @@
+ALTER TYPE public.proposal_status ADD VALUE IF NOT EXISTS 'analise_ev_concluida' AFTER 'em_analise_ev';

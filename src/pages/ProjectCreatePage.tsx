@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +41,18 @@ function localId() {
   return `local_${Date.now()}_${++idCounter}`;
 }
 
+const STATUS_MAP: Record<string, string> = {
+  rascunho: "Rascunho",
+  em_revisao: "Em Revisão",
+  concluido: "Concluído",
+};
+
+const steps = [
+  { id: 1, label: "Dados do Projeto", icon: FileText },
+  { id: 2, label: "Escopo", icon: ClipboardList },
+  { id: 3, label: "Anexos", icon: Paperclip },
+];
+
 export default function ProjectCreatePage() {
   const { id } = useParams();
   const isEditing = !!id;
@@ -60,6 +72,7 @@ export default function ProjectCreatePage() {
 
   const arquitetos = useMemo(() => salesTeam.filter((m: any) => m.role === "arquiteto"), [salesTeam]);
 
+  const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState({
     client_id: "",
     arquiteto_id: "",
@@ -67,10 +80,11 @@ export default function ProjectCreatePage() {
     description: "",
   });
 
-  // Derived client info (ESN, GSN, Unit)
   const selectedClient = useMemo(() => clients.find((c: any) => c.id === form.client_id), [clients, form.client_id]);
   const clientEsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.esn_id), [salesTeam, selectedClient]);
   const clientGsn = useMemo(() => salesTeam.find((m: any) => m.id === selectedClient?.gsn_id), [salesTeam, selectedClient]);
+  const clientUnit = useMemo(() => units.find((u: any) => u.id === selectedClient?.unit_id), [units, selectedClient]);
+  const selectedArquiteto = useMemo(() => salesTeam.find((m: any) => m.id === form.arquiteto_id), [salesTeam, form.arquiteto_id]);
 
   const [scopeProcesses, setScopeProcesses] = useState<ScopeProcess[]>([]);
   const [expandedProcessIds, setExpandedProcessIds] = useState<Set<string>>(new Set());
@@ -85,15 +99,12 @@ export default function ProjectCreatePage() {
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [arquitetoPopoverOpen, setArquitetoPopoverOpen] = useState(false);
 
-  // Notes dialog state
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notesDialogValue, setNotesDialogValue] = useState("");
   const [notesDialogTarget, setNotesDialogTarget] = useState<{ type: "process" | "child" | "group"; processId?: string; childId?: string; groupKey?: string } | null>(null);
   const [notesDialogLabel, setNotesDialogLabel] = useState("");
 
-  // Group notes (internal, per template group)
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
-  // Manual group names: groupId -> name
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
 
   // Load existing project data
@@ -110,13 +121,9 @@ export default function ProjectCreatePage() {
       const parents = flat.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
       const processes: ScopeProcess[] = [];
       const templateIds = new Set<string>();
-      const expandProc = new Set<string>();
-      const expandTmpl = new Set<string>();
 
-      // First pass: load manual group names
       const loadedGroupNotes = (existingProject as any).group_notes || {};
       const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
-      // Map: original DB id -> groupId
       const processGroupMapping: Record<string, string> = loadedGroupNotes._process_group_map || {};
 
       parents.forEach((p: any) => {
@@ -133,15 +140,12 @@ export default function ProjectCreatePage() {
           }));
         let groupId: string | undefined;
         if (!p.template_id) {
-          // Look up by original DB id
           groupId = processGroupMapping[p.id];
-          // Fallback for old data: assign to first manual group
           if (!groupId) {
             const existingGroupIds = Object.keys(loadedManualGroups);
             if (existingGroupIds.length > 0) {
               groupId = existingGroupIds[0];
             } else {
-              // Create a default group for old data
               const defaultGid = localId();
               loadedManualGroups[defaultGid] = loadedGroupNotes._avulso_name || "Itens Avulsos";
               groupId = defaultGid;
@@ -150,7 +154,7 @@ export default function ProjectCreatePage() {
         }
         processes.push({
           id: pid,
-          _dbId: p.id, // track original DB id for save mapping
+          _dbId: p.id,
           description: p.description,
           included: p.included,
           templateId: p.template_id || undefined,
@@ -174,7 +178,6 @@ export default function ProjectCreatePage() {
     }
   }, [existingProject, loaded]);
 
-  // Filtered templates for dialog
   const availableTemplates = useMemo(() => {
     const search = templateSearch.toLowerCase();
     return templates.filter((t: any) =>
@@ -184,7 +187,6 @@ export default function ProjectCreatePage() {
     );
   }, [templates, templateSearch]);
 
-  // Group scope processes by template or manual group
   const groupedScope = useMemo(() => {
     const groups: { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }[] = [];
     const templateGroups = new Map<string, ScopeProcess[]>();
@@ -210,7 +212,6 @@ export default function ProjectCreatePage() {
       });
     }
 
-    // Include all manual groups (even empty ones)
     for (const gid of Object.keys(manualGroupNames)) {
       groups.push({
         templateId: undefined,
@@ -224,7 +225,6 @@ export default function ProjectCreatePage() {
     return groups;
   }, [scopeProcesses, templates, manualGroupNames]);
 
-  // Total hours
   const totalHours = useMemo(() => {
     let total = 0;
     for (const proc of scopeProcesses) {
@@ -237,7 +237,15 @@ export default function ProjectCreatePage() {
     return total;
   }, [scopeProcesses]);
 
-  // Add template to scope
+  const progress = useMemo(() => {
+    let filled = 0;
+    if (form.client_id) filled++;
+    if (form.product) filled++;
+    if (scopeProcesses.length > 0) filled++;
+    return Math.round((filled / 3) * 100);
+  }, [form.client_id, form.product, scopeProcesses.length]);
+
+  // ── Scope operations ──────────────────────────────────────────
   function addTemplateToScope(templateId: string) {
     if (addedTemplateIds.has(templateId)) return;
     const template = templates.find((t: any) => t.id === templateId);
@@ -374,8 +382,7 @@ export default function ProjectCreatePage() {
   function toggleExpand(processId: string) {
     setExpandedProcessIds((prev) => {
       const next = new Set(prev);
-      if (next.has(processId)) next.delete(processId);
-      else next.add(processId);
+      if (next.has(processId)) next.delete(processId); else next.add(processId);
       return next;
     });
   }
@@ -383,8 +390,7 @@ export default function ProjectCreatePage() {
   function toggleTemplateExpand(templateId: string) {
     setExpandedTemplateIds((prev) => {
       const next = new Set(prev);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
+      if (next.has(templateId)) next.delete(templateId); else next.add(templateId);
       return next;
     });
   }
@@ -393,7 +399,6 @@ export default function ProjectCreatePage() {
     return proc.children.filter((c) => c.included).reduce((s, c) => s + c.hours, 0);
   }
 
-  // Notes dialog helpers
   function openNotesDialog(target: typeof notesDialogTarget, currentValue: string, label: string) {
     setNotesDialogTarget(target);
     setNotesDialogValue(currentValue);
@@ -419,7 +424,6 @@ export default function ProjectCreatePage() {
     setNotesDialogOpen(false);
   }
 
-  // Flatten scope for saving
   function flattenScope(): any[] {
     const allItems: any[] = [];
     let sortOrder = 0;
@@ -529,50 +533,139 @@ export default function ProjectCreatePage() {
   }
 
   const isReadOnly = existingProject?.status === "concluido";
+  const statusLabel = STATUS_MAP[existingProject?.status || "rascunho"] || "Rascunho";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/projetos")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {isEditing ? "Editar Projeto" : "Novo Projeto"}
-          </h1>
-          {existingProject && (
-            <p className="text-sm text-muted-foreground">
-              Cliente: {existingProject.clients?.name}
-            </p>
-          )}
+    <div className="mx-auto max-w-5xl space-y-5 pb-24">
+      {/* ─── Hero Header ─────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(215,28%,17%)] via-[hsl(217,33%,22%)] to-[hsl(185,100%,40%)] p-5 text-white shadow-lg dark:from-[hsl(222,47%,8%)] dark:via-[hsl(217,33%,14%)] dark:to-[hsl(185,100%,30%)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-3">
+            <button onClick={() => navigate("/projetos")} className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {isEditing ? "Editar Projeto" : "Novo Projeto"}
+              </h1>
+              <p className="mt-1 text-sm text-white/70">
+                {form.description || "Defina o escopo técnico do projeto de implantação"}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Cliente", selectedClient?.name || "—"],
+              ["Produto", form.product || "—"],
+              ["Arquiteto", selectedArquiteto?.name || "—"],
+              ["Status", statusLabel],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-white/50">{label}</div>
+                <div className="mt-0.5 truncate text-sm font-semibold">{value}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex-1" />
-        {!isReadOnly && (
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Salvando..." : "Salvar"}
-          </Button>
-        )}
       </div>
 
-      <Tabs defaultValue="dados" className="w-full">
-        <TabsList>
-          <TabsTrigger value="dados">Dados do Projeto</TabsTrigger>
-          <TabsTrigger value="escopo">Escopo ({scopeProcesses.length} processos)</TabsTrigger>
-          <TabsTrigger value="anexos">Anexos ({attachments.length})</TabsTrigger>
-        </TabsList>
+      {/* ─── Step Navigator ──────────────────────────────────────── */}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Etapa <span className="font-semibold text-foreground">{currentStep}</span> de {steps.length}
+          </div>
+          <Badge variant="secondary" className="rounded-full text-xs">
+            {progress}% concluído
+          </Badge>
+        </div>
+        <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {steps.map((step) => {
+            const Icon = step.icon;
+            const active = step.id === currentStep;
+            const completed = step.id < currentStep;
+            return (
+              <button
+                key={step.id}
+                onClick={() => setCurrentStep(step.id)}
+                className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
+                  active
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : completed
+                    ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40"
+                    : "border-border bg-card text-muted-foreground hover:border-border hover:bg-accent/50"
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                }`}>
+                  {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{step.label}</div>
+                  <div className={`text-[11px] ${active ? "text-white/70" : "text-muted-foreground"}`}>
+                    {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        <TabsContent value="dados" className="space-y-4 mt-4">
-          <div className="grid gap-4 sm:grid-cols-2 rounded-lg border border-border bg-card p-4">
-            <div className="grid gap-1">
-              <Label className="text-xs">Cliente *</Label>
+      {/* ═══ Step 1: Dados do Projeto ══════════════════════════════ */}
+      {currentStep === 1 && (
+        <div className="space-y-5">
+          {/* ── Contexto do Cliente ────────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <UserRoundSearch className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Contexto do Cliente
+            </div>
+
+            {selectedClient ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Cliente selecionado</div>
+                      <div className="mt-1 text-lg font-semibold text-foreground tracking-tight">{selectedClient.name}</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.code}</Badge>
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.cnpj}</Badge>
+                        {clientUnit && (
+                          <Badge variant="outline" className="text-[11px] font-normal">{clientUnit.name}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    {!isReadOnly && (
+                      <Button variant="outline" size="sm" onClick={() => setForm(f => ({ ...f, client_id: "" }))} className="shrink-0">Alterar</Button>
+                    )}
+                  </div>
+                </div>
+                {/* ESN / GSN info */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">ESN (do cliente)</div>
+                    <div className="mt-0.5 text-sm font-medium text-foreground">{clientEsn?.name || "—"}</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">GSN (do cliente)</div>
+                    <div className="mt-0.5 text-sm font-medium text-foreground">{clientGsn?.name || "—"}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
               <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
-                    {form.client_id
-                      ? clients.find((c: any) => c.id === form.client_id)?.name || "Selecione o cliente"
-                      : "Selecione o cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal h-10">
+                    Selecione o cliente
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
@@ -599,81 +692,80 @@ export default function ProjectCreatePage() {
                   </Command>
                 </PopoverContent>
               </Popover>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Arquiteto</Label>
-              <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal">
-                    {form.arquiteto_id
-                      ? arquitetos.find((a: any) => a.id === form.arquiteto_id)?.name || "Selecione"
-                      : "Selecione"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Pesquisar arquiteto..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum arquiteto encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {arquitetos.map((a: any) => (
-                          <CommandItem
-                            key={a.id}
-                            value={`${a.name} ${a.code || ""} ${a.email || ""}`}
-                            onSelect={() => { setForm((f) => ({ ...f, arquiteto_id: a.id })); setArquitetoPopoverOpen(false); }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", form.arquiteto_id === a.id ? "opacity-100" : "opacity-0")} />
-                            {a.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Produto *</Label>
-              <Select value={form.product} onValueChange={(v) => setForm((f) => ({ ...f, product: v }))} disabled={isReadOnly}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {products.map((p: any) => (
-                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.client_id && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="grid gap-1">
-                  <Label className="text-xs text-muted-foreground">ESN (do cliente)</Label>
-                  <Input value={clientEsn?.name || "—"} disabled className="bg-muted/50" />
-                </div>
-                <div className="grid gap-1">
-                  <Label className="text-xs text-muted-foreground">GSN (do cliente)</Label>
-                  <Input value={clientGsn?.name || "—"} disabled className="bg-muted/50" />
-                </div>
-                <div className="grid gap-1">
-                  <Label className="text-xs text-muted-foreground">Unidade (do cliente)</Label>
-                  <Input value={units.find((u: any) => u.id === selectedClient?.unit_id)?.name || "—"} disabled className="bg-muted/50" />
-                </div>
-              </div>
             )}
-            <div className="grid gap-1 sm:col-span-2">
-              <Label className="text-xs">Descrição</Label>
-              <Textarea
-                placeholder="Descrição do projeto de implantação..."
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                disabled={isReadOnly}
-                rows={3}
-              />
+          </div>
+
+          {/* ── Informações do Projeto ─────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FolderKanban className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Informações do Projeto
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Produto *</Label>
+                <Select value={form.product} onValueChange={(v) => setForm((f) => ({ ...f, product: v }))} disabled={isReadOnly}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {products.map((p: any) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Arquiteto Responsável</Label>
+                <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" disabled={isReadOnly} className="w-full justify-between font-normal h-10">
+                      {form.arquiteto_id
+                        ? arquitetos.find((a: any) => a.id === form.arquiteto_id)?.name || "Selecione"
+                        : "Selecione"}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar arquiteto..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum arquiteto encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {arquitetos.map((a: any) => (
+                            <CommandItem
+                              key={a.id}
+                              value={`${a.name} ${a.code || ""} ${a.email || ""}`}
+                              onSelect={() => { setForm((f) => ({ ...f, arquiteto_id: a.id })); setArquitetoPopoverOpen(false); }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", form.arquiteto_id === a.id ? "opacity-100" : "opacity-0")} />
+                              {a.code} - {a.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label className="text-xs text-muted-foreground">Descrição</Label>
+                <Textarea
+                  placeholder="Descrição do projeto de implantação..."
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  disabled={isReadOnly}
+                  className="min-h-[80px] resize-none"
+                />
+              </div>
             </div>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="escopo" className="space-y-4 mt-4">
+      {/* ═══ Step 2: Escopo ═══════════════════════════════════════ */}
+      {currentStep === 2 && (
+        <div className="space-y-4">
           {/* Scope header */}
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo do Projeto</h2>
@@ -748,7 +840,7 @@ export default function ProjectCreatePage() {
             </DialogContent>
           </Dialog>
 
-          {/* Scope tree - grouped by template */}
+          {/* Scope tree */}
           {(scopeProcesses.length > 0 || Object.keys(manualGroupNames).length > 0) ? (
             <div className="space-y-3">
               {groupedScope.map((group) => {
@@ -759,7 +851,6 @@ export default function ProjectCreatePage() {
 
                 return (
                   <div key={groupKey} className="rounded-lg border border-border bg-card overflow-hidden">
-                    {/* Template group header */}
                     <div
                       className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
                       onClick={() => toggleTemplateExpand(groupKey)}
@@ -786,11 +877,7 @@ export default function ProjectCreatePage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          openNotesDialog(
-                            { type: "group", groupKey },
-                            groupNotes[groupKey] || "",
-                            "📌 Comentário interno do grupo"
-                          );
+                          openNotesDialog({ type: "group", groupKey }, groupNotes[groupKey] || "", "📌 Comentário interno do grupo");
                         }}
                         className={`shrink-0 rounded p-1 transition-colors ${groupNotes[groupKey] ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                         title="Comentário interno do grupo"
@@ -818,10 +905,8 @@ export default function ProjectCreatePage() {
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
 
-                    {/* Processes inside this template */}
                     {isTemplateExpanded && (
                       <div className="border-t border-border">
-                        {/* Expand/Collapse all */}
                         <div className="flex items-center justify-end gap-1 px-3 py-1.5 bg-muted/30 border-b border-border">
                           <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground"
                             onClick={() => {
@@ -847,7 +932,6 @@ export default function ProjectCreatePage() {
 
                           return (
                             <div key={proc.id} className={`${procIdx > 0 ? "border-t border-border" : ""}`}>
-                              {/* Process row */}
                               <div className={`flex items-center gap-2 px-3 py-2 pl-6 transition-colors ${proc.included ? "bg-card" : "bg-muted/50"}`}>
                                 <button onClick={() => toggleExpand(proc.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
                                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -862,11 +946,7 @@ export default function ProjectCreatePage() {
                                 />
                                 <span className="shrink-0 text-xs text-muted-foreground w-12 text-right">{hours}h</span>
                                 <button
-                                  onClick={() => openNotesDialog(
-                                    { type: "process", processId: proc.id },
-                                    proc.notes || "",
-                                    "📝 Comentário do processo"
-                                  )}
+                                  onClick={() => openNotesDialog({ type: "process", processId: proc.id }, proc.notes || "", "📝 Comentário do processo")}
                                   className={`shrink-0 rounded p-1 transition-colors ${proc.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                   title="Comentário do processo"
                                 >
@@ -880,7 +960,6 @@ export default function ProjectCreatePage() {
                                 )}
                               </div>
 
-                              {/* Children */}
                               {isExpanded && (
                                 <div className="bg-muted/20">
                                   {proc.children.map((child, childIdx) => (
@@ -902,11 +981,7 @@ export default function ProjectCreatePage() {
                                         disabled={!child.included || !proc.included || isReadOnly}
                                       />
                                       <button
-                                        onClick={() => openNotesDialog(
-                                          { type: "child", processId: proc.id, childId: child.id },
-                                          child.notes || "",
-                                          "📝 Comentário do item"
-                                        )}
+                                        onClick={() => openNotesDialog({ type: "child", processId: proc.id, childId: child.id }, child.notes || "", "📝 Comentário do item")}
                                         className={`shrink-0 rounded p-1 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
                                         title="Comentário do item"
                                       >
@@ -937,14 +1012,11 @@ export default function ProjectCreatePage() {
                             </div>
                           );
                         })}
-                        {/* Add process button inside group */}
                         {!isReadOnly && (
                           <button
                             onClick={() => {
                               const gid = group.groupId || group.templateId;
-                              if (gid) {
-                                addProcessToGroup(gid);
-                              }
+                              if (gid) addProcessToGroup(gid);
                             }}
                             className="flex w-full items-center gap-1 border-t border-border px-3 py-2 pl-6 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50"
                           >
@@ -957,7 +1029,6 @@ export default function ProjectCreatePage() {
                 );
               })}
 
-              {/* Summary */}
               <div className="flex items-center justify-end gap-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
                 <span className="text-muted-foreground">Total de Horas:</span>
                 <span className="font-semibold text-foreground">{totalHours}h</span>
@@ -970,9 +1041,12 @@ export default function ProjectCreatePage() {
               <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar Template" para começar.</p>
             </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="anexos" className="space-y-4 mt-4">
+      {/* ═══ Step 3: Anexos ═══════════════════════════════════════ */}
+      {currentStep === 3 && (
+        <div className="space-y-4">
           {!isReadOnly && (
             <div>
               <Label htmlFor="file-upload" className="cursor-pointer">
@@ -1013,8 +1087,34 @@ export default function ProjectCreatePage() {
               </div>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
+      {/* ─── Floating Footer ─────────────────────────────────────── */}
+      {!isReadOnly && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={() => setCurrentStep(s => s - 1)}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleSave} disabled={saving} variant="default">
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Salvando..." : "Salvar"}
+              </Button>
+              {currentStep < steps.length && (
+                <Button onClick={() => setCurrentStep(s => s + 1)}>
+                  Próximo <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

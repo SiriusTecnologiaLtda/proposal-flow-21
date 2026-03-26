@@ -1265,6 +1265,85 @@ export default function ProposalCreate() {
       {/* ═══ Step 1: Dados Gerais ═══════════════════════════════════ */}
       {currentStep === 1 && (
         <div className="space-y-5">
+          {/* ── Contexto do Cliente ─────────────────────────────────── */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <UserRoundSearch className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Contexto do Cliente
+            </div>
+
+            {selectedClient ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Cliente selecionado</div>
+                      <div className="mt-1 text-lg font-semibold text-foreground tracking-tight">{selectedClient.name}</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.code}</Badge>
+                        <Badge variant="outline" className="text-[11px] font-normal">{selectedClient.cnpj}</Badge>
+                        {selectedClient.unit_id && units.find((u: any) => u.id === selectedClient.unit_id) && (
+                          <Badge variant="outline" className="text-[11px] font-normal">
+                            {(units.find((u: any) => u.id === selectedClient.unit_id) as any)?.name}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setClientId("")} className="shrink-0">Alterar</Button>
+                  </div>
+                </div>
+                <ClientValidationAlerts warnings={clientWarnings} onEditClient={() => setQuickEditOpen(true)} />
+                <QuickEditClientDialog
+                  client={selectedClient}
+                  open={quickEditOpen}
+                  onOpenChange={setQuickEditOpen}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["clients"] })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="clientSearch" placeholder="Buscar cliente por nome, código ou CNPJ..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="h-10 pl-9" />
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => setQuickCreateClientOpen(true)} title="Cadastrar novo cliente" className="h-10 w-10">
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {clientSearch.length >= 2 && (
+                  <div className="max-h-48 overflow-auto rounded-xl border border-border bg-card shadow-md">
+                    {filteredClients.map((c) => (
+                      <button key={c.id} onClick={() => { setClientId(c.id); setClientSearch(""); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {c.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground truncate block">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <p className="px-4 py-4 text-center text-xs text-muted-foreground">Nenhum cliente encontrado.</p>
+                    )}
+                  </div>
+                )}
+                <QuickCreateClientDialog
+                  open={quickCreateClientOpen}
+                  onOpenChange={setQuickCreateClientOpen}
+                  onClientCreated={(newId) => {
+                    setClientId(newId);
+                    setClientSearch("");
+                  }}
+                  initialSearch={clientSearch}
+                />
+              </div>
+            )}
+          </div>
+
           {/* ── Informações da Proposta ─────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">

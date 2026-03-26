@@ -108,12 +108,43 @@ export default function ProjectsPage() {
 
   const activeFilterCount = statusFilter.length + proposalStatusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteConfirmed = async (project: any) => {
+    setIsDeleting(true);
     try {
-      await deleteProject.mutateAsync(id);
-      toast({ title: "Projeto excluído" });
+      // If project is linked to a proposal, clean up the opportunity
+      if (project.proposal_id) {
+        // Remove project scope items from the proposal
+        await supabase.from("proposal_scope_items").delete().eq("project_id", project.id);
+
+        // Clean project references from group_notes
+        const { data: proposal } = await supabase
+          .from("proposals")
+          .select("group_notes")
+          .eq("id", project.proposal_id)
+          .single();
+
+        if (proposal?.group_notes) {
+          const notes = { ...(proposal.group_notes as any) };
+          // Remove _project_${id}_ prefixed keys
+          Object.keys(notes).forEach((key) => {
+            if (key.startsWith(`_project_${project.id}_`)) delete notes[key];
+          });
+          await supabase.from("proposals").update({ group_notes: notes }).eq("id", project.proposal_id);
+        }
+
+        // Revert proposal status to pendente
+        await supabase.from("proposals").update({ status: "pendente" }).eq("id", project.proposal_id);
+
+        // TODO: notify ESN via email (future enhancement)
+      }
+
+      await deleteProject.mutateAsync(project.id);
+      toast({ title: "Projeto excluído", description: project.proposal_id ? "A oportunidade foi revertida para Pendente." : undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmProject(null);
     }
   };
 

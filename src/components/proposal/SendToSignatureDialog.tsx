@@ -759,162 +759,161 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   // ─── Step 3: Documentos (split view) ──────────────────────────────
-  function renderDocumentos() {
+  function renderDocumentosPage() {
     return (
-      <div className="flex-1 min-h-0 flex">
-        {/* Left: document list */}
-        <div className="w-[42%] min-w-[320px] border-r border-border flex flex-col">
-          <div className="px-5 pt-5 pb-3">
-            <h3 className="text-base font-semibold text-foreground mb-1">Documentos do envelope</h3>
-            <p className="text-xs text-muted-foreground">
-              Confira os documentos que serão enviados. A proposta é obrigatória.
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="p-5">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
+              Documentos do envelope
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Confira os documentos que serão enviados. A proposta é obrigatória. Clique para visualizar.
             </p>
           </div>
-          <ScrollArea className="flex-1">
-            <div className="px-5 pb-5 space-y-2">
-              {loadingDocs ? (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                  <p className="text-sm text-muted-foreground">Carregando documentos...</p>
-                </div>
-              ) : envelopeDocs.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
-                  <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
-                </div>
-              ) : (
-                envelopeDocs.map((doc) => {
-                  const isActive = doc.id === activeDocId;
-                  return (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => setActiveDocId(doc.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 rounded-lg border px-3.5 py-3 transition-all text-left group",
-                        doc.hasWarning
-                          ? "border-destructive/40 bg-destructive/5"
-                          : isActive
-                          ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                          : doc.selected
-                          ? "border-border bg-card hover:border-primary/30 hover:bg-primary/[0.02]"
-                          : "border-border bg-muted/30 opacity-60 hover:opacity-80"
-                      )}
-                    >
-                      <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
-                        <Checkbox
-                          checked={doc.selected}
-                          disabled={doc.mandatory}
-                          className={doc.mandatory ? "opacity-60" : ""}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {doc.origin === "Proposta" ? (
-                            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                          ) : (
-                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+
+          <div className="flex border-t border-border" style={{ minHeight: "500px" }}>
+            {/* Left: document list */}
+            <div className="w-[42%] min-w-[300px] border-r border-border flex flex-col">
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-2">
+                  {loadingDocs ? (
+                    <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                      <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+                    </div>
+                  ) : envelopeDocs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                      <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
+                    </div>
+                  ) : (
+                    envelopeDocs.map((doc) => {
+                      const isActive = doc.id === activeDocId;
+                      return (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => setActiveDocId(doc.id)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-all text-left group",
+                            doc.hasWarning
+                              ? "border-destructive/40 bg-destructive/5"
+                              : isActive
+                              ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                              : doc.selected
+                              ? "border-border bg-gradient-to-r from-accent/30 to-transparent hover:border-primary/30"
+                              : "border-border bg-muted/30 opacity-60 hover:opacity-80"
                           )}
-                          <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
-                          {doc.mandatory && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Lock className="h-2.5 w-2.5" /> Obrigatório
-                            </span>
-                          )}
-                        </div>
-                        {doc.hasWarning && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <AlertTriangle className="h-3 w-3 text-destructive" />
-                            <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                        >
+                          <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
+                            <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
                           </div>
-                        )}
-                      </div>
-                      {isActive ? (
-                        <Eye className="h-4 w-4 text-primary shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
-                      )}
-                    </button>
-                  );
-                })
-              )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {doc.origin === "Proposta" ? (
+                                <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                              ) : (
+                                <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
+                              {doc.mandatory && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                  <Lock className="h-2.5 w-2.5" /> Obrigatório
+                                </span>
+                              )}
+                            </div>
+                            {doc.hasWarning && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <AlertTriangle className="h-3 w-3 text-destructive" />
+                                <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                              </div>
+                            )}
+                          </div>
+                          {isActive ? (
+                            <Eye className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
 
-              {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
-                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
-                  </p>
+                  {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
+                      <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
 
-        {/* Right: preview */}
-        <div className="flex-1 flex flex-col bg-muted/20">
-          {activeDoc && (
-            <div className="shrink-0 px-5 py-3 border-b border-border bg-card/50 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Eye className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
-                <Badge
-                  variant={activeDoc.origin === "Proposta" ? "default" : "outline"}
-                  className="text-[10px] px-1.5 py-0 shrink-0"
-                >
-                  {activeDoc.origin}
-                </Badge>
-              </div>
-              {activeDoc.fileUrl && (
-                <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                    <ExternalLink className="h-3 w-3" />
-                    Abrir
-                  </Button>
-                </a>
-              )}
-            </div>
-          )}
-          <div className="flex-1 min-h-0">
-            {!activeDoc ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
-                </div>
-              </div>
-            ) : previewUrl ? (
-              <iframe
-                key={activeDocId}
-                src={previewUrl}
-                className="w-full h-full border-0"
-                title={`Preview: ${activeDoc.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center p-8">
-                <div className="text-center max-w-sm">
-                  <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
-                    <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
+            {/* Right: preview */}
+            <div className="flex-1 flex flex-col bg-muted/20">
+              {activeDoc && (
+                <div className="shrink-0 px-5 py-3 border-b border-border bg-card/50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Eye className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
+                    <Badge variant={activeDoc.origin === "Proposta" ? "default" : "outline"} className="text-[10px] px-1.5 py-0 shrink-0">
+                      {activeDoc.origin}
+                    </Badge>
                   </div>
-                  <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Não foi possível gerar a pré-visualização deste documento.
-                  </p>
                   {activeDoc.fileUrl && (
-                    <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Abrir no Drive
+                    <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                        <ExternalLink className="h-3 w-3" /> Abrir
                       </Button>
                     </a>
                   )}
                 </div>
+              )}
+              <div className="flex-1 min-h-[400px]">
+                {!activeDoc ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
+                    </div>
+                  </div>
+                ) : previewUrl ? (
+                  <iframe
+                    key={activeDocId}
+                    src={previewUrl}
+                    className="w-full h-full border-0 min-h-[400px]"
+                    title={`Preview: ${activeDoc.name}`}
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center p-8">
+                    <div className="text-center max-w-sm">
+                      <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
+                        <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
+                      <p className="text-xs text-muted-foreground mb-4">Não foi possível gerar a pré-visualização.</p>
+                      {activeDoc.fileUrl && (
+                        <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <ExternalLink className="h-3.5 w-3.5" /> Abrir no Drive
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

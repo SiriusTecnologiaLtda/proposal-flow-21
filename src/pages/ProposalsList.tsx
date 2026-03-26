@@ -1065,7 +1065,7 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada") && (
+                            {p.arquiteto_id && !isArquiteto && (p.status === "pendente" || p.status === "proposta_gerada" || p.status === "analise_ev_concluida") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>

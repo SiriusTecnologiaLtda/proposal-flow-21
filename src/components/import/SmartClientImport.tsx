@@ -624,7 +624,7 @@ export default function SmartClientImport() {
     }
 
     const wasCancelled = cancelSignal?.aborted;
-    const totalSkipped = skipped + invalidRows + unitFilteredCount;
+    const totalSkipped = skipped + invalidRows + unitFilteredCount + customFilteredCount;
     const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
 

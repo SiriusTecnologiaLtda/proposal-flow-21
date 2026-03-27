@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle, RotateCcw } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
@@ -218,6 +218,28 @@ export default function ProjectsPage() {
     try {
       await updateStatus.mutateAsync({ id, status });
       toast({ title: `Status alterado para ${STATUS_MAP[status]?.label || status}` });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReturnToReview = async (project: any) => {
+    const proposalStatus = project.proposals?.status;
+    const blocked = ["ganha", "em_assinatura", "cancelada"];
+    if (proposalStatus && blocked.includes(proposalStatus)) {
+      const labelMap: Record<string, string> = { ganha: "Ganha", em_assinatura: "Em Assinatura", cancelada: "Perdida" };
+      toast({ title: "Ação não permitida", description: `A oportunidade está com status "${labelMap[proposalStatus] || proposalStatus}" e não pode ser alterada.`, variant: "destructive" });
+      return;
+    }
+    try {
+      // Update project status to em_revisao
+      await updateStatus.mutateAsync({ id: project.id, status: "em_revisao" });
+      // Update proposal status to em_analise_ev
+      if (project.proposal_id) {
+        await supabase.from("proposals").update({ status: "em_analise_ev" }).eq("id", project.proposal_id);
+        queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      }
+      toast({ title: "Projeto retornado para revisão", description: "O status da oportunidade foi atualizado para 'Em Análise E.V.'" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
@@ -541,6 +563,11 @@ export default function ProjectsPage() {
                           {effectiveStatus === "em_revisao" && (
                             <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
                               <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
+                            </DropdownMenuItem>
+                          )}
+                          {effectiveStatus === "concluido" && (
+                            <DropdownMenuItem onClick={() => handleReturnToReview(project)}>
+                              <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
                             </DropdownMenuItem>
                           )}
                           {role === "admin" && (

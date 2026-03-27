@@ -142,8 +142,11 @@ Deno.serve(async (req) => {
           `${taeConfig.base_url}/documents/v1/publicacoes/${sig.tae_publication_id}/download`,
           { headers: { Authorization: `Bearer ${taeToken}` } }
         );
-        if (pubRes.ok) downloadRes = pubRes;
-        else await pubRes.text().catch(() => "");
+        if (pubRes.ok) {
+          downloadRes = pubRes;
+        } else {
+          await pubRes.text().catch(() => "");
+        }
       }
     }
 
@@ -152,7 +155,6 @@ Deno.serve(async (req) => {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
     }
 
     // Convert to base64

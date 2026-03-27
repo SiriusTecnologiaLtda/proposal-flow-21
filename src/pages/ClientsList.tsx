@@ -362,7 +362,9 @@ export default function ClientsList() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Clientes</h1>
-          <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
+          <p className="text-sm text-muted-foreground">
+            {debouncedSearch ? `${filtered.length} de ${clients.length}` : clients.length} clientes
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border border-border overflow-hidden">

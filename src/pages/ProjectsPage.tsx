@@ -6,6 +6,7 @@ import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useProjects, useDeleteProject, useUpdateProjectStatus } from "@/hooks/useProjects";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";

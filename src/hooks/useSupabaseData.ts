@@ -240,13 +240,26 @@ export function useDeleteCategory() {
 export function useProposals() {
   return useQuery({
     queryKey: ["proposals"],
+    staleTime: 3 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proposals")
-        .select("*, clients(name, unit_id), sales_team!proposals_esn_id_fkey(name, email, unit_id), arquiteto:sales_team!proposals_arquiteto_id_fkey(name, email), proposal_scope_items(hours, included, parent_id), proposal_documents(id, doc_type), proposal_signatures(id, status, tae_publication_id, tae_document_id, sent_at, created_at)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("proposals")
+          .select("id, number, type, status, scope_type, product, description, negotiation, client_id, esn_id, gsn_id, arquiteto_id, created_by, created_at, updated_at, date_validity, expected_close_date, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, num_companies, needs_regen, group_notes, clients(name, unit_id), sales_team!proposals_esn_id_fkey(name, email, unit_id), arquiteto:sales_team!proposals_arquiteto_id_fkey(name, email), proposal_scope_items(hours, included, parent_id), proposal_documents(id, doc_type), proposal_signatures(id, status, tae_publication_id, tae_document_id, sent_at, created_at)")
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      return allData;
     },
   });
 }

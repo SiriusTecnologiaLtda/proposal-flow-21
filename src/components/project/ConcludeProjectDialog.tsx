@@ -20,6 +20,7 @@ interface ConcludeProjectDialogProps {
 
 export default function ConcludeProjectDialog({ open, onOpenChange, project }: ConcludeProjectDialogProps) {
   const [message, setMessage] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
   const [loading, setLoading] = useState(false);
   const [resolvingLink, setResolvingLink] = useState(false);
   const [existingProjects, setExistingProjects] = useState<any[]>([]);

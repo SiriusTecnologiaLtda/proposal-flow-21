@@ -2005,26 +2005,63 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
-                    {/* Section: Anexos */}
+                    {/* Section: Documentos do Sistema */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <FileCheck className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Documentos para Anexar</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {/* Signed doc checkbox */}
+                        {(() => {
+                          const latestSig = (craProposal as any).proposal_signatures
+                            ?.filter((s: any) => s.status === "completed" && s.tae_document_id)
+                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+                          return latestSig ? (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer">
+                              <Checkbox checked={opsAttachSignedDoc} onCheckedChange={(v) => setOpsAttachSignedDoc(!!v)} />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">Documento Assinado (TAE)</p>
+                                <p className="text-xs text-muted-foreground">Contrato assinado eletronicamente</p>
+                              </div>
+                            </label>
+                          ) : (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 opacity-50 cursor-not-allowed">
+                              <Checkbox checked={false} disabled />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">Documento Assinado (TAE)</p>
+                                <p className="text-xs text-muted-foreground">Nenhum documento assinado disponível</p>
+                              </div>
+                            </label>
+                          );
+                        })()}
+
+                        {/* MIT-065 checkbox */}
+                        {(() => {
+                          const docs = (craProposal as any).proposal_documents || [];
+                          const hasMit = docs.some((d: any) => d.doc_type === "mit");
+                          return (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer">
+                              <Checkbox checked={opsAttachMit} onCheckedChange={(v) => setOpsAttachMit(!!v)} />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">MIT-065 - Transição Comercial</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {hasMit ? "Documento já gerado — será exportado como PDF" : "Será gerado automaticamente durante o envio"}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Section: Anexos Manuais */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <Paperclip className="h-4 w-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Anexos</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Outros Anexos</h3>
                       </div>
                       <div className="p-4 space-y-3">
-                        {/* TAE signed doc indicator */}
-                        {(() => {
-                          const latestSig = (craProposal as any).proposal_signatures
-                            ?.filter((s: any) => s.status === "completed")
-                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
-                          return latestSig?.tae_document_id ? (
-                            <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2">
-                              <FileCheck className="h-4 w-4 text-success shrink-0" />
-                              <p className="text-xs text-success font-medium">Documento assinado via TAE será anexado automaticamente</p>
-                            </div>
-                          ) : null;
-                        })()}
-
                         {opsAttachments.length > 0 && (
                           <div className="space-y-1">
                             {opsAttachments.map((att, idx) => (

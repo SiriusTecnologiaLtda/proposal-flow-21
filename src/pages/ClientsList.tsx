@@ -83,16 +83,23 @@ export default function ClientsList() {
 
   const filtered = useMemo(() => {
     let list = clients;
-    // ESN (vendedor) only sees their assigned clients
     if (role === "vendedor" && userEsnMemberId) {
       list = list.filter((c) => c.esn_id === userEsnMemberId);
     }
+    if (!debouncedSearch) return list;
+    const s = debouncedSearch.toLowerCase();
     return list.filter(
-      (c) => c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.code.toLowerCase().includes(search.toLowerCase()) ||
-        c.cnpj.includes(search)
+      (c) => c.name.toLowerCase().includes(s) ||
+        c.code.toLowerCase().includes(s) ||
+        c.cnpj.includes(debouncedSearch)
     );
-  }, [clients, search, role, userEsnMemberId]);
+  }, [clients, debouncedSearch, role, userEsnMemberId]);
+
+  // Reset visible count when search changes
+  useEffect(() => { setVisibleCount(60); }, [debouncedSearch]);
+
+  const visibleClients = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = visibleCount < filtered.length;
 
 
   const esnMembers = useMemo(() => salesTeam.filter((m) => m.role === "esn"), [salesTeam]);

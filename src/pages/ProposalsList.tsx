@@ -329,6 +329,7 @@ export default function ProposalsList() {
   const [craDialogOpen, setCraDialogOpen] = useState(false);
   const [craProposal, setCraProposal] = useState<any>(null);
   const [craMessage, setCraMessage] = useState("");
+  const [craSubject, setCraSubject] = useState("");
   const [craSending, setCraSending] = useState(false);
   const [opsRecipients, setOpsRecipients] = useState<Array<{ id?: string; name: string; email: string; fromDb: boolean }>>([]);
   const [opsManualName, setOpsManualName] = useState("");
@@ -337,9 +338,10 @@ export default function ProposalsList() {
   const opsFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load unit operations contacts for the proposal's unit
-  function openCraDialog(proposal: any) {
+  async function openCraDialog(proposal: any) {
     setCraProposal(proposal);
     setCraMessage("");
+    setCraSubject("");
     setOpsRecipients([]);
     setOpsAttachments([]);
     setOpsManualName("");
@@ -359,6 +361,24 @@ export default function ProposalsList() {
             setOpsRecipients(data.map(c => ({ id: c.id, name: c.name, email: c.email, fromDb: true })));
           }
         });
+
+      // Load email template
+      const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+      const tmpl = await fetchUnitEmailTemplate(unitId, "enviar_operacoes");
+      if (tmpl && (tmpl.subject || tmpl.body)) {
+        const unitName = units.find((u: any) => u.id === unitId)?.name || "";
+        const values = {
+          numero: proposal.number,
+          cliente: (proposal as any).clients?.name || "",
+          unidade: unitName,
+          esn: (proposal as any).sales_team?.name || "",
+          ev: (proposal as any).arquiteto?.name || "",
+          gsn: "",
+          produto: proposal.product || "",
+        };
+        if (tmpl.subject) setCraSubject(replacePlaceholders(tmpl.subject, values));
+        if (tmpl.body) setCraMessage(replacePlaceholders(tmpl.body, values));
+      }
     }
   }
 

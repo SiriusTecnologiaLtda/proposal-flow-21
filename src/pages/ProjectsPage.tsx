@@ -223,6 +223,28 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleReturnToReview = async (project: any) => {
+    const proposalStatus = project.proposals?.status;
+    const blocked = ["ganha", "em_assinatura", "cancelada"];
+    if (proposalStatus && blocked.includes(proposalStatus)) {
+      const labelMap: Record<string, string> = { ganha: "Ganha", em_assinatura: "Em Assinatura", cancelada: "Perdida" };
+      toast({ title: "Ação não permitida", description: `A oportunidade está com status "${labelMap[proposalStatus] || proposalStatus}" e não pode ser alterada.`, variant: "destructive" });
+      return;
+    }
+    try {
+      // Update project status to em_revisao
+      await updateStatus.mutateAsync({ id: project.id, status: "em_revisao" });
+      // Update proposal status to em_analise_ev
+      if (project.proposal_id) {
+        await supabase.from("proposals").update({ status: "em_analise_ev" }).eq("id", project.proposal_id);
+        queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      }
+      toast({ title: "Projeto retornado para revisão", description: "O status da oportunidade foi atualizado para 'Em Análise E.V.'" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
   // Calculate total hours for a project
   const getTotalHours = (project: any) => {
     const items = project.project_scope_items || [];

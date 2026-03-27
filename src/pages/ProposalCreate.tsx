@@ -1454,7 +1454,7 @@ export default function ProposalCreate() {
           </div>
 
           {/* ── Time Responsável ────────────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
                 <Users className="h-3.5 w-3.5 text-primary" />

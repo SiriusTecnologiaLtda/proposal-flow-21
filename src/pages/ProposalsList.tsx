@@ -69,6 +69,8 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");

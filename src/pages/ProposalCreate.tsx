@@ -1494,8 +1494,8 @@ export default function ProposalCreate() {
               {/* GSN (read-only) */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Gerente de Vendas (GSN)</Label>
-                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
-                  {autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}
+                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground min-w-0">
+                  <span className="truncate min-w-0">{autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}</span>
                 </div>
               </div>
 

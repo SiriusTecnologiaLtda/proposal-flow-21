@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
       }
       recipientEmail = esn.email;
       recipientName = esn.name;
-      subject = `[Proposta ${proposalNumber}] Ajuste de Escopo Concluído`;
+      subject = customSubject || `[Proposta ${proposalNumber}] Ajuste de Escopo Concluído`;
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a2e;">Ajuste de Escopo Concluído</h2>

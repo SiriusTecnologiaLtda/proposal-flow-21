@@ -1004,12 +1004,15 @@ export default function ImportDataPage() {
         <ImportHistory />
       </div>
 
+      {/* Smart Import - full width */}
+      <SmartClientImport />
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <ImportCard
           entity="clients"
           icon={Users}
-          title="Clientes"
-          description="Importar cadastro de clientes"
+          title="Clientes (Modelo Padrão)"
+          description="Importar com planilha no formato padrão"
           templateFn={generateClientTemplate}
           templateFilename="modelo_clientes.xlsx"
           clearFn={clearClients}

@@ -399,131 +399,176 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-success" />
-            Concluir Projeto
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {resolvingLink && (
-            <div className="rounded-lg border border-border bg-muted/40 p-3 flex items-start gap-2">
-              <div className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />
-              <p className="text-sm text-muted-foreground">Validando vínculo da oportunidade e preparando os dados do projeto...</p>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-white/10 p-2">
+              <CheckCircle className="h-5 w-5 text-white" />
             </div>
-          )}
-
-          {!resolvingLink && !proposalId && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-              <p className="text-sm text-destructive">Este projeto não possui uma oportunidade vinculada.</p>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Concluir Projeto</h2>
+              <p className="text-sm text-white/70">Vincule o escopo do projeto à oportunidade e notifique o ESN</p>
             </div>
-          )}
-
-          {proposalData && (
-            <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-              <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {proposalData.number}</p>
-              <p><span className="font-medium text-muted-foreground">Produto:</span> {fullProject?.product || project?.product}</p>
-              <p><span className="font-medium text-muted-foreground">Destinatário:</span> {esnName || "—"} ({esnEmail || "sem email"})</p>
-            </div>
-          )}
-
-          {existingProjects.length > 0 && (
-            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-warning">A oportunidade já possui projeto(s) vinculado(s):</p>
-                  {existingProjects.map((ep) => (
-                    <Badge key={ep.id} variant="outline" className="mt-1 mr-1 text-xs">
-                      <FolderKanban className="mr-1 h-3 w-3" />
-                      {ep.description || ep.product || "Projeto"}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={replaceMode === "add" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setReplaceMode("add")}
-                  className="flex-1"
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Adicionar
-                </Button>
-                <Button
-                  variant={replaceMode === "replace" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setReplaceMode("replace")}
-                  className="flex-1"
-                >
-                  <Replace className="mr-1 h-3.5 w-3.5" />
-                  Substituir
-                </Button>
-              </div>
-              {replaceMode === "replace" && (
-                <p className="text-xs text-muted-foreground">O(s) projeto(s) existente(s) serão desvinculados.</p>
-              )}
-              {replaceMode === "add" && (
-                <p className="text-xs text-muted-foreground">Este projeto será adicionado mantendo os existentes.</p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-xs flex items-center gap-1">
-              <UserPlus className="h-3 w-3" /> Cópia (CC)
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                value={ccInput}
-                onChange={(e) => setCcInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCcEmail())}
-                placeholder="email@exemplo.com"
-                className="text-sm h-8"
-              />
-              <Button type="button" size="sm" variant="outline" onClick={addCcEmail} className="h-8 px-3">
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-            {ccEmails.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {ccEmails.map((email) => (
-                  <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
-                    {email}
-                    <button onClick={() => removeCcEmail(email)} className="ml-0.5 hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Mensagem (opcional)</Label>
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Descreva o resumo e observações sobre a conclusão do projeto..."
-              rows={4}
-              className="text-sm"
-            />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || resolvingLink}>Cancelar</Button>
+        {/* Scrollable Content */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-6 space-y-5">
+            {/* Loading state */}
+            {resolvingLink && (
+              <div className="rounded-lg border border-border bg-muted/40 p-4 flex items-start gap-3">
+                <div className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />
+                <p className="text-sm text-muted-foreground">Validando vínculo da oportunidade e preparando os dados do projeto...</p>
+              </div>
+            )}
+
+            {/* Error: no proposal */}
+            {!resolvingLink && !proposalId && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <p className="text-sm text-destructive">Este projeto não possui uma oportunidade vinculada.</p>
+              </div>
+            )}
+
+            {/* Section: Dados da Oportunidade */}
+            {proposalData && (
+              <div className="rounded-xl border border-border bg-card shadow-sm">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Dados da Oportunidade</h3>
+                </div>
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Oportunidade</p>
+                    <p className="text-sm font-medium text-foreground truncate">{proposalData.number}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Produto</p>
+                    <p className="text-sm font-medium text-foreground truncate">{fullProject?.product || project?.product}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-muted-foreground font-medium">Destinatário (ESN)</p>
+                    <p className="text-sm font-medium text-foreground truncate">{esnName || "—"} <span className="text-muted-foreground font-normal">({esnEmail || "sem email"})</span></p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Section: Existing Projects Warning */}
+            {existingProjects.length > 0 && (
+              <div className="rounded-xl border border-warning/30 bg-warning/5 shadow-sm">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-warning/20">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <h3 className="text-sm font-semibold text-warning">Projetos Existentes</h3>
+                </div>
+                <div className="p-4 space-y-3">
+                  <p className="text-sm text-muted-foreground">A oportunidade já possui projeto(s) vinculado(s):</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {existingProjects.map((ep) => (
+                      <Badge key={ep.id} variant="outline" className="text-xs">
+                        <FolderKanban className="mr-1 h-3 w-3" />
+                        {ep.description || ep.product || "Projeto"}
+                      </Badge>
+                    ))}
+                  </div>
+                  <Separator />
+                  <div className="flex gap-2">
+                    <Button
+                      variant={replaceMode === "add" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReplaceMode("add")}
+                      className="flex-1"
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Adicionar
+                    </Button>
+                    <Button
+                      variant={replaceMode === "replace" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReplaceMode("replace")}
+                      className="flex-1"
+                    >
+                      <Replace className="mr-1 h-3.5 w-3.5" />
+                      Substituir
+                    </Button>
+                  </div>
+                  {replaceMode === "replace" && (
+                    <p className="text-xs text-muted-foreground">O(s) projeto(s) existente(s) serão desvinculados.</p>
+                  )}
+                  {replaceMode === "add" && (
+                    <p className="text-xs text-muted-foreground">Este projeto será adicionado mantendo os existentes.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Section: Cópia (CC) */}
+            <div className="rounded-xl border border-border bg-card shadow-sm">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                <UserPlus className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Cópia (CC)</h3>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={ccInput}
+                    onChange={(e) => setCcInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCcEmail())}
+                    placeholder="email@exemplo.com"
+                    className="text-sm"
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={addCcEmail} className="h-10 px-3 shrink-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {ccEmails.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {ccEmails.map((email) => (
+                      <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
+                        {email}
+                        <button onClick={() => removeCcEmail(email)} className="ml-0.5 hover:text-destructive">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section: Mensagem */}
+            <div className="rounded-xl border border-border bg-card shadow-sm">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Mensagem (opcional)</h3>
+              </div>
+              <div className="p-4">
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Descreva o resumo e observações sobre a conclusão do projeto..."
+                  rows={5}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        {/* Footer */}
+        <div className="border-t border-border bg-card px-6 py-4 flex items-center justify-end gap-3 shrink-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || resolvingLink}>
+            Cancelar
+          </Button>
           <Button onClick={handleConclude} disabled={loading || resolvingLink || (!proposalId) || (existingProjects.length > 0 && !replaceMode)}>
             {loading ? "Concluindo..." : <><Send className="mr-2 h-4 w-4" /> Concluir Projeto</>}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

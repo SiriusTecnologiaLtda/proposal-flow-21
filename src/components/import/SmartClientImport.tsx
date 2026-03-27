@@ -259,10 +259,17 @@ export default function SmartClientImport() {
       return;
     }
 
+    function extractValue(row: any[], dbKey: string): any {
+      const colIdx = fieldToCol[dbKey];
+      if (colIdx == null) return null;
+      return String(row[colIdx] || "").trim() || null;
+    }
+
+    // Filter rows with required fields
     const dataRows = allDataRows.filter(r => {
-      const code = fieldToCol.code != null ? String(r[fieldToCol.code] || "").trim() : "";
-      const name = fieldToCol.name != null ? String(r[fieldToCol.name] || "").trim() : "";
-      const cnpj = fieldToCol.cnpj != null ? String(r[fieldToCol.cnpj] || "").trim() : "";
+      const code = extractValue(r, "code");
+      const name = extractValue(r, "name");
+      const cnpj = extractValue(r, "cnpj");
       return code && name && cnpj;
     });
     const invalidRows = allDataRows.length - dataRows.length;
@@ -296,23 +303,19 @@ export default function SmartClientImport() {
     const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
     const gsnList = (salesTeam || []).filter(s => s.role === "gsn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
 
-    // Enhanced lookup: exact code match first, then exact name, then partial
+    // Enhanced lookup
     function findInList(list: { id: string; code: string; name: string }[], search: string): string | null {
       if (!search) return null;
       const s = search.trim().toLowerCase();
-      // 1. Exact code match
       const byCode = list.find(u => u.code === s);
       if (byCode) return byCode.id;
-      // 2. Exact name match
       const byName = list.find(u => u.name === s);
       if (byName) return byName.id;
-      // 3. Code-only: try numeric-padded match (e.g. "1" matches "001")
       const sNum = s.replace(/^0+/, "");
       if (sNum) {
         const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
         if (byPaddedCode) return byPaddedCode.id;
       }
-      // 4. Partial match (code contains or name contains)
       const partial = list.find(u =>
         (u.code && (u.code.includes(s) || s.includes(u.code))) ||
         (u.name && (u.name.includes(s) || s.includes(u.name)))
@@ -321,16 +324,54 @@ export default function SmartClientImport() {
       return null;
     }
 
-    const relationMisses = { unit: new Set<string>(), esn: new Set<string>(), gsn: new Set<string>() };
+    // ── PRE-FILTER: only rows with valid unit (if unit_code is mapped) ──
+    const hasUnitMapping = "unit_code" in fieldToCol;
+    let unitFilteredRows = dataRows;
+    let unitFilteredCount = 0;
+    if (hasUnitMapping) {
+      unitFilteredRows = dataRows.filter(row => {
+        const unitVal = extractValue(row, "unit_code");
+        if (!unitVal) return false; // no unit = skip
+        const unitId = findInList(unitList, unitVal);
+        return !!unitId; // only keep rows with valid unit
+      });
+      unitFilteredCount = dataRows.length - unitFilteredRows.length;
+      if (unitFilteredCount > 0) {
+        // Collect invalid unit values for log
+        const invalidUnits = new Set<string>();
+        for (const row of dataRows) {
+          const unitVal = extractValue(row, "unit_code");
+          if (unitVal && !findInList(unitList, unitVal)) {
+            invalidUnits.add(unitVal);
+          }
+        }
+        const unitVals = Array.from(invalidUnits).slice(0, 15).join(", ");
+        addImportLog(entity, "error", `⚠ ${unitFilteredCount} registros descartados por Unidade inválida: ${unitVals}${invalidUnits.size > 15 ? ` (+${invalidUnits.size - 15})` : ""}`);
+      }
+      addImportLog(entity, "info", `${unitFilteredRows.length} registros com Unidade válida para processar.`);
+    }
 
+    if (unitFilteredRows.length === 0) {
+      addImportLog(entity, "error", "Nenhum registro com Unidade válida para importar.");
+      finishImportRun(entity, "error");
+      setStep("done");
+      return;
+    }
+
+    const relationMisses = { esn: new Set<string>(), gsn: new Set<string>() };
+
+    // ── Load existing clients by code+store_code (matching unique constraint) ──
     addImportLog(entity, "info", "Carregando clientes existentes...");
-    const existingMap = new Map<string, string>();
+    const existingMap = new Map<string, string>(); // key: "code|store_code" -> id
     let dbOffset = 0;
     const DB_PAGE = 1000;
     while (true) {
-      const { data: chunk } = await supabase.from("clients").select("id, cnpj").range(dbOffset, dbOffset + DB_PAGE - 1);
+      const { data: chunk } = await supabase.from("clients").select("id, code, store_code").range(dbOffset, dbOffset + DB_PAGE - 1);
       if (!chunk || chunk.length === 0) break;
-      for (const c of chunk) { if (c.cnpj) existingMap.set(c.cnpj.trim(), c.id); }
+      for (const c of chunk) {
+        const key = `${(c.code || "").trim()}|${(c.store_code || "").trim()}`;
+        existingMap.set(key, c.id);
+      }
       if (chunk.length < DB_PAGE) break;
       dbOffset += DB_PAGE;
     }
@@ -338,34 +379,22 @@ export default function SmartClientImport() {
 
     const updateFieldsArr = Array.from(updateFields);
     const willUpdate = updateFieldsArr.length > 0;
-
-    let imported = 0, updated = 0, skipped = 0, errors = 0;
-    let relSkippedUnit = 0, relSkippedEsn = 0, relSkippedGsn = 0;
-    const BATCH_SIZE = 50;
-    const errorDetails: { row: number; code: string; reason: string }[] = [];
-
-    function extractValue(row: any[], dbKey: string): any {
-      const colIdx = fieldToCol[dbKey];
-      if (colIdx == null) return null;
-      return String(row[colIdx] || "").trim() || null;
-    }
+    const allMappedKeys = Object.values(mapping);
 
     function buildPayload(row: any[], keys: string[], rowNum: number): Record<string, any> {
       const p: Record<string, any> = {};
       for (const key of keys) {
         const val = extractValue(row, key);
         if (key === "unit_code") {
-          const uid = findInList(unitList, val || "");
-          p.unit_id = uid;
-          if (val && !uid) { relationMisses.unit.add(val); relSkippedUnit++; }
+          p.unit_id = findInList(unitList, val || "");
         } else if (key === "esn_code") {
           const eid = findInList(esnList, val || "");
           p.esn_id = eid;
-          if (val && !eid) { relationMisses.esn.add(val); relSkippedEsn++; }
+          if (val && !eid) { relationMisses.esn.add(val); }
         } else if (key === "gsn_code") {
           const gid = findInList(gsnList, val || "");
           p.gsn_id = gid;
-          if (val && !gid) { relationMisses.gsn.add(val); relSkippedGsn++; }
+          if (val && !gid) { relationMisses.gsn.add(val); }
         } else {
           p[key] = val;
         }
@@ -373,21 +402,28 @@ export default function SmartClientImport() {
       return p;
     }
 
-    const allMappedKeys = Object.values(mapping);
+    let imported = 0, updated = 0, skipped = 0, errors = 0;
+    let relSkippedEsn = 0, relSkippedGsn = 0;
+    const BATCH_SIZE = 50;
+    const errorDetails: { row: number; code: string; reason: string }[] = [];
 
-    for (let batchStart = 0; batchStart < dataRows.length; batchStart += BATCH_SIZE) {
-      const batch = dataRows.slice(batchStart, batchStart + BATCH_SIZE);
+    for (let batchStart = 0; batchStart < unitFilteredRows.length; batchStart += BATCH_SIZE) {
+      const batch = unitFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];
 
       for (let bi = 0; bi < batch.length; bi++) {
         const row = batch[bi];
         const rowNum = batchStart + bi + headerRowIdx + 2;
-        const cnpj = extractValue(row, "cnpj");
-        if (!cnpj) { errors++; errorDetails.push({ row: rowNum, code: "?", reason: "CNPJ vazio" }); continue; }
+        const code = extractValue(row, "code");
+        const storeCode = extractValue(row, "store_code") || "";
+        if (!code) { errors++; errorDetails.push({ row: rowNum, code: "?", reason: "Código vazio" }); continue; }
 
-        const existingId = existingMap.get(cnpj);
+        const lookupKey = `${code}|${storeCode}`;
+        const existingId = existingMap.get(lookupKey);
+
         if (existingId) {
+          // Record exists — only update if user chose fields to update
           if (willUpdate) {
             const updatePayload = buildPayload(row, updateFieldsArr, rowNum);
             const cleanPayload: Record<string, any> = {};
@@ -403,19 +439,24 @@ export default function SmartClientImport() {
             skipped++;
           }
         } else {
+          // New record — insert
           const payload = buildPayload(row, allMappedKeys, rowNum);
-          payload.code = payload.code || extractValue(row, "code");
+          payload.code = payload.code || code;
           payload.name = payload.name || extractValue(row, "name");
-          payload.cnpj = cnpj;
-          if (!payload.store_code) payload.store_code = "";
-          toInsert.push(payload);
+          payload.cnpj = extractValue(row, "cnpj") || "";
+          if (!payload.store_code) payload.store_code = storeCode;
+          toInsert.push({ ...payload, _lookupKey: lookupKey });
         }
       }
 
+      // Batch insert (only truly new records)
       if (toInsert.length > 0) {
-        const { error: batchErr, data: insData } = await supabase.from("clients").insert(toInsert).select("id");
+        const cleanInserts = toInsert.map(({ _lookupKey, ...rest }) => rest);
+        const { error: batchErr, data: insData } = await supabase.from("clients").insert(cleanInserts).select("id");
         if (batchErr) {
-          for (const payload of toInsert) {
+          // Fallback: insert one by one
+          for (let i = 0; i < cleanInserts.length; i++) {
+            const payload = cleanInserts[i];
             const { error } = await supabase.from("clients").insert(payload);
             if (error) {
               errors++;
@@ -423,15 +464,16 @@ export default function SmartClientImport() {
               addImportLog(entity, "error", `(${payload.code}): ${error.message}`);
             } else {
               imported++;
-              existingMap.set(payload.cnpj, "new");
+              existingMap.set(toInsert[i]._lookupKey, "new");
             }
           }
         } else {
-          imported += insData?.length || toInsert.length;
-          for (const p of toInsert) existingMap.set(p.cnpj, "new");
+          imported += insData?.length || cleanInserts.length;
+          for (const item of toInsert) existingMap.set(item._lookupKey, "new");
         }
       }
 
+      // Batch update
       for (const upd of toUpdate) {
         const { error } = await supabase.from("clients").update(upd.data).eq("id", upd.id);
         if (error) {
@@ -443,22 +485,18 @@ export default function SmartClientImport() {
         }
       }
 
-      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows });
+      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount });
 
       if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
         try {
           await supabase.from("import_logs").update({
-            status: "running", imported, updated, errors, skipped: skipped + invalidRows,
+            status: "running", imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount,
             duration_ms: Date.now() - run.startedAt,
           } as any).eq("id", dbLogId);
         } catch {}
       }
     }
 
-    if (relationMisses.unit.size > 0) {
-      const vals = Array.from(relationMisses.unit).slice(0, 10).join(", ");
-      addImportLog(entity, "error", `⚠ ${relSkippedUnit} registros com Unidade não encontrada: ${vals}${relationMisses.unit.size > 10 ? ` (+${relationMisses.unit.size - 10})` : ""}`);
-    }
     if (relationMisses.esn.size > 0) {
       const vals = Array.from(relationMisses.esn).slice(0, 10).join(", ");
       addImportLog(entity, "error", `⚠ ${relSkippedEsn} registros com ESN não encontrado: ${vals}${relationMisses.esn.size > 10 ? ` (+${relationMisses.esn.size - 10})` : ""}`);
@@ -468,7 +506,7 @@ export default function SmartClientImport() {
       addImportLog(entity, "error", `⚠ ${relSkippedGsn} registros com GSN não encontrado: ${vals}${relationMisses.gsn.size > 10 ? ` (+${relationMisses.gsn.size - 10})` : ""}`);
     }
 
-    const totalSkipped = skipped + invalidRows;
+    const totalSkipped = skipped + invalidRows + unitFilteredCount;
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus as any);
 

@@ -445,6 +445,28 @@ export default function SmartClientImport() {
       return;
     }
 
+    // ── APPLY CUSTOM FILTER RULES ──────────────────────────────
+    let customFilteredRows = unitFilteredRows;
+    let customFilteredCount = 0;
+    if (filterRules.length > 0) {
+      const lookupLists = { unitList, esnList, gsnList };
+      customFilteredRows = unitFilteredRows.filter(row => {
+        return filterRules.every(rule => evaluateFilterRule(rule, row, fieldToCol, lookupLists, findInList));
+      });
+      customFilteredCount = unitFilteredRows.length - customFilteredRows.length;
+      if (customFilteredCount > 0) {
+        addImportLog(entity, "info", `🔍 ${customFilteredCount} registros removidos pelas regras de pré-filtro.`);
+      }
+      addImportLog(entity, "info", `${customFilteredRows.length} registros após aplicação dos filtros personalizados.`);
+    }
+
+    if (customFilteredRows.length === 0) {
+      addImportLog(entity, "error", "Nenhum registro passou nos filtros para importar.");
+      finishImportRun(entity, "error");
+      setStep("done");
+      return;
+    }
+
     const relationMisses = { esn: new Set<string>(), gsn: new Set<string>() };
 
     // ── Load existing clients by code+store_code (matching unique constraint) ──

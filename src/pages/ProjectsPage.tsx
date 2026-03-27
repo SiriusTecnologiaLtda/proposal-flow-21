@@ -191,7 +191,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
           <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
         </div>
-{/* Projetos criados apenas via Solicitar Eng. Valor */}
+{/* Projetos criados apenas via Solicitar Revisão EV */}
       </div>
 
       <div className="relative">

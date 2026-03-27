@@ -1169,7 +1169,7 @@ export default function ProposalsList() {
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openNotifDialog(p, "solicitar_ajuste")}>
-                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Eng. Valor
+                                  <MessageSquare className="mr-2 h-3.5 w-3.5" />Solicitar Revisão EV
                                 </DropdownMenuItem>
                               </>
                             )}

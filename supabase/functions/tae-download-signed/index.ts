@@ -92,23 +92,26 @@ Deno.serve(async (req) => {
     }
 
     // Login to TAE
-    const loginRes = await fetch(`${taeConfig.base_url}/api/v1/login`, {
+    const loginRes = await fetch(`${taeConfig.base_url}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ login: taeConfig.service_user_email, password: taePassword }),
+      body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
     });
 
     if (!loginRes.ok) {
-      return new Response(JSON.stringify({ error: "TAE login failed" }), {
+      const loginBody = await loginRes.text().catch(() => "");
+      return new Response(JSON.stringify({ error: `TAE login failed (${loginRes.status})`, details: loginBody.substring(0, 300) }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const loginData = await loginRes.json();
-    const taeToken = loginData?.access_token || loginData?.data?.access_token;
+    const loginBody = await loginRes.text();
+    let loginData: any;
+    try { loginData = JSON.parse(loginBody); } catch { loginData = {}; }
+    const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
     if (!taeToken) {
-      return new Response(JSON.stringify({ error: "TAE token not found in response" }), {
+      return new Response(JSON.stringify({ error: "TAE token not found in response", details: loginBody.substring(0, 300) }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

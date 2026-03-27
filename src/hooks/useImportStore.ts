@@ -49,6 +49,8 @@ export function getActiveImport(entity: ImportEntity): ImportRun | undefined {
 }
 
 export function startImportRun(entity: ImportEntity, fileName: string, clearedBefore: boolean, dbLogId?: string): ImportRun {
+  const controller = new AbortController();
+  cancelSignals.set(entity, controller);
   const run: ImportRun = {
     id: crypto.randomUUID(),
     entity,

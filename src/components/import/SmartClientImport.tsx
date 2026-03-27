@@ -596,7 +596,7 @@ export default function SmartClientImport() {
                 <span></span>
                 <span>Campo do Sistema</span>
               </div>
-              <ScrollArea className="max-h-[350px] w-full">
+              <div className="max-h-[350px] overflow-y-auto">
                 <div className="divide-y divide-border">
                   {headers.map((header, colIdx) => {
                     if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
@@ -646,7 +646,7 @@ export default function SmartClientImport() {
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
 
             {/* Preview table with horizontal scroll */}

@@ -474,6 +474,7 @@ export default function ProposalsList() {
             proposalId: capturedProposal.id,
             type: "comunicar_cra",
             message: capturedMessage,
+            subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
             attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,

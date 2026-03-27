@@ -1206,7 +1206,7 @@ export default function ProposalsList() {
                                   <Edit2 className="mr-2 h-3.5 w-3.5" />Alterar Datas
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openCraDialog(p)}>
-                                  <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
+                                  <Users className="mr-2 h-3.5 w-3.5" />Enviar para Operações
                                 </DropdownMenuItem>
                               </>
                             )}

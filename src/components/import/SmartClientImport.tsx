@@ -912,6 +912,120 @@ export default function SmartClientImport() {
               )}
             </div>
 
+            {/* ── AI Filter Rules ─────────────────────────────── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Regras de Pré-filtro</span>
+                <Badge variant="outline" className="text-xs">{filterRules.length} regra(s)</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Descreva em linguagem natural quais registros devem ser importados. A IA converterá em regras lógicas automaticamente.
+              </p>
+
+              {/* Prompt input */}
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Textarea
+                    placeholder='Ex: "Importar apenas clientes com unidade válida no sistema" ou "Excluir registros com código começando por T"'
+                    value={filterPrompt}
+                    onChange={e => setFilterPrompt(e.target.value)}
+                    className="min-h-[60px] text-sm resize-none pr-10"
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleFilterPrompt();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleFilterPrompt}
+                  disabled={!filterPrompt.trim() || filterLoading}
+                  className="self-end"
+                >
+                  {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {/* Saved presets */}
+              {savedPresets.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground font-medium">Presets salvos:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {savedPresets.map(preset => (
+                      <div key={preset.id} className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            setFilterRules(preset.rules);
+                            toast({ title: "Preset aplicado", description: `${preset.rules.length} regra(s) carregada(s).` });
+                          }}
+                        >
+                          <Filter className="h-3 w-3 mr-1" />
+                          {preset.name} ({preset.rules.length})
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            deleteFilterPreset(preset.id);
+                            setSavedPresets(loadSavedFilterPresets());
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Active rules */}
+              {filterRules.length > 0 && (
+                <div className="space-y-1.5">
+                  <Separator />
+                  <div className="space-y-1">
+                    {filterRules.map((rule, idx) => {
+                      const fieldLabel = CLIENT_DB_FIELDS.find(f => f.key === rule.field)?.label || rule.field;
+                      return (
+                        <div key={idx} className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+                          <Filter className="h-3 w-3 text-primary shrink-0" />
+                          <span className="flex-1 min-w-0">
+                            <span className="font-medium">{fieldLabel}</span>
+                            {" "}
+                            <span className="text-muted-foreground">{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
+                            {rule.value && <span className="font-medium text-primary"> "{rule.value}"</span>}
+                            <span className="text-muted-foreground ml-2">— {rule.description}</span>
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                            onClick={() => setFilterRules(prev => prev.filter((_, i) => i !== idx))}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleSaveFilterPreset}>
+                      <Save className="h-3 w-3 mr-1" /> Salvar Preset
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive" onClick={() => setFilterRules([])}>
+                      <Trash2 className="h-3 w-3 mr-1" /> Limpar Regras
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Relationship warning */}
             {(Object.values(mapping).includes("unit_code") || Object.values(mapping).includes("esn_code") || Object.values(mapping).includes("gsn_code")) && (
               <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
@@ -935,6 +1049,9 @@ export default function SmartClientImport() {
                 <div><span className="text-muted-foreground">Linhas:</span> <span className="font-medium">{allDataRows.length}</span></div>
                 <div><span className="text-muted-foreground">Campos mapeados:</span> <span className="font-medium">{mappedCount}</span></div>
                 <div><span className="text-muted-foreground">Campos p/ atualizar:</span> <span className="font-medium">{updateFields.size}</span></div>
+                {filterRules.length > 0 && (
+                  <div><span className="text-muted-foreground">Regras de filtro:</span> <span className="font-medium">{filterRules.length}</span></div>
+                )}
               </div>
             </div>
 

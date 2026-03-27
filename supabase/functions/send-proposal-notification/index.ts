@@ -443,7 +443,7 @@ Deno.serve(async (req) => {
         </div>
       `;
 
-      subject = `[Proposta ${proposalNumber}] Comunicado CRA`;
+      subject = `[Proposta ${proposalNumber}] Envio para Operações`;
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a2e;">Comunicado CRA — Proposta ${proposalNumber}</h2>

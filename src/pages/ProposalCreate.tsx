@@ -1500,7 +1500,7 @@ export default function ProposalCreate() {
               </div>
 
               {/* Engenheiro de Valor */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>

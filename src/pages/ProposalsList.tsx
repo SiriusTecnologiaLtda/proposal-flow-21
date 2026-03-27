@@ -619,6 +619,7 @@ export default function ProposalsList() {
             proposalId: capturedProposal.id,
             type: capturedType,
             message: capturedMessage,
+            subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
             _origin: window.location.origin,

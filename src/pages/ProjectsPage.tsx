@@ -515,6 +515,13 @@ export default function ProjectsPage() {
           </TableBody>
         </Table>
       </div>
+      {hasMoreProjects && (
+        <div className="flex justify-center py-3">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 50)}>
+            Carregar mais ({filtered.length - visibleCount} restantes)
+          </Button>
+        </div>
+      )}
 
       <ConcludeProjectDialog
         open={!!concludeProject}

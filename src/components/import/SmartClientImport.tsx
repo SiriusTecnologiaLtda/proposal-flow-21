@@ -331,12 +331,14 @@ export default function SmartClientImport() {
 
     if (dbLogId) {
       const successRate = allDataRows.length > 0 ? ((imported + updated) / allDataRows.length * 100).toFixed(1) : "0";
-      await supabase.from("import_logs").update({
-        status: finalStatus, total_rows: allDataRows.length, imported, updated, errors,
-        skipped: totalSkipped, finished_at: new Date().toISOString(),
-        duration_ms: dur,
-        summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados | Taxa: ${successRate}% | Tempo: ${formatDuration(dur)}`,
-      } as any).eq("id", dbLogId).catch(() => {});
+      try {
+        await supabase.from("import_logs").update({
+          status: finalStatus, total_rows: allDataRows.length, imported, updated, errors,
+          skipped: totalSkipped, finished_at: new Date().toISOString(),
+          duration_ms: dur,
+          summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados | Taxa: ${successRate}% | Tempo: ${formatDuration(dur)}`,
+        } as any).eq("id", dbLogId);
+      } catch {}
     }
 
     setStep("done");

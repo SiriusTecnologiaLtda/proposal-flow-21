@@ -1689,10 +1689,12 @@ export default function ProposalCreate() {
                 placeholder="Digite o comentário..."
                 className="min-h-[100px]"
                 rows={4}
+                readOnly={scopeLocked}
+                disabled={scopeLocked}
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={saveNotesDialog}>Salvar</Button>
+                {!scopeLocked && <Button onClick={saveNotesDialog}>Salvar</Button>}
               </DialogFooter>
             </DialogContent>
           </Dialog>

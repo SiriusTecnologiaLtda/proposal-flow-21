@@ -846,12 +846,22 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
   return (
     <div className="space-y-3">
       {isRunning && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{run.imported + run.updated + run.errors} / {run.totalRows} registros</span>
-            <span>{progress.toFixed(0)}%</span>
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{run.imported + run.updated + run.errors} / {run.totalRows} registros</span>
+              <span>{progress.toFixed(0)}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Progress value={progress} className="h-2" />
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            onClick={() => requestCancelImport(run.entity)}
+          >
+            <XCircle className="mr-1.5 h-3.5 w-3.5" /> Interromper Importação
+          </Button>
         </div>
       )}
 

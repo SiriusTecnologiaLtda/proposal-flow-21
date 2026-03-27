@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle, RotateCcw } from "lucide-react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";

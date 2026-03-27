@@ -387,7 +387,7 @@ export default function ProjectsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((project: any) => {
+              visibleProjects.map((project: any) => {
                 const effectiveStatus = project.status === "rascunho" ? "pendente" : project.status;
                 const statusInfo = STATUS_MAP[effectiveStatus] || STATUS_MAP.pendente;
                 const scopeCount = project.project_scope_items?.length || 0;

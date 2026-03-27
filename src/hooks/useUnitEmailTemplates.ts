@@ -30,7 +30,7 @@ export function useUnitEmailTemplates(unitId: string | null) {
         .select("*")
         .eq("unit_id", unitId!);
       if (error) throw error;
-      return (data || []) as Array<{ id: string; unit_id: string; action_type: string; subject: string; body: string }>;
+      return (data || []) as unknown as Array<{ id: string; unit_id: string; action_type: string; subject: string; body: string }>;
     },
   });
 }

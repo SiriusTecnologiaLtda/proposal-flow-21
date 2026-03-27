@@ -420,6 +420,7 @@ export default function ProposalsList() {
     // Capture state
     const capturedProposal = craProposal;
     const capturedMessage = craMessage;
+    const capturedSubject = craSubject;
     const capturedRecipients = [...opsRecipients];
     const capturedAttachments = [...opsAttachments];
 

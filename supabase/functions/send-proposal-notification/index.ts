@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin, attachments, taeDocumentId } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(

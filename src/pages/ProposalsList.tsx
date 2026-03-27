@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus, Paperclip, Upload } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus, Paperclip, Upload, Download } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
@@ -448,6 +448,65 @@ export default function ProposalsList() {
       }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  }
+
+  const [downloadingTae, setDownloadingTae] = useState<string | null>(null);
+
+  async function handleDownloadTaeSigned(proposal: any) {
+    const sigs = (proposal as any).proposal_signatures || [];
+    const latestSig = sigs
+      .filter((s: any) => s.status === "completed" && s.tae_document_id)
+      .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())[0];
+    if (!latestSig) {
+      toast({ title: "Erro", description: "Nenhum documento assinado encontrado", variant: "destructive" });
+      return;
+    }
+
+    setDownloadingTae(proposal.id);
+    toast({ title: "Baixando documento assinado...", description: "Aguarde o download do TAE" });
+
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tae-download-signed`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ signatureId: latestSig.id }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erro ao baixar documento");
+      }
+
+      // Convert base64 to blob and trigger download
+      const byteChars = atob(data.base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `proposta_${proposal.number}_assinada.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "Download concluído", description: `Documento assinado da proposta ${proposal.number} baixado com sucesso` });
+    } catch (err: any) {
+      toast({ title: "Erro ao baixar", description: err.message, variant: "destructive" });
+    } finally {
+      setDownloadingTae(null);
     }
   }
 
@@ -1202,6 +1261,16 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
+                            {(() => {
+                              const sigs = (p as any).proposal_signatures || [];
+                              const hasTaeSigned = sigs.some((s: any) => s.status === "completed" && s.tae_document_id);
+                              return hasTaeSigned ? (
+                                <DropdownMenuItem onClick={() => handleDownloadTaeSigned(p)} disabled={downloadingTae === p.id}>
+                                  {downloadingTae === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
+                                  Baixar Documento Assinado
+                                </DropdownMenuItem>
+                              ) : null;
+                            })()}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura

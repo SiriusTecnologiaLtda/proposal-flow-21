@@ -1454,7 +1454,7 @@ export default function ProposalCreate() {
           </div>
 
           {/* ── Time Responsável ────────────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
                 <Users className="h-3.5 w-3.5 text-primary" />
@@ -1463,7 +1463,7 @@ export default function ProposalCreate() {
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {/* ESN */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Executivo de Vendas (ESN)</Label>
                 <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
                   <PopoverTrigger asChild>
@@ -1492,7 +1492,7 @@ export default function ProposalCreate() {
               </div>
 
               {/* GSN (read-only) */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Gerente de Vendas (GSN)</Label>
                 <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground min-w-0">
                   <span className="truncate min-w-0">{autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}</span>
@@ -1500,7 +1500,7 @@ export default function ProposalCreate() {
               </div>
 
               {/* Engenheiro de Valor */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>

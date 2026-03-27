@@ -431,6 +431,8 @@ export default function ProposalsList() {
     const capturedSubject = craSubject;
     const capturedRecipients = [...opsRecipients];
     const capturedAttachments = [...opsAttachments];
+    const wantSignedDoc = opsAttachSignedDoc;
+    const wantMit = opsAttachMit;
 
     // Close immediately - background processing
     setCraDialogOpen(false);
@@ -444,7 +446,6 @@ export default function ProposalsList() {
       const unitId = (capturedProposal as any).clients?.unit_id || (capturedProposal as any).sales_team?.unit_id;
       const newManualRecipients = capturedRecipients.filter(r => !r.fromDb);
       if (unitId && newManualRecipients.length > 0) {
-        // Check existing emails to avoid duplicates
         const { data: existing } = await supabase
           .from("unit_contacts")
           .select("email")
@@ -459,15 +460,89 @@ export default function ProposalsList() {
         }
       }
 
-      // Check if proposal has TAE signed document to attach
-      let taeAttachment: { name: string; base64: string; mimeType: string } | null = null;
-      const latestSig = (capturedProposal as any).proposal_signatures
-        ?.filter((s: any) => s.status === "completed")
-        ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
-      if (latestSig?.tae_document_id) {
-        // We'll pass the tae_document_id to the edge function to fetch
-        taeAttachment = { name: `proposta_${capturedProposal.number}_assinada.pdf`, base64: "", mimeType: "application/pdf" };
+      // Resolve TAE signed document ID if user wants it
+      let taeDocId: string | undefined;
+      if (wantSignedDoc) {
+        const latestSig = (capturedProposal as any).proposal_signatures
+          ?.filter((s: any) => s.status === "completed")
+          ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+        taeDocId = latestSig?.tae_document_id || undefined;
       }
+
+      // Generate MIT if user wants it and it doesn't exist yet, then get doc URL
+      let mitAttachment: { name: string; base64: string; mimeType: string } | undefined;
+      if (wantMit) {
+        // Check if MIT already exists
+        const { data: existingMitDocs } = await supabase
+          .from("proposal_documents")
+          .select("doc_id, doc_url, file_name")
+          .eq("proposal_id", capturedProposal.id)
+          .eq("doc_type", "mit")
+          .order("version", { ascending: false })
+          .limit(1);
+
+        let mitDocUrl = existingMitDocs?.[0]?.doc_url;
+
+        // If no MIT exists, generate it
+        if (!mitDocUrl) {
+          const mitRes = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mit-doc`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ proposalId: capturedProposal.id }),
+            }
+          );
+          const mitData = await mitRes.json();
+          if (mitRes.ok && mitData?.docUrl) {
+            mitDocUrl = mitData.docUrl;
+            queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          }
+        }
+
+        // Export Google Doc as PDF and attach
+        if (mitDocUrl) {
+          try {
+            const docIdMatch = mitDocUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (docIdMatch) {
+              const gDocId = docIdMatch[1];
+              // Use edge function to export as PDF
+              const exportRes = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grant-drive-folder-access`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${session?.access_token}`,
+                  },
+                  body: JSON.stringify({ action: "export_pdf", docId: gDocId }),
+                }
+              );
+              if (exportRes.ok) {
+                const exportData = await exportRes.json();
+                if (exportData.base64) {
+                  mitAttachment = {
+                    name: `MIT_065_${capturedProposal.number}.pdf`,
+                    base64: exportData.base64,
+                    mimeType: "application/pdf",
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to export MIT as PDF:", e);
+          }
+        }
+      }
+
+      // Merge MIT attachment with user attachments
+      const allAttachments = [...capturedAttachments];
+      if (mitAttachment) allAttachments.push(mitAttachment);
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
@@ -485,8 +560,8 @@ export default function ProposalsList() {
             subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
-            attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
-            taeDocumentId: latestSig?.tae_document_id || undefined,
+            attachments: allAttachments.length > 0 ? allAttachments : undefined,
+            taeDocumentId: taeDocId,
           }),
         }
       );

@@ -638,6 +638,7 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.warn("[send-notification] MIT PDF export failed:", e);
         }
+      }
 
       // Send to all selected recipients
       const gInt2 = await getOAuthClient(supabase);

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Building, Plus, Edit2, Users, Copy, Trash2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase } from "lucide-react";
 import { useUnits, useCreateUnit, useUpdateUnit } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,11 +10,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
 const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
-const emptyContact = { name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "" };
+const emptyContact = { name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "", contact_type: "tae" };
 const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
+const CONTACT_TYPES = [
+  { value: "tae", label: "TAE (Assinatura)", icon: PenTool, description: "Apresentado no processo de assinatura eletrônica", color: "text-primary" },
+  { value: "operacoes", label: "Operações", icon: Headphones, description: "Recebe comunicações de propostas ganhas", color: "text-amber-600 dark:text-amber-400" },
+];
 
 function useUnitContacts(unitId: string | null) {
   return useQuery({
@@ -44,22 +51,23 @@ export default function UnitsPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  // Detail / Contacts panel
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("dados");
 
-  // Contact editing
   const [contactForm, setContactForm] = useState(emptyContact);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
 
-  // Copy dialog
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyTargets, setCopyTargets] = useState<string[]>([]);
   const [copying, setCopying] = useState(false);
 
   const { data: unitContacts = [], isLoading: loadingContacts } = useUnitContacts(selectedUnit?.id || null);
+
+  // Group contacts by type
+  const taeContacts = useMemo(() => unitContacts.filter((c: any) => (c.contact_type || "tae") === "tae"), [unitContacts]);
+  const opsContacts = useMemo(() => unitContacts.filter((c: any) => c.contact_type === "operacoes"), [unitContacts]);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: any) => {
@@ -86,16 +94,20 @@ export default function UnitsPage() {
     });
   };
 
-  // Contact CRUD
-  const openNewContact = () => {
+  const openNewContact = (type: string = "tae") => {
     setEditingContactId(null);
-    setContactForm(emptyContact);
+    setContactForm({ ...emptyContact, contact_type: type });
     setContactDialogOpen(true);
   };
 
   const openEditContact = (c: any) => {
     setEditingContactId(c.id);
-    setContactForm({ name: c.name, email: c.email, phone: c.phone || "", role: c.role || "Signatário", department: c.department || "", position: c.position || "", notes: c.notes || "" });
+    setContactForm({
+      name: c.name, email: c.email, phone: c.phone || "",
+      role: c.role || "Signatário", department: c.department || "",
+      position: c.position || "", notes: c.notes || "",
+      contact_type: c.contact_type || "tae",
+    });
     setContactDialogOpen(true);
   };
 
@@ -107,10 +119,10 @@ export default function UnitsPage() {
     setSavingContact(true);
     try {
       if (editingContactId) {
-        const { error } = await supabase.from("unit_contacts").update(contactForm).eq("id", editingContactId);
+        const { error } = await supabase.from("unit_contacts").update(contactForm as any).eq("id", editingContactId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("unit_contacts").insert({ ...contactForm, unit_id: selectedUnit.id });
+        const { error } = await supabase.from("unit_contacts").insert({ ...contactForm, unit_id: selectedUnit.id } as any);
         if (error) throw error;
       }
       queryClient.invalidateQueries({ queryKey: ["unit_contacts", selectedUnit.id] });
@@ -130,7 +142,6 @@ export default function UnitsPage() {
     toast({ title: "Contato removido!" });
   };
 
-  // Copy contacts to other units
   const handleCopyContacts = async () => {
     if (copyTargets.length === 0) { toast({ title: "Selecione ao menos uma unidade", variant: "destructive" }); return; }
     setCopying(true);
@@ -145,9 +156,10 @@ export default function UnitsPage() {
           department: c.department || "",
           position: c.position || "",
           notes: c.notes || "",
+          contact_type: c.contact_type || "tae",
         }))
       );
-      const { error } = await supabase.from("unit_contacts").insert(rows);
+      const { error } = await supabase.from("unit_contacts").insert(rows as any);
       if (error) throw error;
       copyTargets.forEach((id) => queryClient.invalidateQueries({ queryKey: ["unit_contacts", id] }));
       setCopyDialogOpen(false);
@@ -211,46 +223,87 @@ export default function UnitsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Contact form dialog */}
+      {/* Contact form dialog - redesigned */}
       <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingContactId ? "Editar Contato" : "Novo Contato"}</DialogTitle>
-            <DialogDescription>Contato default para assinatura eletrônica.</DialogDescription>
+            <DialogDescription>Defina o tipo e os dados do contato.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1">
-              <Label className="text-xs">Nome *</Label>
-              <Input value={contactForm.name} onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))} />
+          <div className="space-y-4 py-2">
+            {/* Contact type selector */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Tipo de Contato *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {CONTACT_TYPES.map((ct) => {
+                  const Icon = ct.icon;
+                  const isSelected = contactForm.contact_type === ct.value;
+                  return (
+                    <button
+                      key={ct.value}
+                      type="button"
+                      onClick={() => setContactForm((p) => ({ ...p, contact_type: ct.value }))}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-all text-center
+                        ${isSelected
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-primary/30 hover:bg-muted/30"
+                        }`}
+                    >
+                      <Icon className={`h-5 w-5 ${isSelected ? ct.color : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                        {ct.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {CONTACT_TYPES.find(ct => ct.value === contactForm.contact_type)?.description}
+              </p>
             </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">E-mail *</Label>
-              <Input type="email" value={contactForm.email} onChange={(e) => setContactForm((p) => ({ ...p, email: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Telefone</Label>
-              <Input value={contactForm.phone} onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Papel</Label>
-              <Select value={contactForm.role} onValueChange={(v) => setContactForm((p) => ({ ...p, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Departamento</Label>
-              <Input value={contactForm.department} onChange={(e) => setContactForm((p) => ({ ...p, department: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Cargo</Label>
-              <Input value={contactForm.position} onChange={(e) => setContactForm((p) => ({ ...p, position: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Notas</Label>
-              <Input value={contactForm.notes} onChange={(e) => setContactForm((p) => ({ ...p, notes: e.target.value }))} />
+
+            <Separator />
+
+            <div className="grid gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label className="text-xs">Nome *</Label>
+                  <Input value={contactForm.name} onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">E-mail *</Label>
+                  <Input type="email" value={contactForm.email} onChange={(e) => setContactForm((p) => ({ ...p, email: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label className="text-xs">Telefone</Label>
+                  <Input value={contactForm.phone} onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Papel</Label>
+                  <Select value={contactForm.role} onValueChange={(v) => setContactForm((p) => ({ ...p, role: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label className="text-xs">Departamento</Label>
+                  <Input value={contactForm.department} onChange={(e) => setContactForm((p) => ({ ...p, department: e.target.value }))} />
+                </div>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Cargo</Label>
+                  <Input value={contactForm.position} onChange={(e) => setContactForm((p) => ({ ...p, position: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-xs">Notas</Label>
+                <Input value={contactForm.notes} onChange={(e) => setContactForm((p) => ({ ...p, notes: e.target.value }))} />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -302,26 +355,26 @@ export default function UnitsPage() {
               <div
                 key={unit.id}
                 onClick={() => { setSelectedUnit(unit); setActiveTab("dados"); }}
-                className={`rounded-lg border bg-card p-4 transition-colors cursor-pointer ${selectedUnit?.id === unit.id ? "border-primary ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}
+                className={`rounded-lg border bg-card p-4 transition-colors cursor-pointer overflow-hidden ${selectedUnit?.id === unit.id ? "border-primary ring-1 ring-primary/20" : "border-border hover:border-primary/30"}`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <Building className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{unit.name}</p>
-                      {unit.code && <p className="text-xs text-muted-foreground font-mono">{unit.code}</p>}
+                      <p className="text-sm font-medium text-foreground truncate">{unit.name}</p>
+                      {unit.code && <p className="text-xs text-muted-foreground font-mono truncate">{unit.code}</p>}
                     </div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); openEdit(unit); }} className="rounded p-1 text-muted-foreground hover:text-foreground">
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(unit); }} className="rounded p-1 text-muted-foreground hover:text-foreground shrink-0">
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 {!selectedUnit && (
                   <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                    {unit.city && <p>📍 {unit.city}</p>}
-                    {unit.email && <p>📧 {unit.email}</p>}
+                    {unit.city && <p className="truncate">📍 {unit.city}</p>}
+                    {unit.email && <p className="truncate">📧 {unit.email}</p>}
                     {Number(unit.tax_factor) > 0 && <p>💰 Fator: {Number(unit.tax_factor).toFixed(4)}</p>}
                   </div>
                 )}
@@ -333,10 +386,10 @@ export default function UnitsPage() {
 
         {/* Detail panel */}
         {selectedUnit && (
-          <div className="w-2/3 rounded-lg border border-border bg-card">
+          <div className="w-2/3 rounded-lg border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b p-4">
-              <div>
-                <h2 className="text-lg font-semibold">{selectedUnit.name}</h2>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold truncate">{selectedUnit.name}</h2>
                 {selectedUnit.code && <p className="text-xs text-muted-foreground font-mono">{selectedUnit.code}</p>}
               </div>
               <Button variant="ghost" size="sm" onClick={() => setSelectedUnit(null)}>✕</Button>
@@ -358,19 +411,20 @@ export default function UnitsPage() {
                 {Number(selectedUnit.tax_factor) > 0 && <div><span className="text-muted-foreground">Fator Imposto:</span> {Number(selectedUnit.tax_factor).toFixed(4)}</div>}
               </TabsContent>
 
-              <TabsContent value="contatos" className="mt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium">Contatos / Signatários</p>
-                    <p className="text-xs text-muted-foreground">Contatos default para assinatura eletrônica (TAE)</p>
+              <TabsContent value="contatos" className="mt-4 space-y-5">
+                {/* Header actions */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Contatos da Unidade</p>
+                    <p className="text-xs text-muted-foreground">{unitContacts.length} contato(s) cadastrado(s)</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0 flex-wrap">
                     {unitContacts.length > 0 && (
                       <Button variant="outline" size="sm" onClick={() => { setCopyTargets([]); setCopyDialogOpen(true); }}>
                         <Copy className="mr-1.5 h-3.5 w-3.5" />Copiar para...
                       </Button>
                     )}
-                    <Button size="sm" onClick={openNewContact}>
+                    <Button size="sm" onClick={() => openNewContact("tae")}>
                       <Plus className="mr-1.5 h-3.5 w-3.5" />Novo Contato
                     </Button>
                   </div>
@@ -382,34 +436,38 @@ export default function UnitsPage() {
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <Users className="h-10 w-10 text-muted-foreground/40 mb-3" />
                     <p className="text-sm text-muted-foreground">Nenhum contato cadastrado</p>
-                    <p className="text-xs text-muted-foreground mt-1">Adicione contatos que serão carregados automaticamente ao enviar propostas para assinatura</p>
-                    <Button variant="outline" size="sm" className="mt-4" onClick={openNewContact}>
+                    <p className="text-xs text-muted-foreground mt-1">Adicione contatos que serão utilizados em assinaturas e comunicações</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={() => openNewContact("tae")}>
                       <Plus className="mr-1.5 h-3.5 w-3.5" />Adicionar Contato
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {unitContacts.map((c: any) => (
-                      <div key={c.id} className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{c.name}</p>
-                          <p className="text-xs text-muted-foreground">{c.email} {c.phone ? `• ${c.phone}` : ""}</p>
-                          <div className="flex gap-2 mt-1">
-                            {c.role && <span className="text-xs rounded bg-primary/10 text-primary px-1.5 py-0.5">{c.role}</span>}
-                            {c.department && <span className="text-xs text-muted-foreground">{c.department}</span>}
-                            {c.position && <span className="text-xs text-muted-foreground">• {c.position}</span>}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditContact(c)}>
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteContact(c.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-5">
+                    {/* TAE Section */}
+                    <ContactSection
+                      title="Assinatura Eletrônica (TAE)"
+                      description="Contatos apresentados no processo de assinatura de propostas"
+                      icon={PenTool}
+                      iconColor="text-primary"
+                      badgeColor="bg-primary/10 text-primary"
+                      contacts={taeContacts}
+                      onAdd={() => openNewContact("tae")}
+                      onEdit={openEditContact}
+                      onDelete={handleDeleteContact}
+                    />
+
+                    {/* Operações Section */}
+                    <ContactSection
+                      title="Operações"
+                      description="Contatos que recebem comunicações de propostas ganhas"
+                      icon={Headphones}
+                      iconColor="text-amber-600 dark:text-amber-400"
+                      badgeColor="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      contacts={opsContacts}
+                      onAdd={() => openNewContact("operacoes")}
+                      onEdit={openEditContact}
+                      onDelete={handleDeleteContact}
+                    />
                   </div>
                 )}
               </TabsContent>
@@ -417,6 +475,94 @@ export default function UnitsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Contact Section sub-component ───────────────────────────────
+function ContactSection({
+  title, description, icon: Icon, iconColor, badgeColor, contacts, onAdd, onEdit, onDelete,
+}: {
+  title: string;
+  description: string;
+  icon: any;
+  iconColor: string;
+  badgeColor: string;
+  contacts: any[];
+  onAdd: () => void;
+  onEdit: (c: any) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      {/* Section header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border`}>
+            <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{title}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="secondary" className="text-[10px] px-1.5">{contacts.length}</Badge>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onAdd}>
+            <Plus className="h-3 w-3 mr-1" />Adicionar
+          </Button>
+        </div>
+      </div>
+
+      {/* Contact cards */}
+      {contacts.length === 0 ? (
+        <div className="flex flex-col items-center py-6 text-center">
+          <p className="text-xs text-muted-foreground">Nenhum contato nesta categoria</p>
+          <Button variant="link" size="sm" className="text-xs mt-1 h-auto p-0" onClick={onAdd}>
+            Adicionar contato
+          </Button>
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {contacts.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors group">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  {c.role && (
+                    <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${badgeColor}`}>
+                      {c.role}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 truncate">
+                    <Mail className="h-3 w-3 shrink-0" />{c.email}
+                  </span>
+                  {c.phone && (
+                    <span className="flex items-center gap-1 shrink-0">
+                      <Phone className="h-3 w-3" />{c.phone}
+                    </span>
+                  )}
+                  {c.position && (
+                    <span className="flex items-center gap-1 shrink-0 hidden sm:flex">
+                      <Briefcase className="h-3 w-3" />{c.position}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(c)}>
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(c.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

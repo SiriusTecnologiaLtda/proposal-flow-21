@@ -515,10 +515,10 @@ function ImportCard({
   };
 
   return (
-    <Card className={`transition-all duration-300 ${isRunning ? "ring-2 ring-primary/30 shadow-lg" : ""}`}>
+    <Card className={`transition-all duration-300 overflow-hidden ${isRunning ? "ring-2 ring-primary/30 shadow-lg" : ""}`}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${isRunning ? "bg-primary text-primary-foreground" : "bg-primary/10"}`}>
               {isRunning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5 text-primary" />}
             </div>

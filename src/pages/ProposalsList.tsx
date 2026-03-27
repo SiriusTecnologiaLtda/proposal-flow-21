@@ -1432,101 +1432,156 @@ export default function ProposalsList() {
         </AlertDialog>
 
         {/* Notification dialog (Arquiteto ↔ ESN) */}
-        <Dialog open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {notifType === "solicitar_ajuste" ? (
-                  <><MessageSquare className="h-5 w-5" /> Solicitar Eng. Valor</>
-                ) : (
-                  <><Mail className="h-5 w-5" /> Notificar ESN — Ajuste Concluído</>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-
-            {/* Gmail auth warning */}
-            {gmailAuthorized === false && (
-              <Alert variant="destructive" className="border-warning bg-warning/10">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="space-y-2">
-                  <p className="text-sm font-medium">Autorização de email necessária</p>
-                  <p className="text-xs text-muted-foreground">
-                    Para enviar notificações, você precisa autorizar o sistema a enviar emails pela sua conta Google ({user?.email}).
-                    O email será enviado em seu nome.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={startUserGmailAuth}
-                    disabled={gmailAuthLoading}
-                    className="mt-1"
-                  >
-                    {gmailAuthLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ExternalLink className="mr-2 h-3 w-3" />}
-                    Autorizar envio de email
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {notifProposal && gmailAuthorized && (
-              <div className="space-y-4">
-                <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-                  <p><span className="font-medium text-muted-foreground">Oportunidade:</span> {notifProposal.number}</p>
-                  <p><span className="font-medium text-muted-foreground">Cliente:</span> {(notifProposal as any).clients?.name}</p>
-                  <p><span className="font-medium text-muted-foreground">Produto:</span> {notifProposal.product}</p>
-                  <p><span className="font-medium text-muted-foreground">Destinatário:</span> {notifType === "solicitar_ajuste"
-                    ? `${(notifProposal as any).arquiteto?.name || "—"} (${(notifProposal as any).arquiteto?.email || "sem email"})`
-                    : `${(notifProposal as any).sales_team?.name || "—"} (${(notifProposal as any).sales_team?.email || "sem email"})`
-                  }</p>
-                  <p><span className="font-medium text-muted-foreground">Remetente:</span> {user?.email}</p>
-                </div>
-
-                {/* CC Recipients */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1">
-                    <UserPlus className="h-3 w-3" /> Cópia (CC)
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={notifCcInput}
-                      onChange={(e) => setNotifCcInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNotifCcEmail())}
-                      placeholder="email@exemplo.com"
-                      className="text-sm h-8"
-                    />
-                    <Button type="button" size="sm" variant="outline" onClick={addNotifCcEmail} className="h-8 px-3">
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  {notifCcEmails.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {notifCcEmails.map((email) => (
-                        <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
-                          {email}
-                          <button onClick={() => setNotifCcEmails(notifCcEmails.filter(e => e !== email))} className="ml-0.5 hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
+        <Sheet open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
+            {/* Hero Header */}
+            <div className="bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-white/10 p-2">
+                  {notifType === "solicitar_ajuste" ? (
+                    <MessageSquare className="h-5 w-5 text-white" />
+                  ) : (
+                    <Mail className="h-5 w-5 text-white" />
                   )}
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Mensagem (opcional)</Label>
-                  <Textarea
-                    value={notifMessage}
-                    onChange={(e) => setNotifMessage(e.target.value)}
-                    placeholder={notifType === "solicitar_ajuste"
-                      ? "Descreva o resumo e observações para a engenharia de valor..."
-                      : "Descreva o que foi ajustado e observações relevantes..."}
-                    rows={4}
-                    className="text-sm"
-                  />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    {notifType === "solicitar_ajuste" ? "Solicitar Eng. Valor" : "Notificar ESN — Ajuste Concluído"}
+                  </h2>
+                  <p className="text-sm text-white/70">
+                    {notifType === "solicitar_ajuste" ? "Envie a solicitação de engenharia de valor para o arquiteto" : "Notifique o ESN sobre o ajuste concluído"}
+                  </p>
                 </div>
               </div>
-            )}
-            <DialogFooter>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-6 space-y-5">
+                {/* Gmail auth warning */}
+                {gmailAuthorized === false && (
+                  <Alert variant="destructive" className="border-warning bg-warning/10">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="space-y-2">
+                      <p className="text-sm font-medium">Autorização de email necessária</p>
+                      <p className="text-xs text-muted-foreground">
+                        Para enviar notificações, você precisa autorizar o sistema a enviar emails pela sua conta Google ({user?.email}).
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={startUserGmailAuth}
+                        disabled={gmailAuthLoading}
+                        className="mt-1"
+                      >
+                        {gmailAuthLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ExternalLink className="mr-2 h-3 w-3" />}
+                        Autorizar envio de email
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {notifProposal && gmailAuthorized && (
+                  <>
+                    {/* Section: Dados da Oportunidade */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Dados da Oportunidade</h3>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Oportunidade</p>
+                          <p className="text-sm font-medium text-foreground truncate">{notifProposal.number}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Produto</p>
+                          <p className="text-sm font-medium text-foreground truncate">{notifProposal.product}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Cliente</p>
+                          <p className="text-sm font-medium text-foreground truncate">{(notifProposal as any).clients?.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Destinatário</p>
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {notifType === "solicitar_ajuste"
+                              ? `${(notifProposal as any).arquiteto?.name || "—"}`
+                              : `${(notifProposal as any).sales_team?.name || "—"}`
+                            }
+                            <span className="text-muted-foreground font-normal ml-1">
+                              ({notifType === "solicitar_ajuste"
+                                ? ((notifProposal as any).arquiteto?.email || "sem email")
+                                : ((notifProposal as any).sales_team?.email || "sem email")
+                              })
+                            </span>
+                          </p>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs text-muted-foreground font-medium">Remetente</p>
+                          <p className="text-sm font-medium text-foreground truncate">{user?.email}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section: Cópia (CC) */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <UserPlus className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Cópia (CC)</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div className="flex gap-2">
+                          <Input
+                            value={notifCcInput}
+                            onChange={(e) => setNotifCcInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNotifCcEmail())}
+                            placeholder="email@exemplo.com"
+                            className="text-sm"
+                          />
+                          <Button type="button" size="sm" variant="outline" onClick={addNotifCcEmail} className="h-10 px-3 shrink-0">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {notifCcEmails.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {notifCcEmails.map((email) => (
+                              <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1">
+                                {email}
+                                <button onClick={() => setNotifCcEmails(notifCcEmails.filter(e => e !== email))} className="ml-0.5 hover:text-destructive">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Section: Mensagem */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Mensagem (opcional)</h3>
+                      </div>
+                      <div className="p-4">
+                        <Textarea
+                          value={notifMessage}
+                          onChange={(e) => setNotifMessage(e.target.value)}
+                          placeholder={notifType === "solicitar_ajuste"
+                            ? "Descreva o resumo e observações para a engenharia de valor..."
+                            : "Descreva o que foi ajustado e observações relevantes..."}
+                          rows={5}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Footer */}
+            <div className="border-t border-border bg-card px-6 py-4 flex items-center justify-end gap-3 shrink-0">
               <Button variant="outline" onClick={() => setNotifDialogOpen(false)} disabled={notifSending}>
                 Cancelar
               </Button>
@@ -1534,9 +1589,9 @@ export default function ProposalsList() {
                 {notifSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Enviar
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* CRA Notification dialog */}
         <Dialog open={craDialogOpen} onOpenChange={setCraDialogOpen}>

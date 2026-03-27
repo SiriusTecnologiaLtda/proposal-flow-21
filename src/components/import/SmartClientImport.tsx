@@ -590,13 +590,13 @@ export default function SmartClientImport() {
               </div>
             </div>
 
-            <ScrollArea className="max-h-[400px]">
-              <div className="space-y-2 pr-1">
+            <ScrollArea className="max-h-[400px] w-full">
+              <div className="min-w-max space-y-2 pr-4">
                 {headers.map((header, colIdx) => {
                   if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
                   return (
-                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors min-w-0">
-                      <div className="flex-1 min-w-0 overflow-hidden">
+                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors">
+                      <div className="min-w-[200px] max-w-[500px]">
                         <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
                         <div className="text-xs text-muted-foreground truncate mt-0.5">
                           Ex: {previewRows.slice(0, 3).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" | ") || "—"}
@@ -639,6 +639,7 @@ export default function SmartClientImport() {
                   );
                 })}
               </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
 
             {/* Preview table with horizontal scroll */}

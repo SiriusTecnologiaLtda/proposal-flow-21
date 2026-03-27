@@ -119,15 +119,14 @@ Deno.serve(async (req) => {
 
     console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, current status: ${sigRecord.status}`);
 
-    // Update only publication ID here.
-    // IMPORTANT: keep the original tae_document_id from publication time,
-    // because that's the ID that the Documents API authorizes for download.
+    // Update publication ID and document ID if changed (TAE sends new IDs on finalization)
     const sigUpdates: Record<string, string> = {};
     if (publicationId && publicationId !== sigRecord.tae_publication_id) {
       sigUpdates.tae_publication_id = publicationId;
     }
     if (documentId && documentId !== sigRecord.tae_document_id) {
-      console.log(`[tae-webhook] Received different finalized document ID from TAE: ${sigRecord.tae_document_id} → ${documentId}. Keeping original document ID for download compatibility.`);
+      sigUpdates.tae_document_id = documentId;
+      console.log(`[tae-webhook] Document ID changed: ${sigRecord.tae_document_id} → ${documentId}`);
     }
     if (Object.keys(sigUpdates).length > 0) {
       await supabase

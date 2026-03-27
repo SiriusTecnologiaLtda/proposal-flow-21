@@ -1463,7 +1463,7 @@ export default function ProposalCreate() {
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {/* ESN */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Executivo de Vendas (ESN)</Label>
                 <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
                   <PopoverTrigger asChild>

@@ -43,7 +43,7 @@ export async function fetchUnitEmailTemplate(unitId: string, actionType: string)
     .eq("action_type", actionType)
     .maybeSingle();
   if (error) return null;
-  return data as { subject: string; body: string } | null;
+  return data as unknown as { subject: string; body: string } | null;
 }
 
 export function replacePlaceholders(

@@ -518,7 +518,7 @@ export default function SmartClientImport() {
 
     const cancelSignal = getCancelSignal("clients");
 
-    for (let batchStart = 0; batchStart < unitFilteredRows.length; batchStart += BATCH_SIZE) {
+    for (let batchStart = 0; batchStart < customFilteredRows.length; batchStart += BATCH_SIZE) {
       // Check cancellation
       if (cancelSignal?.aborted) {
         addImportLog(entity, "info", `⛔ Importação interrompida pelo usuário no lote ${Math.floor(batchStart / BATCH_SIZE) + 1}.`);

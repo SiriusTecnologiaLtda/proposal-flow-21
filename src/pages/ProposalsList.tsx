@@ -391,11 +391,18 @@ export default function ProposalsList() {
       const unitId = (capturedProposal as any).clients?.unit_id || (capturedProposal as any).sales_team?.unit_id;
       const newManualRecipients = capturedRecipients.filter(r => !r.fromDb);
       if (unitId && newManualRecipients.length > 0) {
-        for (const r of newManualRecipients) {
-          await supabase.from("unit_contacts").upsert(
-            { unit_id: unitId, name: r.name, email: r.email, contact_type: "operacoes", role: "Operações" },
-            { onConflict: "unit_id,email" as any, ignoreDuplicates: true }
-          ).then(() => {});
+        // Check existing emails to avoid duplicates
+        const { data: existing } = await supabase
+          .from("unit_contacts")
+          .select("email")
+          .eq("unit_id", unitId)
+          .eq("contact_type", "operacoes");
+        const existingEmails = new Set((existing || []).map(e => e.email.toLowerCase()));
+        const toInsert = newManualRecipients.filter(r => !existingEmails.has(r.email.toLowerCase()));
+        if (toInsert.length > 0) {
+          await supabase.from("unit_contacts").insert(
+            toInsert.map(r => ({ unit_id: unitId, name: r.name, email: r.email, contact_type: "operacoes", role: "Operações" }))
+          );
         }
       }
 

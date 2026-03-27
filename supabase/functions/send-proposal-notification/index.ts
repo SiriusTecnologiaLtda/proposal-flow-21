@@ -479,7 +479,39 @@ Deno.serve(async (req) => {
         </div>
       `;
 
-      // Send to all selected CRA recipients
+      // Collect all attachments (user-uploaded + TAE signed doc)
+      const allAttachments: Array<{ name: string; base64: string; mimeType: string }> = attachments || [];
+
+      // If taeDocumentId is provided, try to fetch signed PDF from TAE
+      if (taeDocumentId) {
+        try {
+          const { data: taeConfig } = await supabase.from("tae_config").select("*").limit(1).single();
+          if (taeConfig?.application_id) {
+            const taeSecret = Deno.env.get("TAE_API_SECRET");
+            if (taeSecret) {
+              const docUrl = `${taeConfig.base_url}/api/v1/documents/${taeDocumentId}/download`;
+              const taeRes = await fetch(docUrl, {
+                headers: { "Authorization": `Bearer ${taeSecret}`, "X-Application-ID": taeConfig.application_id },
+              });
+              if (taeRes.ok) {
+                const docBuffer = await taeRes.arrayBuffer();
+                const docBase64 = btoa(String.fromCharCode(...new Uint8Array(docBuffer)));
+                allAttachments.push({
+                  name: `proposta_${proposalNumber}_assinada.pdf`,
+                  base64: docBase64,
+                  mimeType: "application/pdf",
+                });
+              } else {
+                console.warn("Could not fetch TAE signed document:", taeRes.status);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("TAE document fetch failed:", e);
+        }
+      }
+
+      // Send to all selected recipients
       const gInt2 = await getOAuthClient(supabase);
       const accessToken2 = await getAccessTokenOAuth2(
         gInt2.oauth_client_id,
@@ -488,7 +520,7 @@ Deno.serve(async (req) => {
       );
 
       for (const r of recipients) {
-        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc);
+        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc, allAttachments.length > 0 ? allAttachments : undefined);
       }
 
       return new Response(

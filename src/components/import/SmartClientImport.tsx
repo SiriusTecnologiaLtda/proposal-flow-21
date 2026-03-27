@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,11 +10,11 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
-  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye
+  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -49,6 +49,46 @@ const CLIENT_DB_FIELDS: DbField[] = [
   { key: "esn_code",           label: "ESN (código/nome)",     required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend"] },
   { key: "gsn_code",           label: "GSN (código/nome)",     required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor"] },
 ];
+
+// ─── Saved layouts (localStorage) ───────────────────────────────
+const LAYOUTS_STORAGE_KEY = "smart_import_saved_layouts";
+
+interface SavedLayout {
+  id: string;
+  name: string;
+  headerSignature: string; // sorted joined headers for matching
+  mapping: Record<number, string>; // colIndex -> dbFieldKey
+  headerNames: string[]; // original header names for display
+  createdAt: number;
+}
+
+function getHeaderSignature(headers: string[]): string {
+  return headers.filter(h => h).map(h => normalize(h)).sort().join("|");
+}
+
+function loadSavedLayouts(): SavedLayout[] {
+  try {
+    const raw = localStorage.getItem(LAYOUTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveLayout(layout: SavedLayout) {
+  const layouts = loadSavedLayouts();
+  // Replace existing with same signature or add new
+  const idx = layouts.findIndex(l => l.headerSignature === layout.headerSignature);
+  if (idx >= 0) layouts[idx] = layout;
+  else layouts.push(layout);
+  // Keep max 20 layouts
+  if (layouts.length > 20) layouts.splice(0, layouts.length - 20);
+  localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts));
+}
+
+function findMatchingLayout(headers: string[]): SavedLayout | null {
+  const sig = getHeaderSignature(headers);
+  const layouts = loadSavedLayouts();
+  return layouts.find(l => l.headerSignature === sig) || null;
+}
 
 // ─── Auto-mapping logic ─────────────────────────────────────────
 function normalize(s: string): string {
@@ -114,6 +154,8 @@ export default function SmartClientImport() {
   const [allDataRows, setAllDataRows] = useState<any[][]>([]);
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [updateFields, setUpdateFields] = useState<Set<string>>(new Set());
+  const [layoutRestored, setLayoutRestored] = useState(false);
+  const [layoutSaved, setLayoutSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -124,6 +166,8 @@ export default function SmartClientImport() {
   // ── Step 1: Upload & parse headers ────────────────────────────
   const handleFile = useCallback(async (f: File) => {
     setFile(f);
+    setLayoutRestored(false);
+    setLayoutSaved(false);
     try {
       const buf = await f.arrayBuffer();
       const wb = XLSX.read(buf);
@@ -134,7 +178,6 @@ export default function SmartClientImport() {
         return;
       }
 
-      // Detect header row automatically
       const hdrIdx = detectHeaderRow(raw);
       setHeaderRowIdx(hdrIdx);
 
@@ -145,11 +188,18 @@ export default function SmartClientImport() {
       setAllDataRows(data);
       setPreviewRows(data.slice(0, 5));
 
-      // Auto-map
-      const autoMap = autoMapColumns(hdrs);
+      // Try to restore saved layout first, then auto-map
+      const savedLayout = findMatchingLayout(hdrs);
+      let autoMap: Record<number, string>;
+      if (savedLayout) {
+        autoMap = savedLayout.mapping;
+        setLayoutRestored(true);
+        toast({ title: "Layout restaurado", description: `Mapeamento "${savedLayout.name}" aplicado automaticamente.` });
+      } else {
+        autoMap = autoMapColumns(hdrs);
+      }
       setMapping(autoMap);
 
-      // Pre-select all optional mapped fields for update
       const optionalMapped = Object.values(autoMap).filter(
         k => !CLIENT_DB_FIELDS.find(f => f.key === k)?.required
       );
@@ -161,19 +211,46 @@ export default function SmartClientImport() {
     }
   }, [toast]);
 
+  // ── Save current layout ───────────────────────────────────────
+  const handleSaveLayout = useCallback(() => {
+    if (headers.length === 0) return;
+    const layout: SavedLayout = {
+      id: crypto.randomUUID(),
+      name: file?.name || "Layout",
+      headerSignature: getHeaderSignature(headers),
+      mapping,
+      headerNames: headers,
+      createdAt: Date.now(),
+    };
+    saveLayout(layout);
+    setLayoutSaved(true);
+    toast({ title: "Layout salvo", description: "O mapeamento será reutilizado em importações futuras com o mesmo formato." });
+  }, [headers, mapping, file, toast]);
+
   // ── Step 3: Run import ────────────────────────────────────────
   const runImport = useCallback(async () => {
+    // Auto-save layout before running
+    if (!layoutSaved && headers.length > 0) {
+      const layout: SavedLayout = {
+        id: crypto.randomUUID(),
+        name: file?.name || "Layout",
+        headerSignature: getHeaderSignature(headers),
+        mapping,
+        headerNames: headers,
+        createdAt: Date.now(),
+      };
+      saveLayout(layout);
+    }
+
     setStep("running");
     const entity: ImportEntity = "clients";
     const run = startImportRun(entity, file!.name, false);
 
-    // Build reverse mapping: dbField -> colIndex
     const fieldToCol: Record<string, number> = {};
     for (const [colStr, field] of Object.entries(mapping)) {
       fieldToCol[field] = Number(colStr);
     }
 
-    // Check required fields
     const missing = CLIENT_DB_FIELDS.filter(f => f.required && !(f.key in fieldToCol));
     if (missing.length > 0) {
       addImportLog(entity, "error", `Campos obrigatórios não mapeados: ${missing.map(f => f.label).join(", ")}`);
@@ -194,7 +271,6 @@ export default function SmartClientImport() {
     addImportLog(entity, "info", `Planilha: ${allDataRows.length} linhas, ${dataRows.length} válidas, ${invalidRows} sem campos obrigatórios.`);
 
     run.totalRows = allDataRows.length;
-    // Create DB log
     let dbLogId: string | undefined;
     try {
       const { data } = await supabase.from("import_logs").insert({
@@ -220,18 +296,33 @@ export default function SmartClientImport() {
     const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
     const gsnList = (salesTeam || []).filter(s => s.role === "gsn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
 
+    // Enhanced lookup: exact code match first, then exact name, then partial
     function findInList(list: { id: string; code: string; name: string }[], search: string): string | null {
       if (!search) return null;
       const s = search.trim().toLowerCase();
-      return list.find(u => u.code === s || u.name === s)?.id
-        || list.find(u => (u.code && (u.code.includes(s) || s.includes(u.code))) || (u.name && (u.name.includes(s) || s.includes(u.name))))?.id
-        || null;
+      // 1. Exact code match
+      const byCode = list.find(u => u.code === s);
+      if (byCode) return byCode.id;
+      // 2. Exact name match
+      const byName = list.find(u => u.name === s);
+      if (byName) return byName.id;
+      // 3. Code-only: try numeric-padded match (e.g. "1" matches "001")
+      const sNum = s.replace(/^0+/, "");
+      if (sNum) {
+        const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
+        if (byPaddedCode) return byPaddedCode.id;
+      }
+      // 4. Partial match (code contains or name contains)
+      const partial = list.find(u =>
+        (u.code && (u.code.includes(s) || s.includes(u.code))) ||
+        (u.name && (u.name.includes(s) || s.includes(u.name)))
+      );
+      if (partial) return partial.id;
+      return null;
     }
 
-    // Track relationship misses for logging
     const relationMisses = { unit: new Set<string>(), esn: new Set<string>(), gsn: new Set<string>() };
 
-    // Load existing CNPJs + IDs for update
     addImportLog(entity, "info", "Carregando clientes existentes...");
     const existingMap = new Map<string, string>();
     let dbOffset = 0;
@@ -248,7 +339,6 @@ export default function SmartClientImport() {
     const updateFieldsArr = Array.from(updateFields);
     const willUpdate = updateFieldsArr.length > 0;
 
-    // ── Process rows in batches ─────────────────────────────────
     let imported = 0, updated = 0, skipped = 0, errors = 0;
     let relSkippedUnit = 0, relSkippedEsn = 0, relSkippedGsn = 0;
     const BATCH_SIZE = 50;
@@ -292,7 +382,7 @@ export default function SmartClientImport() {
 
       for (let bi = 0; bi < batch.length; bi++) {
         const row = batch[bi];
-        const rowNum = batchStart + bi + headerRowIdx + 2; // 1-indexed Excel row
+        const rowNum = batchStart + bi + headerRowIdx + 2;
         const cnpj = extractValue(row, "cnpj");
         if (!cnpj) { errors++; errorDetails.push({ row: rowNum, code: "?", reason: "CNPJ vazio" }); continue; }
 
@@ -322,7 +412,6 @@ export default function SmartClientImport() {
         }
       }
 
-      // Batch insert
       if (toInsert.length > 0) {
         const { error: batchErr, data: insData } = await supabase.from("clients").insert(toInsert).select("id");
         if (batchErr) {
@@ -343,7 +432,6 @@ export default function SmartClientImport() {
         }
       }
 
-      // Batch update
       for (const upd of toUpdate) {
         const { error } = await supabase.from("clients").update(upd.data).eq("id", upd.id);
         if (error) {
@@ -367,7 +455,6 @@ export default function SmartClientImport() {
       }
     }
 
-    // Log relationship misses
     if (relationMisses.unit.size > 0) {
       const vals = Array.from(relationMisses.unit).slice(0, 10).join(", ");
       addImportLog(entity, "error", `⚠ ${relSkippedUnit} registros com Unidade não encontrada: ${vals}${relationMisses.unit.size > 10 ? ` (+${relationMisses.unit.size - 10})` : ""}`);
@@ -406,7 +493,7 @@ export default function SmartClientImport() {
     }
 
     setStep("done");
-  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx]);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved]);
 
   // ── Reset ─────────────────────────────────────────────────────
   const reset = () => {
@@ -418,6 +505,8 @@ export default function SmartClientImport() {
     setAllDataRows([]);
     setMapping({});
     setUpdateFields(new Set());
+    setLayoutRestored(false);
+    setLayoutSaved(false);
   };
 
   const mappedCount = Object.keys(mapping).length;
@@ -489,19 +578,25 @@ export default function SmartClientImport() {
                   <span className="text-xs text-muted-foreground ml-2">(cabeçalho detectado na linha {headerRowIdx + 1})</span>
                 )}
               </div>
-              <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs shrink-0">
-                {mappedCount} de {headers.filter(h => h).length} colunas mapeadas
-              </Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                {layoutRestored && (
+                  <Badge variant="outline" className="text-xs border-green-500/50 text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Layout restaurado
+                  </Badge>
+                )}
+                <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs">
+                  {mappedCount} de {headers.filter(h => h).length} colunas mapeadas
+                </Badge>
+              </div>
             </div>
 
             <ScrollArea className="max-h-[400px]">
-              <div className="space-y-2">
+              <div className="space-y-2 pr-1">
                 {headers.map((header, colIdx) => {
-                  // Skip empty header columns
                   if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
                   return (
-                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors">
-                      <div className="flex-1 min-w-0">
+                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
                         <div className="text-xs text-muted-foreground truncate mt-0.5">
                           Ex: {previewRows.slice(0, 3).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" | ") || "—"}
@@ -515,7 +610,6 @@ export default function SmartClientImport() {
                             const next = { ...prev };
                             if (val === "__none__") { delete next[colIdx]; }
                             else {
-                              // Remove previous use of this field from other columns
                               for (const [k, v] of Object.entries(next)) {
                                 if (v === val && Number(k) !== colIdx) delete next[Number(k)];
                               }
@@ -523,9 +617,10 @@ export default function SmartClientImport() {
                             }
                             return next;
                           });
+                          setLayoutSaved(false);
                         }}
                       >
-                        <SelectTrigger className="w-[200px] shrink-0">
+                        <SelectTrigger className="w-[180px] sm:w-[200px] shrink-0">
                           <SelectValue placeholder="Ignorar" />
                         </SelectTrigger>
                         <SelectContent>
@@ -546,14 +641,14 @@ export default function SmartClientImport() {
               </div>
             </ScrollArea>
 
-            {/* Preview table */}
+            {/* Preview table with horizontal scroll */}
             {previewRows.length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="text-xs font-medium px-3 py-1.5 bg-muted/50 text-muted-foreground">
                   Prévia (primeiras {previewRows.length} linhas)
                 </div>
-                <ScrollArea className="max-h-[150px]">
-                  <div className="overflow-x-auto">
+                <ScrollArea className="max-h-[150px] w-full">
+                  <div className="min-w-max">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b bg-muted/30">
@@ -581,17 +676,24 @@ export default function SmartClientImport() {
                       </tbody>
                     </table>
                   </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </div>
             )}
 
-            <div className="flex gap-2 justify-between">
+            <div className="flex gap-2 justify-between flex-wrap">
               <Button variant="outline" size="sm" onClick={reset}>
                 <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
               </Button>
-              <Button size="sm" disabled={!requiredMapped} onClick={() => setStep("options")}>
-                Próximo <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleSaveLayout} disabled={layoutSaved}>
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  {layoutSaved ? "Salvo" : "Salvar Layout"}
+                </Button>
+                <Button size="sm" disabled={!requiredMapped} onClick={() => setStep("options")}>
+                  Próximo <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </>
         )}
@@ -640,7 +742,7 @@ export default function SmartClientImport() {
                   Campos relacionais detectados
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Os campos Unidade, ESN e GSN serão vinculados por código/nome. Registros cujo valor não corresponda a nenhum cadastro existente terão esses campos importados como vazio, e os casos serão registrados no log de importação para rastreabilidade.
+                  Os campos Unidade, ESN e GSN serão vinculados por código ou nome. Códigos numéricos com zeros à esquerda (ex: "001") são tratados automaticamente. Registros cujo valor não corresponda a nenhum cadastro existente terão esses campos importados como vazio, e os casos serão registrados no log.
                 </p>
               </div>
             )}

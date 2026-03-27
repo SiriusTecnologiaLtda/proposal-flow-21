@@ -57,13 +57,93 @@ const CLIENT_DB_FIELDS: DbField[] = [
 
 // ─── Saved layouts (localStorage) ───────────────────────────────
 const LAYOUTS_STORAGE_KEY = "smart_import_saved_layouts";
+const FILTER_RULES_STORAGE_KEY = "smart_import_filter_rules";
+
+// ─── Filter rule types ─────────────────────────────────────────
+interface FilterRule {
+  field: string;
+  operator: string;
+  value?: string;
+  description: string;
+}
+
+interface SavedFilterPreset {
+  id: string;
+  name: string;
+  rules: FilterRule[];
+  createdAt: number;
+}
+
+function loadSavedFilterPresets(): SavedFilterPreset[] {
+  try {
+    const raw = localStorage.getItem(FILTER_RULES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveFilterPreset(preset: SavedFilterPreset) {
+  const presets = loadSavedFilterPresets();
+  const idx = presets.findIndex(p => p.id === preset.id);
+  if (idx >= 0) presets[idx] = preset;
+  else presets.push(preset);
+  if (presets.length > 20) presets.splice(0, presets.length - 20);
+  localStorage.setItem(FILTER_RULES_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function deleteFilterPreset(id: string) {
+  const presets = loadSavedFilterPresets().filter(p => p.id !== id);
+  localStorage.setItem(FILTER_RULES_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function evaluateFilterRule(
+  rule: FilterRule,
+  row: any[],
+  fieldToCol: Record<string, number>,
+  lookupLists?: { unitList: any[]; esnList: any[]; gsnList: any[] },
+  findFn?: (list: any[], search: string) => string | null,
+): boolean {
+  const colIdx = fieldToCol[rule.field];
+  if (colIdx == null) return true;
+  const cellVal = String(row[colIdx] ?? "").trim();
+  switch (rule.operator) {
+    case "equals": return cellVal.toLowerCase() === (rule.value || "").toLowerCase();
+    case "not_equals": return cellVal.toLowerCase() !== (rule.value || "").toLowerCase();
+    case "contains": return cellVal.toLowerCase().includes((rule.value || "").toLowerCase());
+    case "not_contains": return !cellVal.toLowerCase().includes((rule.value || "").toLowerCase());
+    case "starts_with": return cellVal.toLowerCase().startsWith((rule.value || "").toLowerCase());
+    case "ends_with": return cellVal.toLowerCase().endsWith((rule.value || "").toLowerCase());
+    case "is_empty": return !cellVal;
+    case "is_not_empty": return !!cellVal;
+    case "greater_than": return parseFloat(cellVal) > parseFloat(rule.value || "0");
+    case "less_than": return parseFloat(cellVal) < parseFloat(rule.value || "0");
+    case "regex": { try { return new RegExp(rule.value || "", "i").test(cellVal); } catch { return true; } }
+    case "exists_in_system": {
+      if (!findFn || !lookupLists || !cellVal) return false;
+      const list = rule.field === "unit_code" ? lookupLists.unitList : rule.field === "esn_code" ? lookupLists.esnList : rule.field === "gsn_code" ? lookupLists.gsnList : [];
+      return !!findFn(list, cellVal);
+    }
+    case "not_exists_in_system": {
+      if (!findFn || !lookupLists || !cellVal) return true;
+      const list = rule.field === "unit_code" ? lookupLists.unitList : rule.field === "esn_code" ? lookupLists.esnList : rule.field === "gsn_code" ? lookupLists.gsnList : [];
+      return !findFn(list, cellVal);
+    }
+    default: return true;
+  }
+}
+
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "igual a", not_equals: "diferente de", contains: "contém", not_contains: "não contém",
+  starts_with: "começa com", ends_with: "termina com", is_empty: "está vazio", is_not_empty: "não está vazio",
+  exists_in_system: "existe no cadastro", not_exists_in_system: "não existe no cadastro",
+  greater_than: "maior que", less_than: "menor que", regex: "regex",
+};
 
 interface SavedLayout {
   id: string;
   name: string;
-  headerSignature: string; // sorted joined headers for matching
-  mapping: Record<number, string>; // colIndex -> dbFieldKey
-  headerNames: string[]; // original header names for display
+  headerSignature: string;
+  mapping: Record<number, string>;
+  headerNames: string[];
   createdAt: number;
 }
 
@@ -80,11 +160,9 @@ function loadSavedLayouts(): SavedLayout[] {
 
 function saveLayout(layout: SavedLayout) {
   const layouts = loadSavedLayouts();
-  // Replace existing with same signature or add new
   const idx = layouts.findIndex(l => l.headerSignature === layout.headerSignature);
   if (idx >= 0) layouts[idx] = layout;
   else layouts.push(layout);
-  // Keep max 20 layouts
   if (layouts.length > 20) layouts.splice(0, layouts.length - 20);
   localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts));
 }

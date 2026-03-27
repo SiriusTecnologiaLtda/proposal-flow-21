@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase, FileText, Save, Info } from "lucide-react";
+import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase, FileText, Save, Info, ChevronDown } from "lucide-react";
 import { useUnits, useCreateUnit, useUpdateUnit } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";

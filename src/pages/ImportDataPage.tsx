@@ -583,11 +583,11 @@ function ImportCard({
           </Label>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => downloadWorkbook(templateFn(), templateFilename)} disabled={isRunning}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => downloadWorkbook(templateFn(), templateFilename)} disabled={isRunning}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Modelo
           </Button>
-          <Button size="sm" disabled={isRunning} onClick={() => fileRef.current?.click()}>
+          <Button size="sm" className="shrink-0" disabled={isRunning} onClick={() => fileRef.current?.click()}>
             <Upload className="mr-1.5 h-3.5 w-3.5" /> Importar
           </Button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => {
@@ -855,8 +855,8 @@ function MetasImportCard({ importFn }: { importFn: (file: File, year: number) =>
           Aba "BASE DE DADOS - Time Comercial" · Filtra nível ESN + Receita SCS · Colunas O–Z (jan–dez) · Atualiza metas existentes automaticamente.
         </p>
 
-        <div className="flex gap-2">
-          <Button size="sm" disabled={isRunning} onClick={() => fileRef.current?.click()}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" className="shrink-0" disabled={isRunning} onClick={() => fileRef.current?.click()}>
             <Upload className="mr-1.5 h-3.5 w-3.5" /> Importar Metas
           </Button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => {

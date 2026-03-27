@@ -117,33 +117,103 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Download the signed document – try multiple TAE endpoints
-    let downloadRes: Response | null = null;
-    const downloadEndpoints = [
-      `${taeConfig.base_url}/documents/v1/envelopes/${sig.tae_document_id}/download`,
-      `${taeConfig.base_url}/documents/v1/documentos/${sig.tae_document_id}/download`,
-    ];
+    // Resolve publication ID first when possible, then download via signed URL
+    let resolvedPublicationId = String(sig.tae_publication_id || "").trim() || null;
 
-    for (const url of downloadEndpoints) {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${taeToken}` },
-      });
-      if (res.ok) {
-        downloadRes = res;
-        break;
+    if (!resolvedPublicationId && sig.tae_document_id) {
+      try {
+        const siRes = await fetch(
+          `${taeConfig.base_url}/signintegration/v2/Publicacoes/documentos-empresa`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${taeToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify([Number(sig.tae_document_id)]),
+          }
+        );
+
+        const siRaw = await siRes.text();
+        if (siRes.ok && siRaw) {
+          let siParsed: any = null;
+          try { siParsed = JSON.parse(siRaw); } catch { siParsed = null; }
+          const siData = siParsed?.data || siParsed;
+          const items = Array.isArray(siData) ? siData : [siData];
+          const match = items.find((item: any) =>
+            String(item?.idDocumento || item?.documentoId || item?.id || "") === String(sig.tae_document_id)
+          ) || items[0];
+
+          const candidatePublicationId = String(
+            match?.idPublicacao ||
+            match?.publicacaoId ||
+            match?.publicacao?.id ||
+            match?.publicacoes?.[0]?.id ||
+            match?.publicacoes?.[0]?.idPublicacao ||
+            ""
+          ).trim();
+
+          if (candidatePublicationId) {
+            resolvedPublicationId = candidatePublicationId;
+          }
+        }
+      } catch {
+        // ignore and continue with direct download fallbacks
       }
-      await res.text().catch(() => "");
     }
 
-    if (!downloadRes || !downloadRes.ok) {
-      // Last resort: try publication-based download
-      if (sig.tae_publication_id) {
-        const pubRes = await fetch(
-          `${taeConfig.base_url}/documents/v1/publicacoes/${sig.tae_publication_id}/download`,
-          { headers: { Authorization: `Bearer ${taeToken}` } }
+    let downloadRes: Response | null = null;
+
+    if (resolvedPublicationId) {
+      try {
+        const signedUrlRes = await fetch(
+          `${taeConfig.base_url}/documents/v1/publicacoes/download/signed-url?idPublicacao=${encodeURIComponent(resolvedPublicationId)}`,
+          {
+            headers: { Authorization: `Bearer ${taeToken}` },
+          }
         );
-        if (pubRes.ok) downloadRes = pubRes;
-        else await pubRes.text().catch(() => "");
+        const signedUrlRaw = await signedUrlRes.text();
+
+        if (signedUrlRes.ok && signedUrlRaw) {
+          let signedUrlData: any = null;
+          try { signedUrlData = JSON.parse(signedUrlRaw); } catch { signedUrlData = null; }
+          const payload = signedUrlData?.data || signedUrlData;
+          const signedUrl = String(
+            payload?.signedUrl || payload?.url || payload?.downloadUrl || payload?.link || ""
+          ).trim();
+
+          if (signedUrl) {
+            const fileRes = await fetch(signedUrl);
+            if (fileRes.ok) {
+              downloadRes = fileRes;
+            } else {
+              await fileRes.text().catch(() => "");
+            }
+          }
+        }
+      } catch {
+        // ignore and continue with direct download fallbacks
+      }
+    }
+
+    if (!downloadRes) {
+      const downloadEndpoints = [
+        resolvedPublicationId
+          ? `${taeConfig.base_url}/documents/v1/publicacoes/${resolvedPublicationId}/download`
+          : null,
+        `${taeConfig.base_url}/documents/v1/envelopes/${sig.tae_document_id}/download`,
+        `${taeConfig.base_url}/documents/v1/documentos/${sig.tae_document_id}/download`,
+      ].filter(Boolean) as string[];
+
+      for (const url of downloadEndpoints) {
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${taeToken}` },
+        });
+        if (res.ok) {
+          downloadRes = res;
+          break;
+        }
+        await res.text().catch(() => "");
       }
     }
 
@@ -152,7 +222,6 @@ Deno.serve(async (req) => {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
     }
 
     // Convert to base64

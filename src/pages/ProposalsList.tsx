@@ -1261,6 +1261,16 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
+                            {(() => {
+                              const sigs = (p as any).proposal_signatures || [];
+                              const hasTaeSigned = sigs.some((s: any) => s.status === "completed" && s.tae_document_id);
+                              return hasTaeSigned ? (
+                                <DropdownMenuItem onClick={() => handleDownloadTaeSigned(p)} disabled={downloadingTae === p.id}>
+                                  {downloadingTae === p.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
+                                  Baixar Documento Assinado
+                                </DropdownMenuItem>
+                              ) : null;
+                            })()}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                               <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura

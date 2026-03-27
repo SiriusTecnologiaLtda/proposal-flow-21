@@ -280,17 +280,41 @@ export default function ProposalsList() {
   const [notifType, setNotifType] = useState<"solicitar_ajuste" | "notificar_esn">("solicitar_ajuste");
   const [notifProposal, setNotifProposal] = useState<any>(null);
   const [notifMessage, setNotifMessage] = useState("");
+  const [notifSubject, setNotifSubject] = useState("");
   const [notifSending, setNotifSending] = useState(false);
   const [notifCcEmails, setNotifCcEmails] = useState<string[]>([]);
   const [notifCcInput, setNotifCcInput] = useState("");
 
-  function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
+  async function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
     setNotifProposal(proposal);
     setNotifType(type);
     setNotifMessage("");
+    setNotifSubject("");
     setNotifCcEmails([]);
     setNotifCcInput("");
     setNotifDialogOpen(true);
+
+    // Load unit email template
+    const unitId = (proposal as any).clients?.unit_id || (proposal as any).sales_team?.unit_id;
+    if (unitId) {
+      const actionType = type === "solicitar_ajuste" ? "solicitar_ev" : "concluir_revisao";
+      const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+      const tmpl = await fetchUnitEmailTemplate(unitId, actionType);
+      if (tmpl && (tmpl.subject || tmpl.body)) {
+        const unitName = units.find((u: any) => u.id === unitId)?.name || "";
+        const values = {
+          numero: proposal.number,
+          cliente: (proposal as any).clients?.name || "",
+          unidade: unitName,
+          esn: (proposal as any).sales_team?.name || "",
+          ev: (proposal as any).arquiteto?.name || "",
+          gsn: "", // GSN loaded from proposal if available
+          produto: proposal.product || "",
+        };
+        if (tmpl.subject) setNotifSubject(replacePlaceholders(tmpl.subject, values));
+        if (tmpl.body) setNotifMessage(replacePlaceholders(tmpl.body, values));
+      }
+    }
   }
 
   function addNotifCcEmail() {
@@ -305,6 +329,7 @@ export default function ProposalsList() {
   const [craDialogOpen, setCraDialogOpen] = useState(false);
   const [craProposal, setCraProposal] = useState<any>(null);
   const [craMessage, setCraMessage] = useState("");
+  const [craSubject, setCraSubject] = useState("");
   const [craSending, setCraSending] = useState(false);
   const [opsRecipients, setOpsRecipients] = useState<Array<{ id?: string; name: string; email: string; fromDb: boolean }>>([]);
   const [opsManualName, setOpsManualName] = useState("");
@@ -313,9 +338,10 @@ export default function ProposalsList() {
   const opsFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load unit operations contacts for the proposal's unit
-  function openCraDialog(proposal: any) {
+  async function openCraDialog(proposal: any) {
     setCraProposal(proposal);
     setCraMessage("");
+    setCraSubject("");
     setOpsRecipients([]);
     setOpsAttachments([]);
     setOpsManualName("");
@@ -335,6 +361,24 @@ export default function ProposalsList() {
             setOpsRecipients(data.map(c => ({ id: c.id, name: c.name, email: c.email, fromDb: true })));
           }
         });
+
+      // Load email template
+      const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+      const tmpl = await fetchUnitEmailTemplate(unitId, "enviar_operacoes");
+      if (tmpl && (tmpl.subject || tmpl.body)) {
+        const unitName = units.find((u: any) => u.id === unitId)?.name || "";
+        const values = {
+          numero: proposal.number,
+          cliente: (proposal as any).clients?.name || "",
+          unidade: unitName,
+          esn: (proposal as any).sales_team?.name || "",
+          ev: (proposal as any).arquiteto?.name || "",
+          gsn: "",
+          produto: proposal.product || "",
+        };
+        if (tmpl.subject) setCraSubject(replacePlaceholders(tmpl.subject, values));
+        if (tmpl.body) setCraMessage(replacePlaceholders(tmpl.body, values));
+      }
     }
   }
 
@@ -376,6 +420,7 @@ export default function ProposalsList() {
     // Capture state
     const capturedProposal = craProposal;
     const capturedMessage = craMessage;
+    const capturedSubject = craSubject;
     const capturedRecipients = [...opsRecipients];
     const capturedAttachments = [...opsAttachments];
 
@@ -429,6 +474,7 @@ export default function ProposalsList() {
             proposalId: capturedProposal.id,
             type: "comunicar_cra",
             message: capturedMessage,
+            subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
             attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
@@ -517,6 +563,7 @@ export default function ProposalsList() {
     const capturedProposal = notifProposal;
     const capturedType = notifType;
     const capturedMessage = notifMessage;
+    const capturedSubject = notifSubject;
     const capturedCcEmails = [...notifCcEmails];
 
     // Close immediately and show background toast
@@ -572,6 +619,7 @@ export default function ProposalsList() {
             proposalId: capturedProposal.id,
             type: capturedType,
             message: capturedMessage,
+            subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
             _origin: window.location.origin,
@@ -1710,6 +1758,24 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
+                    {/* Section: Assunto */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Mail className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Assunto do E-mail</h3>
+                      </div>
+                      <div className="p-4">
+                        <Input
+                          value={notifSubject}
+                          onChange={(e) => setNotifSubject(e.target.value)}
+                          placeholder={notifType === "solicitar_ajuste"
+                            ? `[Proposta ${notifProposal?.number}] Envio para Engenharia de Valor`
+                            : `[Proposta ${notifProposal?.number}] Ajuste de Escopo Concluído`}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+
                     {/* Section: Mensagem */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
@@ -1896,6 +1962,22 @@ export default function ProposalsList() {
                           <Upload className="mr-2 h-3.5 w-3.5" />
                           Anexar arquivo
                         </Button>
+                      </div>
+                    </div>
+
+                    {/* Section: Assunto */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Mail className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Assunto do E-mail</h3>
+                      </div>
+                      <div className="p-4">
+                        <Input
+                          value={craSubject}
+                          onChange={(e) => setCraSubject(e.target.value)}
+                          placeholder={`[Proposta ${craProposal?.number}] Envio para Operações`}
+                          className="text-sm"
+                        />
                       </div>
                     </div>
 

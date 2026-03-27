@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase, FileText, Save, Info } from "lucide-react";
 import { useUnits, useCreateUnit, useUpdateUnit } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useUnitEmailTemplates, EMAIL_ACTION_TYPES, EMAIL_PLACEHOLDERS } from "@/hooks/useUnitEmailTemplates";
 
 const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
 const emptyContact = { name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "", contact_type: "tae" };
@@ -399,6 +402,7 @@ export default function UnitsPage() {
               <TabsList>
                 <TabsTrigger value="dados" className="gap-1.5"><Building className="h-3.5 w-3.5" />Dados Cadastrais</TabsTrigger>
                 <TabsTrigger value="contatos" className="gap-1.5"><Users className="h-3.5 w-3.5" />Contatos</TabsTrigger>
+                <TabsTrigger value="emails" className="gap-1.5"><Mail className="h-3.5 w-3.5" />E-mails Padrão</TabsTrigger>
               </TabsList>
 
               <TabsContent value="dados" className="mt-4 space-y-3 text-sm">
@@ -470,6 +474,10 @@ export default function UnitsPage() {
                     />
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="emails" className="mt-4">
+                <UnitEmailTemplatesTab unitId={selectedUnit.id} />
               </TabsContent>
             </Tabs>
           </div>
@@ -564,5 +572,173 @@ function ContactSection({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Unit Email Templates Tab ───────────────────────────────
+function UnitEmailTemplatesTab({ unitId }: { unitId: string }) {
+  const { data: templates = [], isLoading } = useUnitEmailTemplates(unitId);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [localTemplates, setLocalTemplates] = useState<Record<string, { subject: string; body: string }>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    const map: Record<string, { subject: string; body: string }> = {};
+    for (const t of templates) {
+      map[t.action_type] = { subject: t.subject, body: t.body };
+    }
+    setLocalTemplates(map);
+  }, [templates]);
+
+  const getValue = (actionType: string, field: "subject" | "body") => {
+    return localTemplates[actionType]?.[field] ?? "";
+  };
+
+  const setValue = (actionType: string, field: "subject" | "body", value: string) => {
+    setLocalTemplates(prev => ({
+      ...prev,
+      [actionType]: { ...(prev[actionType] || { subject: "", body: "" }), [field]: value },
+    }));
+  };
+
+  const handleSave = async (actionType: string) => {
+    setSaving(actionType);
+    try {
+      const existing = templates.find(t => t.action_type === actionType);
+      const payload = {
+        unit_id: unitId,
+        action_type: actionType,
+        subject: localTemplates[actionType]?.subject || "",
+        body: localTemplates[actionType]?.body || "",
+        updated_at: new Date().toISOString(),
+      };
+      if (existing) {
+        const { error } = await supabase.from("unit_email_templates" as any).update(payload).eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("unit_email_templates" as any).insert(payload);
+        if (error) throw error;
+      }
+      queryClient.invalidateQueries({ queryKey: ["unit_email_templates", unitId] });
+      toast({ title: "Template salvo!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const insertPlaceholder = (actionType: string, field: "subject" | "body", tag: string) => {
+    setValue(actionType, field, getValue(actionType, field) + tag);
+  };
+
+  if (isLoading) return <p className="text-sm text-muted-foreground py-4">Carregando...</p>;
+
+  return (
+    <TooltipProvider>
+      <div className="space-y-4">
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Placeholders disponíveis</p>
+            <div className="flex flex-wrap gap-1.5">
+              {EMAIL_PLACEHOLDERS.map(p => (
+                <Tooltip key={p.tag}>
+                  <TooltipTrigger asChild>
+                    <code className="text-[10px] bg-background border rounded px-1.5 py-0.5 font-mono cursor-help">
+                      {p.tag}
+                    </code>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <p className="font-medium">{p.label}</p>
+                    {"example" in p && <p className="text-muted-foreground">Ex: {(p as any).example}</p>}
+                    {"description" in p && (p as any).description && <p className="text-muted-foreground">{(p as any).description}</p>}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {EMAIL_ACTION_TYPES.map(action => (
+          <div key={action.value} className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{action.label}</p>
+                <p className="text-[11px] text-muted-foreground">{action.description}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2.5 text-xs shrink-0"
+                disabled={saving === action.value}
+                onClick={() => handleSave(action.value)}
+              >
+                <Save className="h-3 w-3 mr-1" />
+                {saving === action.value ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Assunto</Label>
+                  <div className="flex gap-0.5">
+                    {EMAIL_PLACEHOLDERS.filter(p => p.tag !== "{{RESUMO_OPORTUNIDADE}}").map(p => (
+                      <Tooltip key={p.tag}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => insertPlaceholder(action.value, "subject", p.tag)}
+                            className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
+                          >
+                            +{p.label.substring(0, 3)}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+                <Input
+                  value={getValue(action.value, "subject")}
+                  onChange={(e) => setValue(action.value, "subject", e.target.value)}
+                  placeholder={`Ex: [OPP {{NUMERO_OPORTUNIDADE}}] ${action.label}`}
+                  className="text-sm font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Texto do E-mail</Label>
+                  <div className="flex gap-0.5 flex-wrap justify-end">
+                    {EMAIL_PLACEHOLDERS.map(p => (
+                      <Tooltip key={p.tag}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => insertPlaceholder(action.value, "body", p.tag)}
+                            className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
+                          >
+                            +{p.label.substring(0, 3)}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+                <Textarea
+                  value={getValue(action.value, "body")}
+                  onChange={(e) => setValue(action.value, "body", e.target.value)}
+                  placeholder="Texto padrão do e-mail. Use placeholders como {{NUMERO_OPORTUNIDADE}}, {{CLIENTE}} etc."
+                  rows={4}
+                  className="text-sm font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }

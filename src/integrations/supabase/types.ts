@@ -1784,6 +1784,44 @@ export type Database = {
           },
         ]
       }
+      unit_email_templates: {
+        Row: {
+          action_type: string
+          body: string
+          created_at: string
+          id: string
+          subject: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          body?: string
+          created_at?: string
+          id?: string
+          subject?: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          body?: string
+          created_at?: string
+          id?: string
+          subject?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_email_templates_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unit_info: {
         Row: {
           address: string | null

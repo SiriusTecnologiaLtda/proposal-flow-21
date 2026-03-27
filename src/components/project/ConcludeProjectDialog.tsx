@@ -20,6 +20,7 @@ interface ConcludeProjectDialogProps {
 
 export default function ConcludeProjectDialog({ open, onOpenChange, project }: ConcludeProjectDialogProps) {
   const [message, setMessage] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
   const [loading, setLoading] = useState(false);
   const [resolvingLink, setResolvingLink] = useState(false);
   const [existingProjects, setExistingProjects] = useState<any[]>([]);
@@ -131,7 +132,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   useEffect(() => {
     if (!open || !project?.id) return;
     setMessage("");
-    setCcEmails([]);
+    setEmailSubject("");
     setCcInput("");
     setFullProject(null);
     setTemplateNames({});
@@ -154,7 +155,28 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           setTemplateNames(map);
         }
 
-        await resolveProjectLinkage();
+        const result = await resolveProjectLinkage();
+        
+        // Load email template for this unit
+        if (active && result.resolvedProposal?.client_id) {
+          const { data: client } = await supabase.from("clients").select("unit_id").eq("id", result.resolvedProposal.client_id).maybeSingle();
+          if (client?.unit_id) {
+            const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+            const tmpl = await fetchUnitEmailTemplate(client.unit_id, "concluir_revisao");
+            if (active && tmpl) {
+              const { data: unitData } = await supabase.from("unit_info").select("name").eq("id", client.unit_id).maybeSingle();
+              const { data: clientData } = await supabase.from("clients").select("name").eq("id", result.resolvedProposal.client_id).maybeSingle();
+              const values = {
+                numero: result.resolvedProposal?.number || project?.proposal_number || "",
+                cliente: clientData?.name || "",
+                unidade: unitData?.name || "",
+                produto: project?.product || "",
+              };
+              if (tmpl.subject) setEmailSubject(replacePlaceholders(tmpl.subject, values));
+              if (tmpl.body) setMessage(replacePlaceholders(tmpl.body, values));
+            }
+          }
+        }
       } catch (err: any) {
         if (active) {
           toast({ title: "Erro", description: err.message || "Falha ao carregar vínculo do projeto.", variant: "destructive" });
@@ -406,7 +428,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 proposalId: effectiveProposalId,
                 type: "projeto_concluido",
                 to: esnEmail,
-                subject: `[OPP ${effectiveProposalNumber || ""}] Revisão Concluída`,
+                subject: emailSubject || `[OPP ${effectiveProposalNumber || ""}] Revisão Concluída`,
                 htmlBody,
                 cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
               }),
@@ -568,6 +590,22 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Section: Assunto */}
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                <Mail className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Assunto do E-mail</h3>
+              </div>
+              <div className="p-4">
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={`[OPP ${fullProject?.proposal_number || ""}] Revisão Concluída`}
+                  className="text-sm"
+                />
               </div>
             </div>
 

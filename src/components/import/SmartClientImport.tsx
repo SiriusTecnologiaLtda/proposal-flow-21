@@ -409,7 +409,15 @@ export default function SmartClientImport() {
     const BATCH_SIZE = 50;
     const errorDetails: { row: number; code: string; reason: string }[] = [];
 
+    const cancelSignal = getCancelSignal("clients");
+
     for (let batchStart = 0; batchStart < unitFilteredRows.length; batchStart += BATCH_SIZE) {
+      // Check cancellation
+      if (cancelSignal?.aborted) {
+        addImportLog(entity, "info", `⛔ Importação interrompida pelo usuário no lote ${Math.floor(batchStart / BATCH_SIZE) + 1}.`);
+        break;
+      }
+
       const batch = unitFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];

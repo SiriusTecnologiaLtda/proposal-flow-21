@@ -57,6 +57,7 @@ export function replacePlaceholders(
     ev?: string;
     gsn?: string;
     produto?: string;
+    descProj?: string;
     resumo?: string;
   }
 ): string {
@@ -68,5 +69,6 @@ export function replacePlaceholders(
     .replace(/\{\{EV\}\}/g, values.ev || "")
     .replace(/\{\{GSN\}\}/g, values.gsn || "")
     .replace(/\{\{PRODUTO\}\}/g, values.produto || "")
+    .replace(/\{\{DESC_PROJ\}\}/g, values.descProj || "")
     .replace(/\{\{RESUMO_OPORTUNIDADE\}\}/g, values.resumo || "");
 }

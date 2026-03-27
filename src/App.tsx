@@ -38,6 +38,7 @@ import GoogleOAuthCallback from "@/pages/GoogleOAuthCallback";
 import LandingPage from "@/pages/LandingPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import ProjectCreatePage from "@/pages/ProjectCreatePage";
+import UserGroupsPage from "@/pages/UserGroupsPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({
@@ -139,6 +140,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/permissoes" element={<GuardedRoute path="/configuracoes"><RolePermissionsPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/cadastrados" element={<GuardedRoute path="/configuracoes"><RegisteredUsersPage /></GuardedRoute>} />
+        <Route path="/configuracoes/usuarios/grupos" element={<GuardedRoute path="/configuracoes"><UserGroupsPage /></GuardedRoute>} />
         <Route path="/configuracoes/tipos-proposta" element={<Navigate to="/cadastros/tipos-proposta" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

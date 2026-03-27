@@ -1864,6 +1864,98 @@ export type Database = {
         }
         Relationships: []
       }
+      user_group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_group_units: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_group_units_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_group_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["app_role"] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          role?: Database["public"]["Enums"]["app_role"] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["app_role"] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

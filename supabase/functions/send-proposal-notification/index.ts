@@ -37,25 +37,46 @@ function buildRawEmail(
   to: string,
   subject: string,
   htmlBody: string,
-  cc?: string[]
+  cc?: string[],
+  attachments?: Array<{ name: string; base64: string; mimeType: string }>
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
+  const hasAttachments = attachments && attachments.length > 0;
+  const contentType = hasAttachments
+    ? `multipart/mixed; boundary="${boundary}"`
+    : `multipart/alternative; boundary="${boundary}"`;
+
   const rawLines = [
     `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
     ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: ${contentType}`,
     ``,
     `--${boundary}`,
     `Content-Type: text/html; charset="UTF-8"`,
     `Content-Transfer-Encoding: base64`,
     ``,
     btoa(unescape(encodeURIComponent(htmlBody))),
-    ``,
-    `--${boundary}--`,
   ];
+
+  if (hasAttachments) {
+    for (const att of attachments!) {
+      const encodedName = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(att.name)))}?=`;
+      rawLines.push(
+        ``,
+        `--${boundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.name}"`,
+        `Content-Disposition: attachment; filename="${encodedName}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        att.base64
+      );
+    }
+  }
+
+  rawLines.push(``, `--${boundary}--`);
   return rawLines.join("\r\n");
 }
 

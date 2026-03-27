@@ -1467,8 +1467,8 @@ export default function ProposalCreate() {
                 <Label className="text-xs text-muted-foreground">Executivo de Vendas (ESN)</Label>
                 <Popover open={esnPopoverOpen} onOpenChange={setEsnPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
-                      {esnId ? (() => { const m = salesTeam.find(s => s.id === esnId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10 min-w-0">
+                      <span className="truncate min-w-0">{esnId ? (() => { const m = salesTeam.find(s => s.id === esnId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}</span>
                       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -1494,8 +1494,8 @@ export default function ProposalCreate() {
               {/* GSN (read-only) */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Gerente de Vendas (GSN)</Label>
-                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
-                  {autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}
+                <div className="flex h-10 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground min-w-0">
+                  <span className="truncate min-w-0">{autoGsn ? `${autoGsn.code} - ${autoGsn.name}` : "Vinculado ao ESN"}</span>
                 </div>
               </div>
 
@@ -1504,8 +1504,8 @@ export default function ProposalCreate() {
                 <Label className="text-xs text-muted-foreground">Engenheiro de Valor</Label>
                 <Popover open={arquitetoPopoverOpen} onOpenChange={setArquitetoPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
-                      {arquitetoId ? (() => { const m = salesTeam.find(s => s.id === arquitetoId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10 min-w-0">
+                      <span className="truncate min-w-0">{arquitetoId ? (() => { const m = salesTeam.find(s => s.id === arquitetoId); return m ? `${m.code} - ${m.name}` : "Selecione"; })() : "Selecione"}</span>
                       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>

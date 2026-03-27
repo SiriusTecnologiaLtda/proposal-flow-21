@@ -12,9 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
-  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save
+  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save,
+  Sparkles, Filter, Trash2, Send
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -54,13 +57,93 @@ const CLIENT_DB_FIELDS: DbField[] = [
 
 // ─── Saved layouts (localStorage) ───────────────────────────────
 const LAYOUTS_STORAGE_KEY = "smart_import_saved_layouts";
+const FILTER_RULES_STORAGE_KEY = "smart_import_filter_rules";
+
+// ─── Filter rule types ─────────────────────────────────────────
+interface FilterRule {
+  field: string;
+  operator: string;
+  value?: string;
+  description: string;
+}
+
+interface SavedFilterPreset {
+  id: string;
+  name: string;
+  rules: FilterRule[];
+  createdAt: number;
+}
+
+function loadSavedFilterPresets(): SavedFilterPreset[] {
+  try {
+    const raw = localStorage.getItem(FILTER_RULES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveFilterPreset(preset: SavedFilterPreset) {
+  const presets = loadSavedFilterPresets();
+  const idx = presets.findIndex(p => p.id === preset.id);
+  if (idx >= 0) presets[idx] = preset;
+  else presets.push(preset);
+  if (presets.length > 20) presets.splice(0, presets.length - 20);
+  localStorage.setItem(FILTER_RULES_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function deleteFilterPreset(id: string) {
+  const presets = loadSavedFilterPresets().filter(p => p.id !== id);
+  localStorage.setItem(FILTER_RULES_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function evaluateFilterRule(
+  rule: FilterRule,
+  row: any[],
+  fieldToCol: Record<string, number>,
+  lookupLists?: { unitList: any[]; esnList: any[]; gsnList: any[] },
+  findFn?: (list: any[], search: string) => string | null,
+): boolean {
+  const colIdx = fieldToCol[rule.field];
+  if (colIdx == null) return true;
+  const cellVal = String(row[colIdx] ?? "").trim();
+  switch (rule.operator) {
+    case "equals": return cellVal.toLowerCase() === (rule.value || "").toLowerCase();
+    case "not_equals": return cellVal.toLowerCase() !== (rule.value || "").toLowerCase();
+    case "contains": return cellVal.toLowerCase().includes((rule.value || "").toLowerCase());
+    case "not_contains": return !cellVal.toLowerCase().includes((rule.value || "").toLowerCase());
+    case "starts_with": return cellVal.toLowerCase().startsWith((rule.value || "").toLowerCase());
+    case "ends_with": return cellVal.toLowerCase().endsWith((rule.value || "").toLowerCase());
+    case "is_empty": return !cellVal;
+    case "is_not_empty": return !!cellVal;
+    case "greater_than": return parseFloat(cellVal) > parseFloat(rule.value || "0");
+    case "less_than": return parseFloat(cellVal) < parseFloat(rule.value || "0");
+    case "regex": { try { return new RegExp(rule.value || "", "i").test(cellVal); } catch { return true; } }
+    case "exists_in_system": {
+      if (!findFn || !lookupLists || !cellVal) return false;
+      const list = rule.field === "unit_code" ? lookupLists.unitList : rule.field === "esn_code" ? lookupLists.esnList : rule.field === "gsn_code" ? lookupLists.gsnList : [];
+      return !!findFn(list, cellVal);
+    }
+    case "not_exists_in_system": {
+      if (!findFn || !lookupLists || !cellVal) return true;
+      const list = rule.field === "unit_code" ? lookupLists.unitList : rule.field === "esn_code" ? lookupLists.esnList : rule.field === "gsn_code" ? lookupLists.gsnList : [];
+      return !findFn(list, cellVal);
+    }
+    default: return true;
+  }
+}
+
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "igual a", not_equals: "diferente de", contains: "contém", not_contains: "não contém",
+  starts_with: "começa com", ends_with: "termina com", is_empty: "está vazio", is_not_empty: "não está vazio",
+  exists_in_system: "existe no cadastro", not_exists_in_system: "não existe no cadastro",
+  greater_than: "maior que", less_than: "menor que", regex: "regex",
+};
 
 interface SavedLayout {
   id: string;
   name: string;
-  headerSignature: string; // sorted joined headers for matching
-  mapping: Record<number, string>; // colIndex -> dbFieldKey
-  headerNames: string[]; // original header names for display
+  headerSignature: string;
+  mapping: Record<number, string>;
+  headerNames: string[];
   createdAt: number;
 }
 
@@ -77,11 +160,9 @@ function loadSavedLayouts(): SavedLayout[] {
 
 function saveLayout(layout: SavedLayout) {
   const layouts = loadSavedLayouts();
-  // Replace existing with same signature or add new
   const idx = layouts.findIndex(l => l.headerSignature === layout.headerSignature);
   if (idx >= 0) layouts[idx] = layout;
   else layouts.push(layout);
-  // Keep max 20 layouts
   if (layouts.length > 20) layouts.splice(0, layouts.length - 20);
   localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(layouts));
 }
@@ -158,6 +239,10 @@ export default function SmartClientImport() {
   const [updateFields, setUpdateFields] = useState<Set<string>>(new Set());
   const [layoutRestored, setLayoutRestored] = useState(false);
   const [layoutSaved, setLayoutSaved] = useState(false);
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [filterPrompt, setFilterPrompt] = useState("");
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [savedPresets, setSavedPresets] = useState<SavedFilterPreset[]>(() => loadSavedFilterPresets());
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -360,6 +445,28 @@ export default function SmartClientImport() {
       return;
     }
 
+    // ── APPLY CUSTOM FILTER RULES ──────────────────────────────
+    let customFilteredRows = unitFilteredRows;
+    let customFilteredCount = 0;
+    if (filterRules.length > 0) {
+      const lookupLists = { unitList, esnList, gsnList };
+      customFilteredRows = unitFilteredRows.filter(row => {
+        return filterRules.every(rule => evaluateFilterRule(rule, row, fieldToCol, lookupLists, findInList));
+      });
+      customFilteredCount = unitFilteredRows.length - customFilteredRows.length;
+      if (customFilteredCount > 0) {
+        addImportLog(entity, "info", `🔍 ${customFilteredCount} registros removidos pelas regras de pré-filtro.`);
+      }
+      addImportLog(entity, "info", `${customFilteredRows.length} registros após aplicação dos filtros personalizados.`);
+    }
+
+    if (customFilteredRows.length === 0) {
+      addImportLog(entity, "error", "Nenhum registro passou nos filtros para importar.");
+      finishImportRun(entity, "error");
+      setStep("done");
+      return;
+    }
+
     const relationMisses = { esn: new Set<string>(), gsn: new Set<string>() };
 
     // ── Load existing clients by code+store_code (matching unique constraint) ──
@@ -411,14 +518,14 @@ export default function SmartClientImport() {
 
     const cancelSignal = getCancelSignal("clients");
 
-    for (let batchStart = 0; batchStart < unitFilteredRows.length; batchStart += BATCH_SIZE) {
+    for (let batchStart = 0; batchStart < customFilteredRows.length; batchStart += BATCH_SIZE) {
       // Check cancellation
       if (cancelSignal?.aborted) {
         addImportLog(entity, "info", `⛔ Importação interrompida pelo usuário no lote ${Math.floor(batchStart / BATCH_SIZE) + 1}.`);
         break;
       }
 
-      const batch = unitFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
+      const batch = customFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];
 
@@ -495,12 +602,12 @@ export default function SmartClientImport() {
         }
       }
 
-      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount });
+      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount + customFilteredCount });
 
       if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
         try {
           await supabase.from("import_logs").update({
-            status: "running", imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount,
+            status: "running", imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount + customFilteredCount,
             duration_ms: Date.now() - run.startedAt,
           } as any).eq("id", dbLogId);
         } catch {}
@@ -517,7 +624,7 @@ export default function SmartClientImport() {
     }
 
     const wasCancelled = cancelSignal?.aborted;
-    const totalSkipped = skipped + invalidRows + unitFilteredCount;
+    const totalSkipped = skipped + invalidRows + unitFilteredCount + customFilteredCount;
     const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
 
@@ -542,7 +649,41 @@ export default function SmartClientImport() {
     }
 
     setStep("done");
-  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved]);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules]);
+
+  // ── AI Filter prompt handler ───────────────────────────────────
+  const handleFilterPrompt = useCallback(async () => {
+    if (!filterPrompt.trim()) return;
+    setFilterLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-import-filter", {
+        body: { prompt: filterPrompt.trim(), existingRules: filterRules },
+      });
+      if (error) throw error;
+      if (data?.rules) {
+        setFilterRules(data.rules);
+        setFilterPrompt("");
+        toast({ title: "Regras atualizadas", description: `${data.rules.length} regra(s) de filtro configurada(s).` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao processar regra", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setFilterLoading(false);
+    }
+  }, [filterPrompt, filterRules, toast]);
+
+  const handleSaveFilterPreset = useCallback(() => {
+    if (filterRules.length === 0) return;
+    const preset: SavedFilterPreset = {
+      id: crypto.randomUUID(),
+      name: `Filtro ${new Date().toLocaleDateString("pt-BR")}`,
+      rules: filterRules,
+      createdAt: Date.now(),
+    };
+    saveFilterPreset(preset);
+    setSavedPresets(loadSavedFilterPresets());
+    toast({ title: "Preset salvo", description: "As regras de filtro foram salvas para uso futuro." });
+  }, [filterRules, toast]);
 
   // ── Reset ─────────────────────────────────────────────────────
   const reset = () => {
@@ -556,6 +697,8 @@ export default function SmartClientImport() {
     setUpdateFields(new Set());
     setLayoutRestored(false);
     setLayoutSaved(false);
+    setFilterRules([]);
+    setFilterPrompt("");
   };
 
   const mappedCount = Object.keys(mapping).length;
@@ -791,6 +934,120 @@ export default function SmartClientImport() {
               )}
             </div>
 
+            {/* ── AI Filter Rules ─────────────────────────────── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Regras de Pré-filtro</span>
+                <Badge variant="outline" className="text-xs">{filterRules.length} regra(s)</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Descreva em linguagem natural quais registros devem ser importados. A IA converterá em regras lógicas automaticamente.
+              </p>
+
+              {/* Prompt input */}
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Textarea
+                    placeholder='Ex: "Importar apenas clientes com unidade válida no sistema" ou "Excluir registros com código começando por T"'
+                    value={filterPrompt}
+                    onChange={e => setFilterPrompt(e.target.value)}
+                    className="min-h-[60px] text-sm resize-none pr-10"
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleFilterPrompt();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleFilterPrompt}
+                  disabled={!filterPrompt.trim() || filterLoading}
+                  className="self-end"
+                >
+                  {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {/* Saved presets */}
+              {savedPresets.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground font-medium">Presets salvos:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {savedPresets.map(preset => (
+                      <div key={preset.id} className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            setFilterRules(preset.rules);
+                            toast({ title: "Preset aplicado", description: `${preset.rules.length} regra(s) carregada(s).` });
+                          }}
+                        >
+                          <Filter className="h-3 w-3 mr-1" />
+                          {preset.name} ({preset.rules.length})
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            deleteFilterPreset(preset.id);
+                            setSavedPresets(loadSavedFilterPresets());
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Active rules */}
+              {filterRules.length > 0 && (
+                <div className="space-y-1.5">
+                  <Separator />
+                  <div className="space-y-1">
+                    {filterRules.map((rule, idx) => {
+                      const fieldLabel = CLIENT_DB_FIELDS.find(f => f.key === rule.field)?.label || rule.field;
+                      return (
+                        <div key={idx} className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+                          <Filter className="h-3 w-3 text-primary shrink-0" />
+                          <span className="flex-1 min-w-0">
+                            <span className="font-medium">{fieldLabel}</span>
+                            {" "}
+                            <span className="text-muted-foreground">{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
+                            {rule.value && <span className="font-medium text-primary"> "{rule.value}"</span>}
+                            <span className="text-muted-foreground ml-2">— {rule.description}</span>
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                            onClick={() => setFilterRules(prev => prev.filter((_, i) => i !== idx))}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleSaveFilterPreset}>
+                      <Save className="h-3 w-3 mr-1" /> Salvar Preset
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive" onClick={() => setFilterRules([])}>
+                      <Trash2 className="h-3 w-3 mr-1" /> Limpar Regras
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Relationship warning */}
             {(Object.values(mapping).includes("unit_code") || Object.values(mapping).includes("esn_code") || Object.values(mapping).includes("gsn_code")) && (
               <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
@@ -814,6 +1071,9 @@ export default function SmartClientImport() {
                 <div><span className="text-muted-foreground">Linhas:</span> <span className="font-medium">{allDataRows.length}</span></div>
                 <div><span className="text-muted-foreground">Campos mapeados:</span> <span className="font-medium">{mappedCount}</span></div>
                 <div><span className="text-muted-foreground">Campos p/ atualizar:</span> <span className="font-medium">{updateFields.size}</span></div>
+                {filterRules.length > 0 && (
+                  <div><span className="text-muted-foreground">Regras de filtro:</span> <span className="font-medium">{filterRules.length}</span></div>
+                )}
               </div>
             </div>
 

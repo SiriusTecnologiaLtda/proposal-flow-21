@@ -1594,88 +1594,129 @@ export default function ProposalsList() {
         </Sheet>
 
         {/* CRA Notification dialog */}
-        <Dialog open={craDialogOpen} onOpenChange={setCraDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" /> Comunicar CRA
-              </DialogTitle>
-            </DialogHeader>
-
-            {gmailAuthorized === false && (
-              <Alert variant="destructive" className="border-warning bg-warning/10">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="space-y-2">
-                  <p className="text-sm font-medium">Autorização de email necessária</p>
-                  <p className="text-xs text-muted-foreground">Autorize o envio pela sua conta Google.</p>
-                  <Button size="sm" variant="outline" onClick={startUserGmailAuth} disabled={gmailAuthLoading} className="mt-1">
-                    {gmailAuthLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ExternalLink className="mr-2 h-3 w-3" />}
-                    Autorizar envio de email
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {craProposal && gmailAuthorized && (
-              <div className="space-y-4">
-                <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1">
-                  <p><span className="font-medium text-muted-foreground">Proposta:</span> {craProposal.number}</p>
-                  <p><span className="font-medium text-muted-foreground">Cliente:</span> {(craProposal as any).clients?.name}</p>
-                  <p><span className="font-medium text-muted-foreground">Produto:</span> {craProposal.product}</p>
+        <Sheet open={craDialogOpen} onOpenChange={setCraDialogOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
+            {/* Hero Header */}
+            <div className="bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-white/10 p-2">
+                  <Users className="h-5 w-5 text-white" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Selecione os destinatários CRA</Label>
-                  {craUsers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum usuário CRA cadastrado.</p>
-                  ) : (
-                    <ScrollArea className="max-h-48">
-                      <div className="space-y-1">
-                        {craUsers.map(u => (
-                          <label key={u.user_id} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent cursor-pointer">
-                            <Checkbox
-                              checked={craSelectedUserIds.includes(u.user_id)}
-                              onCheckedChange={(checked) => {
-                                setCraSelectedUserIds(prev =>
-                                  checked ? [...prev, u.user_id] : prev.filter(id => id !== u.user_id)
-                                );
-                              }}
-                            />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{u.display_name}</p>
-                              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                              {u.unitIds.length > 0 && (
-                                <p className="text-xs text-muted-foreground">{u.unitIds.length} unidade(s)</p>
-                              )}
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Mensagem (opcional)</Label>
-                  <Textarea
-                    value={craMessage}
-                    onChange={(e) => setCraMessage(e.target.value)}
-                    placeholder="Escreva uma mensagem para o CRA..."
-                    rows={3}
-                    className="text-sm"
-                  />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Comunicar CRA</h2>
+                  <p className="text-sm text-white/70">Selecione os destinatários e envie a comunicação</p>
                 </div>
               </div>
-            )}
-            <DialogFooter>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-6 space-y-5">
+                {gmailAuthorized === false && (
+                  <Alert variant="destructive" className="border-warning bg-warning/10">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="space-y-2">
+                      <p className="text-sm font-medium">Autorização de email necessária</p>
+                      <p className="text-xs text-muted-foreground">Autorize o envio pela sua conta Google.</p>
+                      <Button size="sm" variant="outline" onClick={startUserGmailAuth} disabled={gmailAuthLoading} className="mt-1">
+                        {gmailAuthLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ExternalLink className="mr-2 h-3 w-3" />}
+                        Autorizar envio de email
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {craProposal && gmailAuthorized && (
+                  <>
+                    {/* Section: Dados da Proposta */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Dados da Proposta</h3>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Proposta</p>
+                          <p className="text-sm font-medium text-foreground truncate">{craProposal.number}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Produto</p>
+                          <p className="text-sm font-medium text-foreground truncate">{craProposal.product}</p>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs text-muted-foreground font-medium">Cliente</p>
+                          <p className="text-sm font-medium text-foreground truncate">{(craProposal as any).clients?.name}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section: Destinatários CRA */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Users className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Destinatários CRA</h3>
+                      </div>
+                      <div className="p-4">
+                        {craUsers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Nenhum usuário CRA cadastrado.</p>
+                        ) : (
+                          <ScrollArea className="max-h-48">
+                            <div className="space-y-1">
+                              {craUsers.map(u => (
+                                <label key={u.user_id} className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent cursor-pointer transition-colors">
+                                  <Checkbox
+                                    checked={craSelectedUserIds.includes(u.user_id)}
+                                    onCheckedChange={(checked) => {
+                                      setCraSelectedUserIds(prev =>
+                                        checked ? [...prev, u.user_id] : prev.filter(id => id !== u.user_id)
+                                      );
+                                    }}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium truncate">{u.display_name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                    {u.unitIds.length > 0 && (
+                                      <p className="text-xs text-muted-foreground">{u.unitIds.length} unidade(s)</p>
+                                    )}
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Section: Mensagem */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Mensagem (opcional)</h3>
+                      </div>
+                      <div className="p-4">
+                        <Textarea
+                          value={craMessage}
+                          onChange={(e) => setCraMessage(e.target.value)}
+                          placeholder="Escreva uma mensagem para o CRA..."
+                          rows={4}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Footer */}
+            <div className="border-t border-border bg-card px-6 py-4 flex items-center justify-end gap-3 shrink-0">
               <Button variant="outline" onClick={() => setCraDialogOpen(false)} disabled={craSending}>Cancelar</Button>
               <Button onClick={handleSendCraNotification} disabled={craSending || !gmailAuthorized || craSelectedUserIds.length === 0}>
                 {craSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Enviar ({craSelectedUserIds.length})
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Change Log dialog */}
         <Dialog open={changeLogOpen} onOpenChange={setChangeLogOpen}>

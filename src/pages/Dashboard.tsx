@@ -294,22 +294,22 @@ function Top10Proposals({
             <Link
               key={proposal.id}
               to={`/propostas/${proposal.id}`}
-              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
+              className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
             >
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
                   {i + 1}
                 </span>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{proposal.number}</p>
-                  <p className="text-xs text-muted-foreground">{clientName}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{proposal.number}</p>
+                  <p className="text-xs text-muted-foreground truncate">{clientName}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold tabular-nums text-foreground">
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
                   {formatCurrency(proposal._value)}
                 </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${status.className}`}>
                   {status.label}
                 </span>
               </div>

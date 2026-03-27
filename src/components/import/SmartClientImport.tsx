@@ -25,6 +25,8 @@ import {
   addImportLog,
   updateImportStats,
   finishImportRun,
+  requestCancelImport,
+  getCancelSignal,
 } from "@/hooks/useImportStore";
 
 // ─── DB field definitions ───────────────────────────────────────
@@ -407,7 +409,15 @@ export default function SmartClientImport() {
     const BATCH_SIZE = 50;
     const errorDetails: { row: number; code: string; reason: string }[] = [];
 
+    const cancelSignal = getCancelSignal("clients");
+
     for (let batchStart = 0; batchStart < unitFilteredRows.length; batchStart += BATCH_SIZE) {
+      // Check cancellation
+      if (cancelSignal?.aborted) {
+        addImportLog(entity, "info", `⛔ Importação interrompida pelo usuário no lote ${Math.floor(batchStart / BATCH_SIZE) + 1}.`);
+        break;
+      }
+
       const batch = unitFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];
@@ -506,8 +516,9 @@ export default function SmartClientImport() {
       addImportLog(entity, "error", `⚠ ${relSkippedGsn} registros com GSN não encontrado: ${vals}${relationMisses.gsn.size > 10 ? ` (+${relationMisses.gsn.size - 10})` : ""}`);
     }
 
+    const wasCancelled = cancelSignal?.aborted;
     const totalSkipped = skipped + invalidRows + unitFilteredCount;
-    const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
+    const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
 
     const dur = Date.now() - run.startedAt;
@@ -835,12 +846,22 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
   return (
     <div className="space-y-3">
       {isRunning && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{run.imported + run.updated + run.errors} / {run.totalRows} registros</span>
-            <span>{progress.toFixed(0)}%</span>
+        <div className="space-y-2">
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{run.imported + run.updated + run.errors} / {run.totalRows} registros</span>
+              <span>{progress.toFixed(0)}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Progress value={progress} className="h-2" />
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            onClick={() => requestCancelImport(run.entity)}
+          >
+            <XCircle className="mr-1.5 h-3.5 w-3.5" /> Interromper Importação
+          </Button>
         </div>
       )}
 

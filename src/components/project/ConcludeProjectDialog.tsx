@@ -408,7 +408,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
               <CheckCircle className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Concluir Projeto</h2>
+              <h2 className="text-lg font-semibold text-white">Concluir Revisão</h2>
               <p className="text-sm text-white/70">Vincule o escopo do projeto à oportunidade e notifique o ESN</p>
             </div>
           </div>

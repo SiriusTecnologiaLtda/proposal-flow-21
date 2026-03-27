@@ -402,6 +402,7 @@ export default function UnitsPage() {
               <TabsList>
                 <TabsTrigger value="dados" className="gap-1.5"><Building className="h-3.5 w-3.5" />Dados Cadastrais</TabsTrigger>
                 <TabsTrigger value="contatos" className="gap-1.5"><Users className="h-3.5 w-3.5" />Contatos</TabsTrigger>
+                <TabsTrigger value="emails" className="gap-1.5"><Mail className="h-3.5 w-3.5" />E-mails Padrão</TabsTrigger>
               </TabsList>
 
               <TabsContent value="dados" className="mt-4 space-y-3 text-sm">

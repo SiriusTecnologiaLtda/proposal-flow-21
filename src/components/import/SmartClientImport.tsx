@@ -516,8 +516,9 @@ export default function SmartClientImport() {
       addImportLog(entity, "error", `⚠ ${relSkippedGsn} registros com GSN não encontrado: ${vals}${relationMisses.gsn.size > 10 ? ` (+${relationMisses.gsn.size - 10})` : ""}`);
     }
 
+    const wasCancelled = cancelSignal?.aborted;
     const totalSkipped = skipped + invalidRows + unitFilteredCount;
-    const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
+    const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
 
     const dur = Date.now() - run.startedAt;

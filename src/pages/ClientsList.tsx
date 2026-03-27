@@ -680,7 +680,7 @@ export default function ClientsList() {
           {/* LIST VIEWS */}
           {viewMode === "card" && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((client) => (
+               {visibleClients.map((client) => (
                 <div
                   key={client.id}
                   className="group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
@@ -730,6 +730,13 @@ export default function ClientsList() {
               {filtered.length === 0 && (
                 <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
                   Nenhum cliente encontrado.
+                </div>
+              )}
+              {hasMore && (
+                <div className="col-span-full flex justify-center py-4">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 60)}>
+                    Carregar mais ({filtered.length - visibleCount} restantes)
+                  </Button>
                 </div>
               )}
             </div>

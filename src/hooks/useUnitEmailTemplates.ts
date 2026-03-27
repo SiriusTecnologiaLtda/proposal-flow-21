@@ -17,6 +17,7 @@ export const EMAIL_PLACEHOLDERS = [
   { tag: "{{EV}}", label: "Engenheiro de Valor", example: "Maria Souza" },
   { tag: "{{GSN}}", label: "GSN (Gerente)", example: "Carlos Lima" },
   { tag: "{{PRODUTO}}", label: "Produto", example: "Protheus" },
+  { tag: "{{DESC_PROJ}}", label: "Descrição do Projeto", example: "Projeto de implantação Quirons - Medicina e Segurança do Trabalho" },
   { tag: "{{RESUMO_OPORTUNIDADE}}", label: "Resumo da Oportunidade", description: "Tabela com dados, escopo e financeiro" },
 ] as const;
 

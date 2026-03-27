@@ -239,6 +239,10 @@ export default function SmartClientImport() {
   const [updateFields, setUpdateFields] = useState<Set<string>>(new Set());
   const [layoutRestored, setLayoutRestored] = useState(false);
   const [layoutSaved, setLayoutSaved] = useState(false);
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [filterPrompt, setFilterPrompt] = useState("");
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [savedPresets, setSavedPresets] = useState<SavedFilterPreset[]>(() => loadSavedFilterPresets());
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();

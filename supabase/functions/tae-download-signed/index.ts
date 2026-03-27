@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
     const { data: sig, error: sigErr } = await supabase
       .from("proposal_signatures")
-      .select("tae_document_id, tae_publication_id, proposal_id")
+      .select("tae_document_id, tae_publication_id, proposal_id, status")
       .eq("id", signatureId)
       .single();
 

@@ -1,0 +1,1 @@
+UPDATE public.proposal_signatures SET tae_document_id = '13915524' WHERE id = '55127474-3bf6-4306-8d18-ac0dbd7cb97c' AND tae_document_id = '13921691';

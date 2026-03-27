@@ -428,7 +428,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 proposalId: effectiveProposalId,
                 type: "projeto_concluido",
                 to: esnEmail,
-                subject: `[OPP ${effectiveProposalNumber || ""}] Revisão Concluída`,
+                subject: emailSubject || `[OPP ${effectiveProposalNumber || ""}] Revisão Concluída`,
                 htmlBody,
                 cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
               }),

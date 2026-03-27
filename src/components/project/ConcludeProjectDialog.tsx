@@ -314,11 +314,25 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         total_hours: capturedTotalHours,
       });
 
+      // 1. Update project status FIRST
       await supabase
         .from("projects")
         .update({ status: "concluido", proposal_id: effectiveProposalId, proposal_number: effectiveProposalNumber })
         .eq("id", project.id);
 
+      // 2. Update proposal status IMMEDIATELY (before scope sync to avoid silent failures blocking it)
+      const { error: proposalUpdateError } = await supabase
+        .from("proposals")
+        .update({ status: "analise_ev_concluida" })
+        .eq("id", effectiveProposalId);
+      if (proposalUpdateError) {
+        console.error("Failed to update proposal status:", proposalUpdateError);
+        await writeSyncLog("project_conclude_proposal_update_failed", { proposal_id: effectiveProposalId }, "error", proposalUpdateError.message);
+      } else {
+        await writeSyncLog("project_conclude_proposal_updated", { proposal_id: effectiveProposalId, proposal_status: "analise_ev_concluida" });
+      }
+
+      // 3. Handle replace mode
       if (capturedReplaceMode === "replace" && linkedProjects.length > 0) {
         for (const ep of linkedProjects) {
           await supabase.from("projects").update({ proposal_id: null, proposal_number: null }).eq("id", ep.id);
@@ -329,11 +343,15 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         });
       }
 
-      await includeProjectInOpportunity(effectiveProject, effectiveProposalId);
-      await writeSyncLog("project_conclude_scope_synced", { proposal_id: effectiveProposalId, project_id: project.id });
-
-      await supabase.from("proposals").update({ status: "analise_ev_concluida" }).eq("id", effectiveProposalId);
-      await writeSyncLog("project_conclude_proposal_updated", { proposal_status: "analise_ev_concluida" });
+      // 4. Sync scope (secondary - proposal status already updated)
+      try {
+        await includeProjectInOpportunity(effectiveProject, effectiveProposalId);
+        await writeSyncLog("project_conclude_scope_synced", { proposal_id: effectiveProposalId, project_id: project.id });
+      } catch (scopeErr: any) {
+        console.error("Scope sync failed:", scopeErr);
+        await writeSyncLog("project_conclude_scope_error", { proposal_id: effectiveProposalId }, "warn", scopeErr?.message || "Scope sync failed");
+        // Don't rethrow - proposal status is already updated
+      }
 
       if (esnEmail) {
         const scopeHtml = capturedScopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");

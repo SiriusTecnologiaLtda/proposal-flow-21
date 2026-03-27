@@ -653,7 +653,7 @@ export default function ProjectCreatePage() {
   }
 
   const isAdmin = userRole === "admin";
-  const isReadOnly = existingProject?.status === "concluido" && !isAdmin;
+  const isReadOnly = existingProject?.status === "concluido";
   const statusLabel = STATUS_MAP[existingProject?.status || "pendente"] || "Pendente";
 
   return (

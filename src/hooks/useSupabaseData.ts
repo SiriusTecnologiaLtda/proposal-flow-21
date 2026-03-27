@@ -64,6 +64,7 @@ export function useUpdateUnit() {
 export function useClients() {
   return useQuery({
     queryKey: ["clients"],
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const PAGE_SIZE = 1000;
       let allData: any[] = [];
@@ -73,7 +74,7 @@ export function useClients() {
       while (hasMore) {
         const { data, error } = await supabase
           .from("clients")
-          .select("*, unit_info(id, name), esn:sales_team!clients_esn_id_fkey(id, name, code), gsn:sales_team!clients_gsn_id_fkey(id, name, code)")
+          .select("id, name, code, cnpj, email, phone, address, contact, state_registration, store_code, unit_id, esn_id, gsn_id, unit_info(id, name), esn:sales_team!clients_esn_id_fkey(id, name, code), gsn:sales_team!clients_gsn_id_fkey(id, name, code)")
           .order("name")
           .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;

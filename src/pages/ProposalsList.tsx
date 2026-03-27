@@ -957,7 +957,7 @@ export default function ProposalsList() {
               return (
                 <div
                   key={p.id}
-                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-11 md:items-center md:gap-4 ${locked ? "opacity-60" : ""}`}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[2fr_1.5fr_auto_auto_1fr_auto_auto_auto_auto_auto] md:items-center md:gap-3 ${locked ? "opacity-60" : ""}`}
                 >
                   <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">

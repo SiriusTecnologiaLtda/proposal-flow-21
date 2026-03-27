@@ -371,13 +371,43 @@ export default function ProposalsList() {
   }
 
   async function handleSendCraNotification() {
-    if (!craProposal || craSelectedUserIds.length === 0) return;
-    setCraSending(true);
+    if (!craProposal || opsRecipients.length === 0) return;
+
+    // Capture state
+    const capturedProposal = craProposal;
+    const capturedMessage = craMessage;
+    const capturedRecipients = [...opsRecipients];
+    const capturedAttachments = [...opsAttachments];
+
+    // Close immediately - background processing
+    setCraDialogOpen(false);
+    toast({ title: "Processando...", description: "O envio está sendo executado em background. Você será avisado ao concluir." });
+
     try {
       const session = (await supabase.auth.getSession()).data.session;
-      const selectedEmails = craUsers
-        .filter(u => craSelectedUserIds.includes(u.user_id))
-        .map(u => ({ email: u.email!, name: u.display_name }));
+      const selectedEmails = capturedRecipients.map(r => ({ email: r.email, name: r.name }));
+
+      // Save new manual recipients to unit_contacts as 'operacoes'
+      const unitId = (capturedProposal as any).clients?.unit_id || (capturedProposal as any).sales_team?.unit_id;
+      const newManualRecipients = capturedRecipients.filter(r => !r.fromDb);
+      if (unitId && newManualRecipients.length > 0) {
+        for (const r of newManualRecipients) {
+          await supabase.from("unit_contacts").upsert(
+            { unit_id: unitId, name: r.name, email: r.email, contact_type: "operacoes", role: "Operações" },
+            { onConflict: "unit_id,email" as any, ignoreDuplicates: true }
+          ).then(() => {});
+        }
+      }
+
+      // Check if proposal has TAE signed document to attach
+      let taeAttachment: { name: string; base64: string; mimeType: string } | null = null;
+      const latestSig = (capturedProposal as any).proposal_signatures
+        ?.filter((s: any) => s.status === "completed")
+        ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+      if (latestSig?.tae_document_id) {
+        // We'll pass the tae_document_id to the edge function to fetch
+        taeAttachment = { name: `proposta_${capturedProposal.number}_assinada.pdf`, base64: "", mimeType: "application/pdf" };
+      }
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
@@ -389,30 +419,28 @@ export default function ProposalsList() {
             Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            proposalId: craProposal.id,
+            proposalId: capturedProposal.id,
             type: "comunicar_cra",
-            message: craMessage,
-            proposalLink: `${window.location.origin}/propostas/${craProposal.id}`,
+            message: capturedMessage,
+            proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
+            attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
+            taeDocumentId: latestSig?.tae_document_id || undefined,
           }),
         }
       );
       const data = await res.json();
       if (data.error === "gmail_not_authorized") {
         toast({ title: "Autorização necessária", description: "Autorize o envio de emails pela sua conta Google.", variant: "destructive" });
-        setCraSending(false);
         return;
       }
       if (res.ok && data.success) {
-        toast({ title: "Comunicado CRA enviado", description: `Enviado para ${selectedEmails.length} destinatário(s)` });
-        setCraDialogOpen(false);
+        toast({ title: "Enviado para Operações", description: `Enviado para ${selectedEmails.length} destinatário(s)` });
       } else {
         toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
       }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setCraSending(false);
     }
   }
 

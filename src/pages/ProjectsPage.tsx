@@ -198,7 +198,7 @@ export default function ProjectsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
-          <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
+          <p className="text-sm text-muted-foreground">{debouncedSearch ? `${filtered.length} de ${projects.length}` : projects.length} projetos</p>
         </div>
 {/* Projetos criados apenas via Solicitar Revisão EV */}
       </div>

@@ -86,30 +86,28 @@ Deno.serve(async (req) => {
       sigRecord = data;
     }
 
-    // Fallback: if no IDs in payload, try to match the most recent "sent" signature
-    // This handles TAE sending split payloads (status-only without document ID)
-    if (!sigRecord && !publicationId && !documentId) {
-      if (taeStatus !== undefined || singleSignerEmail) {
-        console.log("[tae-webhook] No IDs in payload, searching for most recent sent signature...");
-        const { data } = await supabase
-          .from("proposal_signatures")
-          .select("*")
-          .eq("status", "sent")
-          .order("sent_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (data) {
-          sigRecord = data;
-          console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
-        }
+    // Fallback: if document ID didn't match (TAE sends NEW doc ID on finalization),
+    // try to find the most recent "sent" signature
+    if (!sigRecord && (documentId || taeStatus !== undefined || singleSignerEmail)) {
+      console.log("[tae-webhook] No exact ID match, searching for most recent sent signature...");
+      const { data } = await supabase
+        .from("proposal_signatures")
+        .select("*")
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        sigRecord = data;
+        console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
       }
+    }
 
-      if (!sigRecord) {
-        console.log("[tae-webhook] No matching signature record found, ignoring.");
-        return new Response(JSON.stringify({ ok: true, ignored: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!sigRecord) {
+      console.log("[tae-webhook] No matching signature record found, ignoring.");
+      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!sigRecord) {
@@ -121,11 +119,19 @@ Deno.serve(async (req) => {
 
     console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, current status: ${sigRecord.status}`);
 
-    // Update publication ID if we didn't have it
-    if (publicationId && !sigRecord.tae_publication_id) {
+    // Update publication ID and document ID if changed (TAE sends new IDs on finalization)
+    const sigUpdates: Record<string, string> = {};
+    if (publicationId && publicationId !== sigRecord.tae_publication_id) {
+      sigUpdates.tae_publication_id = publicationId;
+    }
+    if (documentId && documentId !== sigRecord.tae_document_id) {
+      sigUpdates.tae_document_id = documentId;
+      console.log(`[tae-webhook] Document ID changed: ${sigRecord.tae_document_id} → ${documentId}`);
+    }
+    if (Object.keys(sigUpdates).length > 0) {
       await supabase
         .from("proposal_signatures")
-        .update({ tae_publication_id: publicationId })
+        .update(sigUpdates)
         .eq("id", sigRecord.id);
     }
 

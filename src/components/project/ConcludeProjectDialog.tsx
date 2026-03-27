@@ -319,7 +319,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         .update({ status: "concluido", proposal_id: effectiveProposalId, proposal_number: effectiveProposalNumber })
         .eq("id", project.id);
 
-      if (replaceMode === "replace" && linkedProjects.length > 0) {
+      if (capturedReplaceMode === "replace" && linkedProjects.length > 0) {
         for (const ep of linkedProjects) {
           await supabase.from("projects").update({ proposal_id: null, proposal_number: null }).eq("id", ep.id);
           await supabase.from("proposal_scope_items").delete().eq("proposal_id", effectiveProposalId).eq("project_id", ep.id);
@@ -336,15 +336,15 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       await writeSyncLog("project_conclude_proposal_updated", { proposal_status: "analise_ev_concluida" });
 
       if (esnEmail) {
-        const scopeHtml = scopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");
-        const totalRow = `<tr style="background:#f0f0f0;font-weight:bold"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${totalHours}h</td></tr>`;
+        const scopeHtml = capturedScopeSummary.map(g => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0">${g.name}</td><td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-weight:500">${g.hours}h</td></tr>`).join("");
+        const totalRow = `<tr style="background:#f0f0f0;font-weight:bold"><td style="padding:6px 8px">Total</td><td style="padding:6px 8px;text-align:right">${capturedTotalHours}h</td></tr>`;
 
         const proposalLink = `${window.location.origin}/propostas/${effectiveProposalId}`;
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #1a1a2e;">Projeto Concluído</h2>
+            <h2 style="color: #1a1a2e;">Revisão Concluída</h2>
             <p>Olá <strong>${esnName || "ESN"}</strong>,</p>
-            <p>O projeto vinculado à oportunidade <strong>${effectiveProposalNumber || ""}</strong> foi concluído.</p>
+            <p>A revisão vinculada à oportunidade <strong>${effectiveProposalNumber || ""}</strong> foi concluída.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
               <tr style="border-bottom: 1px solid #e0e0e0;">
                 <td style="padding: 8px; font-weight: bold; color: #555;">Oportunidade</td>
@@ -355,7 +355,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 <td style="padding: 8px;">${effectiveProject?.product || ""}</td>
               </tr>
             </table>
-            ${scopeSummary.length > 0 ? `
+            ${capturedScopeSummary.length > 0 ? `
               <div style="margin: 16px 0;">
                 <strong style="color: #555;">Resumo do Escopo:</strong>
                 <table style="width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;">
@@ -368,7 +368,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 </table>
               </div>
             ` : ""}
-            ${message.trim() ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem do Eng. Valor:</strong><br/>${message.replace(/\n/g, "<br/>")}</div>` : ""}
+            ${capturedMessage.trim() ? `<div style="background: #f5f5f5; padding: 12px 16px; border-radius: 8px; margin: 16px 0;"><strong>Mensagem do Eng. Valor:</strong><br/>${capturedMessage.replace(/\n/g, "<br/>")}</div>` : ""}
             <p style="margin: 16px 0;"><a href="${proposalLink}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Oportunidade na Plataforma</a></p>
             <p style="color: #888; font-size: 12px; margin-top: 24px;">Este é um email automático do sistema de oportunidades.</p>
           </div>
@@ -388,13 +388,13 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
                 proposalId: effectiveProposalId,
                 type: "projeto_concluido",
                 to: esnEmail,
-                subject: `[OPP ${effectiveProposalNumber || ""}] Projeto Concluído`,
+                subject: `[OPP ${effectiveProposalNumber || ""}] Revisão Concluída`,
                 htmlBody,
-                cc: ccEmails.length > 0 ? ccEmails : undefined,
+                cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
               }),
             }
           );
-          await writeSyncLog("project_conclude_email_sent", { to: esnEmail, cc_count: ccEmails.length });
+          await writeSyncLog("project_conclude_email_sent", { to: esnEmail, cc_count: capturedCcEmails.length });
         } catch (emailErr: any) {
           await writeSyncLog("project_conclude_email_error", {}, "warn", emailErr?.message || "Email send failed");
           console.error("Email send failed:", emailErr);
@@ -405,13 +405,10 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       qc.invalidateQueries({ queryKey: ["project", project.id] });
       qc.invalidateQueries({ queryKey: ["proposals"] });
       qc.invalidateQueries({ queryKey: ["proposal", effectiveProposalId] });
-      toast({ title: "Projeto concluído", description: "O escopo foi incluído na oportunidade e o ESN foi notificado." });
-      onOpenChange(false);
+      toast({ title: "Revisão concluída", description: "O escopo foi incluído na oportunidade e o ESN foi notificado." });
     } catch (err: any) {
       await writeSyncLog("project_conclude_error", {}, "error", err.message);
-      toast({ title: "Erro ao concluir", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
+      toast({ title: "Erro ao concluir revisão", description: err.message, variant: "destructive" });
     }
   };
 

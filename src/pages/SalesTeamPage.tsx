@@ -292,8 +292,8 @@ export default function SalesTeamPage() {
                         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${roleColors[role]}`}>
                           <UserCog className="h-4 w-4" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">{member.name}</p>
+                         <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>

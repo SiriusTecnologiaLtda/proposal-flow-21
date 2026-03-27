@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "TAE credentials missing" }, 500);
     }
 
-    // Login to TAE (per diagram: POST /v3/auth/login)
+    // Login to TAE
     const loginRes = await fetch(`${taeConfig.base_url}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -97,82 +97,63 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "TAE token not found in response" }, 502);
     }
 
-    // Per TAE docs diagram: GET /v1/publicacoes/{id}/download
-    // The tae_document_id is updated by webhook when document is finalized (it's the signed doc ID)
     const docId = sig.tae_document_id;
-    const pubId = sig.tae_publication_id;
+    console.log(`[tae-download] docId=${docId}`);
 
-    console.log(`[tae-download] Attempting download. docId=${docId}, pubId=${pubId}`);
+    // Per TAE docs: GET /v1/publicacoes/{id}/download
+    // Download types: 1=Original, 2=Assinado (com manifesto), 3=Assinado Digital, 4=Todos (ZIP)
+    // We want type 2 = Signed document with signature manifest
+
+    const downloadTypes = [
+      { tipo: 2, label: "Assinado" },
+      { tipo: 3, label: "Assinado Digital" },
+      { tipo: 1, label: "Original (fallback)" },
+    ];
 
     let downloadRes: Response | null = null;
+    let usedLabel = "";
 
-    // Strategy 1: Use publication ID if available (primary per TAE docs)
-    if (pubId) {
-      const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(pubId)}/download`;
+    for (const dt of downloadTypes) {
+      // Try with query parameter ?tipo=N
+      const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(docId)}/download?tipo=${dt.tipo}`;
       console.log(`[tae-download] Trying: ${url}`);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
       if (res.ok) {
-        downloadRes = res;
-        console.log(`[tae-download] Success via publicacoes/${pubId}/download`);
+        const contentType = res.headers.get("content-type") || "";
+        // Verify it's actually a PDF/file and not an error page
+        if (contentType.includes("pdf") || contentType.includes("octet-stream") || contentType.includes("zip")) {
+          downloadRes = res;
+          usedLabel = dt.label;
+          console.log(`[tae-download] Success: tipo=${dt.tipo} (${dt.label}), content-type=${contentType}`);
+          break;
+        }
+        // Check if body is large enough to be a real document
+        const body = await res.arrayBuffer();
+        if (body.byteLength > 1000) {
+          downloadRes = new Response(body, { headers: res.headers, status: res.status });
+          usedLabel = dt.label;
+          console.log(`[tae-download] Success (by size ${body.byteLength}): tipo=${dt.tipo} (${dt.label})`);
+          break;
+        }
+        console.log(`[tae-download] tipo=${dt.tipo} returned small body (${body.byteLength}), skipping`);
       } else {
-        console.log(`[tae-download] publicacoes/${pubId}/download → ${res.status}`);
+        console.log(`[tae-download] tipo=${dt.tipo} → ${res.status}`);
         await res.text().catch(() => "");
       }
     }
 
-    // Strategy 2: Use document ID as publication ID (TAE often uses same ID space)
+    // Fallback: try without tipo parameter (default behavior)
     if (!downloadRes) {
       const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(docId)}/download`;
-      console.log(`[tae-download] Trying: ${url}`);
+      console.log(`[tae-download] Trying without tipo param: ${url}`);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
       if (res.ok) {
         downloadRes = res;
-        console.log(`[tae-download] Success via publicacoes/${docId}/download`);
+        usedLabel = "Default (sem tipo)";
+        console.log(`[tae-download] Success via default download`);
       } else {
-        console.log(`[tae-download] publicacoes/${docId}/download → ${res.status}`);
+        console.log(`[tae-download] Default download → ${res.status}`);
         await res.text().catch(() => "");
-      }
-    }
-
-    // Strategy 3: Resolve publication from document via signintegration API
-    if (!downloadRes) {
-      try {
-        console.log(`[tae-download] Resolving publication for document ${docId}`);
-        const siRes = await fetch(
-          `${taeConfig.base_url}/signintegration/v2/Publicacoes/documentos-empresa`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify([Number(docId)]),
-          }
-        );
-        const siRaw = await siRes.text();
-        console.log(`[tae-download] signintegration response (${siRes.status}): ${siRaw.substring(0, 500)}`);
-
-        if (siRes.ok && siRaw) {
-          let parsed: any = null;
-          try { parsed = JSON.parse(siRaw); } catch { parsed = null; }
-          const items = Array.isArray(parsed?.data || parsed) ? (parsed?.data || parsed) : [parsed?.data || parsed];
-
-          for (const item of items) {
-            const resolvedPubId = String(
-              item?.idPublicacao || item?.publicacaoId || item?.id || ""
-            ).trim();
-            if (resolvedPubId && resolvedPubId !== docId) {
-              const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(resolvedPubId)}/download`;
-              console.log(`[tae-download] Trying resolved pubId: ${url}`);
-              const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
-              if (res.ok) {
-                downloadRes = res;
-                console.log(`[tae-download] Success via resolved publicacoes/${resolvedPubId}/download`);
-                break;
-              }
-              await res.text().catch(() => "");
-            }
-          }
-        }
-      } catch (e: any) {
-        console.log(`[tae-download] signintegration error: ${e.message}`);
       }
     }
 
@@ -180,7 +161,6 @@ Deno.serve(async (req) => {
       return jsonResponse({
         error: "Não foi possível baixar o documento assinado do TAE",
         taeDocumentId: docId,
-        taePublicationId: pubId,
       }, 502);
     }
 
@@ -193,7 +173,7 @@ Deno.serve(async (req) => {
     }
     const base64 = btoa(binary);
 
-    return jsonResponse({ success: true, base64, mimeType: "application/pdf" });
+    return jsonResponse({ success: true, base64, mimeType: "application/pdf", downloadType: usedLabel });
   } catch (err: any) {
     return jsonResponse({ error: err.message }, 500);
   }

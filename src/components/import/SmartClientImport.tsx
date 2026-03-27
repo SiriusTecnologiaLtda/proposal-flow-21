@@ -629,6 +629,40 @@ export default function SmartClientImport() {
     setStep("done");
   }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved]);
 
+  // ── AI Filter prompt handler ───────────────────────────────────
+  const handleFilterPrompt = useCallback(async () => {
+    if (!filterPrompt.trim()) return;
+    setFilterLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-import-filter", {
+        body: { prompt: filterPrompt.trim(), existingRules: filterRules },
+      });
+      if (error) throw error;
+      if (data?.rules) {
+        setFilterRules(data.rules);
+        setFilterPrompt("");
+        toast({ title: "Regras atualizadas", description: `${data.rules.length} regra(s) de filtro configurada(s).` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao processar regra", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setFilterLoading(false);
+    }
+  }, [filterPrompt, filterRules, toast]);
+
+  const handleSaveFilterPreset = useCallback(() => {
+    if (filterRules.length === 0) return;
+    const preset: SavedFilterPreset = {
+      id: crypto.randomUUID(),
+      name: `Filtro ${new Date().toLocaleDateString("pt-BR")}`,
+      rules: filterRules,
+      createdAt: Date.now(),
+    };
+    saveFilterPreset(preset);
+    setSavedPresets(loadSavedFilterPresets());
+    toast({ title: "Preset salvo", description: "As regras de filtro foram salvas para uso futuro." });
+  }, [filterRules, toast]);
+
   // ── Reset ─────────────────────────────────────────────────────
   const reset = () => {
     setStep("upload");
@@ -641,6 +675,8 @@ export default function SmartClientImport() {
     setUpdateFields(new Set());
     setLayoutRestored(false);
     setLayoutSaved(false);
+    setFilterRules([]);
+    setFilterPrompt("");
   };
 
   const mappedCount = Object.keys(mapping).length;

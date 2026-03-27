@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
       }
       recipientEmail = arq.email;
       recipientName = arq.name;
-      subject = `[Proposta ${proposalNumber}] Envio para Engenharia de Valor`;
+      subject = customSubject || `[Proposta ${proposalNumber}] Envio para Engenharia de Valor`;
 
       // Find linked project to build project link
       let projectLinkHtml = "";

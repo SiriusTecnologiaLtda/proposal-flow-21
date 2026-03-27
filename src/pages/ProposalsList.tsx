@@ -469,8 +469,8 @@ export default function ProposalsList() {
         taeDocId = latestSig?.tae_document_id || undefined;
       }
 
-      // Generate MIT if user wants it and it doesn't exist yet, then get doc URL
-      let mitAttachment: { name: string; base64: string; mimeType: string } | undefined;
+      // Handle MIT-065 if user wants it
+      let mitGoogleDocId: string | undefined;
       if (wantMit) {
         // Check if MIT already exists
         const { data: existingMitDocs } = await supabase
@@ -482,6 +482,7 @@ export default function ProposalsList() {
           .limit(1);
 
         let mitDocUrl = existingMitDocs?.[0]?.doc_url;
+        let mitDocId = existingMitDocs?.[0]?.doc_id;
 
         // If no MIT exists, generate it
         if (!mitDocUrl) {
@@ -504,45 +505,14 @@ export default function ProposalsList() {
           }
         }
 
-        // Export Google Doc as PDF and attach
+        // Extract Google Doc ID from URL
         if (mitDocUrl) {
-          try {
-            const docIdMatch = mitDocUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (docIdMatch) {
-              const gDocId = docIdMatch[1];
-              // Use edge function to export as PDF
-              const exportRes = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/grant-drive-folder-access`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                    Authorization: `Bearer ${session?.access_token}`,
-                  },
-                  body: JSON.stringify({ action: "export_pdf", docId: gDocId }),
-                }
-              );
-              if (exportRes.ok) {
-                const exportData = await exportRes.json();
-                if (exportData.base64) {
-                  mitAttachment = {
-                    name: `MIT_065_${capturedProposal.number}.pdf`,
-                    base64: exportData.base64,
-                    mimeType: "application/pdf",
-                  };
-                }
-              }
-            }
-          } catch (e) {
-            console.warn("Failed to export MIT as PDF:", e);
-          }
+          const docIdMatch = mitDocUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          mitGoogleDocId = docIdMatch?.[1] || mitDocId;
+        } else if (mitDocId) {
+          mitGoogleDocId = mitDocId;
         }
       }
-
-      // Merge MIT attachment with user attachments
-      const allAttachments = [...capturedAttachments];
-      if (mitAttachment) allAttachments.push(mitAttachment);
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
@@ -560,8 +530,9 @@ export default function ProposalsList() {
             subject: capturedSubject || undefined,
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
-            attachments: allAttachments.length > 0 ? allAttachments : undefined,
+            attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
             taeDocumentId: taeDocId,
+            mitGoogleDocId,
           }),
         }
       );

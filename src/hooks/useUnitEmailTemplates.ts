@@ -17,6 +17,7 @@ export const EMAIL_PLACEHOLDERS = [
   { tag: "{{EV}}", label: "Engenheiro de Valor", example: "Maria Souza" },
   { tag: "{{GSN}}", label: "GSN (Gerente)", example: "Carlos Lima" },
   { tag: "{{PRODUTO}}", label: "Produto", example: "Protheus" },
+  { tag: "{{DESC_PROJ}}", label: "Descrição do Projeto", example: "Projeto de implantação Quirons - Medicina e Segurança do Trabalho" },
   { tag: "{{RESUMO_OPORTUNIDADE}}", label: "Resumo da Oportunidade", description: "Tabela com dados, escopo e financeiro" },
 ] as const;
 
@@ -56,6 +57,7 @@ export function replacePlaceholders(
     ev?: string;
     gsn?: string;
     produto?: string;
+    descProj?: string;
     resumo?: string;
   }
 ): string {
@@ -67,5 +69,6 @@ export function replacePlaceholders(
     .replace(/\{\{EV\}\}/g, values.ev || "")
     .replace(/\{\{GSN\}\}/g, values.gsn || "")
     .replace(/\{\{PRODUTO\}\}/g, values.produto || "")
+    .replace(/\{\{DESC_PROJ\}\}/g, values.descProj || "")
     .replace(/\{\{RESUMO_OPORTUNIDADE\}\}/g, values.resumo || "");
 }

@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
       subject = `[Proposta ${proposalNumber}] Envio para Operações`;
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #1a1a2e;">Comunicado CRA — Proposta ${proposalNumber}</h2>
+          <h2 style="color: #1a1a2e;">Envio para Operações — Proposta ${proposalNumber}</h2>
           <p><strong>${senderName}</strong> enviou o seguinte comunicado referente à proposta:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
             <tr style="border-bottom: 1px solid #e0e0e0;">

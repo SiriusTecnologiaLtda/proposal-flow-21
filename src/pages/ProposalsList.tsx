@@ -592,17 +592,14 @@ export default function ProposalsList() {
     }
   }, [periodFilter, customStart, customEnd]);
 
-  const filtered = proposals.filter((p) => {
-    // Consulta role: only ganha proposals from allowed units
+  const filtered = useMemo(() => proposals.filter((p) => {
     if (isConsulta) {
       if (p.status !== "ganha") return false;
       const esnUnitId = (p as any).sales_team?.unit_id;
       if (esnUnitId && userUnitIds.length > 0 && !userUnitIds.includes(esnUnitId)) return false;
       if (!esnUnitId && userUnitIds.length > 0) return false;
     }
-    // Status filter
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
-    // Period filter by expected_close_date
     if (periodRange) {
       const closeDate = (p as any).expected_close_date;
       if (!closeDate) return false;
@@ -611,7 +608,8 @@ export default function ProposalsList() {
         if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
       } catch { return false; }
     }
-    const q = search.toLowerCase();
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";
     const esnName = (p as any).sales_team?.name || "";
@@ -621,7 +619,13 @@ export default function ProposalsList() {
       desc.toLowerCase().includes(q) ||
       esnName.toLowerCase().includes(q)
     );
-  });
+  }), [proposals, debouncedSearch, statusFilter, periodRange, isConsulta, userUnitIds]);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(50); }, [debouncedSearch, statusFilter, periodFilter]);
+
+  const visibleProposals = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMoreProposals = visibleCount < filtered.length;
 
   // Check for linked projects when deleting
   const deleteProposalData = deleteId ? proposals.find((p: any) => p.id === deleteId) : null;

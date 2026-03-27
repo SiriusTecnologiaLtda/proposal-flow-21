@@ -211,14 +211,14 @@ function KpiCard({
           <div className={cn("mb-3 inline-flex rounded-lg p-2", bgClass)}>
             <Icon className={cn("h-4 w-4", colorClass)} />
           </div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
             {label}
           </p>
-          <p className={cn("mt-0.5 text-2xl font-bold tracking-tight", colorClass)}>
+          <p className={cn("mt-0.5 text-2xl font-bold tracking-tight truncate", colorClass)}>
             {value}
           </p>
           {subValue && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{subValue}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground truncate">{subValue}</p>
           )}
         </CardContent>
       </Card>

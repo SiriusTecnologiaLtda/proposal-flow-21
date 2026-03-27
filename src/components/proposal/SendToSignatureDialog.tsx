@@ -604,7 +604,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   function renderSignatariosPage() {
     return (
       <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Users className="h-3.5 w-3.5 text-primary" />
@@ -721,7 +721,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   function renderMensagemPage() {
     return (
       <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Mail className="h-3.5 w-3.5 text-primary" />
@@ -946,7 +946,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     return (
       <div className="space-y-5">
         {/* Context */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -976,7 +976,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         </div>
 
         {/* Signatories */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
@@ -1008,7 +1008,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         </div>
 
         {/* Email */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
@@ -1033,7 +1033,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         </div>
 
         {/* Documents */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">

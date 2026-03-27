@@ -1488,7 +1488,7 @@ export default function ProposalsList() {
                 {notifProposal && gmailAuthorized && (
                   <>
                     {/* Section: Dados da Oportunidade */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <FileText className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Dados da Oportunidade</h3>
@@ -1529,7 +1529,7 @@ export default function ProposalsList() {
                     </div>
 
                     {/* Section: Cópia (CC) */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <UserPlus className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Cópia (CC)</h3>
@@ -1563,7 +1563,7 @@ export default function ProposalsList() {
                     </div>
 
                     {/* Section: Mensagem */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <MessageSquare className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Mensagem (opcional)</h3>
@@ -1633,7 +1633,7 @@ export default function ProposalsList() {
                 {craProposal && gmailAuthorized && (
                   <>
                     {/* Section: Dados da Proposta */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <FileText className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Dados da Proposta</h3>
@@ -1655,7 +1655,7 @@ export default function ProposalsList() {
                     </div>
 
                     {/* Section: Destinatários CRA */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <Users className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Destinatários CRA</h3>
@@ -1692,7 +1692,7 @@ export default function ProposalsList() {
                     </div>
 
                     {/* Section: Mensagem */}
-                    <div className="rounded-xl border border-border bg-card shadow-sm">
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <MessageSquare className="h-4 w-4 text-primary" />
                         <h3 className="text-sm font-semibold text-foreground">Mensagem (opcional)</h3>

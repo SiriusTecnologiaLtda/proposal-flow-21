@@ -99,7 +99,7 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
 
         <div className="space-y-5 px-6 pb-6 pt-4">
           {/* ── Identificação ──────────────────────────────────────── */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-4 overflow-hidden">
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Building className="h-3.5 w-3.5" />
@@ -131,7 +131,7 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
           </div>
 
           {/* ── Contato Principal ──────────────────────────────────── */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-4 overflow-hidden">
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <User className="h-3.5 w-3.5" />
@@ -155,7 +155,7 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
           </div>
 
           {/* ── Endereço ──────────────────────────────────────────── */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-4 overflow-hidden">
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MapPin className="h-3.5 w-3.5" />
@@ -169,7 +169,7 @@ export default function QuickCreateClientDialog({ open, onOpenChange, onClientCr
           </div>
 
           {/* ── Vínculos ──────────────────────────────────────────── */}
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-4 overflow-hidden">
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Users className="h-3.5 w-3.5" />

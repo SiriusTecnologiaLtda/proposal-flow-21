@@ -86,30 +86,28 @@ Deno.serve(async (req) => {
       sigRecord = data;
     }
 
-    // Fallback: if no IDs in payload, try to match the most recent "sent" signature
-    // This handles TAE sending split payloads (status-only without document ID)
-    if (!sigRecord && !publicationId && !documentId) {
-      if (taeStatus !== undefined || singleSignerEmail) {
-        console.log("[tae-webhook] No IDs in payload, searching for most recent sent signature...");
-        const { data } = await supabase
-          .from("proposal_signatures")
-          .select("*")
-          .eq("status", "sent")
-          .order("sent_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (data) {
-          sigRecord = data;
-          console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
-        }
+    // Fallback: if document ID didn't match (TAE sends NEW doc ID on finalization),
+    // try to find the most recent "sent" signature
+    if (!sigRecord && (documentId || taeStatus !== undefined || singleSignerEmail)) {
+      console.log("[tae-webhook] No exact ID match, searching for most recent sent signature...");
+      const { data } = await supabase
+        .from("proposal_signatures")
+        .select("*")
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        sigRecord = data;
+        console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
       }
+    }
 
-      if (!sigRecord) {
-        console.log("[tae-webhook] No matching signature record found, ignoring.");
-        return new Response(JSON.stringify({ ok: true, ignored: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!sigRecord) {
+      console.log("[tae-webhook] No matching signature record found, ignoring.");
+      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!sigRecord) {

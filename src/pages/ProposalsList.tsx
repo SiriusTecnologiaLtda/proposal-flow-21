@@ -1670,18 +1670,18 @@ export default function ProposalsList() {
           </SheetContent>
         </Sheet>
 
-        {/* CRA Notification dialog */}
+        {/* Operations Notification dialog */}
         <Sheet open={craDialogOpen} onOpenChange={setCraDialogOpen}>
           <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
             {/* Hero Header */}
             <div className="bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-white/10 p-2">
-                  <Users className="h-5 w-5 text-white" />
+                  <Send className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Comunicar CRA</h2>
-                  <p className="text-sm text-white/70">Selecione os destinatários e envie a comunicação</p>
+                  <h2 className="text-lg font-semibold text-white">Enviar para Operações</h2>
+                  <p className="text-sm text-white/70">Selecione os destinatários, anexos e envie a comunicação</p>
                 </div>
               </div>
             </div>
@@ -1726,40 +1726,100 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
-                    {/* Section: Destinatários CRA */}
+                    {/* Section: Destinatários Operações */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <Users className="h-4 w-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Destinatários CRA</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Destinatários Operações</h3>
                       </div>
-                      <div className="p-4">
-                        {craUsers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Nenhum usuário CRA cadastrado.</p>
+                      <div className="p-4 space-y-3">
+                        {opsRecipients.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Nenhum contato de Operações cadastrado para esta unidade.</p>
                         ) : (
-                          <ScrollArea className="max-h-48">
+                          <ScrollArea className="max-h-40">
                             <div className="space-y-1">
-                              {craUsers.map(u => (
-                                <label key={u.user_id} className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent cursor-pointer transition-colors">
-                                  <Checkbox
-                                    checked={craSelectedUserIds.includes(u.user_id)}
-                                    onCheckedChange={(checked) => {
-                                      setCraSelectedUserIds(prev =>
-                                        checked ? [...prev, u.user_id] : prev.filter(id => id !== u.user_id)
-                                      );
-                                    }}
-                                  />
+                              {opsRecipients.map(r => (
+                                <div key={r.email} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-accent transition-colors">
                                   <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate">{u.display_name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                                    {u.unitIds.length > 0 && (
-                                      <p className="text-xs text-muted-foreground">{u.unitIds.length} unidade(s)</p>
-                                    )}
+                                    <p className="text-sm font-medium truncate">{r.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{r.email}</p>
                                   </div>
-                                </label>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {!r.fromDb && <Badge variant="outline" className="text-[10px]">Manual</Badge>}
+                                    <button onClick={() => removeOpsRecipient(r.email)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </ScrollArea>
                         )}
+                        {/* Add manual recipient */}
+                        <div className="border-t border-border pt-3 space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Adicionar destinatário</p>
+                          <div className="flex gap-2">
+                            <Input
+                              value={opsManualName}
+                              onChange={(e) => setOpsManualName(e.target.value)}
+                              placeholder="Nome"
+                              className="text-sm flex-1"
+                            />
+                            <Input
+                              value={opsManualEmail}
+                              onChange={(e) => setOpsManualEmail(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpsManualRecipient())}
+                              placeholder="email@exemplo.com"
+                              className="text-sm flex-1"
+                            />
+                            <Button type="button" size="sm" variant="outline" onClick={addOpsManualRecipient} className="h-10 px-3 shrink-0">
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section: Anexos */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Paperclip className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Anexos</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {/* TAE signed doc indicator */}
+                        {(() => {
+                          const latestSig = (craProposal as any).proposal_signatures
+                            ?.filter((s: any) => s.status === "completed")
+                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+                          return latestSig?.tae_document_id ? (
+                            <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2">
+                              <FileCheck className="h-4 w-4 text-success shrink-0" />
+                              <p className="text-xs text-success font-medium">Documento assinado via TAE será anexado automaticamente</p>
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {opsAttachments.length > 0 && (
+                          <div className="space-y-1">
+                            {opsAttachments.map((att, idx) => (
+                              <div key={idx} className="flex items-center justify-between rounded-lg px-3 py-2 bg-muted/50">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <span className="text-sm truncate">{att.name}</span>
+                                </div>
+                                <button onClick={() => setOpsAttachments(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <input ref={opsFileInputRef} type="file" multiple className="hidden" onChange={handleOpsFileSelect} />
+                        <Button type="button" variant="outline" size="sm" onClick={() => opsFileInputRef.current?.click()}>
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                          Anexar arquivo
+                        </Button>
                       </div>
                     </div>
 
@@ -1773,7 +1833,7 @@ export default function ProposalsList() {
                         <Textarea
                           value={craMessage}
                           onChange={(e) => setCraMessage(e.target.value)}
-                          placeholder="Escreva uma mensagem para o CRA..."
+                          placeholder="Escreva uma mensagem para Operações..."
                           rows={4}
                           className="text-sm"
                         />
@@ -1787,9 +1847,9 @@ export default function ProposalsList() {
             {/* Footer */}
             <div className="border-t border-border bg-card px-6 py-4 flex items-center justify-end gap-3 shrink-0">
               <Button variant="outline" onClick={() => setCraDialogOpen(false)} disabled={craSending}>Cancelar</Button>
-              <Button onClick={handleSendCraNotification} disabled={craSending || !gmailAuthorized || craSelectedUserIds.length === 0}>
+              <Button onClick={handleSendCraNotification} disabled={craSending || !gmailAuthorized || opsRecipients.length === 0}>
                 {craSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Enviar ({craSelectedUserIds.length})
+                Enviar ({opsRecipients.length})
               </Button>
             </div>
           </SheetContent>

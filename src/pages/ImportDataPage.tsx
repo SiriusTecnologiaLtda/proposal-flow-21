@@ -522,9 +522,9 @@ function ImportCard({
             <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${isRunning ? "bg-primary text-primary-foreground" : "bg-primary/10"}`}>
               {isRunning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5 text-primary" />}
             </div>
-            <div>
-              <CardTitle className="text-base">{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
+            <div className="min-w-0">
+              <CardTitle className="text-base truncate">{title}</CardTitle>
+              <CardDescription className="line-clamp-2">{description}</CardDescription>
             </div>
           </div>
           {statusBadge()}

@@ -546,7 +546,7 @@ export default function ClientsList() {
                     <div className="divide-y divide-border">
                       {contacts.map((contact, idx) => (
                         <div key={contact.id} className="p-4 hover:bg-muted/30 transition-colors">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Nome *</Label>
                               <Input

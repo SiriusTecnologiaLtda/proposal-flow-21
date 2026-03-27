@@ -350,18 +350,18 @@ export default function ProjectsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">OPP</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>ESN</TableHead>
-              <TableHead>GSN</TableHead>
-              <TableHead>Unidade</TableHead>
+              <TableHead className="w-12">OPP</TableHead>
+              <TableHead className="min-w-[120px]">Cliente</TableHead>
+              <TableHead className="hidden xl:table-cell">ESN</TableHead>
+              <TableHead className="hidden xl:table-cell">GSN</TableHead>
+              <TableHead className="hidden lg:table-cell">Unidade</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Eng. Valor</TableHead>
-              <TableHead>Data</TableHead>
+              <TableHead className="hidden lg:table-cell">Eng. Valor</TableHead>
+              <TableHead className="hidden md:table-cell">Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-24">Oportunidade</TableHead>
-              <TableHead className="text-right">Itens</TableHead>
+              <TableHead className="hidden md:table-cell w-24">Oportunidade</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Itens</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>

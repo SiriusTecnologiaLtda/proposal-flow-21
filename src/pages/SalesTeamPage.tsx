@@ -154,7 +154,7 @@ export default function SalesTeamPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3 overflow-hidden">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <Filter className="h-4 w-4" />
           <span>Filtros</span>

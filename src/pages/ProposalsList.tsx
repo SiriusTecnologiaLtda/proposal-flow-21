@@ -959,19 +959,19 @@ export default function ProposalsList() {
                   key={p.id}
                   className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[2fr_1.5fr_auto_auto_1fr_auto_auto_auto_auto_auto] md:items-center md:gap-3 ${locked ? "opacity-60" : ""}`}
                 >
-                  <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
+                  <Link to={`/propostas/${p.id}`} className="flex items-center gap-3 min-w-0">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <FileText className="h-3.5 w-3.5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground truncate">{clientName}</p>
                       <p className="text-xs text-muted-foreground truncate">{p.number}</p>
                     </div>
                   </Link>
-                  <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
-                  <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
-                  <p className="text-sm text-foreground">{p.product}</p>
-                  <p className="text-sm text-muted-foreground truncate">{(p as any).sales_team?.name || "—"}</p>
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{description || "—"}</p>
+                  <p className="text-sm text-foreground whitespace-nowrap">{typeMap[p.type] || p.type}</p>
+                  <p className="text-sm text-foreground whitespace-nowrap">{p.product}</p>
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{(p as any).sales_team?.name || "—"}</p>
                   <p className="text-sm font-medium text-foreground text-right">
                     {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
                   </p>

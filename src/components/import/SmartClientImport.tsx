@@ -649,7 +649,7 @@ export default function SmartClientImport() {
     }
 
     setStep("done");
-  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved]);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules]);
 
   // ── AI Filter prompt handler ───────────────────────────────────
   const handleFilterPrompt = useCallback(async () => {

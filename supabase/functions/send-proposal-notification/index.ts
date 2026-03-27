@@ -486,28 +486,87 @@ Deno.serve(async (req) => {
       if (taeDocumentId) {
         try {
           const { data: taeConfig } = await supabase.from("tae_config").select("*").limit(1).single();
-          if (taeConfig?.application_id) {
-            const taeSecret = Deno.env.get("TAE_API_SECRET");
-            if (taeSecret) {
-              const docUrl = `${taeConfig.base_url}/api/v1/documents/${taeDocumentId}/download`;
-              const taeRes = await fetch(docUrl, {
-                headers: { "Authorization": `Bearer ${taeSecret}`, "X-Application-ID": taeConfig.application_id },
+          if (taeConfig?.base_url && taeConfig?.service_user_email) {
+            const taePassword = Deno.env.get("TAE_SERVICE_USER_PASSWORD");
+            if (taePassword) {
+              // Login to TAE
+              const loginRes = await fetch(`${taeConfig.base_url}/identityintegration/v3/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
               });
-              if (taeRes.ok) {
-                const docBuffer = await taeRes.arrayBuffer();
-                const docBase64 = btoa(String.fromCharCode(...new Uint8Array(docBuffer)));
-                allAttachments.push({
-                  name: `proposta_${proposalNumber}_assinada.pdf`,
-                  base64: docBase64,
-                  mimeType: "application/pdf",
-                });
+              if (loginRes.ok) {
+                const loginData = await loginRes.json();
+                const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
+                if (taeToken) {
+                  // Download signed document (tipoDownload=2 = assinado com manifesto)
+                  const dlUrl = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(taeDocumentId)}/download?tipoDownload=2`;
+                  console.log(`[send-notification] Fetching TAE signed doc: ${dlUrl}`);
+                  const taeRes = await fetch(dlUrl, { headers: { Authorization: `Bearer ${taeToken}` } });
+                  if (taeRes.ok) {
+                    const ct = (taeRes.headers.get("content-type") || "").toLowerCase();
+                    if (ct.includes("application/json")) {
+                      // TAE returns JSON with fileBytes base64
+                      const jsonBody = await taeRes.json();
+                      const data = jsonBody?.data ?? jsonBody;
+                      if (typeof data?.fileBytes === "string" && data.fileBytes.length > 1000) {
+                        allAttachments.push({
+                          name: data?.fileName || `proposta_${proposalNumber}_assinada.pdf`,
+                          base64: data.fileBytes.replace(/\s/g, ""),
+                          mimeType: data?.fileType || "application/pdf",
+                        });
+                        console.log(`[send-notification] TAE signed doc attached (fileBytes), size=${data.fileBytes.length}`);
+                      } else if (typeof data?.signedURL === "string" && data.signedURL.startsWith("http")) {
+                        const signedRes = await fetch(data.signedURL);
+                        if (signedRes.ok) {
+                          const buf = await signedRes.arrayBuffer();
+                          const bytes = new Uint8Array(buf);
+                          let binary = "";
+                          const chunkSize = 0x8000;
+                          for (let i = 0; i < bytes.length; i += chunkSize) {
+                            const chunk = bytes.subarray(i, i + chunkSize);
+                            binary += String.fromCharCode(...chunk);
+                          }
+                          allAttachments.push({
+                            name: data?.fileName || `proposta_${proposalNumber}_assinada.pdf`,
+                            base64: btoa(binary),
+                            mimeType: "application/pdf",
+                          });
+                          console.log(`[send-notification] TAE signed doc attached (signedURL), size=${buf.byteLength}`);
+                        }
+                      }
+                    } else {
+                      // Binary PDF response
+                      const buf = await taeRes.arrayBuffer();
+                      if (buf.byteLength > 500) {
+                        const bytes = new Uint8Array(buf);
+                        let binary = "";
+                        const chunkSize = 0x8000;
+                        for (let i = 0; i < bytes.length; i += chunkSize) {
+                          const chunk = bytes.subarray(i, i + chunkSize);
+                          binary += String.fromCharCode(...chunk);
+                        }
+                        allAttachments.push({
+                          name: `proposta_${proposalNumber}_assinada.pdf`,
+                          base64: btoa(binary),
+                          mimeType: "application/pdf",
+                        });
+                        console.log(`[send-notification] TAE signed doc attached (binary), size=${buf.byteLength}`);
+                      }
+                    }
+                  } else {
+                    console.warn(`[send-notification] TAE download failed: ${taeRes.status}`);
+                  }
+                }
               } else {
-                console.warn("Could not fetch TAE signed document:", taeRes.status);
+                console.warn("[send-notification] TAE login failed:", loginRes.status);
               }
+            } else {
+              console.warn("[send-notification] TAE_SERVICE_USER_PASSWORD not set");
             }
           }
         } catch (e) {
-          console.warn("TAE document fetch failed:", e);
+          console.warn("[send-notification] TAE document fetch failed:", e);
         }
       }
 

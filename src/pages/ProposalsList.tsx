@@ -1279,7 +1279,12 @@ export default function ProposalsList() {
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t border-border bg-accent/30 px-4 py-2.5">
               <span className="text-sm font-medium text-muted-foreground">
-                {filtered.length} {filtered.length === 1 ? "proposta" : "propostas"}
+                Exibindo {visibleProposals.length} de {filtered.length} {filtered.length === 1 ? "proposta" : "propostas"}
+                {hasMoreProposals && (
+                  <Button variant="link" size="sm" className="ml-2 h-auto p-0 text-xs" onClick={() => setVisibleCount((c) => c + 50)}>
+                    Carregar mais
+                  </Button>
+                )}
               </span>
               <span className="text-sm font-semibold text-foreground">
                 Total: R${" "}

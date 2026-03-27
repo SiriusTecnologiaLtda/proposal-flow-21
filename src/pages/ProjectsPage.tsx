@@ -42,6 +42,8 @@ function getProposalStatusCategory(proposalStatus: string | null | undefined): s
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [proposalStatusFilter, setProposalStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");

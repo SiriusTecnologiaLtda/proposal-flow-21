@@ -563,6 +563,7 @@ export default function ProposalsList() {
     const capturedProposal = notifProposal;
     const capturedType = notifType;
     const capturedMessage = notifMessage;
+    const capturedSubject = notifSubject;
     const capturedCcEmails = [...notifCcEmails];
 
     // Close immediately and show background toast

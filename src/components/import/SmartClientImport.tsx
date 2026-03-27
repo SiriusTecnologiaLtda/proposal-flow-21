@@ -12,9 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
-  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save
+  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save,
+  Sparkles, Filter, Trash2, Send
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {

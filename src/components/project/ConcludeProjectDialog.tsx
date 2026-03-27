@@ -155,7 +155,28 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
           setTemplateNames(map);
         }
 
-        await resolveProjectLinkage();
+        const result = await resolveProjectLinkage();
+        
+        // Load email template for this unit
+        if (active && result.resolvedProposal?.client_id) {
+          const { data: client } = await supabase.from("clients").select("unit_id").eq("id", result.resolvedProposal.client_id).maybeSingle();
+          if (client?.unit_id) {
+            const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+            const tmpl = await fetchUnitEmailTemplate(client.unit_id, "concluir_revisao");
+            if (active && tmpl) {
+              const { data: unitData } = await supabase.from("unit_info").select("name").eq("id", client.unit_id).maybeSingle();
+              const { data: clientData } = await supabase.from("clients").select("name").eq("id", result.resolvedProposal.client_id).maybeSingle();
+              const values = {
+                numero: result.resolvedProposal?.number || project?.proposal_number || "",
+                cliente: clientData?.name || "",
+                unidade: unitData?.name || "",
+                produto: project?.product || "",
+              };
+              if (tmpl.subject) setEmailSubject(replacePlaceholders(tmpl.subject, values));
+              if (tmpl.body) setMessage(replacePlaceholders(tmpl.body, values));
+            }
+          }
+        }
       } catch (err: any) {
         if (active) {
           toast({ title: "Erro", description: err.message || "Falha ao carregar vínculo do projeto.", variant: "destructive" });

@@ -274,6 +274,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         .from("unit_contacts")
         .select("*")
         .eq("unit_id", esn.unit_id)
+        .eq("contact_type", "tae")
         .order("name");
       if (error) throw error;
       if (!unitContacts?.length) {

@@ -961,7 +961,7 @@ export default function ProposalsList() {
             <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
           </div>
           <div className="divide-y divide-border">
-            {filtered.map((p) => {
+            {visibleProposals.map((p) => {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";

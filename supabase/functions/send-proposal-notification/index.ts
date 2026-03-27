@@ -37,25 +37,46 @@ function buildRawEmail(
   to: string,
   subject: string,
   htmlBody: string,
-  cc?: string[]
+  cc?: string[],
+  attachments?: Array<{ name: string; base64: string; mimeType: string }>
 ): string {
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
+  const hasAttachments = attachments && attachments.length > 0;
+  const contentType = hasAttachments
+    ? `multipart/mixed; boundary="${boundary}"`
+    : `multipart/alternative; boundary="${boundary}"`;
+
   const rawLines = [
     `From: =?UTF-8?B?${btoa(unescape(encodeURIComponent(fromName)))}?= <${from}>`,
     `To: ${to}`,
     ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: ${contentType}`,
     ``,
     `--${boundary}`,
     `Content-Type: text/html; charset="UTF-8"`,
     `Content-Transfer-Encoding: base64`,
     ``,
     btoa(unescape(encodeURIComponent(htmlBody))),
-    ``,
-    `--${boundary}--`,
   ];
+
+  if (hasAttachments) {
+    for (const att of attachments!) {
+      const encodedName = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(att.name)))}?=`;
+      rawLines.push(
+        ``,
+        `--${boundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.name}"`,
+        `Content-Disposition: attachment; filename="${encodedName}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        att.base64
+      );
+    }
+  }
+
+  rawLines.push(``, `--${boundary}--`);
   return rawLines.join("\r\n");
 }
 
@@ -66,9 +87,10 @@ async function sendGmail(
   recipientEmail: string,
   subject: string,
   htmlBody: string,
-  cc?: string[]
+  cc?: string[],
+  attachments?: Array<{ name: string; base64: string; mimeType: string }>
 ): Promise<void> {
-  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody, cc);
+  const raw = buildRawEmail(senderName, senderEmail, recipientEmail, subject, htmlBody, cc, attachments);
   const rawB64 = btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -144,7 +166,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin, attachments, taeDocumentId } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(
@@ -421,10 +443,10 @@ Deno.serve(async (req) => {
         </div>
       `;
 
-      subject = `[Proposta ${proposalNumber}] Comunicado CRA`;
+      subject = `[Proposta ${proposalNumber}] Envio para Operações`;
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #1a1a2e;">Comunicado CRA — Proposta ${proposalNumber}</h2>
+          <h2 style="color: #1a1a2e;">Envio para Operações — Proposta ${proposalNumber}</h2>
           <p><strong>${senderName}</strong> enviou o seguinte comunicado referente à proposta:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
             <tr style="border-bottom: 1px solid #e0e0e0;">
@@ -457,7 +479,39 @@ Deno.serve(async (req) => {
         </div>
       `;
 
-      // Send to all selected CRA recipients
+      // Collect all attachments (user-uploaded + TAE signed doc)
+      const allAttachments: Array<{ name: string; base64: string; mimeType: string }> = attachments || [];
+
+      // If taeDocumentId is provided, try to fetch signed PDF from TAE
+      if (taeDocumentId) {
+        try {
+          const { data: taeConfig } = await supabase.from("tae_config").select("*").limit(1).single();
+          if (taeConfig?.application_id) {
+            const taeSecret = Deno.env.get("TAE_API_SECRET");
+            if (taeSecret) {
+              const docUrl = `${taeConfig.base_url}/api/v1/documents/${taeDocumentId}/download`;
+              const taeRes = await fetch(docUrl, {
+                headers: { "Authorization": `Bearer ${taeSecret}`, "X-Application-ID": taeConfig.application_id },
+              });
+              if (taeRes.ok) {
+                const docBuffer = await taeRes.arrayBuffer();
+                const docBase64 = btoa(String.fromCharCode(...new Uint8Array(docBuffer)));
+                allAttachments.push({
+                  name: `proposta_${proposalNumber}_assinada.pdf`,
+                  base64: docBase64,
+                  mimeType: "application/pdf",
+                });
+              } else {
+                console.warn("Could not fetch TAE signed document:", taeRes.status);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("TAE document fetch failed:", e);
+        }
+      }
+
+      // Send to all selected recipients
       const gInt2 = await getOAuthClient(supabase);
       const accessToken2 = await getAccessTokenOAuth2(
         gInt2.oauth_client_id,
@@ -466,7 +520,7 @@ Deno.serve(async (req) => {
       );
 
       for (const r of recipients) {
-        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc);
+        await sendGmail(accessToken2, senderName, senderEmail, r.email, subject, bodyHtml, cc, allAttachments.length > 0 ? allAttachments : undefined);
       }
 
       return new Response(

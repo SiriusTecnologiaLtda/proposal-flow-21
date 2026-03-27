@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus } from "lucide-react";
+import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus, Paperclip, Upload } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
@@ -301,51 +301,120 @@ export default function ProposalsList() {
     }
   }
 
-  // CRA notification state
+  // Operations notification state (formerly CRA)
   const [craDialogOpen, setCraDialogOpen] = useState(false);
   const [craProposal, setCraProposal] = useState<any>(null);
   const [craMessage, setCraMessage] = useState("");
   const [craSending, setCraSending] = useState(false);
-  const [craSelectedUserIds, setCraSelectedUserIds] = useState<string[]>([]);
+  const [opsRecipients, setOpsRecipients] = useState<Array<{ id?: string; name: string; email: string; fromDb: boolean }>>([]);
+  const [opsManualName, setOpsManualName] = useState("");
+  const [opsManualEmail, setOpsManualEmail] = useState("");
+  const [opsAttachments, setOpsAttachments] = useState<Array<{ name: string; base64: string; mimeType: string }>>([]);
+  const opsFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load CRA users (profiles with is_cra=true and consulta role)
-  const { data: craUsers = [] } = useQuery({
-    queryKey: ["cra-users"],
-    queryFn: async () => {
-      // Get all profiles marked as CRA
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, email, is_cra")
-        .eq("is_cra", true);
-      if (!profiles?.length) return [];
-      // Get their unit access
-      const userIds = profiles.map(p => p.user_id);
-      const { data: unitAccess } = await supabase
-        .from("user_unit_access")
-        .select("user_id, unit_id")
-        .in("user_id", userIds);
-      return profiles.map(p => ({
-        ...p,
-        unitIds: (unitAccess || []).filter(u => u.user_id === p.user_id).map(u => u.unit_id),
-      }));
-    },
-  });
-
+  // Load unit operations contacts for the proposal's unit
   function openCraDialog(proposal: any) {
     setCraProposal(proposal);
     setCraMessage("");
-    setCraSelectedUserIds([]);
+    setOpsRecipients([]);
+    setOpsAttachments([]);
+    setOpsManualName("");
+    setOpsManualEmail("");
     setCraDialogOpen(true);
+
+    // Load operations contacts from the unit
+    const unitId = (proposal as any).clients?.unit_id || (proposal as any).sales_team?.unit_id;
+    if (unitId) {
+      supabase
+        .from("unit_contacts")
+        .select("id, name, email, phone, contact_type")
+        .eq("unit_id", unitId)
+        .eq("contact_type", "operacoes")
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setOpsRecipients(data.map(c => ({ id: c.id, name: c.name, email: c.email, fromDb: true })));
+          }
+        });
+    }
+  }
+
+  function addOpsManualRecipient() {
+    const email = opsManualEmail.trim();
+    const name = opsManualName.trim() || email;
+    if (!email || !/\S+@\S+\.\S+/.test(email)) return;
+    if (opsRecipients.some(r => r.email.toLowerCase() === email.toLowerCase())) return;
+    setOpsRecipients(prev => [...prev, { name, email, fromDb: false }]);
+    setOpsManualName("");
+    setOpsManualEmail("");
+  }
+
+  function removeOpsRecipient(email: string) {
+    setOpsRecipients(prev => prev.filter(r => r.email !== email));
+  }
+
+  async function handleOpsFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: `${file.name} excede 10MB`, variant: "destructive" });
+        continue;
+      }
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      setOpsAttachments(prev => [...prev, { name: file.name, base64, mimeType: file.type || "application/octet-stream" }]);
+    }
+    e.target.value = "";
   }
 
   async function handleSendCraNotification() {
-    if (!craProposal || craSelectedUserIds.length === 0) return;
-    setCraSending(true);
+    if (!craProposal || opsRecipients.length === 0) return;
+
+    // Capture state
+    const capturedProposal = craProposal;
+    const capturedMessage = craMessage;
+    const capturedRecipients = [...opsRecipients];
+    const capturedAttachments = [...opsAttachments];
+
+    // Close immediately - background processing
+    setCraDialogOpen(false);
+    toast({ title: "Processando...", description: "O envio está sendo executado em background. Você será avisado ao concluir." });
+
     try {
       const session = (await supabase.auth.getSession()).data.session;
-      const selectedEmails = craUsers
-        .filter(u => craSelectedUserIds.includes(u.user_id))
-        .map(u => ({ email: u.email!, name: u.display_name }));
+      const selectedEmails = capturedRecipients.map(r => ({ email: r.email, name: r.name }));
+
+      // Save new manual recipients to unit_contacts as 'operacoes'
+      const unitId = (capturedProposal as any).clients?.unit_id || (capturedProposal as any).sales_team?.unit_id;
+      const newManualRecipients = capturedRecipients.filter(r => !r.fromDb);
+      if (unitId && newManualRecipients.length > 0) {
+        // Check existing emails to avoid duplicates
+        const { data: existing } = await supabase
+          .from("unit_contacts")
+          .select("email")
+          .eq("unit_id", unitId)
+          .eq("contact_type", "operacoes");
+        const existingEmails = new Set((existing || []).map(e => e.email.toLowerCase()));
+        const toInsert = newManualRecipients.filter(r => !existingEmails.has(r.email.toLowerCase()));
+        if (toInsert.length > 0) {
+          await supabase.from("unit_contacts").insert(
+            toInsert.map(r => ({ unit_id: unitId, name: r.name, email: r.email, contact_type: "operacoes", role: "Operações" }))
+          );
+        }
+      }
+
+      // Check if proposal has TAE signed document to attach
+      let taeAttachment: { name: string; base64: string; mimeType: string } | null = null;
+      const latestSig = (capturedProposal as any).proposal_signatures
+        ?.filter((s: any) => s.status === "completed")
+        ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+      if (latestSig?.tae_document_id) {
+        // We'll pass the tae_document_id to the edge function to fetch
+        taeAttachment = { name: `proposta_${capturedProposal.number}_assinada.pdf`, base64: "", mimeType: "application/pdf" };
+      }
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
@@ -357,30 +426,28 @@ export default function ProposalsList() {
             Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            proposalId: craProposal.id,
+            proposalId: capturedProposal.id,
             type: "comunicar_cra",
-            message: craMessage,
-            proposalLink: `${window.location.origin}/propostas/${craProposal.id}`,
+            message: capturedMessage,
+            proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
+            attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
+            taeDocumentId: latestSig?.tae_document_id || undefined,
           }),
         }
       );
       const data = await res.json();
       if (data.error === "gmail_not_authorized") {
         toast({ title: "Autorização necessária", description: "Autorize o envio de emails pela sua conta Google.", variant: "destructive" });
-        setCraSending(false);
         return;
       }
       if (res.ok && data.success) {
-        toast({ title: "Comunicado CRA enviado", description: `Enviado para ${selectedEmails.length} destinatário(s)` });
-        setCraDialogOpen(false);
+        toast({ title: "Enviado para Operações", description: `Enviado para ${selectedEmails.length} destinatário(s)` });
       } else {
         toast({ title: "Erro ao enviar", description: data.error || "Erro desconhecido", variant: "destructive" });
       }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setCraSending(false);
     }
   }
 
@@ -1146,7 +1213,7 @@ export default function ProposalsList() {
                                   <Edit2 className="mr-2 h-3.5 w-3.5" />Alterar Datas
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openCraDialog(p)}>
-                                  <Users className="mr-2 h-3.5 w-3.5" />Comunicar CRA
+                                  <Users className="mr-2 h-3.5 w-3.5" />Enviar para Operações
                                 </DropdownMenuItem>
                               </>
                             )}
@@ -1610,18 +1677,18 @@ export default function ProposalsList() {
           </SheetContent>
         </Sheet>
 
-        {/* CRA Notification dialog */}
+        {/* Operations Notification dialog */}
         <Sheet open={craDialogOpen} onOpenChange={setCraDialogOpen}>
           <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
             {/* Hero Header */}
             <div className="bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-6 py-5 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-white/10 p-2">
-                  <Users className="h-5 w-5 text-white" />
+                  <Send className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Comunicar CRA</h2>
-                  <p className="text-sm text-white/70">Selecione os destinatários e envie a comunicação</p>
+                  <h2 className="text-lg font-semibold text-white">Enviar para Operações</h2>
+                  <p className="text-sm text-white/70">Selecione os destinatários, anexos e envie a comunicação</p>
                 </div>
               </div>
             </div>
@@ -1666,40 +1733,100 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
-                    {/* Section: Destinatários CRA */}
+                    {/* Section: Destinatários Operações */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <Users className="h-4 w-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Destinatários CRA</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Destinatários Operações</h3>
                       </div>
-                      <div className="p-4">
-                        {craUsers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Nenhum usuário CRA cadastrado.</p>
+                      <div className="p-4 space-y-3">
+                        {opsRecipients.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Nenhum contato de Operações cadastrado para esta unidade.</p>
                         ) : (
-                          <ScrollArea className="max-h-48">
+                          <ScrollArea className="max-h-40">
                             <div className="space-y-1">
-                              {craUsers.map(u => (
-                                <label key={u.user_id} className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent cursor-pointer transition-colors">
-                                  <Checkbox
-                                    checked={craSelectedUserIds.includes(u.user_id)}
-                                    onCheckedChange={(checked) => {
-                                      setCraSelectedUserIds(prev =>
-                                        checked ? [...prev, u.user_id] : prev.filter(id => id !== u.user_id)
-                                      );
-                                    }}
-                                  />
+                              {opsRecipients.map(r => (
+                                <div key={r.email} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-accent transition-colors">
                                   <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate">{u.display_name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                                    {u.unitIds.length > 0 && (
-                                      <p className="text-xs text-muted-foreground">{u.unitIds.length} unidade(s)</p>
-                                    )}
+                                    <p className="text-sm font-medium truncate">{r.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{r.email}</p>
                                   </div>
-                                </label>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {!r.fromDb && <Badge variant="outline" className="text-[10px]">Manual</Badge>}
+                                    <button onClick={() => removeOpsRecipient(r.email)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </ScrollArea>
                         )}
+                        {/* Add manual recipient */}
+                        <div className="border-t border-border pt-3 space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Adicionar destinatário</p>
+                          <div className="flex gap-2">
+                            <Input
+                              value={opsManualName}
+                              onChange={(e) => setOpsManualName(e.target.value)}
+                              placeholder="Nome"
+                              className="text-sm flex-1"
+                            />
+                            <Input
+                              value={opsManualEmail}
+                              onChange={(e) => setOpsManualEmail(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpsManualRecipient())}
+                              placeholder="email@exemplo.com"
+                              className="text-sm flex-1"
+                            />
+                            <Button type="button" size="sm" variant="outline" onClick={addOpsManualRecipient} className="h-10 px-3 shrink-0">
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section: Anexos */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Paperclip className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Anexos</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {/* TAE signed doc indicator */}
+                        {(() => {
+                          const latestSig = (craProposal as any).proposal_signatures
+                            ?.filter((s: any) => s.status === "completed")
+                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+                          return latestSig?.tae_document_id ? (
+                            <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2">
+                              <FileCheck className="h-4 w-4 text-success shrink-0" />
+                              <p className="text-xs text-success font-medium">Documento assinado via TAE será anexado automaticamente</p>
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {opsAttachments.length > 0 && (
+                          <div className="space-y-1">
+                            {opsAttachments.map((att, idx) => (
+                              <div key={idx} className="flex items-center justify-between rounded-lg px-3 py-2 bg-muted/50">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <span className="text-sm truncate">{att.name}</span>
+                                </div>
+                                <button onClick={() => setOpsAttachments(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <input ref={opsFileInputRef} type="file" multiple className="hidden" onChange={handleOpsFileSelect} />
+                        <Button type="button" variant="outline" size="sm" onClick={() => opsFileInputRef.current?.click()}>
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                          Anexar arquivo
+                        </Button>
                       </div>
                     </div>
 
@@ -1713,7 +1840,7 @@ export default function ProposalsList() {
                         <Textarea
                           value={craMessage}
                           onChange={(e) => setCraMessage(e.target.value)}
-                          placeholder="Escreva uma mensagem para o CRA..."
+                          placeholder="Escreva uma mensagem para Operações..."
                           rows={4}
                           className="text-sm"
                         />
@@ -1727,9 +1854,9 @@ export default function ProposalsList() {
             {/* Footer */}
             <div className="border-t border-border bg-card px-6 py-4 flex items-center justify-end gap-3 shrink-0">
               <Button variant="outline" onClick={() => setCraDialogOpen(false)} disabled={craSending}>Cancelar</Button>
-              <Button onClick={handleSendCraNotification} disabled={craSending || !gmailAuthorized || craSelectedUserIds.length === 0}>
+              <Button onClick={handleSendCraNotification} disabled={craSending || !gmailAuthorized || opsRecipients.length === 0}>
                 {craSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Enviar ({craSelectedUserIds.length})
+                Enviar ({opsRecipients.length})
               </Button>
             </div>
           </SheetContent>

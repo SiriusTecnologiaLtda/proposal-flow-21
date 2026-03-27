@@ -752,7 +752,7 @@ export default function ClientsList() {
                 <span className="text-xs font-medium text-muted-foreground">Telefone</span>
               </div>
               <div className="divide-y divide-border">
-                {filtered.map((client) => (
+               {visibleClients.map((client) => (
                   <div
                     key={client.id}
                     className="group cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-7 md:items-center md:gap-4"
@@ -785,6 +785,13 @@ export default function ClientsList() {
                 ))}
                 {filtered.length === 0 && (
                   <div className="px-4 py-12 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                )}
+                {hasMore && (
+                  <div className="flex justify-center py-4 border-t border-border">
+                    <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 60)}>
+                      Carregar mais ({filtered.length - visibleCount} restantes)
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

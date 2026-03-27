@@ -28,10 +28,20 @@ export interface ImportRun {
 
 // ─── Global in-memory store (survives navigation) ───────────────
 const activeImports = new Map<ImportEntity, ImportRun>();
+const cancelSignals = new Map<ImportEntity, AbortController>();
 const listeners = new Set<() => void>();
 
 function notify() {
   listeners.forEach((fn) => fn());
+}
+
+export function requestCancelImport(entity: ImportEntity) {
+  const ctrl = cancelSignals.get(entity);
+  if (ctrl) ctrl.abort();
+}
+
+export function getCancelSignal(entity: ImportEntity): AbortSignal | undefined {
+  return cancelSignals.get(entity)?.signal;
 }
 
 export function getActiveImport(entity: ImportEntity): ImportRun | undefined {

@@ -594,6 +594,22 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
               </div>
             </div>
 
+            {/* Section: Assunto */}
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                <Mail className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Assunto do E-mail</h3>
+              </div>
+              <div className="p-4">
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={`[OPP ${fullProject?.proposal_number || ""}] Revisão Concluída`}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
             {/* Section: Mensagem */}
             <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-border">

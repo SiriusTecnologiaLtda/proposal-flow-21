@@ -348,6 +348,12 @@ export default function ProposalsList() {
     setOpsAttachments([]);
     setOpsManualName("");
     setOpsManualEmail("");
+    // Check if signed doc exists
+    const latestSigForInit = (proposal as any).proposal_signatures
+      ?.filter((s: any) => s.status === "completed" && s.tae_document_id)
+      ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+    setOpsAttachSignedDoc(!!latestSigForInit);
+    setOpsAttachMit(false);
     setCraDialogOpen(true);
 
     // Load operations contacts from the unit

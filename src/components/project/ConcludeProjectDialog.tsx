@@ -273,7 +273,29 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       return;
     }
 
-    setLoading(true);
+    // Validate before closing
+    const effectiveProposalIdCheck = proposalData?.id || fullProject?.proposal_id || project?.proposal_id;
+    if (!effectiveProposalIdCheck || !proposalData) {
+      toast({ title: "Erro", description: "Projeto não possui oportunidade vinculada.", variant: "destructive" });
+      return;
+    }
+    if (existingProjects.length > 0 && !replaceMode) {
+      toast({ title: "Selecione uma opção", description: "Escolha adicionar ou substituir o projeto existente.", variant: "destructive" });
+      return;
+    }
+
+    // Close immediately and show background toast
+    onOpenChange(false);
+    toast({ title: "Processando...", description: "A conclusão da revisão está sendo executada em background. Você será avisado ao concluir." });
+
+    // Capture state before async
+    const capturedMessage = message;
+    const capturedCcEmails = [...ccEmails];
+    const capturedReplaceMode = replaceMode;
+    const capturedScopeSummary = [...scopeSummary];
+    const capturedTotalHours = totalHours;
+
+    // Run in background
     try {
       const { freshProject, resolvedProposal, linkedProjects } = await resolveProjectLinkage();
       const effectiveProject = freshProject || fullProject || project;
@@ -286,15 +308,10 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
         return;
       }
 
-      if (linkedProjects.length > 0 && !replaceMode) {
-        toast({ title: "Selecione uma opção", description: "Escolha adicionar ou substituir o projeto existente.", variant: "destructive" });
-        return;
-      }
-
       await writeSyncLog("project_conclude_started", {
         project_scope_items_count: (effectiveProject?.project_scope_items || []).length,
-        scope_summary_count: scopeSummary.length,
-        total_hours: totalHours,
+        scope_summary_count: capturedScopeSummary.length,
+        total_hours: capturedTotalHours,
       });
 
       await supabase

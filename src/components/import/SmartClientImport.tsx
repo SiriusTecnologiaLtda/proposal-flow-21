@@ -25,6 +25,8 @@ import {
   addImportLog,
   updateImportStats,
   finishImportRun,
+  requestCancelImport,
+  getCancelSignal,
 } from "@/hooks/useImportStore";
 
 // ─── DB field definitions ───────────────────────────────────────

@@ -117,13 +117,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Download the signed document
-    const downloadRes = await fetch(
-      `${taeConfig.base_url}/api/v1/documents/${sig.tae_document_id}/download`,
-      {
+    // Download the signed document – try multiple TAE endpoints
+    let downloadRes: Response | null = null;
+    const downloadEndpoints = [
+      `${taeConfig.base_url}/documents/v1/envelopes/${sig.tae_document_id}/download`,
+      `${taeConfig.base_url}/documents/v1/documentos/${sig.tae_document_id}/download`,
+    ];
+
+    for (const url of downloadEndpoints) {
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${taeToken}` },
+      });
+      if (res.ok) {
+        downloadRes = res;
+        break;
       }
-    );
+      await res.text().catch(() => "");
+    }
+
+    if (!downloadRes || !downloadRes.ok) {
+      // Last resort: try publication-based download
+      if (sig.tae_publication_id) {
+        const pubRes = await fetch(
+          `${taeConfig.base_url}/documents/v1/publicacoes/${sig.tae_publication_id}/download`,
+          { headers: { Authorization: `Bearer ${taeToken}` } }
+        );
+        if (pubRes.ok) downloadRes = pubRes;
+        else await pubRes.text().catch(() => "");
+      }
+    }
 
     if (!downloadRes.ok) {
       const errText = await downloadRes.text().catch(() => "");

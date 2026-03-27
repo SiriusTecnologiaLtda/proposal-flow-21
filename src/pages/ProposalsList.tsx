@@ -301,41 +301,73 @@ export default function ProposalsList() {
     }
   }
 
-  // CRA notification state
+  // Operations notification state (formerly CRA)
   const [craDialogOpen, setCraDialogOpen] = useState(false);
   const [craProposal, setCraProposal] = useState<any>(null);
   const [craMessage, setCraMessage] = useState("");
   const [craSending, setCraSending] = useState(false);
-  const [craSelectedUserIds, setCraSelectedUserIds] = useState<string[]>([]);
+  const [opsRecipients, setOpsRecipients] = useState<Array<{ id?: string; name: string; email: string; fromDb: boolean }>>([]);
+  const [opsManualName, setOpsManualName] = useState("");
+  const [opsManualEmail, setOpsManualEmail] = useState("");
+  const [opsAttachments, setOpsAttachments] = useState<Array<{ name: string; base64: string; mimeType: string }>>([]);
+  const opsFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load CRA users (profiles with is_cra=true and consulta role)
-  const { data: craUsers = [] } = useQuery({
-    queryKey: ["cra-users"],
-    queryFn: async () => {
-      // Get all profiles marked as CRA
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, email, is_cra")
-        .eq("is_cra", true);
-      if (!profiles?.length) return [];
-      // Get their unit access
-      const userIds = profiles.map(p => p.user_id);
-      const { data: unitAccess } = await supabase
-        .from("user_unit_access")
-        .select("user_id, unit_id")
-        .in("user_id", userIds);
-      return profiles.map(p => ({
-        ...p,
-        unitIds: (unitAccess || []).filter(u => u.user_id === p.user_id).map(u => u.unit_id),
-      }));
-    },
-  });
-
+  // Load unit operations contacts for the proposal's unit
   function openCraDialog(proposal: any) {
     setCraProposal(proposal);
     setCraMessage("");
-    setCraSelectedUserIds([]);
+    setOpsRecipients([]);
+    setOpsAttachments([]);
+    setOpsManualName("");
+    setOpsManualEmail("");
     setCraDialogOpen(true);
+
+    // Load operations contacts from the unit
+    const unitId = (proposal as any).clients?.unit_id || (proposal as any).sales_team?.unit_id;
+    if (unitId) {
+      supabase
+        .from("unit_contacts")
+        .select("id, name, email, phone, contact_type")
+        .eq("unit_id", unitId)
+        .eq("contact_type", "operacoes")
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setOpsRecipients(data.map(c => ({ id: c.id, name: c.name, email: c.email, fromDb: true })));
+          }
+        });
+    }
+  }
+
+  function addOpsManualRecipient() {
+    const email = opsManualEmail.trim();
+    const name = opsManualName.trim() || email;
+    if (!email || !/\S+@\S+\.\S+/.test(email)) return;
+    if (opsRecipients.some(r => r.email.toLowerCase() === email.toLowerCase())) return;
+    setOpsRecipients(prev => [...prev, { name, email, fromDb: false }]);
+    setOpsManualName("");
+    setOpsManualEmail("");
+  }
+
+  function removeOpsRecipient(email: string) {
+    setOpsRecipients(prev => prev.filter(r => r.email !== email));
+  }
+
+  async function handleOpsFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: `${file.name} excede 10MB`, variant: "destructive" });
+        continue;
+      }
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      setOpsAttachments(prev => [...prev, { name: file.name, base64, mimeType: file.type || "application/octet-stream" }]);
+    }
+    e.target.value = "";
   }
 
   async function handleSendCraNotification() {

@@ -1,17 +1,22 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Shield, Loader2, Settings2, FolderKey, FolderSync } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft, Shield, Loader2, Settings2, FolderKey, FolderSync, Search,
+  Users, Building, ChevronRight, UserCircle2
+} from "lucide-react";
 import { ROLE_LABELS, ALL_RESOURCES, RESOURCE_LABELS, type AppRole } from "@/lib/permissions";
 import { useSalesTeam } from "@/hooks/useSupabaseData";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -21,9 +26,10 @@ export default function RegisteredUsersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
-  const [configUserId, setConfigUserId] = useState<string | null>(null);
   const [grantingAccess, setGrantingAccess] = useState<string | null>(null);
   const [grantingAll, setGrantingAll] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const { data: salesTeam = [] } = useSalesTeam();
 
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
@@ -71,8 +77,40 @@ export default function RegisteredUsersPage() {
     },
   });
 
+  const { data: groupMembers = [] } = useQuery({
+    queryKey: ["user_group_members"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_group_members" as any).select("*");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["user_groups"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_groups" as any).select("*");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const roleMap = new Map(userRoles.map((r) => [r.user_id, r]));
   const isLoading = loadingProfiles || loadingRoles;
+
+  const filteredProfiles = useMemo(() => {
+    if (!search) return profiles;
+    const s = search.toLowerCase();
+    return profiles.filter((p) =>
+      p.display_name.toLowerCase().includes(s) ||
+      (p.email || "").toLowerCase().includes(s)
+    );
+  }, [profiles, search]);
+
+  const selectedProfile = profiles.find((p) => p.user_id === selectedUserId);
+  const selectedRole = selectedUserId ? (roleMap.get(selectedUserId)?.role as AppRole | undefined) : undefined;
+  const selectedUserUnits = new Set(userUnitAccess.filter((u) => u.user_id === selectedUserId).map((u) => u.unit_id));
+  const selectedUserGroups = groupMembers.filter((gm: any) => gm.user_id === selectedUserId);
 
   async function handleRoleChange(userId: string, newRole: string) {
     setSaving(userId);
@@ -156,33 +194,31 @@ export default function RegisteredUsersPage() {
     setGrantingAll(false);
   }
 
-  // Consulta unit config dialog
-  const configProfile = configUserId ? profiles.find((p) => p.user_id === configUserId) : null;
-  const configUnitIds = new Set(userUnitAccess.filter((u) => u.user_id === configUserId).map((u) => u.unit_id));
-
   async function toggleUnitAccess(unitId: string, enabled: boolean) {
-    if (!configUserId) return;
+    if (!selectedUserId) return;
     if (enabled) {
-      await supabase.from("user_unit_access").insert({ user_id: configUserId, unit_id: unitId });
+      await supabase.from("user_unit_access").insert({ user_id: selectedUserId, unit_id: unitId });
     } else {
-      await supabase.from("user_unit_access").delete().eq("user_id", configUserId).eq("unit_id", unitId);
+      await supabase.from("user_unit_access").delete().eq("user_id", selectedUserId).eq("unit_id", unitId);
     }
     await qc.invalidateQueries({ queryKey: ["all-user-unit-access"] });
   }
 
-  // Get all emails with a role assigned (for batch grant)
   const usersWithRole = profiles.filter((p) => roleMap.has(p.user_id) && p.email);
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes/usuarios")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-semibold text-foreground">Usuários Cadastrados</h1>
-            <p className="text-sm text-muted-foreground">Gerencie perfis de acesso dos usuários</p>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes/usuarios")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">Usuários Cadastrados</h1>
+              <p className="text-sm text-muted-foreground">{profiles.length} usuário(s) registrado(s)</p>
+            </div>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -193,189 +229,262 @@ export default function RegisteredUsersPage() {
                 onClick={() => grantDriveFolderAccess(usersWithRole.map((p) => p.email!))}
               >
                 {grantingAll ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FolderSync className="h-4 w-4 mr-2" />}
-                Atualizar Permissões
+                Atualizar Permissões Drive
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Concede acesso de leitura à pasta de propostas do Google Drive para todos os usuários com perfil atribuído</p>
+              <p>Concede acesso à pasta de propostas do Google Drive para todos os usuários com perfil</p>
             </TooltipContent>
           </Tooltip>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              Usuários
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        {/* Master-Detail Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4">
+          {/* Left - User list */}
+          <div className="rounded-xl border border-border bg-card shadow-sm">
+            <div className="p-3 border-b border-border bg-muted/30">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome ou e-mail..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9"
+                />
               </div>
-            ) : profiles.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">Nenhum usuário encontrado.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="w-[200px]">Perfil de Acesso</TableHead>
-                    <TableHead className="w-[200px]">Vínculo Time de Vendas</TableHead>
-                    <TableHead>Permissões</TableHead>
-                    <TableHead className="w-[120px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {profiles.map((profile) => {
+            </div>
+            <ScrollArea className="h-[calc(100vh-320px)]">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredProfiles.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum usuário encontrado</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {filteredProfiles.map((profile) => {
                     const currentRole = roleMap.get(profile.user_id)?.role as AppRole | undefined;
-                    const roleValue = currentRole || "none";
-                    const userResources = currentRole === "admin"
-                      ? ALL_RESOURCES
-                      : currentRole === "consulta"
-                        ? ["propostas"]
-                        : currentRole
-                          ? rolePermissions.filter((p: any) => p.role === currentRole).map((p: any) => p.resource)
-                          : [];
-
-                    const userUnits = userUnitAccess.filter((u) => u.user_id === profile.user_id);
-
                     return (
-                      <TableRow key={profile.id}>
-                        <TableCell className="font-medium">{profile.display_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{profile.email || "—"}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Select value={roleValue} onValueChange={(v) => handleRoleChange(profile.user_id, v)} disabled={saving === profile.user_id}>
-                              <SelectTrigger className="h-8 w-[180px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Sem perfil</SelectItem>
-                                {(Object.entries(ROLE_LABELS) as [AppRole, string][]).map(([role, label]) => (
-                                  <SelectItem key={role} value={role}>{label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {saving === profile.user_id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={profile.sales_team_member_id || "none"}
-                            onValueChange={(v) => handleSalesTeamLink(profile.user_id, v)}
-                            disabled={saving === profile.user_id}
-                          >
-                            <SelectTrigger className="h-8 w-[180px]">
-                              <SelectValue placeholder="Sem vínculo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sem vínculo</SelectItem>
-                              {salesTeam.map((m: any) => (
-                                <SelectItem key={m.id} value={m.id}>
-                                  {m.name} ({m.code})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {currentRole === "admin" ? (
-                              <Badge variant="secondary" className="text-xs">Acesso total</Badge>
-                            ) : currentRole === "consulta" ? (
-                              <>
-                                <Badge variant="outline" className="text-xs">Propostas Ganhas (somente leitura)</Badge>
-                                {userUnits.length > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {userUnits.length} unidade{userUnits.length > 1 ? "s" : ""}
-                                  </Badge>
-                                )}
-                                {!!(profile as any).is_cra && (
-                                  <Badge variant="default" className="text-xs">CRA</Badge>
-                                )}
-                              </>
-                            ) : userResources.length > 0 ? (
-                              userResources.map((r: string) => (
-                                <Badge key={r} variant="outline" className="text-xs">{RESOURCE_LABELS[r] || r}</Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {profile.email && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    disabled={grantingAccess === profile.user_id}
-                                    onClick={() => grantDriveFolderAccess([profile.email!], profile.user_id)}
-                                  >
-                                    {grantingAccess === profile.user_id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <FolderKey className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Conceder acesso à pasta de propostas</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {currentRole === "consulta" && (
-                              <>
-                                <Button variant="ghost" size="icon" onClick={() => setConfigUserId(profile.user_id)} title="Configurar unidades">
-                                  <Settings2 className="h-4 w-4" />
-                                </Button>
-                                <Switch
-                                  checked={!!(profile as any).is_cra}
-                                  onCheckedChange={(checked) => handleCraToggle(profile.user_id, checked)}
-                                  title="Marcar como CRA"
-                                />
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      <div
+                        key={profile.id}
+                        onClick={() => setSelectedUserId(profile.user_id)}
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-accent/50 ${selectedUserId === profile.user_id ? "bg-accent" : ""}`}
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                          <UserCircle2 className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{profile.display_name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{profile.email || "—"}</p>
+                        </div>
+                        {currentRole && (
+                          <Badge variant={currentRole === "admin" ? "default" : "secondary"} className="text-[10px] px-1.5 h-5 shrink-0">
+                            {ROLE_LABELS[currentRole] || currentRole}
+                          </Badge>
+                        )}
+                      </div>
                     );
                   })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
 
-        {/* Unit access config dialog for consulta role */}
-        <Dialog open={!!configUserId} onOpenChange={(open) => !open && setConfigUserId(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Unidades com Acesso — {configProfile?.display_name}</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">Selecione as unidades cujas propostas ganhas este usuário poderá visualizar.</p>
-            <div className="space-y-2 max-h-60 overflow-auto">
-              {units.map((unit) => (
-                <label key={unit.id} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent cursor-pointer">
-                  <Checkbox
-                    checked={configUnitIds.has(unit.id)}
-                    onCheckedChange={(checked) => toggleUnitAccess(unit.id, !!checked)}
-                  />
-                  <span className="text-sm">{unit.name}</span>
-                  {unit.code && <span className="text-xs text-muted-foreground">({unit.code})</span>}
-                </label>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setConfigUserId(null)}>Fechar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          {/* Right - Detail panel */}
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            {!selectedProfile ? (
+              <div className="flex flex-col items-center justify-center h-[calc(100vh-320px)] text-muted-foreground gap-2">
+                <Users className="h-10 w-10 opacity-30" />
+                <p className="text-sm">Selecione um usuário para configurar</p>
+              </div>
+            ) : (
+              <>
+                {/* User header */}
+                <div className="px-5 py-4 bg-muted/30 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <UserCircle2 className="h-7 w-7" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-semibold truncate">{selectedProfile.display_name}</h2>
+                      <p className="text-xs text-muted-foreground truncate">{selectedProfile.email || "—"}</p>
+                    </div>
+                    {selectedProfile.email && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="shrink-0"
+                            disabled={grantingAccess === selectedProfile.user_id}
+                            onClick={() => grantDriveFolderAccess([selectedProfile.email!], selectedProfile.user_id)}
+                          >
+                            {grantingAccess === selectedProfile.user_id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FolderKey className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Conceder acesso à pasta de propostas</p></TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+
+                <Tabs defaultValue="config" className="px-5 pt-4">
+                  <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="config" className="text-xs gap-1.5">
+                      <Shield className="h-3.5 w-3.5" />Perfil
+                    </TabsTrigger>
+                    <TabsTrigger value="units" className="text-xs gap-1.5">
+                      <Building className="h-3.5 w-3.5" />Unidades
+                    </TabsTrigger>
+                    <TabsTrigger value="groups" className="text-xs gap-1.5">
+                      <Users className="h-3.5 w-3.5" />Grupos
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Tab: Perfil */}
+                  <TabsContent value="config" className="mt-0 space-y-5 pb-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Perfil de Acesso</label>
+                      <Select
+                        value={selectedRole || "none"}
+                        onValueChange={(v) => handleRoleChange(selectedProfile.user_id, v)}
+                        disabled={saving === selectedProfile.user_id}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem perfil</SelectItem>
+                          {(Object.entries(ROLE_LABELS) as [AppRole, string][]).map(([role, label]) => (
+                            <SelectItem key={role} value={role}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Vínculo Time de Vendas</label>
+                      <Select
+                        value={selectedProfile.sales_team_member_id || "none"}
+                        onValueChange={(v) => handleSalesTeamLink(selectedProfile.user_id, v)}
+                        disabled={saving === selectedProfile.user_id}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Sem vínculo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem vínculo</SelectItem>
+                          {salesTeam.map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name} ({m.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedRole === "consulta" && (
+                      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium">CRA</p>
+                          <p className="text-[11px] text-muted-foreground">Marcar como CRA (Consultor de Resultado)</p>
+                        </div>
+                        <Switch
+                          checked={!!(selectedProfile as any).is_cra}
+                          onCheckedChange={(checked) => handleCraToggle(selectedProfile.user_id, checked)}
+                        />
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Permissões Ativas</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedRole === "admin" ? (
+                          <Badge variant="secondary" className="text-xs">Acesso total</Badge>
+                        ) : selectedRole === "consulta" ? (
+                          <Badge variant="outline" className="text-xs">Propostas Ganhas (somente leitura)</Badge>
+                        ) : selectedRole ? (
+                          rolePermissions
+                            .filter((p: any) => p.role === selectedRole)
+                            .map((p: any) => (
+                              <Badge key={p.resource} variant="outline" className="text-xs">{RESOURCE_LABELS[p.resource] || p.resource}</Badge>
+                            ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nenhum perfil atribuído</span>
+                        )}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab: Unidades */}
+                  <TabsContent value="units" className="mt-0">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Selecione as unidades que este usuário poderá acessar.
+                    </p>
+                    <ScrollArea className="h-[calc(100vh-520px)]">
+                      <div className="space-y-1 pb-4">
+                        {units.map((unit) => (
+                          <label key={unit.id} className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent cursor-pointer transition-colors">
+                            <Checkbox
+                              checked={selectedUserUnits.has(unit.id)}
+                              onCheckedChange={(checked) => toggleUnitAccess(unit.id, !!checked)}
+                            />
+                            <span className="text-sm">{unit.name}</span>
+                            {unit.code && <span className="text-xs text-muted-foreground">({unit.code})</span>}
+                          </label>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  {/* Tab: Grupos */}
+                  <TabsContent value="groups" className="mt-0">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Grupos aos quais este usuário pertence.
+                    </p>
+                    <ScrollArea className="h-[calc(100vh-520px)]">
+                      <div className="space-y-2 pb-4">
+                        {groups.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-4 text-center">Nenhum grupo cadastrado</p>
+                        ) : groups.map((g: any) => {
+                          const isMember = selectedUserGroups.some((gm: any) => gm.group_id === g.id);
+                          return (
+                            <label key={g.id} className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent cursor-pointer transition-colors border border-border">
+                              <Checkbox
+                                checked={isMember}
+                                onCheckedChange={async (checked) => {
+                                  if (checked) {
+                                    await supabase.from("user_group_members" as any).insert({ group_id: g.id, user_id: selectedProfile.user_id });
+                                  } else {
+                                    await supabase.from("user_group_members" as any).delete().eq("group_id", g.id).eq("user_id", selectedProfile.user_id);
+                                  }
+                                  qc.invalidateQueries({ queryKey: ["user_group_members"] });
+                                }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium">{g.name}</p>
+                                {g.description && <p className="text-[11px] text-muted-foreground">{g.description}</p>}
+                              </div>
+                              {g.role && (
+                                <Badge variant="secondary" className="text-[10px] shrink-0">{ROLE_LABELS[g.role as AppRole] || g.role}</Badge>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </TooltipProvider>
   );

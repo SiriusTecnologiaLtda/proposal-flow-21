@@ -1319,7 +1319,7 @@ export default function ProposalCreate() {
       {currentStep === 1 && (
         <div className="space-y-5">
           {/* ── Contexto do Cliente ─────────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
                 <UserRoundSearch className="h-3.5 w-3.5 text-primary" />
@@ -1398,7 +1398,7 @@ export default function ProposalCreate() {
           </div>
 
           {/* ── Informações da Proposta ─────────────────────────────── */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
                 <FileText className="h-3.5 w-3.5 text-primary" />

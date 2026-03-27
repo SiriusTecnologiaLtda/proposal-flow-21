@@ -1266,10 +1266,12 @@ export default function ProjectCreatePage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handleSave} disabled={saving} variant="default">
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? "Salvando..." : "Salvar"}
-              </Button>
+              {!isReadOnly && (
+                <Button onClick={handleSave} disabled={saving} variant="default">
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? "Salvando..." : "Salvar"}
+                </Button>
+              )}
               {currentStep < steps.length && (
                 <Button onClick={() => setCurrentStep(s => s + 1)}>
                   Próximo <ChevronRight className="ml-2 h-4 w-4" />

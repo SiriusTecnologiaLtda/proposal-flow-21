@@ -147,12 +147,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!downloadRes.ok) {
-      const errText = await downloadRes.text().catch(() => "");
-      return new Response(JSON.stringify({ error: `TAE download failed (${downloadRes.status}): ${errText}` }), {
+    if (!downloadRes) {
+      return new Response(JSON.stringify({ error: "TAE download failed: no endpoint returned the document" }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
     }
 
     // Convert to base64

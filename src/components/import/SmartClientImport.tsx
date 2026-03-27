@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
-  FileSpreadsheet, Clock, ChevronDown, ChevronUp, AlertTriangle, Play, Settings2, Eye
+  FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -32,22 +32,22 @@ interface DbField {
   key: string;
   label: string;
   required: boolean;
-  aliases: string[]; // common header names that map to this field
+  aliases: string[];
 }
 
 const CLIENT_DB_FIELDS: DbField[] = [
-  { key: "code",               label: "Código",              required: true,  aliases: ["código", "codigo", "cod", "code", "cod.", "cód", "cód.", "a1_cod"] },
-  { key: "name",               label: "Nome / Razão Social", required: true,  aliases: ["nome", "razão social", "razao social", "name", "empresa", "cliente", "a1_nome", "a1_nreduz", "nome fantasia"] },
-  { key: "cnpj",               label: "CNPJ",                required: true,  aliases: ["cnpj", "cnpj/cpf", "cpf/cnpj", "documento", "a1_cgc"] },
-  { key: "store_code",         label: "Loja",                required: false, aliases: ["loja", "cod loja", "a1_loja", "store", "filial"] },
-  { key: "state_registration", label: "Inscrição Estadual",  required: false, aliases: ["inscrição estadual", "inscricao estadual", "ie", "insc. estadual", "a1_inscr"] },
-  { key: "contact",            label: "Contato",             required: false, aliases: ["contato", "responsável", "responsavel", "a1_contato", "contact"] },
-  { key: "email",              label: "E-mail",              required: false, aliases: ["email", "e-mail", "e_mail", "a1_email"] },
-  { key: "phone",              label: "Telefone",            required: false, aliases: ["telefone", "fone", "tel", "phone", "a1_tel", "celular"] },
-  { key: "address",            label: "Endereço",            required: false, aliases: ["endereço", "endereco", "address", "a1_end", "logradouro", "rua"] },
+  { key: "code",               label: "Código",                required: true,  aliases: ["código", "codigo", "cod", "code", "cod.", "cód", "cód.", "a1_cod"] },
+  { key: "name",               label: "Nome / Razão Social",   required: true,  aliases: ["nome", "razão social", "razao social", "name", "empresa", "cliente", "a1_nome", "a1_nreduz", "nome fantasia"] },
+  { key: "cnpj",               label: "CNPJ",                  required: true,  aliases: ["cnpj", "cnpj/cpf", "cpf/cnpj", "documento", "a1_cgc"] },
+  { key: "store_code",         label: "Loja",                  required: false, aliases: ["loja", "cod loja", "a1_loja", "store", "filial"] },
+  { key: "state_registration", label: "Inscrição Estadual",    required: false, aliases: ["inscrição estadual", "inscricao estadual", "ie", "insc. estadual", "a1_inscr"] },
+  { key: "contact",            label: "Contato",               required: false, aliases: ["contato", "responsável", "responsavel", "a1_contato", "contact"] },
+  { key: "email",              label: "E-mail",                required: false, aliases: ["email", "e-mail", "e_mail", "a1_email"] },
+  { key: "phone",              label: "Telefone",              required: false, aliases: ["telefone", "fone", "tel", "phone", "a1_tel", "celular"] },
+  { key: "address",            label: "Endereço",              required: false, aliases: ["endereço", "endereco", "address", "a1_end", "logradouro", "rua"] },
   { key: "unit_code",          label: "Unidade (código/nome)", required: false, aliases: ["unidade", "cod unidade", "código unidade", "unit", "filial totvs"] },
-  { key: "esn_code",           label: "ESN (código)",        required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo"] },
-  { key: "gsn_code",           label: "GSN (código)",        required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor"] },
+  { key: "esn_code",           label: "ESN (código/nome)",     required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend"] },
+  { key: "gsn_code",           label: "GSN (código/nome)",     required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor"] },
 ];
 
 // ─── Auto-mapping logic ─────────────────────────────────────────
@@ -79,6 +79,22 @@ function autoMapColumns(headers: string[]): Record<number, string> {
   return mapping;
 }
 
+/** Detect the header row — the row with the most non-empty cells in the first 15 rows */
+function detectHeaderRow(raw: any[][]): number {
+  let bestRow = 0;
+  let bestCount = 0;
+  const limit = Math.min(raw.length, 15);
+  for (let i = 0; i < limit; i++) {
+    const row = raw[i] || [];
+    const count = row.filter((c: any) => c != null && String(c).trim() !== "").length;
+    if (count > bestCount) {
+      bestCount = count;
+      bestRow = i;
+    }
+  }
+  return bestRow;
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const s = Math.floor(ms / 1000);
@@ -93,6 +109,7 @@ export default function SmartClientImport() {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [headerRowIdx, setHeaderRowIdx] = useState(0);
   const [previewRows, setPreviewRows] = useState<any[][]>([]);
   const [allDataRows, setAllDataRows] = useState<any[][]>([]);
   const [mapping, setMapping] = useState<Record<number, string>>({});
@@ -116,9 +133,15 @@ export default function SmartClientImport() {
         toast({ title: "Planilha vazia", description: "A planilha não possui linhas de dados.", variant: "destructive" });
         return;
       }
-      const hdrs = (raw[0] || []).map((h: any) => String(h || "").trim());
+
+      // Detect header row automatically
+      const hdrIdx = detectHeaderRow(raw);
+      setHeaderRowIdx(hdrIdx);
+
+      const hdrs = (raw[hdrIdx] || []).map((h: any) => String(h || "").trim());
       setHeaders(hdrs);
-      const data = raw.slice(1).filter(r => r.some(c => c != null && c !== ""));
+
+      const data = raw.slice(hdrIdx + 1).filter(r => r.some(c => c != null && c !== ""));
       setAllDataRows(data);
       setPreviewRows(data.slice(0, 5));
 
@@ -191,22 +214,26 @@ export default function SmartClientImport() {
     // Load lookup maps
     const [{ data: units }, { data: salesTeam }] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
-      supabase.from("sales_team").select("id, code, role"),
+      supabase.from("sales_team").select("id, code, name, role"),
     ]);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
-    function findUnitId(search: string): string | null {
+    const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
+    const gsnList = (salesTeam || []).filter(s => s.role === "gsn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
+
+    function findInList(list: { id: string; code: string; name: string }[], search: string): string | null {
       if (!search) return null;
       const s = search.trim().toLowerCase();
-      return unitList.find(u => u.code === s || u.name === s)?.id
-        || unitList.find(u => (u.code && (u.code.includes(s) || s.includes(u.code))) || (u.name && (u.name.includes(s) || s.includes(u.name))))?.id
+      return list.find(u => u.code === s || u.name === s)?.id
+        || list.find(u => (u.code && (u.code.includes(s) || s.includes(u.code))) || (u.name && (u.name.includes(s) || s.includes(u.name))))?.id
         || null;
     }
-    const esnMap = new Map((salesTeam || []).filter(s => s.role === "esn").map(s => [s.code.toLowerCase(), s.id]));
-    const gsnMap = new Map((salesTeam || []).filter(s => s.role === "gsn").map(s => [s.code.toLowerCase(), s.id]));
+
+    // Track relationship misses for logging
+    const relationMisses = { unit: new Set<string>(), esn: new Set<string>(), gsn: new Set<string>() };
 
     // Load existing CNPJs + IDs for update
     addImportLog(entity, "info", "Carregando clientes existentes...");
-    const existingMap = new Map<string, string>(); // cnpj -> id
+    const existingMap = new Map<string, string>();
     let dbOffset = 0;
     const DB_PAGE = 1000;
     while (true) {
@@ -223,7 +250,9 @@ export default function SmartClientImport() {
 
     // ── Process rows in batches ─────────────────────────────────
     let imported = 0, updated = 0, skipped = 0, errors = 0;
+    let relSkippedUnit = 0, relSkippedEsn = 0, relSkippedGsn = 0;
     const BATCH_SIZE = 50;
+    const errorDetails: { row: number; code: string; reason: string }[] = [];
 
     function extractValue(row: any[], dbKey: string): any {
       const colIdx = fieldToCol[dbKey];
@@ -231,14 +260,25 @@ export default function SmartClientImport() {
       return String(row[colIdx] || "").trim() || null;
     }
 
-    function buildPayload(row: any[], keys: string[]): Record<string, any> {
+    function buildPayload(row: any[], keys: string[], rowNum: number): Record<string, any> {
       const p: Record<string, any> = {};
       for (const key of keys) {
         const val = extractValue(row, key);
-        if (key === "unit_code") p.unit_id = findUnitId(val || "");
-        else if (key === "esn_code") p.esn_id = val ? (esnMap.get(val.toLowerCase()) || null) : null;
-        else if (key === "gsn_code") p.gsn_id = val ? (gsnMap.get(val.toLowerCase()) || null) : null;
-        else p[key] = val;
+        if (key === "unit_code") {
+          const uid = findInList(unitList, val || "");
+          p.unit_id = uid;
+          if (val && !uid) { relationMisses.unit.add(val); relSkippedUnit++; }
+        } else if (key === "esn_code") {
+          const eid = findInList(esnList, val || "");
+          p.esn_id = eid;
+          if (val && !eid) { relationMisses.esn.add(val); relSkippedEsn++; }
+        } else if (key === "gsn_code") {
+          const gid = findInList(gsnList, val || "");
+          p.gsn_id = gid;
+          if (val && !gid) { relationMisses.gsn.add(val); relSkippedGsn++; }
+        } else {
+          p[key] = val;
+        }
       }
       return p;
     }
@@ -250,16 +290,16 @@ export default function SmartClientImport() {
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];
 
-      for (const row of batch) {
+      for (let bi = 0; bi < batch.length; bi++) {
+        const row = batch[bi];
+        const rowNum = batchStart + bi + headerRowIdx + 2; // 1-indexed Excel row
         const cnpj = extractValue(row, "cnpj");
-        if (!cnpj) { errors++; continue; }
+        if (!cnpj) { errors++; errorDetails.push({ row: rowNum, code: "?", reason: "CNPJ vazio" }); continue; }
 
         const existingId = existingMap.get(cnpj);
         if (existingId) {
           if (willUpdate) {
-            // Build update payload with only selected fields
-            const updatePayload = buildPayload(row, updateFieldsArr);
-            // Remove nulls to avoid overwriting with empty
+            const updatePayload = buildPayload(row, updateFieldsArr, rowNum);
             const cleanPayload: Record<string, any> = {};
             for (const [k, v] of Object.entries(updatePayload)) {
               if (v != null && v !== "") cleanPayload[k] = v;
@@ -273,8 +313,7 @@ export default function SmartClientImport() {
             skipped++;
           }
         } else {
-          // New record - build full payload
-          const payload = buildPayload(row, allMappedKeys);
+          const payload = buildPayload(row, allMappedKeys, rowNum);
           payload.code = payload.code || extractValue(row, "code");
           payload.name = payload.name || extractValue(row, "name");
           payload.cnpj = cnpj;
@@ -289,8 +328,14 @@ export default function SmartClientImport() {
         if (batchErr) {
           for (const payload of toInsert) {
             const { error } = await supabase.from("clients").insert(payload);
-            if (error) { errors++; addImportLog(entity, "error", `(${payload.code}): ${error.message}`); }
-            else { imported++; existingMap.set(payload.cnpj, "new"); }
+            if (error) {
+              errors++;
+              errorDetails.push({ row: 0, code: payload.code || "?", reason: error.message });
+              addImportLog(entity, "error", `(${payload.code}): ${error.message}`);
+            } else {
+              imported++;
+              existingMap.set(payload.cnpj, "new");
+            }
           }
         } else {
           imported += insData?.length || toInsert.length;
@@ -298,17 +343,21 @@ export default function SmartClientImport() {
         }
       }
 
-      // Batch update (row by row for now, upsert isn't ideal here)
+      // Batch update
       for (const upd of toUpdate) {
         const { error } = await supabase.from("clients").update(upd.data).eq("id", upd.id);
-        if (error) { errors++; addImportLog(entity, "error", `Update ${upd.id}: ${error.message}`); }
-        else { updated++; }
+        if (error) {
+          errors++;
+          errorDetails.push({ row: 0, code: upd.id, reason: error.message });
+          addImportLog(entity, "error", `Update ${upd.id}: ${error.message}`);
+        } else {
+          updated++;
+        }
       }
 
       updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows });
 
       if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
-        const progressRun = { ...run, imported, updated, errors, skipped: skipped + invalidRows, totalRows: allDataRows.length, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
         try {
           await supabase.from("import_logs").update({
             status: "running", imported, updated, errors, skipped: skipped + invalidRows,
@@ -316,6 +365,20 @@ export default function SmartClientImport() {
           } as any).eq("id", dbLogId);
         } catch {}
       }
+    }
+
+    // Log relationship misses
+    if (relationMisses.unit.size > 0) {
+      const vals = Array.from(relationMisses.unit).slice(0, 10).join(", ");
+      addImportLog(entity, "error", `⚠ ${relSkippedUnit} registros com Unidade não encontrada: ${vals}${relationMisses.unit.size > 10 ? ` (+${relationMisses.unit.size - 10})` : ""}`);
+    }
+    if (relationMisses.esn.size > 0) {
+      const vals = Array.from(relationMisses.esn).slice(0, 10).join(", ");
+      addImportLog(entity, "error", `⚠ ${relSkippedEsn} registros com ESN não encontrado: ${vals}${relationMisses.esn.size > 10 ? ` (+${relationMisses.esn.size - 10})` : ""}`);
+    }
+    if (relationMisses.gsn.size > 0) {
+      const vals = Array.from(relationMisses.gsn).slice(0, 10).join(", ");
+      addImportLog(entity, "error", `⚠ ${relSkippedGsn} registros com GSN não encontrado: ${vals}${relationMisses.gsn.size > 10 ? ` (+${relationMisses.gsn.size - 10})` : ""}`);
     }
 
     const totalSkipped = skipped + invalidRows;
@@ -337,18 +400,20 @@ export default function SmartClientImport() {
           skipped: totalSkipped, finished_at: new Date().toISOString(),
           duration_ms: dur,
           summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados | Taxa: ${successRate}% | Tempo: ${formatDuration(dur)}`,
+          error_details: errorDetails.length > 0 ? errorDetails.slice(0, 200) : [],
         } as any).eq("id", dbLogId);
       } catch {}
     }
 
     setStep("done");
-  }, [file, allDataRows, mapping, updateFields, user, qc]);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx]);
 
   // ── Reset ─────────────────────────────────────────────────────
   const reset = () => {
     setStep("upload");
     setFile(null);
     setHeaders([]);
+    setHeaderRowIdx(0);
     setPreviewRows([]);
     setAllDataRows([]);
     setMapping({});
@@ -364,7 +429,7 @@ export default function SmartClientImport() {
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shrink-0">
             <Wand2 className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -416,61 +481,68 @@ export default function SmartClientImport() {
         {/* ── STEP: Mapping ──────────────────────────────────── */}
         {step === "mapping" && (
           <>
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <span className="font-medium">{file?.name}</span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="text-sm min-w-0">
+                <span className="font-medium truncate">{file?.name}</span>
                 <span className="text-muted-foreground ml-2">({allDataRows.length} linhas)</span>
+                {headerRowIdx > 0 && (
+                  <span className="text-xs text-muted-foreground ml-2">(cabeçalho detectado na linha {headerRowIdx + 1})</span>
+                )}
               </div>
-              <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs">
-                {mappedCount} de {headers.length} colunas mapeadas
+              <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs shrink-0">
+                {mappedCount} de {headers.filter(h => h).length} colunas mapeadas
               </Badge>
             </div>
 
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {headers.map((header, colIdx) => (
-                  <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
-                      <div className="text-xs text-muted-foreground truncate mt-0.5">
-                        Ex: {previewRows.slice(0, 2).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" | ") || "—"}
+                {headers.map((header, colIdx) => {
+                  // Skip empty header columns
+                  if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
+                  return (
+                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">
+                          Ex: {previewRows.slice(0, 3).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" | ") || "—"}
+                        </div>
                       </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <Select
-                      value={mapping[colIdx] || "__none__"}
-                      onValueChange={val => {
-                        setMapping(prev => {
-                          const next = { ...prev };
-                          if (val === "__none__") { delete next[colIdx]; }
-                          else {
-                            // Remove previous use of this field
-                            for (const [k, v] of Object.entries(next)) {
-                              if (v === val) delete next[Number(k)];
+                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Select
+                        value={mapping[colIdx] || "__none__"}
+                        onValueChange={val => {
+                          setMapping(prev => {
+                            const next = { ...prev };
+                            if (val === "__none__") { delete next[colIdx]; }
+                            else {
+                              // Remove previous use of this field from other columns
+                              for (const [k, v] of Object.entries(next)) {
+                                if (v === val && Number(k) !== colIdx) delete next[Number(k)];
+                              }
+                              next[colIdx] = val;
                             }
-                            next[colIdx] = val;
-                          }
-                          return next;
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="w-[200px] shrink-0">
-                        <SelectValue placeholder="Ignorar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Ignorar —</SelectItem>
-                        {CLIENT_DB_FIELDS.map(f => {
-                          const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
-                          return (
-                            <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
-                              {f.label} {f.required && "*"} {usedByOther && "(já mapeado)"}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+                            return next;
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="w-[200px] shrink-0">
+                          <SelectValue placeholder="Ignorar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Ignorar —</SelectItem>
+                          {CLIENT_DB_FIELDS.map(f => {
+                            const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
+                            return (
+                              <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
+                                {f.label} {f.required && "*"} {usedByOther && "(já mapeado)"}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
 
@@ -560,13 +632,26 @@ export default function SmartClientImport() {
               )}
             </div>
 
+            {/* Relationship warning */}
+            {(Object.values(mapping).includes("unit_code") || Object.values(mapping).includes("esn_code") || Object.values(mapping).includes("gsn_code")) && (
+              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-yellow-700 dark:text-yellow-400">
+                  <XCircle className="h-3.5 w-3.5 shrink-0" />
+                  Campos relacionais detectados
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Os campos Unidade, ESN e GSN serão vinculados por código/nome. Registros cujo valor não corresponda a nenhum cadastro existente terão esses campos importados como vazio, e os casos serão registrados no log de importação para rastreabilidade.
+                </p>
+              </div>
+            )}
+
             {/* Summary */}
             <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
               <div className="text-sm font-medium flex items-center gap-2">
                 <Eye className="h-4 w-4 text-primary" /> Resumo da importação
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-muted-foreground">Arquivo:</span> <span className="font-medium">{file?.name}</span></div>
+                <div className="min-w-0"><span className="text-muted-foreground">Arquivo:</span> <span className="font-medium truncate">{file?.name}</span></div>
                 <div><span className="text-muted-foreground">Linhas:</span> <span className="font-medium">{allDataRows.length}</span></div>
                 <div><span className="text-muted-foreground">Campos mapeados:</span> <span className="font-medium">{mappedCount}</span></div>
                 <div><span className="text-muted-foreground">Campos p/ atualizar:</span> <span className="font-medium">{updateFields.size}</span></div>

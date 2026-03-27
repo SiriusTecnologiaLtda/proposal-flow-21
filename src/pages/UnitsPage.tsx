@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase, FileText, Save, Info } from "lucide-react";
+import { Building, Plus, Edit2, Users, Copy, Trash2, PenTool, Headphones, Mail, Phone, Briefcase, FileText, Save, Info, ChevronDown } from "lucide-react";
 import { useUnits, useCreateUnit, useUpdateUnit } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -637,106 +638,120 @@ function UnitEmailTemplatesTab({ unitId }: { unitId: string }) {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
-          <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground">Placeholders disponíveis</p>
-            <div className="flex flex-wrap gap-1.5">
-              {EMAIL_PLACEHOLDERS.map(p => (
-                <Tooltip key={p.tag}>
-                  <TooltipTrigger asChild>
-                    <code className="text-[10px] bg-background border rounded px-1.5 py-0.5 font-mono cursor-help">
-                      {p.tag}
-                    </code>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    <p className="font-medium">{p.label}</p>
-                    {"example" in p && <p className="text-muted-foreground">Ex: {(p as any).example}</p>}
-                    {"description" in p && (p as any).description && <p className="text-muted-foreground">{(p as any).description}</p>}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+      <div className="space-y-3">
+        {/* Placeholders - collapsible */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full rounded-lg border border-border bg-muted/30 px-4 py-3 hover:bg-muted/50 transition-colors group">
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium text-foreground">Placeholders disponíveis</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-4 py-3 border border-t-0 border-border rounded-b-lg bg-muted/10">
+              <div className="flex flex-wrap gap-1.5">
+                {EMAIL_PLACEHOLDERS.map(p => (
+                  <Tooltip key={p.tag}>
+                    <TooltipTrigger asChild>
+                      <code className="text-[10px] bg-background border rounded px-1.5 py-0.5 font-mono cursor-help">
+                        {p.tag}
+                      </code>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      <p className="font-medium">{p.label}</p>
+                      {"example" in p && <p className="text-muted-foreground">Ex: {(p as any).example}</p>}
+                      {"description" in p && (p as any).description && <p className="text-muted-foreground">{(p as any).description}</p>}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
 
+        {/* Action templates - each collapsible */}
         {EMAIL_ACTION_TYPES.map(action => (
-          <div key={action.value} className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{action.label}</p>
-                <p className="text-[11px] text-muted-foreground">{action.description}</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2.5 text-xs shrink-0"
-                disabled={saving === action.value}
-                onClick={() => handleSave(action.value)}
-              >
-                <Save className="h-3 w-3 mr-1" />
-                {saving === action.value ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Assunto</Label>
-                  <div className="flex gap-0.5">
-                    {EMAIL_PLACEHOLDERS.filter(p => p.tag !== "{{RESUMO_OPORTUNIDADE}}").map(p => (
-                      <Tooltip key={p.tag}>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={() => insertPlaceholder(action.value, "subject", p.tag)}
-                            className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
-                          >
-                            +{p.label.substring(0, 3)}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
-                      </Tooltip>
-                    ))}
+          <Collapsible key={action.value}>
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-muted/30 border-b border-border hover:bg-muted/50 transition-colors group">
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-medium">{action.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{action.description}</p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Assunto</Label>
+                      <div className="flex gap-0.5">
+                        {EMAIL_PLACEHOLDERS.filter(p => p.tag !== "{{RESUMO_OPORTUNIDADE}}").map(p => (
+                          <Tooltip key={p.tag}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => insertPlaceholder(action.value, "subject", p.tag)}
+                                className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
+                              >
+                                +{p.label.substring(0, 3)}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                    <Input
+                      value={getValue(action.value, "subject")}
+                      onChange={(e) => setValue(action.value, "subject", e.target.value)}
+                      placeholder={`Ex: [OPP {{NUMERO_OPORTUNIDADE}}] ${action.label}`}
+                      className="text-sm font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Texto do E-mail</Label>
+                      <div className="flex gap-0.5 flex-wrap justify-end">
+                        {EMAIL_PLACEHOLDERS.map(p => (
+                          <Tooltip key={p.tag}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => insertPlaceholder(action.value, "body", p.tag)}
+                                className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
+                              >
+                                +{p.label.substring(0, 3)}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                    <Textarea
+                      value={getValue(action.value, "body")}
+                      onChange={(e) => setValue(action.value, "body", e.target.value)}
+                      placeholder="Texto padrão do e-mail. Use placeholders como {{NUMERO_OPORTUNIDADE}}, {{CLIENTE}} etc."
+                      rows={4}
+                      className="text-sm font-mono"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs"
+                      disabled={saving === action.value}
+                      onClick={() => handleSave(action.value)}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {saving === action.value ? "Salvando..." : "Salvar"}
+                    </Button>
                   </div>
                 </div>
-                <Input
-                  value={getValue(action.value, "subject")}
-                  onChange={(e) => setValue(action.value, "subject", e.target.value)}
-                  placeholder={`Ex: [OPP {{NUMERO_OPORTUNIDADE}}] ${action.label}`}
-                  className="text-sm font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Texto do E-mail</Label>
-                  <div className="flex gap-0.5 flex-wrap justify-end">
-                    {EMAIL_PLACEHOLDERS.map(p => (
-                      <Tooltip key={p.tag}>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={() => insertPlaceholder(action.value, "body", p.tag)}
-                            className="text-[9px] bg-muted hover:bg-accent border rounded px-1 py-0.5 font-mono transition-colors"
-                          >
-                            +{p.label.substring(0, 3)}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Inserir {p.tag}</TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                </div>
-                <Textarea
-                  value={getValue(action.value, "body")}
-                  onChange={(e) => setValue(action.value, "body", e.target.value)}
-                  placeholder="Texto padrão do e-mail. Use placeholders como {{NUMERO_OPORTUNIDADE}}, {{CLIENTE}} etc."
-                  rows={4}
-                  className="text-sm font-mono"
-                />
-              </div>
+              </CollapsibleContent>
             </div>
-          </div>
+          </Collapsible>
         ))}
       </div>
     </TooltipProvider>

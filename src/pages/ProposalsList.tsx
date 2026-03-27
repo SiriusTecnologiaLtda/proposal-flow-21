@@ -383,36 +383,47 @@ export default function ProposalsList() {
 
   async function handleSendNotification() {
     if (!notifProposal) return;
-    setNotifSending(true);
+
+    // Capture state before closing
+    const capturedProposal = notifProposal;
+    const capturedType = notifType;
+    const capturedMessage = notifMessage;
+    const capturedCcEmails = [...notifCcEmails];
+
+    // Close immediately and show background toast
+    setNotifDialogOpen(false);
+    setNotifSending(false);
+    toast({ title: "Processando...", description: "A solicitação está sendo executada em background. Você será avisado ao concluir." });
+
     try {
       // For solicitar_ajuste, create/reopen project BEFORE sending email so edge function can find it
-      if (notifType === "solicitar_ajuste") {
-        await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", notifProposal.id);
+      if (capturedType === "solicitar_ajuste") {
+        await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", capturedProposal.id);
 
         const { data: existingProjects } = await supabase
           .from("projects")
           .select("id, proposal_id, proposal_number")
-          .or(`proposal_id.eq.${notifProposal.id},proposal_number.eq.${notifProposal.number}`);
+          .or(`proposal_id.eq.${capturedProposal.id},proposal_number.eq.${capturedProposal.number}`);
 
         if (existingProjects && existingProjects.length > 0) {
           for (const proj of existingProjects) {
             await supabase
               .from("projects")
-              .update({ status: "em_revisao", proposal_id: notifProposal.id, proposal_number: notifProposal.number })
+              .update({ status: "em_revisao", proposal_id: capturedProposal.id, proposal_number: capturedProposal.number })
               .eq("id", proj.id);
           }
         } else {
           const projectId = crypto.randomUUID();
           await supabase.from("projects").insert({
             id: projectId,
-            client_id: notifProposal.client_id,
-            product: notifProposal.product,
-            description: notifProposal.description || "",
-            arquiteto_id: notifProposal.arquiteto_id,
+            client_id: capturedProposal.client_id,
+            product: capturedProposal.product,
+            description: capturedProposal.description || "",
+            arquiteto_id: capturedProposal.arquiteto_id,
             created_by: user!.id,
             status: "pendente",
-            proposal_id: notifProposal.id,
-            proposal_number: notifProposal.number,
+            proposal_id: capturedProposal.id,
+            proposal_number: capturedProposal.number,
           } as any);
         }
         queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -429,11 +440,11 @@ export default function ProposalsList() {
             Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            proposalId: notifProposal.id,
-            type: notifType,
-            message: notifMessage,
-            proposalLink: `${window.location.origin}/propostas/${notifProposal.id}`,
-            cc: notifCcEmails.length > 0 ? notifCcEmails : undefined,
+            proposalId: capturedProposal.id,
+            type: capturedType,
+            message: capturedMessage,
+            proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
+            cc: capturedCcEmails.length > 0 ? capturedCcEmails : undefined,
             _origin: window.location.origin,
           }),
         }
@@ -445,30 +456,24 @@ export default function ProposalsList() {
           description: "Você precisa autorizar o envio de emails pela sua conta Google.",
           variant: "destructive",
         });
-        setNotifSending(false);
         return;
       }
       if (res.ok && data.success) {
-        // If notificar_esn, change status to analise_ev_concluida
-        if (notifType === "notificar_esn") {
-          await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", notifProposal.id);
+        if (capturedType === "notificar_esn") {
+          await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", capturedProposal.id);
         }
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
-        queryClient.invalidateQueries({ queryKey: ["proposal", notifProposal.id] });
+        queryClient.invalidateQueries({ queryKey: ["proposal", capturedProposal.id] });
         
         toast({
           title: "Email enviado com sucesso",
           description: `Enviado de ${data.senderEmail} para ${data.recipientName} (${data.recipientEmail})`,
         });
-        setNotifDialogOpen(false);
       } else {
         toast({ title: "Erro ao enviar email", description: data.error || "Erro desconhecido", variant: "destructive" });
-        setNotifDialogOpen(false);
       }
     } catch (err: any) {
       toast({ title: "Erro ao enviar", description: err.message, variant: "destructive" });
-    } finally {
-      setNotifSending(false);
     }
   }
 

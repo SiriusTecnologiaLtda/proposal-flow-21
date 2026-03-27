@@ -132,7 +132,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
   useEffect(() => {
     if (!open || !project?.id) return;
     setMessage("");
-    setCcEmails([]);
+    setEmailSubject("");
     setCcInput("");
     setFullProject(null);
     setTemplateNames({});

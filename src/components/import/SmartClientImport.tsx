@@ -607,7 +607,7 @@ export default function SmartClientImport() {
       if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
         try {
           await supabase.from("import_logs").update({
-            status: "running", imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount,
+            status: "running", imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount + customFilteredCount,
             duration_ms: Date.now() - run.startedAt,
           } as any).eq("id", dbLogId);
         } catch {}

@@ -475,6 +475,10 @@ export default function UnitsPage() {
                   </div>
                 )}
               </TabsContent>
+
+              <TabsContent value="emails" className="mt-4">
+                <UnitEmailTemplatesTab unitId={selectedUnit.id} />
+              </TabsContent>
             </Tabs>
           </div>
         )}

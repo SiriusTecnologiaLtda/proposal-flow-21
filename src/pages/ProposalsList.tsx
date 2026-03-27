@@ -280,17 +280,41 @@ export default function ProposalsList() {
   const [notifType, setNotifType] = useState<"solicitar_ajuste" | "notificar_esn">("solicitar_ajuste");
   const [notifProposal, setNotifProposal] = useState<any>(null);
   const [notifMessage, setNotifMessage] = useState("");
+  const [notifSubject, setNotifSubject] = useState("");
   const [notifSending, setNotifSending] = useState(false);
   const [notifCcEmails, setNotifCcEmails] = useState<string[]>([]);
   const [notifCcInput, setNotifCcInput] = useState("");
 
-  function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
+  async function openNotifDialog(proposal: any, type: "solicitar_ajuste" | "notificar_esn") {
     setNotifProposal(proposal);
     setNotifType(type);
     setNotifMessage("");
+    setNotifSubject("");
     setNotifCcEmails([]);
     setNotifCcInput("");
     setNotifDialogOpen(true);
+
+    // Load unit email template
+    const unitId = (proposal as any).clients?.unit_id || (proposal as any).sales_team?.unit_id;
+    if (unitId) {
+      const actionType = type === "solicitar_ajuste" ? "solicitar_ev" : "concluir_revisao";
+      const { fetchUnitEmailTemplate, replacePlaceholders } = await import("@/hooks/useUnitEmailTemplates");
+      const tmpl = await fetchUnitEmailTemplate(unitId, actionType);
+      if (tmpl && (tmpl.subject || tmpl.body)) {
+        const unitName = units.find((u: any) => u.id === unitId)?.name || "";
+        const values = {
+          numero: proposal.number,
+          cliente: (proposal as any).clients?.name || "",
+          unidade: unitName,
+          esn: (proposal as any).sales_team?.name || "",
+          ev: (proposal as any).arquiteto?.name || "",
+          gsn: "", // GSN loaded from proposal if available
+          produto: proposal.product || "",
+        };
+        if (tmpl.subject) setNotifSubject(replacePlaceholders(tmpl.subject, values));
+        if (tmpl.body) setNotifMessage(replacePlaceholders(tmpl.body, values));
+      }
+    }
   }
 
   function addNotifCcEmail() {

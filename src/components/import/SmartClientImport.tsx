@@ -602,7 +602,7 @@ export default function SmartClientImport() {
         }
       }
 
-      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount });
+      updateImportStats(entity, { imported, updated, errors, skipped: skipped + invalidRows + unitFilteredCount + customFilteredCount });
 
       if (dbLogId && (batchStart + BATCH_SIZE) % 200 < BATCH_SIZE) {
         try {

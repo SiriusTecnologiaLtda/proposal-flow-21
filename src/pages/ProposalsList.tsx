@@ -934,14 +934,14 @@ export default function ProposalsList() {
         })()}
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
-            <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
+          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[2fr_1.5fr_auto_auto_1fr_auto_auto_auto_auto_auto] md:gap-3">
+            <span className="text-xs font-medium text-muted-foreground">Cliente / Proposta</span>
             <span className="text-xs font-medium text-muted-foreground">Descrição</span>
             <span className="text-xs font-medium text-muted-foreground">Tipo</span>
             <span className="text-xs font-medium text-muted-foreground">Produto</span>
             <span className="text-xs font-medium text-muted-foreground">ESN</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Valor Líquido</span>
-            <span className="text-xs font-medium text-muted-foreground text-center">Prev. Fechamento</span>
+            <span className="text-xs font-medium text-muted-foreground text-center">Prev. Fech.</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
             <span className="text-xs font-medium text-muted-foreground text-center">Docs</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>

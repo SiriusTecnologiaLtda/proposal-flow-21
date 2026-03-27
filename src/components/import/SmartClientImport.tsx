@@ -525,7 +525,7 @@ export default function SmartClientImport() {
         break;
       }
 
-      const batch = unitFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
+      const batch = customFilteredRows.slice(batchStart, batchStart + BATCH_SIZE);
       const toInsert: any[] = [];
       const toUpdate: { id: string; data: Record<string, any> }[] = [];
 

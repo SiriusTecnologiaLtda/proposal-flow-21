@@ -121,11 +121,19 @@ Deno.serve(async (req) => {
 
     console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, current status: ${sigRecord.status}`);
 
-    // Update publication ID if we didn't have it
-    if (publicationId && !sigRecord.tae_publication_id) {
+    // Update publication ID and document ID if changed (TAE sends new IDs on finalization)
+    const sigUpdates: Record<string, string> = {};
+    if (publicationId && publicationId !== sigRecord.tae_publication_id) {
+      sigUpdates.tae_publication_id = publicationId;
+    }
+    if (documentId && documentId !== sigRecord.tae_document_id) {
+      sigUpdates.tae_document_id = documentId;
+      console.log(`[tae-webhook] Document ID changed: ${sigRecord.tae_document_id} → ${documentId}`);
+    }
+    if (Object.keys(sigUpdates).length > 0) {
       await supabase
         .from("proposal_signatures")
-        .update({ tae_publication_id: publicationId })
+        .update(sigUpdates)
         .eq("id", sigRecord.id);
     }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft, Loader2 } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface Contact {
   id: string;
@@ -31,6 +32,8 @@ interface Contact {
 
 export default function ClientsList() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(60);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const { data: clients = [] } = useClients();
   const { data: units = [] } = useUnits();
@@ -80,16 +83,23 @@ export default function ClientsList() {
 
   const filtered = useMemo(() => {
     let list = clients;
-    // ESN (vendedor) only sees their assigned clients
     if (role === "vendedor" && userEsnMemberId) {
       list = list.filter((c) => c.esn_id === userEsnMemberId);
     }
+    if (!debouncedSearch) return list;
+    const s = debouncedSearch.toLowerCase();
     return list.filter(
-      (c) => c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.code.toLowerCase().includes(search.toLowerCase()) ||
-        c.cnpj.includes(search)
+      (c) => c.name.toLowerCase().includes(s) ||
+        c.code.toLowerCase().includes(s) ||
+        c.cnpj.includes(debouncedSearch)
     );
-  }, [clients, search, role, userEsnMemberId]);
+  }, [clients, debouncedSearch, role, userEsnMemberId]);
+
+  // Reset visible count when search changes
+  useEffect(() => { setVisibleCount(60); }, [debouncedSearch]);
+
+  const visibleClients = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = visibleCount < filtered.length;
 
 
   const esnMembers = useMemo(() => salesTeam.filter((m) => m.role === "esn"), [salesTeam]);
@@ -352,7 +362,9 @@ export default function ClientsList() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Clientes</h1>
-          <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
+          <p className="text-sm text-muted-foreground">
+            {debouncedSearch ? `${filtered.length} de ${clients.length}` : clients.length} clientes
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md border border-border overflow-hidden">
@@ -670,7 +682,7 @@ export default function ClientsList() {
           {/* LIST VIEWS */}
           {viewMode === "card" && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((client) => (
+               {visibleClients.map((client) => (
                 <div
                   key={client.id}
                   className="group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
@@ -722,6 +734,13 @@ export default function ClientsList() {
                   Nenhum cliente encontrado.
                 </div>
               )}
+              {hasMore && (
+                <div className="col-span-full flex justify-center py-4">
+                  <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 60)}>
+                    Carregar mais ({filtered.length - visibleCount} restantes)
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -735,7 +754,7 @@ export default function ClientsList() {
                 <span className="text-xs font-medium text-muted-foreground">Telefone</span>
               </div>
               <div className="divide-y divide-border">
-                {filtered.map((client) => (
+               {visibleClients.map((client) => (
                   <div
                     key={client.id}
                     className="group cursor-pointer flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-7 md:items-center md:gap-4"
@@ -768,6 +787,13 @@ export default function ClientsList() {
                 ))}
                 {filtered.length === 0 && (
                   <div className="px-4 py-12 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+                )}
+                {hasMore && (
+                  <div className="flex justify-center py-4 border-t border-border">
+                    <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 60)}>
+                      Carregar mais ({filtered.length - visibleCount} restantes)
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

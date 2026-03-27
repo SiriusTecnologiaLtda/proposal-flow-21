@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, FolderKanban, MoreHorizontal, Trash2, Eye, CheckCircle, PenLine, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, Link2, Link2Off, FileText, PenSquare, Trophy, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
@@ -41,6 +42,8 @@ function getProposalStatusCategory(proposalStatus: string | null | undefined): s
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [proposalStatusFilter, setProposalStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
@@ -76,21 +79,22 @@ export default function ProjectsPage() {
   }
 
   const filtered = useMemo(() => projects.filter((p: any) => {
-    const s = search.toLowerCase();
-    const textMatch =
-      (p.clients?.name || "").toLowerCase().includes(s) ||
-      (p.description || "").toLowerCase().includes(s) ||
-      (p.product || "").toLowerCase().includes(s) ||
-      (p.sales_team?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
-    if (!textMatch) return false;
+    const s = debouncedSearch.toLowerCase();
+    if (s) {
+      const textMatch =
+        (p.clients?.name || "").toLowerCase().includes(s) ||
+        (p.description || "").toLowerCase().includes(s) ||
+        (p.product || "").toLowerCase().includes(s) ||
+        (p.sales_team?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
+      if (!textMatch) return false;
+    }
 
     const effectiveStatus = (p.status === "rascunho") ? "pendente" : p.status;
     if (statusFilter.length > 0 && !statusFilter.includes(effectiveStatus || "pendente")) return false;
 
-    // Proposal status filter
     if (proposalStatusFilter.length > 0) {
       const proposalStatus = p.proposals?.status || null;
       const category = getProposalStatusCategory(proposalStatus);
@@ -104,7 +108,12 @@ export default function ProjectsPage() {
     }
 
     return true;
-  }), [projects, search, statusFilter, proposalStatusFilter, periodFilter, customStart, customEnd]);
+  }), [projects, debouncedSearch, statusFilter, proposalStatusFilter, periodFilter, customStart, customEnd]);
+
+  useEffect(() => { setVisibleCount(50); }, [debouncedSearch, statusFilter, proposalStatusFilter, periodFilter]);
+
+  const visibleProjects = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMoreProjects = visibleCount < filtered.length;
 
   const activeFilterCount = statusFilter.length + proposalStatusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
@@ -189,7 +198,7 @@ export default function ProjectsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Meus Projetos</h1>
-          <p className="text-sm text-muted-foreground">{projects.length} projetos cadastrados</p>
+          <p className="text-sm text-muted-foreground">{debouncedSearch ? `${filtered.length} de ${projects.length}` : projects.length} projetos</p>
         </div>
 {/* Projetos criados apenas via Solicitar Revisão EV */}
       </div>
@@ -378,7 +387,7 @@ export default function ProjectsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((project: any) => {
+              visibleProjects.map((project: any) => {
                 const effectiveStatus = project.status === "rascunho" ? "pendente" : project.status;
                 const statusInfo = STATUS_MAP[effectiveStatus] || STATUS_MAP.pendente;
                 const scopeCount = project.project_scope_items?.length || 0;
@@ -506,6 +515,13 @@ export default function ProjectsPage() {
           </TableBody>
         </Table>
       </div>
+      {hasMoreProjects && (
+        <div className="flex justify-center py-3">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 50)}>
+            Carregar mais ({filtered.length - visibleCount} restantes)
+          </Button>
+        </div>
+      )}
 
       <ConcludeProjectDialog
         open={!!concludeProject}

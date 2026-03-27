@@ -1,6 +1,7 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Search, FileText, MoreHorizontal, Edit2, Trash2, Copy, Ban, Trophy, Eye, Loader2, CheckCircle2, XCircle, Info, FolderOpen, Star, FileCheck, Send, XSquare, ClipboardList, ShieldCheck, PenLine, MessageSquare, Mail, AlertTriangle, ExternalLink, Users, History, Calendar, SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp, HardHat, UserPlus } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useProposals, useDeleteProposal, useUpdateProposalStatus, useUnits } from "@/hooks/useSupabaseData";
@@ -68,6 +69,8 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(50);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
@@ -589,17 +592,14 @@ export default function ProposalsList() {
     }
   }, [periodFilter, customStart, customEnd]);
 
-  const filtered = proposals.filter((p) => {
-    // Consulta role: only ganha proposals from allowed units
+  const filtered = useMemo(() => proposals.filter((p) => {
     if (isConsulta) {
       if (p.status !== "ganha") return false;
       const esnUnitId = (p as any).sales_team?.unit_id;
       if (esnUnitId && userUnitIds.length > 0 && !userUnitIds.includes(esnUnitId)) return false;
       if (!esnUnitId && userUnitIds.length > 0) return false;
     }
-    // Status filter
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
-    // Period filter by expected_close_date
     if (periodRange) {
       const closeDate = (p as any).expected_close_date;
       if (!closeDate) return false;
@@ -608,7 +608,8 @@ export default function ProposalsList() {
         if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
       } catch { return false; }
     }
-    const q = search.toLowerCase();
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
     const clientName = (p as any).clients?.name || "";
     const desc = (p as any).description || "";
     const esnName = (p as any).sales_team?.name || "";
@@ -618,7 +619,13 @@ export default function ProposalsList() {
       desc.toLowerCase().includes(q) ||
       esnName.toLowerCase().includes(q)
     );
-  });
+  }), [proposals, debouncedSearch, statusFilter, periodRange, isConsulta, userUnitIds]);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(50); }, [debouncedSearch, statusFilter, periodFilter]);
+
+  const visibleProposals = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMoreProposals = visibleCount < filtered.length;
 
   // Check for linked projects when deleting
   const deleteProposalData = deleteId ? proposals.find((p: any) => p.id === deleteId) : null;
@@ -954,7 +961,7 @@ export default function ProposalsList() {
             <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
           </div>
           <div className="divide-y divide-border">
-            {filtered.map((p) => {
+            {visibleProposals.map((p) => {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
@@ -1272,7 +1279,12 @@ export default function ProposalsList() {
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t border-border bg-accent/30 px-4 py-2.5">
               <span className="text-sm font-medium text-muted-foreground">
-                {filtered.length} {filtered.length === 1 ? "proposta" : "propostas"}
+                Exibindo {visibleProposals.length} de {filtered.length} {filtered.length === 1 ? "proposta" : "propostas"}
+                {hasMoreProposals && (
+                  <Button variant="link" size="sm" className="ml-2 h-auto p-0 text-xs" onClick={() => setVisibleCount((c) => c + 50)}>
+                    Carregar mais
+                  </Button>
+                )}
               </span>
               <span className="text-sm font-semibold text-foreground">
                 Total: R${" "}

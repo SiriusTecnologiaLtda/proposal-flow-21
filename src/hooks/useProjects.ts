@@ -6,12 +6,24 @@ export function useProjects() {
     queryKey: ["projects"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id), project_attachments(id), proposal_id, proposal_number, proposals!projects_proposal_id_fkey(id, status, number)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("id, status, product, description, created_at, updated_at, created_by, arquiteto_id, client_id, proposal_id, proposal_number, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), proposals!projects_proposal_id_fkey(id, status, number)")
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      return allData;
     },
   });
 }

@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin, attachments, taeDocumentId } = await req.json();
+    const { proposalId, type, message, proposalLink, recipients, to, subject: customSubject, htmlBody: customHtmlBody, cc, _origin, attachments, taeDocumentId, mitGoogleDocId } = await req.json();
 
     if (!proposalId || !type) {
       return new Response(
@@ -567,6 +567,76 @@ Deno.serve(async (req) => {
           }
         } catch (e) {
           console.warn("[send-notification] TAE document fetch failed:", e);
+        }
+      }
+
+      // If mitGoogleDocId is provided, export Google Doc as PDF and attach
+      if (mitGoogleDocId) {
+        try {
+          // Get Google access token via service account
+          const { data: gIntSA } = await supabase
+            .from("google_integrations")
+            .select("service_account_key, auth_type, oauth_client_id, oauth_client_secret, oauth_refresh_token")
+            .eq("is_default", true)
+            .single();
+
+          let googleToken = "";
+          if (gIntSA) {
+            if (gIntSA.auth_type === "service_account" && gIntSA.service_account_key) {
+              const saKey = JSON.parse(gIntSA.service_account_key);
+              // JWT for service account
+              const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+              const now = Math.floor(Date.now() / 1000);
+              const claimSet = btoa(JSON.stringify({
+                iss: saKey.client_email,
+                scope: "https://www.googleapis.com/auth/drive.readonly",
+                aud: "https://oauth2.googleapis.com/token",
+                iat: now,
+                exp: now + 3600,
+              }));
+              const signInput = `${header}.${claimSet}`;
+              const keyData = saKey.private_key.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
+              const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+              const cryptoKey = await crypto.subtle.importKey("pkcs8", binaryKey, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+              const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, new TextEncoder().encode(signInput));
+              const b64sig = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+              const jwt = `${header}.${claimSet}.${b64sig}`;
+              const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+              });
+              const tokenData = await tokenRes.json();
+              googleToken = tokenData.access_token || "";
+            } else if (gIntSA.oauth_client_id && gIntSA.oauth_client_secret && gIntSA.oauth_refresh_token) {
+              googleToken = await getAccessTokenOAuth2(gIntSA.oauth_client_id, gIntSA.oauth_client_secret, gIntSA.oauth_refresh_token);
+            }
+          }
+
+          if (googleToken) {
+            const exportUrl = `https://docs.google.com/document/d/${mitGoogleDocId}/export?format=pdf`;
+            const pdfRes = await fetch(exportUrl, { headers: { Authorization: `Bearer ${googleToken}` }, redirect: "follow" });
+            if (pdfRes.ok) {
+              const buf = await pdfRes.arrayBuffer();
+              const bytes = new Uint8Array(buf);
+              let binary = "";
+              const chunkSize = 0x8000;
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode(...chunk);
+              }
+              allAttachments.push({
+                name: `MIT_065_${proposalNumber}.pdf`,
+                base64: btoa(binary),
+                mimeType: "application/pdf",
+              });
+              console.log(`[send-notification] MIT-065 attached as PDF, size=${buf.byteLength}`);
+            } else {
+              console.warn(`[send-notification] MIT export failed: ${pdfRes.status}`);
+            }
+          }
+        } catch (e) {
+          console.warn("[send-notification] MIT PDF export failed:", e);
         }
       }
 

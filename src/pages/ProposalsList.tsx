@@ -335,6 +335,8 @@ export default function ProposalsList() {
   const [opsManualName, setOpsManualName] = useState("");
   const [opsManualEmail, setOpsManualEmail] = useState("");
   const [opsAttachments, setOpsAttachments] = useState<Array<{ name: string; base64: string; mimeType: string }>>([]);
+  const [opsAttachSignedDoc, setOpsAttachSignedDoc] = useState(true);
+  const [opsAttachMit, setOpsAttachMit] = useState(false);
   const opsFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load unit operations contacts for the proposal's unit
@@ -346,6 +348,12 @@ export default function ProposalsList() {
     setOpsAttachments([]);
     setOpsManualName("");
     setOpsManualEmail("");
+    // Check if signed doc exists
+    const latestSigForInit = (proposal as any).proposal_signatures
+      ?.filter((s: any) => s.status === "completed" && s.tae_document_id)
+      ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+    setOpsAttachSignedDoc(!!latestSigForInit);
+    setOpsAttachMit(false);
     setCraDialogOpen(true);
 
     // Load operations contacts from the unit
@@ -423,6 +431,8 @@ export default function ProposalsList() {
     const capturedSubject = craSubject;
     const capturedRecipients = [...opsRecipients];
     const capturedAttachments = [...opsAttachments];
+    const wantSignedDoc = opsAttachSignedDoc;
+    const wantMit = opsAttachMit;
 
     // Close immediately - background processing
     setCraDialogOpen(false);
@@ -436,7 +446,6 @@ export default function ProposalsList() {
       const unitId = (capturedProposal as any).clients?.unit_id || (capturedProposal as any).sales_team?.unit_id;
       const newManualRecipients = capturedRecipients.filter(r => !r.fromDb);
       if (unitId && newManualRecipients.length > 0) {
-        // Check existing emails to avoid duplicates
         const { data: existing } = await supabase
           .from("unit_contacts")
           .select("email")
@@ -451,14 +460,58 @@ export default function ProposalsList() {
         }
       }
 
-      // Check if proposal has TAE signed document to attach
-      let taeAttachment: { name: string; base64: string; mimeType: string } | null = null;
-      const latestSig = (capturedProposal as any).proposal_signatures
-        ?.filter((s: any) => s.status === "completed")
-        ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
-      if (latestSig?.tae_document_id) {
-        // We'll pass the tae_document_id to the edge function to fetch
-        taeAttachment = { name: `proposta_${capturedProposal.number}_assinada.pdf`, base64: "", mimeType: "application/pdf" };
+      // Resolve TAE signed document ID if user wants it
+      let taeDocId: string | undefined;
+      if (wantSignedDoc) {
+        const latestSig = (capturedProposal as any).proposal_signatures
+          ?.filter((s: any) => s.status === "completed")
+          ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+        taeDocId = latestSig?.tae_document_id || undefined;
+      }
+
+      // Handle MIT-065 if user wants it
+      let mitGoogleDocId: string | undefined;
+      if (wantMit) {
+        // Check if MIT already exists
+        const { data: existingMitDocs } = await supabase
+          .from("proposal_documents")
+          .select("doc_id, doc_url, file_name")
+          .eq("proposal_id", capturedProposal.id)
+          .eq("doc_type", "mit")
+          .order("version", { ascending: false })
+          .limit(1);
+
+        let mitDocUrl = existingMitDocs?.[0]?.doc_url;
+        let mitDocId = existingMitDocs?.[0]?.doc_id;
+
+        // If no MIT exists, generate it
+        if (!mitDocUrl) {
+          const mitRes = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mit-doc`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ proposalId: capturedProposal.id }),
+            }
+          );
+          const mitData = await mitRes.json();
+          if (mitRes.ok && mitData?.docUrl) {
+            mitDocUrl = mitData.docUrl;
+            queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          }
+        }
+
+        // Extract Google Doc ID from URL
+        if (mitDocUrl) {
+          const docIdMatch = mitDocUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          mitGoogleDocId = docIdMatch?.[1] || mitDocId;
+        } else if (mitDocId) {
+          mitGoogleDocId = mitDocId;
+        }
       }
 
       const res = await fetch(
@@ -478,7 +531,8 @@ export default function ProposalsList() {
             proposalLink: `${window.location.origin}/propostas/${capturedProposal.id}`,
             recipients: selectedEmails,
             attachments: capturedAttachments.length > 0 ? capturedAttachments : undefined,
-            taeDocumentId: latestSig?.tae_document_id || undefined,
+            taeDocumentId: taeDocId,
+            mitGoogleDocId,
           }),
         }
       );
@@ -1922,26 +1976,63 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
-                    {/* Section: Anexos */}
+                    {/* Section: Documentos do Sistema */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <FileCheck className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Documentos para Anexar</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {/* Signed doc checkbox */}
+                        {(() => {
+                          const latestSig = (craProposal as any).proposal_signatures
+                            ?.filter((s: any) => s.status === "completed" && s.tae_document_id)
+                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
+                          return latestSig ? (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer">
+                              <Checkbox checked={opsAttachSignedDoc} onCheckedChange={(v) => setOpsAttachSignedDoc(!!v)} />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">Documento Assinado (TAE)</p>
+                                <p className="text-xs text-muted-foreground">Contrato assinado eletronicamente</p>
+                              </div>
+                            </label>
+                          ) : (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 opacity-50 cursor-not-allowed">
+                              <Checkbox checked={false} disabled />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">Documento Assinado (TAE)</p>
+                                <p className="text-xs text-muted-foreground">Nenhum documento assinado disponível</p>
+                              </div>
+                            </label>
+                          );
+                        })()}
+
+                        {/* MIT-065 checkbox */}
+                        {(() => {
+                          const docs = (craProposal as any).proposal_documents || [];
+                          const hasMit = docs.some((d: any) => d.doc_type === "mit");
+                          return (
+                            <label className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-accent transition-colors cursor-pointer">
+                              <Checkbox checked={opsAttachMit} onCheckedChange={(v) => setOpsAttachMit(!!v)} />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">MIT-065 - Transição Comercial</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {hasMit ? "Documento já gerado — será exportado como PDF" : "Será gerado automaticamente durante o envio"}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Section: Anexos Manuais */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                         <Paperclip className="h-4 w-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Anexos</h3>
+                        <h3 className="text-sm font-semibold text-foreground">Outros Anexos</h3>
                       </div>
                       <div className="p-4 space-y-3">
-                        {/* TAE signed doc indicator */}
-                        {(() => {
-                          const latestSig = (craProposal as any).proposal_signatures
-                            ?.filter((s: any) => s.status === "completed")
-                            ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())?.[0];
-                          return latestSig?.tae_document_id ? (
-                            <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2">
-                              <FileCheck className="h-4 w-4 text-success shrink-0" />
-                              <p className="text-xs text-success font-medium">Documento assinado via TAE será anexado automaticamente</p>
-                            </div>
-                          ) : null;
-                        })()}
-
                         {opsAttachments.length > 0 && (
                           <div className="space-y-1">
                             {opsAttachments.map((att, idx) => (

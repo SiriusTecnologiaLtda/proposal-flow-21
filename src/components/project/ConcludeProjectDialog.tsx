@@ -564,7 +564,7 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
             Cancelar
           </Button>
           <Button onClick={handleConclude} disabled={loading || resolvingLink || (!proposalId) || (existingProjects.length > 0 && !replaceMode)}>
-            {loading ? "Concluindo..." : <><Send className="mr-2 h-4 w-4" /> Concluir Projeto</>}
+            {loading ? "Processando..." : <><Send className="mr-2 h-4 w-4" /> Concluir Revisão</>}
           </Button>
         </div>
       </SheetContent>

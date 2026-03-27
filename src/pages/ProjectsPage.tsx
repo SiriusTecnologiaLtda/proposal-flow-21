@@ -480,7 +480,7 @@ export default function ProjectsPage() {
                           )}
                           {(effectiveStatus === "pendente" || effectiveStatus === "em_revisao") && hasProposal && (
                             <DropdownMenuItem onClick={() => setConcludeProject(project)}>
-                              <CheckCircle className="mr-2 h-4 w-4" />Concluir Projeto
+                              <CheckCircle className="mr-2 h-4 w-4" />Concluir Revisão
                             </DropdownMenuItem>
                           )}
                           {effectiveStatus === "em_revisao" && (

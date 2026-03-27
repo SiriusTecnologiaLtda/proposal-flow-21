@@ -1446,10 +1446,10 @@ export default function ProposalsList() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-white">
-                    {notifType === "solicitar_ajuste" ? "Solicitar Eng. Valor" : "Notificar ESN — Ajuste Concluído"}
+                    {notifType === "solicitar_ajuste" ? "Solicitar Revisão EV" : "Notificar ESN — Ajuste Concluído"}
                   </h2>
                   <p className="text-sm text-white/70">
-                    {notifType === "solicitar_ajuste" ? "Envie a solicitação de engenharia de valor para o arquiteto" : "Notifique o ESN sobre o ajuste concluído"}
+                    {notifType === "solicitar_ajuste" ? "Envie a solicitação de revisão para o Engenheiro de Valor" : "Notifique o ESN sobre o ajuste concluído"}
                   </p>
                 </div>
               </div>

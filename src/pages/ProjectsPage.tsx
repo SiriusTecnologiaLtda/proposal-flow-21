@@ -79,21 +79,22 @@ export default function ProjectsPage() {
   }
 
   const filtered = useMemo(() => projects.filter((p: any) => {
-    const s = search.toLowerCase();
-    const textMatch =
-      (p.clients?.name || "").toLowerCase().includes(s) ||
-      (p.description || "").toLowerCase().includes(s) ||
-      (p.product || "").toLowerCase().includes(s) ||
-      (p.sales_team?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
-      (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
-    if (!textMatch) return false;
+    const s = debouncedSearch.toLowerCase();
+    if (s) {
+      const textMatch =
+        (p.clients?.name || "").toLowerCase().includes(s) ||
+        (p.description || "").toLowerCase().includes(s) ||
+        (p.product || "").toLowerCase().includes(s) ||
+        (p.sales_team?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
+        (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
+      if (!textMatch) return false;
+    }
 
     const effectiveStatus = (p.status === "rascunho") ? "pendente" : p.status;
     if (statusFilter.length > 0 && !statusFilter.includes(effectiveStatus || "pendente")) return false;
 
-    // Proposal status filter
     if (proposalStatusFilter.length > 0) {
       const proposalStatus = p.proposals?.status || null;
       const category = getProposalStatusCategory(proposalStatus);
@@ -107,7 +108,12 @@ export default function ProjectsPage() {
     }
 
     return true;
-  }), [projects, search, statusFilter, proposalStatusFilter, periodFilter, customStart, customEnd]);
+  }), [projects, debouncedSearch, statusFilter, proposalStatusFilter, periodFilter, customStart, customEnd]);
+
+  useEffect(() => { setVisibleCount(50); }, [debouncedSearch, statusFilter, proposalStatusFilter, periodFilter]);
+
+  const visibleProjects = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMoreProjects = visibleCount < filtered.length;
 
   const activeFilterCount = statusFilter.length + proposalStatusFilter.length + (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 

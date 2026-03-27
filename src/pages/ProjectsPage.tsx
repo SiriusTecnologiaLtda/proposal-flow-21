@@ -6,6 +6,7 @@ import ConcludeProjectDialog from "@/components/project/ConcludeProjectDialog";
 import ProposalReviewDialog from "@/components/project/ProposalReviewDialog";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { useProjects, useDeleteProject, useUpdateProjectStatus } from "@/hooks/useProjects";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";
@@ -59,9 +60,54 @@ export default function ProjectsPage() {
   const { role } = useUserRole();
   const { toast } = useToast();
 
+  const queryClient = useQueryClient();
   const { data: projects = [], isLoading } = useProjects();
   const deleteProject = useDeleteProject();
   const updateStatus = useUpdateProjectStatus();
+
+  // Realtime subscription for projects and proposals
+  useEffect(() => {
+    const channel = supabase
+      .channel("projects-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "projects" },
+        (payload) => {
+          const oldStatus = (payload.old as any)?.status;
+          const newStatus = (payload.new as any)?.status;
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            toast({
+              title: "Projeto atualizado",
+              description: `Status alterado para: ${STATUS_MAP[newStatus]?.label || newStatus}`,
+            });
+          }
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          queryClient.invalidateQueries({ queryKey: ["project", (payload.new as any)?.id] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "proposals" },
+        () => {
+          // Refresh projects list to update linked proposal status indicators
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "projects" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          toast({ title: "Novo projeto", description: "Um novo projeto foi criado." });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, toast]);
 
   // Period filter logic
   function getDateRange(): { start: Date; end: Date } | null {

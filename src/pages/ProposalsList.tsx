@@ -934,14 +934,14 @@ export default function ProposalsList() {
         })()}
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-11 md:gap-4">
-            <span className="text-xs font-medium text-muted-foreground col-span-2">Cliente / Proposta</span>
+          <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[2fr_1.5fr_auto_auto_1fr_auto_auto_auto_auto_auto] md:gap-3">
+            <span className="text-xs font-medium text-muted-foreground">Cliente / Proposta</span>
             <span className="text-xs font-medium text-muted-foreground">Descrição</span>
             <span className="text-xs font-medium text-muted-foreground">Tipo</span>
             <span className="text-xs font-medium text-muted-foreground">Produto</span>
             <span className="text-xs font-medium text-muted-foreground">ESN</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Valor Líquido</span>
-            <span className="text-xs font-medium text-muted-foreground text-center">Prev. Fechamento</span>
+            <span className="text-xs font-medium text-muted-foreground text-center">Prev. Fech.</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Status</span>
             <span className="text-xs font-medium text-muted-foreground text-center">Docs</span>
             <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
@@ -957,25 +957,25 @@ export default function ProposalsList() {
               return (
                 <div
                   key={p.id}
-                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-11 md:items-center md:gap-4 ${locked ? "opacity-60" : ""}`}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[2fr_1.5fr_auto_auto_1fr_auto_auto_auto_auto_auto] md:items-center md:gap-3 ${locked ? "opacity-60" : ""}`}
                 >
-                  <Link to={`/propostas/${p.id}`} className="col-span-2 flex items-center gap-3">
+                  <Link to={`/propostas/${p.id}`} className="flex items-center gap-3 min-w-0">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <FileText className="h-3.5 w-3.5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground truncate">{clientName}</p>
                       <p className="text-xs text-muted-foreground truncate">{p.number}</p>
                     </div>
                   </Link>
-                  <p className="text-sm text-muted-foreground truncate">{description || "—"}</p>
-                  <p className="text-sm text-foreground">{typeMap[p.type] || p.type}</p>
-                  <p className="text-sm text-foreground">{p.product}</p>
-                  <p className="text-sm text-muted-foreground truncate">{(p as any).sales_team?.name || "—"}</p>
-                  <p className="text-sm font-medium text-foreground text-right">
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{description || "—"}</p>
+                  <p className="text-sm text-foreground whitespace-nowrap">{typeMap[p.type] || p.type}</p>
+                  <p className="text-sm text-foreground whitespace-nowrap">{p.product}</p>
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{(p as any).sales_team?.name || "—"}</p>
+                  <p className="text-sm font-medium text-foreground text-right whitespace-nowrap">
                     {netValue != null ? `R$ ${netValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
                   </p>
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-xs text-muted-foreground text-center whitespace-nowrap">
                     {p.expected_close_date
                       ? new Date(p.expected_close_date + "T00:00:00").toLocaleDateString("pt-BR")
                       : "—"}

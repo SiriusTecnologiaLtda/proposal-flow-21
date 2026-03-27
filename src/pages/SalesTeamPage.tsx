@@ -292,8 +292,8 @@ export default function SalesTeamPage() {
                         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${roleColors[role]}`}>
                           <UserCog className="h-4 w-4" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">{member.name}</p>
+                         <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
                           <p className="text-xs text-muted-foreground">{member.code}</p>
                         </div>
                       </div>
@@ -315,11 +315,11 @@ export default function SalesTeamPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                      {member.email && <p>📧 {member.email}</p>}
-                      {(member as any).phone && <p>📱 {(member as any).phone}</p>}
-                      {linkedGsn && <p>🔗 GSN: {linkedGsn.name}</p>}
-                      {unitName && <p>🏢 {unitName}</p>}
+                    <div className="mt-3 space-y-1 text-xs text-muted-foreground overflow-hidden">
+                      {member.email && <p className="truncate">📧 {member.email}</p>}
+                      {(member as any).phone && <p className="truncate">📱 {(member as any).phone}</p>}
+                      {linkedGsn && <p className="truncate">🔗 GSN: {linkedGsn.name}</p>}
+                      {unitName && <p className="truncate">🏢 {unitName}</p>}
                       {(role === "esn" || role === "arquiteto") && <p>💰 Comissão: {(member as any).commission_pct ?? (role === "arquiteto" ? 1.31 : 3)}%</p>}
                     </div>
                   </div>

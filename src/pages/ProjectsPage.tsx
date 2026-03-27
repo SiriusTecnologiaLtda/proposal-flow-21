@@ -350,18 +350,18 @@ export default function ProjectsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">OPP</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>ESN</TableHead>
-              <TableHead>GSN</TableHead>
-              <TableHead>Unidade</TableHead>
+              <TableHead className="w-12">OPP</TableHead>
+              <TableHead className="min-w-[120px]">Cliente</TableHead>
+              <TableHead className="hidden xl:table-cell">ESN</TableHead>
+              <TableHead className="hidden xl:table-cell">GSN</TableHead>
+              <TableHead className="hidden lg:table-cell">Unidade</TableHead>
               <TableHead>Produto</TableHead>
-              <TableHead>Eng. Valor</TableHead>
-              <TableHead>Data</TableHead>
+              <TableHead className="hidden lg:table-cell">Eng. Valor</TableHead>
+              <TableHead className="hidden md:table-cell">Data</TableHead>
               <TableHead className="text-right">Horas</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-24">Oportunidade</TableHead>
-              <TableHead className="text-right">Itens</TableHead>
+              <TableHead className="hidden md:table-cell w-24">Oportunidade</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Itens</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -415,28 +415,38 @@ export default function ProjectsPage() {
                       </Tooltip>
                     </TableCell>
                     <TableCell className="font-medium">
-                      <div>{project.clients?.name || "—"}</div>
+                      <div className="truncate max-w-[180px]">{project.clients?.name || "—"}</div>
                       {project.clients?.code && (
-                        <div className="text-xs text-muted-foreground">{project.clients.code} · {project.clients.cnpj || ""}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-[180px]">{project.clients.code} · {project.clients.cnpj || ""}</div>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">{project.clients?.sales_team_esn?.name || "—"}</TableCell>
-                    <TableCell className="text-sm">{project.clients?.sales_team_gsn?.name || "—"}</TableCell>
-                    <TableCell className="text-sm">{project.clients?.unit_info?.name || "—"}</TableCell>
-                    <TableCell>{project.product || "—"}</TableCell>
-                    <TableCell>{project.sales_team?.name || "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{createdDate}</TableCell>
-                    <TableCell className="text-right text-sm font-medium">{totalHours > 0 ? `${totalHours}h` : "—"}</TableCell>
+                    <TableCell className="text-sm hidden xl:table-cell">
+                      <span className="truncate block max-w-[120px]">{project.clients?.sales_team_esn?.name || "—"}</span>
+                    </TableCell>
+                    <TableCell className="text-sm hidden xl:table-cell">
+                      <span className="truncate block max-w-[120px]">{project.clients?.sales_team_gsn?.name || "—"}</span>
+                    </TableCell>
+                    <TableCell className="text-sm hidden lg:table-cell">
+                      <span className="truncate block max-w-[120px]">{project.clients?.unit_info?.name || "—"}</span>
+                    </TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusInfo.className}`}>
+                      <span className="truncate block max-w-[100px]">{project.product || "—"}</span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <span className="truncate block max-w-[120px]">{project.sales_team?.name || "—"}</span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground hidden md:table-cell whitespace-nowrap">{createdDate}</TableCell>
+                    <TableCell className="text-right text-sm font-medium whitespace-nowrap">{totalHours > 0 ? `${totalHours}h` : "—"}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${statusInfo.className}`}>
                         {statusInfo.label}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {proposalStatusInfo && ProposalIcon ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${proposalStatusInfo.className}`}>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${proposalStatusInfo.className}`}>
                               <ProposalIcon className="h-3 w-3" />
                               {proposalStatusInfo.label}
                             </span>
@@ -449,7 +459,7 @@ export default function ProjectsPage() {
                         <span className="text-xs text-muted-foreground/40">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground">
+                    <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                       {scopeCount} itens · {attachCount} anexos
                     </TableCell>
                     <TableCell>

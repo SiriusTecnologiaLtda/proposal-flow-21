@@ -335,6 +335,8 @@ export default function ProposalsList() {
   const [opsManualName, setOpsManualName] = useState("");
   const [opsManualEmail, setOpsManualEmail] = useState("");
   const [opsAttachments, setOpsAttachments] = useState<Array<{ name: string; base64: string; mimeType: string }>>([]);
+  const [opsAttachSignedDoc, setOpsAttachSignedDoc] = useState(true);
+  const [opsAttachMit, setOpsAttachMit] = useState(false);
   const opsFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load unit operations contacts for the proposal's unit

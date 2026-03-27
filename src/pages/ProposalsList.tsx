@@ -1965,6 +1965,22 @@ export default function ProposalsList() {
                       </div>
                     </div>
 
+                    {/* Section: Assunto */}
+                    <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                        <Mail className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Assunto do E-mail</h3>
+                      </div>
+                      <div className="p-4">
+                        <Input
+                          value={craSubject}
+                          onChange={(e) => setCraSubject(e.target.value)}
+                          placeholder={`[Proposta ${craProposal?.number}] Envio para Operações`}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+
                     {/* Section: Mensagem */}
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">

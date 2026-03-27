@@ -13,6 +13,99 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64: string) {
+  const normalized = base64.replace(/\s/g, "");
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+type ParsedDownload = {
+  base64: string;
+  mimeType: string;
+  fileName?: string;
+};
+
+async function parseTaeDownloadResponse(res: Response): Promise<ParsedDownload | null> {
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+
+  if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
+    const buffer = await res.arrayBuffer();
+    if (buffer.byteLength < 500) return null;
+
+    return {
+      base64: arrayBufferToBase64(buffer),
+      mimeType: contentType.includes("application/pdf") ? "application/pdf" : "application/octet-stream",
+    };
+  }
+
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    const payload = JSON.parse(text);
+    const data = payload?.data ?? payload;
+
+    if (typeof data?.fileBytes === "string" && data.fileBytes.length > 1000) {
+      const bytes = base64ToUint8Array(data.fileBytes);
+      if (bytes.byteLength < 500) return null;
+
+      return {
+        base64: data.fileBytes.replace(/\s/g, ""),
+        mimeType: data?.fileType || "application/pdf",
+        fileName: data?.fileName,
+      };
+    }
+
+    if (typeof data?.signedURL === "string" && data.signedURL.startsWith("http")) {
+      console.log("[tae-download] JSON response exposed signedURL, fetching binary file");
+      const signedRes = await fetch(data.signedURL);
+      if (!signedRes.ok) return null;
+
+      const signedBuffer = await signedRes.arrayBuffer();
+      if (signedBuffer.byteLength < 500) return null;
+
+      return {
+        base64: arrayBufferToBase64(signedBuffer),
+        mimeType: signedRes.headers.get("content-type") || data?.fileType || "application/pdf",
+        fileName: data?.fileName,
+      };
+    }
+
+    console.log("[tae-download] JSON response did not contain fileBytes/signedURL");
+    return null;
+  } catch {
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.byteLength > 500 && text.startsWith("%PDF-")) {
+      return {
+        base64: arrayBufferToBase64(bytes.buffer),
+        mimeType: "application/pdf",
+      };
+    }
+
+    console.log(`[tae-download] Unrecognized response body prefix: ${text.substring(0, 120)}`);
+    return null;
+  }
+}
+
 async function taeLogin(baseUrl: string, email: string, password: string): Promise<string | null> {
   const res = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
     method: "POST",
@@ -161,7 +254,7 @@ Deno.serve(async (req) => {
     // Priority: try signed (2) first, then digital signed (3)
     const downloadTypes = [2, 3];
 
-    let downloadRes: Response | null = null;
+    let parsedDownload: ParsedDownload | null = null;
     let usedLabel = "";
 
     for (const cid of candidateIds) {
@@ -172,10 +265,10 @@ Deno.serve(async (req) => {
           const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
             const ct = res.headers.get("content-type") || "";
-            const buf = await res.arrayBuffer();
-            console.log(`[tae-download] Response: status=${res.status}, content-type=${ct}, size=${buf.byteLength}`);
-            if (buf.byteLength > 500) {
-              downloadRes = new Response(buf);
+            const parsed = await parseTaeDownloadResponse(res);
+            console.log(`[tae-download] Response: status=${res.status}, content-type=${ct}, parsed=${parsed ? "yes" : "no"}`);
+            if (parsed) {
+              parsedDownload = parsed;
               usedLabel = `tipoDownload=${tipo} (id=${cid})`;
               console.log(`[tae-download] ✓ Success: ${usedLabel}`);
               break;
@@ -188,20 +281,20 @@ Deno.serve(async (req) => {
           console.log(`[tae-download] fetch error: ${e.message}`);
         }
       }
-      if (downloadRes) break;
+      if (parsedDownload) break;
     }
 
     // Fallback: try without tipoDownload parameter
-    if (!downloadRes) {
+    if (!parsedDownload) {
       for (const cid of candidateIds) {
         const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(cid)}/download`;
         console.log(`[tae-download] Fallback (no tipoDownload): ${url}`);
         try {
           const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
-            const buf = await res.arrayBuffer();
-            if (buf.byteLength > 500) {
-              downloadRes = new Response(buf);
+            const parsed = await parseTaeDownloadResponse(res);
+            if (parsed) {
+              parsedDownload = parsed;
               usedLabel = `default (id=${cid})`;
               console.log(`[tae-download] ✓ Fallback success: ${usedLabel}`);
               break;
@@ -216,7 +309,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!downloadRes) {
+    if (!parsedDownload) {
       return jsonResponse({
         error: "Não foi possível baixar o documento assinado do TAE",
         taeDocumentId: docId,
@@ -225,15 +318,13 @@ Deno.serve(async (req) => {
       }, 502);
     }
 
-    const pdfBuffer = await downloadRes.arrayBuffer();
-    const uint8 = new Uint8Array(pdfBuffer);
-    let binary = "";
-    for (let i = 0; i < uint8.length; i++) {
-      binary += String.fromCharCode(uint8[i]);
-    }
-    const base64 = btoa(binary);
-
-    return jsonResponse({ success: true, base64, mimeType: "application/pdf", downloadType: usedLabel });
+    return jsonResponse({
+      success: true,
+      base64: parsedDownload.base64,
+      mimeType: parsedDownload.mimeType,
+      fileName: parsedDownload.fileName,
+      downloadType: usedLabel,
+    });
   } catch (err: any) {
     console.error(`[tae-download] Error: ${err.message}`);
     return jsonResponse({ error: err.message }, 500);

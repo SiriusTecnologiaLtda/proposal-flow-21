@@ -32,6 +32,8 @@ interface Contact {
 
 export default function ClientsList() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
+  const [visibleCount, setVisibleCount] = useState(60);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const { data: clients = [] } = useClients();
   const { data: units = [] } = useUnits();

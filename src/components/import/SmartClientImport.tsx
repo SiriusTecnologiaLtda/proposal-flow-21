@@ -590,57 +590,64 @@ export default function SmartClientImport() {
               </div>
             </div>
 
-            <ScrollArea className="max-h-[400px] w-full">
-              <div className="min-w-max space-y-2 pr-4">
-                {headers.map((header, colIdx) => {
-                  if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
-                  return (
-                    <div key={colIdx} className="flex items-center gap-3 rounded-lg border border-border p-2.5 bg-card hover:bg-muted/30 transition-colors">
-                      <div className="min-w-[200px] max-w-[500px]">
-                        <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
-                        <div className="text-xs text-muted-foreground truncate mt-0.5">
-                          Ex: {previewRows.slice(0, 3).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" | ") || "—"}
-                        </div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <Select
-                        value={mapping[colIdx] || "__none__"}
-                        onValueChange={val => {
-                          setMapping(prev => {
-                            const next = { ...prev };
-                            if (val === "__none__") { delete next[colIdx]; }
-                            else {
-                              for (const [k, v] of Object.entries(next)) {
-                                if (v === val && Number(k) !== colIdx) delete next[Number(k)];
-                              }
-                              next[colIdx] = val;
-                            }
-                            return next;
-                          });
-                          setLayoutSaved(false);
-                        }}
-                      >
-                        <SelectTrigger className="w-[180px] sm:w-[200px] shrink-0">
-                          <SelectValue placeholder="Ignorar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">— Ignorar —</SelectItem>
-                          {CLIENT_DB_FIELDS.map(f => {
-                            const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
-                            return (
-                              <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
-                                {f.label} {f.required && "*"} {usedByOther && "(já mapeado)"}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                })}
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                <span>Coluna da Planilha</span>
+                <span></span>
+                <span>Campo do Sistema</span>
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+              <ScrollArea className="max-h-[350px] w-full">
+                <div className="divide-y divide-border">
+                  {headers.map((header, colIdx) => {
+                    if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
+                    const isMapped = !!mapping[colIdx];
+                    return (
+                      <div key={colIdx} className={`grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-2 transition-colors ${isMapped ? "bg-primary/5" : "hover:bg-muted/30"}`}>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {previewRows.slice(0, 2).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" · ") || "—"}
+                          </div>
+                        </div>
+                        <ArrowRight className={`h-3.5 w-3.5 shrink-0 ${isMapped ? "text-primary" : "text-muted-foreground/40"}`} />
+                        <Select
+                          value={mapping[colIdx] || "__none__"}
+                          onValueChange={val => {
+                            setMapping(prev => {
+                              const next = { ...prev };
+                              if (val === "__none__") { delete next[colIdx]; }
+                              else {
+                                for (const [k, v] of Object.entries(next)) {
+                                  if (v === val && Number(k) !== colIdx) delete next[Number(k)];
+                                }
+                                next[colIdx] = val;
+                              }
+                              return next;
+                            });
+                            setLayoutSaved(false);
+                          }}
+                        >
+                          <SelectTrigger className="w-full text-xs h-8">
+                            <SelectValue placeholder="Ignorar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Ignorar —</SelectItem>
+                            {CLIENT_DB_FIELDS.map(f => {
+                              const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
+                              return (
+                                <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
+                                  {f.label} {f.required && "*"} {usedByOther && "(usado)"}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
 
             {/* Preview table with horizontal scroll */}
             {previewRows.length > 0 && (

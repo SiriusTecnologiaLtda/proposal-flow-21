@@ -105,40 +105,100 @@ ${proposalContext}`;
     // Add current message to history
     conversationHistory.push({ role: "user", content: body });
 
-    // Call Lovable AI
+    // Call Lovable AI with tool calling support
     if (!lovableApiKey) {
       throw new Error("LOVABLE_API_KEY não configurada");
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    // Identify user context for tool execution
+    const userContext = {
+      userId: userId || null,
+      salesMemberId: salesMember?.id || null,
+    };
+
+    // Tool calling loop: allow up to 5 iterations for multi-step actions
+    let messages = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory,
+    ];
+    let responseText = "";
+    const MAX_TOOL_ITERATIONS = 5;
+
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+      const aiPayload: any = {
         model: config.ai_model || "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationHistory,
-        ],
-      }),
-    });
+        messages,
+      };
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      if (aiResponse.status === 429) {
-        throw new Error("Rate limit atingido. Tente novamente em alguns segundos.");
+      // Only include tools if user is identified and not consulta
+      const canExecuteActions = (profile || salesMember) && userRole !== "consulta";
+      if (canExecuteActions) {
+        aiPayload.tools = TOOLS;
       }
-      if (aiResponse.status === 402) {
-        throw new Error("Créditos de IA esgotados.");
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(aiPayload),
+      });
+
+      if (!aiResponse.ok) {
+        const errText = await aiResponse.text();
+        console.error("AI error:", aiResponse.status, errText);
+        if (aiResponse.status === 429) {
+          throw new Error("Rate limit atingido. Tente novamente em alguns segundos.");
+        }
+        if (aiResponse.status === 402) {
+          throw new Error("Créditos de IA esgotados.");
+        }
+        throw new Error(`AI error: ${aiResponse.status}`);
       }
-      throw new Error(`AI error: ${aiResponse.status}`);
+
+      const aiData = await aiResponse.json();
+      const choice = aiData.choices?.[0];
+      const assistantMessage = choice?.message;
+
+      if (!assistantMessage) {
+        responseText = "Desculpe, não consegui processar sua mensagem.";
+        break;
+      }
+
+      // Check for tool calls
+      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+        // Add assistant message with tool calls to conversation
+        messages.push(assistantMessage);
+
+        // Execute each tool call
+        for (const toolCall of assistantMessage.tool_calls) {
+          const fnName = toolCall.function.name;
+          let fnArgs: Record<string, any> = {};
+          try {
+            fnArgs = JSON.parse(toolCall.function.arguments || "{}");
+          } catch { /* empty args */ }
+
+          console.log(`Executing tool: ${fnName}`, JSON.stringify(fnArgs));
+          const toolResult = await executeTool(fnName, fnArgs, supabase, userContext);
+          console.log(`Tool result (${fnName}):`, toolResult.substring(0, 500));
+
+          // Add tool result to conversation
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: toolResult,
+          } as any);
+        }
+
+        // Continue the loop to let AI process tool results
+        continue;
+      }
+
+      // No tool calls — we have the final text response
+      responseText = assistantMessage.content || "Desculpe, não consegui processar sua mensagem.";
+      break;
     }
-
-    const aiData = await aiResponse.json();
-    const responseText = aiData.choices?.[0]?.message?.content || "Desculpe, não consegui processar sua mensagem.";
 
     // Save outbound message with AI response
     await supabase.from("whatsapp_messages").insert({

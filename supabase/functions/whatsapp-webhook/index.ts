@@ -257,7 +257,15 @@ function escapeXml(str: string): string {
     .replace(/'/g, "&apos;");
 }
 
-async function buildProposalContext(supabase: any, userMessage: string, phone: string): Promise<string> {
+interface ContextResult {
+  text: string;
+  userId: string | null;
+  userRole: string | null;
+  profile: any;
+  salesMember: any;
+}
+
+async function buildProposalContext(supabase: any, userMessage: string, phone: string): Promise<ContextResult> {
   const lowerMsg = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const parts: string[] = [];
 

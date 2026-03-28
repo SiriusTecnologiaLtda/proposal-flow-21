@@ -273,10 +273,11 @@ export default function RegisteredUsersPage() {
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                           <UserCircle2 className="h-5 w-5" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{profile.display_name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{profile.email || "—"}</p>
-                        </div>
+                         <div className="flex-1 min-w-0">
+                           <p className="text-sm font-medium truncate">{profile.display_name}</p>
+                           <p className="text-[11px] text-muted-foreground truncate">{profile.email || "—"}</p>
+                           {profile.phone && <p className="text-[10px] text-muted-foreground/70 truncate">📱 {profile.phone}</p>}
+                         </div>
                         {currentRole && (
                           <Badge variant={currentRole === "admin" ? "default" : "secondary"} className="text-[10px] px-1.5 h-5 shrink-0">
                             {ROLE_LABELS[currentRole] || currentRole}
@@ -347,6 +348,34 @@ export default function RegisteredUsersPage() {
 
                   {/* Tab: Perfil */}
                   <TabsContent value="config" className="mt-0 space-y-5 pb-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground">Telefone / WhatsApp</label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="+5527999999999"
+                          value={selectedProfile.phone || ""}
+                          onChange={(e) => {
+                            // Optimistic local update
+                            const newPhone = e.target.value;
+                            qc.setQueryData(["all-profiles"], (old: any[]) =>
+                              old?.map((p) => p.user_id === selectedProfile.user_id ? { ...p, phone: newPhone } : p)
+                            );
+                          }}
+                          onBlur={async (e) => {
+                            const newPhone = e.target.value.trim();
+                            await supabase.from("profiles").update({ phone: newPhone || null }).eq("user_id", selectedProfile.user_id);
+                            toast({ title: "Telefone atualizado" });
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Usado para identificação automática via WhatsApp. Formato: +55DDDNUMERO
+                      </p>
+                    </div>
+
+                    <Separator />
+
                     <div className="space-y-2">
                       <label className="text-xs font-medium text-muted-foreground">Perfil de Acesso</label>
                       <Select

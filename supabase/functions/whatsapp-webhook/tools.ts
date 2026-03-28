@@ -151,6 +151,14 @@ export async function executeTool(
       return await lookupSalesMember(supabase, args.search, args.role);
     case "create_proposal":
       return await createProposal(supabase, args, context);
+    case "generate_proposal_document":
+      return await generateProposalDocument(supabase, args.proposal_id, context);
+    case "list_scope_templates":
+      return await listScopeTemplates(supabase, args.product);
+    case "apply_scope_template":
+      return await applyScopeTemplate(supabase, args.proposal_id, args.template_id, context);
+    case "lookup_proposal":
+      return await lookupProposal(supabase, args.search, context);
     default:
       return JSON.stringify({ error: `Ferramenta desconhecida: ${toolName}` });
   }

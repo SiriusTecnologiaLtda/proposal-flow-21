@@ -233,7 +233,7 @@ ${contextResult.text}${toolInstructions}`;
       ai_response: responseText,
     });
 
-    // If Twilio is connected, send response via gateway
+    // Send response via Twilio gateway if configured, otherwise fall back to TwiML
     if (twilioApiKey && config.twilio_phone_number) {
       try {
         const sendResp = await fetch(`${TWILIO_GATEWAY}/Messages.json`, {
@@ -256,9 +256,14 @@ ${contextResult.text}${toolInstructions}`;
       } catch (e) {
         console.error("Twilio send failed:", e);
       }
+      // Return empty TwiML so Twilio doesn't send a duplicate
+      return new Response(
+        `<Response></Response>`,
+        { headers: { ...corsHeaders, "Content-Type": "text/xml" } }
+      );
     }
 
-    // Return TwiML response (Twilio expects this)
+    // Fallback: return TwiML with message (no gateway configured)
     return new Response(
       `<Response><Message>${escapeXml(responseText)}</Message></Response>`,
       { headers: { ...corsHeaders, "Content-Type": "text/xml" } }

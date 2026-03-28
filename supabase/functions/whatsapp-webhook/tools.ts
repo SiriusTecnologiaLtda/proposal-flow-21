@@ -73,13 +73,23 @@ export async function executeTool(
   toolName: string,
   args: Record<string, any>,
   supabase: ReturnType<typeof createClient>,
-  context: { userId?: string | null; salesMemberId?: string | null }
+  context: { userId?: string | null; salesMemberId?: string | null; userRole?: string | null }
 ): Promise<string> {
+  // Permission checks - mirror web interface rules
+  if (!context.userId) {
+    return JSON.stringify({ error: "Usuário não identificado. Cadastre seu telefone no perfil do sistema para usar ações via WhatsApp." });
+  }
+
+  if (context.userRole === "consulta") {
+    return JSON.stringify({ error: "Seu perfil (Consulta) não permite executar ações. Apenas consultas de oportunidades ganhas são permitidas." });
+  }
+
+  // Role-based restrictions per tool
   switch (toolName) {
     case "generate_proposal_number":
       return await generateProposalNumber(supabase);
     case "lookup_client":
-      return await lookupClient(supabase, args.search);
+      return await lookupClient(supabase, args.search, context);
     case "lookup_sales_member":
       return await lookupSalesMember(supabase, args.search, args.role);
     case "create_proposal":

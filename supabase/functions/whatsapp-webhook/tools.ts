@@ -392,3 +392,235 @@ async function createProposal(
     message: `Proposta ${args.number} criada com sucesso para ${clientData.name}!`,
   });
 }
+
+// ─── Generate Proposal Document ─────────────────────────────────────
+
+async function generateProposalDocument(
+  supabase: ReturnType<typeof createClient>,
+  proposalId: string,
+  context: { userId?: string | null }
+): Promise<string> {
+  const { data: proposal, error } = await supabase
+    .from("proposals")
+    .select("id, number, status, client_id, clients(name)")
+    .eq("id", proposalId)
+    .single();
+
+  if (error || !proposal) return JSON.stringify({ error: "Proposta não encontrada com o ID fornecido" });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  try {
+    const resp = await fetch(`${supabaseUrl}/functions/v1/generate-proposal-pdf`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ proposalId, userId: context.userId, docType: "proposta" }),
+    });
+
+    const result = await resp.json();
+    if (!resp.ok || result.logs?.some((l: any) => l.status === "error")) {
+      const errorMsg = result.logs?.filter((l: any) => l.status === "error").map((l: any) => l.message).join("; ") || "Erro desconhecido";
+      return JSON.stringify({ error: `Erro ao gerar documento: ${errorMsg}` });
+    }
+
+    const docUrl = result.doc_url || result.docUrl;
+    return JSON.stringify({
+      success: true,
+      proposal_number: proposal.number,
+      client: (proposal as any).clients?.name,
+      doc_url: docUrl || null,
+      message: docUrl
+        ? `Documento da proposta ${proposal.number} gerado com sucesso!`
+        : `Documento da proposta ${proposal.number} gerado. Acesse a proposta para visualizar.`,
+      proposal_url: `https://proposal-flow-21.lovable.app/proposals/${proposalId}`,
+    });
+  } catch (e: any) {
+    return JSON.stringify({ error: `Falha ao gerar documento: ${e.message}` });
+  }
+}
+
+// ─── List Scope Templates ───────────────────────────────────────────
+
+async function listScopeTemplates(
+  supabase: ReturnType<typeof createClient>,
+  product?: string
+): Promise<string> {
+  let query = supabase
+    .from("scope_templates")
+    .select("id, name, product, category, status, scope_template_items(id)")
+    .eq("status", "aprovado")
+    .order("name");
+
+  if (product) query = query.ilike("product", `%${product}%`);
+
+  const { data, error } = await query;
+  if (error) return JSON.stringify({ error: error.message });
+  if (!data || data.length === 0) return JSON.stringify({ error: "Nenhum template aprovado encontrado", product });
+
+  return JSON.stringify({
+    templates: data.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      product: t.product,
+      category: t.category,
+      item_count: (t.scope_template_items || []).length,
+    })),
+    count: data.length,
+  });
+}
+
+// ─── Apply Scope Template ───────────────────────────────────────────
+
+async function applyScopeTemplate(
+  supabase: ReturnType<typeof createClient>,
+  proposalId: string,
+  templateId: string,
+  context: { userId?: string | null }
+): Promise<string> {
+  const { data: proposal, error: pErr } = await supabase
+    .from("proposals")
+    .select("id, number, status, client_id, group_notes, clients(name)")
+    .eq("id", proposalId)
+    .single();
+
+  if (pErr || !proposal) return JSON.stringify({ error: "Proposta não encontrada" });
+
+  // Check if proposal has linked project (scope is locked)
+  const { data: linkedProjects } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("proposal_id", proposalId)
+    .limit(1);
+
+  if (linkedProjects && linkedProjects.length > 0) {
+    return JSON.stringify({ error: "Esta proposta possui um projeto vinculado. O escopo está bloqueado para edição." });
+  }
+
+  const { data: template, error: tErr } = await supabase
+    .from("scope_templates")
+    .select("id, name, product, scope_template_items(id, description, default_hours, sort_order, parent_id)")
+    .eq("id", templateId)
+    .single();
+
+  if (tErr || !template) return JSON.stringify({ error: "Template não encontrado" });
+
+  const allItems = (template as any).scope_template_items || [];
+  if (allItems.length === 0) return JSON.stringify({ error: "Template sem itens" });
+
+  const parents = allItems.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+  const childrenMap = new Map<string, any[]>();
+  allItems.filter((i: any) => i.parent_id).forEach((i: any) => {
+    if (!childrenMap.has(i.parent_id)) childrenMap.set(i.parent_id, []);
+    childrenMap.get(i.parent_id)!.push(i);
+  });
+
+  const { data: existingItems } = await supabase
+    .from("proposal_scope_items")
+    .select("sort_order")
+    .eq("proposal_id", proposalId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+
+  let sortOrder = (existingItems?.[0]?.sort_order || 0) + 1;
+  let insertedCount = 0;
+
+  for (const parent of parents) {
+    const { data: parentRow, error: parentErr } = await supabase
+      .from("proposal_scope_items")
+      .insert({
+        proposal_id: proposalId,
+        description: parent.description,
+        hours: parent.default_hours || 0,
+        included: true,
+        phase: 1,
+        sort_order: sortOrder++,
+        template_id: templateId,
+      })
+      .select("id")
+      .single();
+
+    if (parentErr) { console.error("Parent insert error:", parentErr); continue; }
+    insertedCount++;
+
+    const kids = (childrenMap.get(parent.id) || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    for (const kid of kids) {
+      const { error: kidErr } = await supabase
+        .from("proposal_scope_items")
+        .insert({
+          proposal_id: proposalId,
+          description: kid.description,
+          hours: kid.default_hours || 0,
+          included: true,
+          phase: 1,
+          sort_order: sortOrder++,
+          parent_id: parentRow.id,
+          template_id: templateId,
+        });
+      if (!kidErr) insertedCount++;
+    }
+  }
+
+  // Update group_notes
+  const groupNotes = (proposal.group_notes as any) || {};
+  const groupOrder = groupNotes._group_order || [];
+  if (!groupOrder.includes(templateId)) {
+    groupNotes._group_order = [...groupOrder, templateId];
+    await supabase.from("proposals").update({ group_notes: groupNotes }).eq("id", proposalId);
+  }
+
+  return JSON.stringify({
+    success: true,
+    proposal_number: proposal.number,
+    template_name: (template as any).name,
+    items_added: insertedCount,
+    message: `Template "${(template as any).name}" aplicado à proposta ${proposal.number} com ${insertedCount} itens.`,
+    proposal_url: `https://proposal-flow-21.lovable.app/proposals/${proposalId}`,
+  });
+}
+
+// ─── Lookup Proposal ────────────────────────────────────────────────
+
+async function lookupProposal(
+  supabase: ReturnType<typeof createClient>,
+  search: string,
+  context: { userId?: string | null; salesMemberId?: string | null; userRole?: string | null }
+): Promise<string> {
+  const { data: proposals, error } = await supabase
+    .from("proposals")
+    .select("id, number, status, product, type, client_id, clients(name, code)")
+    .or(`number.ilike.%${search}%`)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const { data: byClient } = await supabase
+    .from("proposals")
+    .select("id, number, status, product, type, client_id, clients(name, code)")
+    .filter("clients.name", "ilike", `%${search}%`)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const allResults = [...(proposals || [])];
+  for (const p of (byClient || [])) {
+    if (!allResults.find((r: any) => r.id === p.id)) allResults.push(p);
+  }
+
+  if (allResults.length === 0) return JSON.stringify({ error: "Nenhuma proposta encontrada", search });
+
+  return JSON.stringify({
+    proposals: allResults.slice(0, 10).map((p: any) => ({
+      id: p.id,
+      number: p.number,
+      status: p.status,
+      product: p.product,
+      type: p.type,
+      client: p.clients?.name || "N/A",
+      client_code: p.clients?.code || "N/A",
+      url: `https://proposal-flow-21.lovable.app/proposals/${p.id}`,
+    })),
+    count: allResults.length,
+  });
+}

@@ -106,8 +106,20 @@ Você tem acesso a ferramentas para executar ações reais no sistema. Quando o 
 3. Use lookup_sales_member se precisar encontrar ESN ou Arquiteto
 4. Use create_proposal com os dados coletados
 IMPORTANTE: Sempre use as ferramentas para ações reais. NUNCA invente dados, IDs, URLs ou números. Use apenas os retornados pelas ferramentas.
-A URL real do sistema é: https://proposal-flow-21.lovable.app`
-      : "";
+A URL real do sistema é: https://proposal-flow-21.lovable.app
+
+PERMISSÕES DO USUÁRIO (mesmas da interface web):
+- Perfil: ${userRole?.toUpperCase() || "NÃO DEFINIDO"}
+- ${userRole === "admin" ? "Acesso total a todas as funcionalidades" : ""}
+- ${userRole === "vendedor" ? "Pode criar oportunidades apenas para seus clientes vinculados" : ""}
+- ${userRole === "gsn" ? "Pode visualizar e criar oportunidades do seu escopo de GSN" : ""}
+- ${userRole === "arquiteto" ? "Pode visualizar e criar oportunidades como Engenheiro de Valor" : ""}
+- Se o usuário não tiver perfil cadastrado ou telefone vinculado, informe que ele precisa cadastrar o telefone no perfil do sistema.`
+      : userRole === "consulta"
+        ? `\n\nRESTRIÇÃO: Este usuário tem perfil CONSULTA. NÃO pode criar, editar ou executar ações. Apenas consultas são permitidas.`
+        : !profile && !salesMember
+          ? `\n\nUSUÁRIO NÃO IDENTIFICADO: O número de telefone não está cadastrado no sistema. Informe ao usuário que ele precisa cadastrar o telefone no seu perfil ou pedir ao administrador para fazer isso em Configurações → Usuários Cadastrados.`
+          : "";
 
     const systemPrompt = `${config.ai_system_prompt || "Você é um assistente comercial especializado em propostas de consultoria SAP."}
 

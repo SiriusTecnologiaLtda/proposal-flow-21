@@ -520,7 +520,7 @@ async function buildProposalContext(supabase: any, userMessage: string, phone: s
     parts.push(`\n⚠️ REGRA DE ACESSO: Usuário não identificado. Forneça apenas informações genéricas. Peça para o usuário se identificar ou entrar em contato com o administrador.`);
   }
 
-  return parts.join("\n");
+  return { text: parts.join("\n"), userId, userRole, profile, salesMember };
 }
 
 function fmt(value: number): string {

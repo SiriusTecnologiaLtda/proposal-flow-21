@@ -94,13 +94,25 @@ serve(async (req) => {
       });
 
     // Query proposal data for context
-    const proposalContext = await buildProposalContext(supabase, body, fromNumber);
+    const contextResult = await buildProposalContext(supabase, body, fromNumber);
+    const { userId, userRole, profile, salesMember } = contextResult;
 
     // Build system prompt: full prompt from DB + dynamic context
+    const toolInstructions = (profile || salesMember) && userRole !== "consulta"
+      ? `\n\nAÇÕES DISPONÍVEIS:
+Você tem acesso a ferramentas para executar ações reais no sistema. Quando o usuário pedir para CRIAR uma oportunidade/proposta:
+1. Use generate_proposal_number para obter o próximo número
+2. Use lookup_client para encontrar o cliente pelo nome
+3. Use lookup_sales_member se precisar encontrar ESN ou Arquiteto
+4. Use create_proposal com os dados coletados
+IMPORTANTE: Sempre use as ferramentas para ações reais. NUNCA invente dados, IDs, URLs ou números. Use apenas os retornados pelas ferramentas.
+A URL real do sistema é: https://proposal-flow-21.lovable.app`
+      : "";
+
     const systemPrompt = `${config.ai_system_prompt || "Você é um assistente comercial especializado em propostas de consultoria SAP."}
 
 DADOS DO CONTEXTO ATUAL:
-${proposalContext}`;
+${contextResult.text}${toolInstructions}`;
 
     // Add current message to history
     conversationHistory.push({ role: "user", content: body });

@@ -382,6 +382,17 @@ ${contextResult.text}${toolInstructions}`;
   }
 });
 
+function getTwilioMediaGatewayPath(mediaUrl: string): string {
+  const url = new URL(mediaUrl);
+  const match = url.pathname.match(/\/Messages\/(MM[^/]+)\/Media\/(ME[^/.]+)/i);
+
+  if (!match) {
+    throw new Error(`Twilio media path inválido: ${url.pathname}`);
+  }
+
+  return `/Messages/${match[1]}/Media/${match[2]}`;
+}
+
 function escapeXml(str: string): string {
   return str
     .replace(/&/g, "&amp;")

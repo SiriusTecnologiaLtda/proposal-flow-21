@@ -176,6 +176,8 @@ export async function executeTool(
       return await listScopeTemplates(supabase, args.product);
     case "apply_scope_template":
       return await applyScopeTemplate(supabase, args.proposal_id, args.template_id, context);
+    case "query_sales_summary":
+      return await querySalesSummary(supabase, args, context);
     case "lookup_proposal":
       return await lookupProposal(supabase, args.search, context);
     default:

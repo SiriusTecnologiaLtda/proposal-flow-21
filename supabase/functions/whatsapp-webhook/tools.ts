@@ -121,7 +121,7 @@ async function generateProposalNumber(supabase: ReturnType<typeof createClient>)
   return JSON.stringify({ number: nextNumber, message: `Próximo número disponível: ${nextNumber}` });
 }
 
-async function lookupClient(supabase: ReturnType<typeof createClient>, search: string): Promise<string> {
+async function lookupClient(supabase: ReturnType<typeof createClient>, search: string, context?: { userId?: string | null; salesMemberId?: string | null; userRole?: string | null }): Promise<string> {
   const searchLower = search.toLowerCase();
   const { data: clients, error } = await supabase
     .from("clients")

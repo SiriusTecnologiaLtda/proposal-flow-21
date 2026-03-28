@@ -67,6 +67,63 @@ export const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_proposal_document",
+      description: "Gera o documento da proposta (Google Docs) no sistema. Retorna o link do documento gerado. A proposta precisa ter escopo preenchido.",
+      parameters: {
+        type: "object",
+        properties: {
+          proposal_id: { type: "string", description: "UUID da proposta (obtido via lookup ou contexto)" },
+        },
+        required: ["proposal_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_scope_templates",
+      description: "Lista os templates de escopo disponíveis no sistema, filtrados por produto. Retorna id, nome, produto, categoria e quantidade de itens.",
+      parameters: {
+        type: "object",
+        properties: {
+          product: { type: "string", description: "Filtrar por produto (ex: RM, SAP Business One, Protheus). Opcional." },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "apply_scope_template",
+      description: "Aplica um template de escopo a uma proposta, copiando todos os itens do template para o escopo da proposta. A proposta não pode ter projeto vinculado.",
+      parameters: {
+        type: "object",
+        properties: {
+          proposal_id: { type: "string", description: "UUID da proposta" },
+          template_id: { type: "string", description: "UUID do template de escopo (obtido via list_scope_templates)" },
+        },
+        required: ["proposal_id", "template_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "lookup_proposal",
+      description: "Busca uma proposta pelo número ou nome do cliente. Retorna id, número, status, cliente, produto e link.",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Número da proposta ou nome do cliente (parcial)" },
+        },
+        required: ["search"],
+      },
+    },
+  },
 ];
 
 export async function executeTool(

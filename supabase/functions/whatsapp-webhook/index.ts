@@ -52,16 +52,30 @@ serve(async (req) => {
     }
 
     // Handle audio messages: transcribe via ElevenLabs STT
+    let audioDetected = false;
+    let audioTranscriptionFailed = false;
+    let audioFailureReason = "";
+
     if (numMedia > 0 && mediaContentType0.startsWith("audio/") && mediaUrl0) {
+      audioDetected = true;
       console.log(`Audio message detected: ${mediaContentType0}, URL: ${mediaUrl0}`);
       const elevenlabsKey = Deno.env.get("ELEVENLABS_API_KEY");
-      if (elevenlabsKey) {
+
+      if (elevenlabsKey && lovableApiKey && twilioApiKey) {
         try {
-          // Download audio from Twilio (uses Basic Auth via Account SID + Auth Token in URL)
-          const audioResp = await fetch(mediaUrl0);
+          const mediaPath = getTwilioMediaGatewayPath(mediaUrl0);
+          console.log(`Fetching audio via Twilio gateway path: ${mediaPath}`);
+
+          const audioResp = await fetch(`${TWILIO_GATEWAY}${mediaPath}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${lovableApiKey}`,
+              "X-Connection-Api-Key": twilioApiKey,
+            },
+          });
+
           if (audioResp.ok) {
             const audioBlob = await audioResp.blob();
-            // Determine file extension from content type
             const extMap: Record<string, string> = {
               "audio/ogg": "ogg",
               "audio/mpeg": "mp3",
@@ -72,7 +86,6 @@ serve(async (req) => {
             };
             const ext = extMap[mediaContentType0] || "ogg";
 
-            // Send to ElevenLabs STT
             const sttForm = new FormData();
             sttForm.append("file", new File([audioBlob], `audio.${ext}`, { type: mediaContentType0 }));
             sttForm.append("model_id", "scribe_v2");
@@ -91,24 +104,37 @@ serve(async (req) => {
                 console.log(`Audio transcribed: "${transcribed}"`);
                 body = transcribed;
               } else {
+                audioTranscriptionFailed = true;
+                audioFailureReason = "A transcrição veio vazia.";
                 console.warn("STT returned empty text");
               }
             } else {
+              audioTranscriptionFailed = true;
+              audioFailureReason = `Falha no serviço de transcrição (${sttResp.status}).`;
               console.error("ElevenLabs STT error:", sttResp.status, await sttResp.text());
             }
           } else {
-            console.error("Failed to download audio from Twilio:", audioResp.status);
+            audioTranscriptionFailed = true;
+            audioFailureReason = `Falha ao baixar o áudio do WhatsApp (${audioResp.status}).`;
+            console.error("Failed to download audio from Twilio gateway:", audioResp.status, await audioResp.text());
           }
         } catch (e) {
+          audioTranscriptionFailed = true;
+          audioFailureReason = "Erro interno ao processar o áudio.";
           console.error("Audio transcription failed:", e);
         }
       } else {
-        console.warn("ELEVENLABS_API_KEY not set, cannot transcribe audio");
+        audioTranscriptionFailed = true;
+        audioFailureReason = "Configuração de áudio indisponível no momento.";
+        console.warn("Missing LOVABLE_API_KEY, TWILIO_API_KEY or ELEVENLABS_API_KEY for audio transcription");
       }
     }
 
     if (!body || !fromNumber) {
-      return new Response("<Response><Message>Mensagem vazia</Message></Response>", {
+      const emptyMessage = audioDetected
+        ? `Não consegui interpretar seu áudio. ${audioFailureReason || "Tente enviar novamente ou digite a mensagem."}`
+        : "Mensagem vazia";
+      return new Response(`<Response><Message>${escapeXml(emptyMessage)}</Message></Response>`, {
         headers: { ...corsHeaders, "Content-Type": "text/xml" },
       });
     }

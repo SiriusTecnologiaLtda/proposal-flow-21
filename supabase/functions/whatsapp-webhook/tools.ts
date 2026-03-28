@@ -113,6 +113,25 @@ export const TOOLS = [
   {
     type: "function",
     function: {
+      name: "query_sales_summary",
+      description: "Consulta agregada de vendas/oportunidades com filtros de status, período (mês/ano), produto, ESN, unidade. Retorna totais, contagem e lista detalhada. USE SEMPRE esta ferramenta quando o usuário perguntar sobre totais de vendas, faturamento, resultado comercial ou quiser filtrar oportunidades por critérios específicos.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["pendente", "proposta_gerada", "em_analise_ev", "analise_ev_concluida", "em_assinatura", "ganha", "cancelada"], description: "Filtrar por status da oportunidade" },
+          month: { type: "number", description: "Mês (1-12) para filtrar por previsão de fechamento" },
+          year: { type: "number", description: "Ano (ex: 2026) para filtrar por previsão de fechamento" },
+          product: { type: "string", description: "Filtrar por produto (ex: RM, SAP Business One)" },
+          esn_name: { type: "string", description: "Filtrar por nome do ESN (parcial)" },
+          unit_name: { type: "string", description: "Filtrar por nome da unidade (parcial)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "lookup_proposal",
       description: "Busca uma proposta pelo número ou nome do cliente. Retorna id, número, status, cliente, produto e link.",
       parameters: {
@@ -157,6 +176,8 @@ export async function executeTool(
       return await listScopeTemplates(supabase, args.product);
     case "apply_scope_template":
       return await applyScopeTemplate(supabase, args.proposal_id, args.template_id, context);
+    case "query_sales_summary":
+      return await querySalesSummary(supabase, args, context);
     case "lookup_proposal":
       return await lookupProposal(supabase, args.search, context);
     default:
@@ -579,6 +600,127 @@ async function applyScopeTemplate(
     items_added: insertedCount,
     message: `Template "${(template as any).name}" aplicado à proposta ${proposal.number} com ${insertedCount} itens.`,
     proposal_url: `https://proposal-flow-21.lovable.app/proposals/${proposalId}`,
+  });
+}
+
+// ─── Query Sales Summary ────────────────────────────────────────────
+
+async function querySalesSummary(
+  supabase: ReturnType<typeof createClient>,
+  args: Record<string, any>,
+  context: { userId?: string | null; salesMemberId?: string | null; userRole?: string | null }
+): Promise<string> {
+  // Build query with all necessary joins for value calculation
+  let query = supabase
+    .from("proposals")
+    .select("id, number, status, product, type, scope_type, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, additional_analyst_rate, additional_gp_rate, travel_hourly_rate, travel_local_hours, travel_trip_hours, num_companies, expected_close_date, created_at, client_id, esn_id, clients(name, code, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code, unit_id, unit_info(name)), proposal_scope_items(hours, included, parent_id), payment_conditions(installment, amount, due_date)")
+    .order("created_at", { ascending: false });
+
+  // Apply status filter
+  if (args.status) {
+    query = query.eq("status", args.status);
+  }
+
+  // Apply date filters on expected_close_date
+  if (args.month && args.year) {
+    const startDate = `${args.year}-${String(args.month).padStart(2, "0")}-01`;
+    const endMonth = args.month === 12 ? 1 : args.month + 1;
+    const endYear = args.month === 12 ? args.year + 1 : args.year;
+    const endDate = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
+    query = query.gte("expected_close_date", startDate).lt("expected_close_date", endDate);
+  } else if (args.year) {
+    query = query.gte("expected_close_date", `${args.year}-01-01`).lt("expected_close_date", `${args.year + 1}-01-01`);
+  }
+
+  // Apply product filter
+  if (args.product) {
+    query = query.ilike("product", `%${args.product}%`);
+  }
+
+  // Role-based access (mirror web rules)
+  const isEsn = context.userRole === "vendedor" || (context.salesMemberId && !["admin", "gsn", "arquiteto", "consulta"].includes(context.userRole || ""));
+
+  const { data: proposals, error } = await query.limit(200);
+  if (error) return JSON.stringify({ error: error.message });
+
+  let filtered = proposals || [];
+
+  // Filter by ESN name if provided
+  if (args.esn_name) {
+    const esn = args.esn_name.toLowerCase();
+    filtered = filtered.filter((p: any) => p.sales_team?.name?.toLowerCase().includes(esn));
+  }
+
+  // Filter by unit name if provided
+  if (args.unit_name) {
+    const unit = args.unit_name.toLowerCase();
+    filtered = filtered.filter((p: any) => {
+      const esnUnit = p.sales_team?.unit_info?.name?.toLowerCase() || "";
+      const clientUnit = p.clients?.unit_info?.name?.toLowerCase() || "";
+      return esnUnit.includes(unit) || clientUnit.includes(unit);
+    });
+  }
+
+  // Calculate values for each proposal (same formula as web interface)
+  let totalNet = 0;
+  let totalGross = 0;
+  const details: any[] = [];
+
+  for (const p of filtered) {
+    const includedItems = (p.proposal_scope_items || []).filter((i: any) => i.included);
+    const totalAnalystHours = includedItems.reduce((sum: number, i: any) => sum + (Number(i.hours) || 0), 0);
+    const gpPct = p.gp_percentage || 0;
+    const gpHours = totalAnalystHours * gpPct / 100;
+    const totalHours = totalAnalystHours + gpHours;
+    const analystValue = totalAnalystHours * (p.hourly_rate || 0);
+    const gpValue = gpHours * (p.hourly_rate || 0);
+    const accompValue = (p.accomp_analyst || 0) * (p.additional_analyst_rate || 0) + (p.accomp_gp || 0) * (p.additional_gp_rate || 0);
+    const travelHours = (p.travel_local_hours || 0) + (p.travel_trip_hours || 0);
+    const travelValue = travelHours * (p.travel_hourly_rate || 0);
+    const netTotal = analystValue + gpValue + accompValue + travelValue;
+    const taxFactor = p.clients?.unit_info?.tax_factor || 1;
+    const grossTotal = netTotal * taxFactor * (p.num_companies || 1);
+
+    totalNet += netTotal;
+    totalGross += grossTotal;
+
+    details.push({
+      number: p.number,
+      client: p.clients?.name || "?",
+      client_code: p.clients?.code || "?",
+      product: p.product,
+      type: p.type,
+      status: p.status,
+      esn: p.sales_team?.name || "N/A",
+      unit: p.clients?.unit_info?.name || p.sales_team?.unit_info?.name || "N/A",
+      net_value: netTotal,
+      gross_value: grossTotal,
+      expected_close_date: p.expected_close_date,
+      total_hours: totalHours,
+    });
+  }
+
+  const fmtV = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return JSON.stringify({
+    count: filtered.length,
+    total_net: totalNet,
+    total_net_formatted: `R$ ${fmtV(totalNet)}`,
+    total_gross: totalGross,
+    total_gross_formatted: `R$ ${fmtV(totalGross)}`,
+    filters_applied: {
+      status: args.status || "todos",
+      month: args.month || null,
+      year: args.year || null,
+      product: args.product || null,
+      esn: args.esn_name || null,
+      unit: args.unit_name || null,
+    },
+    proposals: details.map(d => ({
+      ...d,
+      net_value_formatted: `R$ ${fmtV(d.net_value)}`,
+      gross_value_formatted: `R$ ${fmtV(d.gross_value)}`,
+    })),
   });
 }
 

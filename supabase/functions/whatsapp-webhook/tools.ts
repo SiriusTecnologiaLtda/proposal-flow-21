@@ -610,18 +610,15 @@ async function querySalesSummary(
   args: Record<string, any>,
   context: { userId?: string | null; salesMemberId?: string | null; userRole?: string | null }
 ): Promise<string> {
-  // Build query with all necessary joins for value calculation
   let query = supabase
     .from("proposals")
-    .select("id, number, status, product, type, scope_type, hourly_rate, gp_percentage, accomp_analyst, accomp_gp, additional_analyst_rate, additional_gp_rate, travel_hourly_rate, travel_local_hours, travel_trip_hours, num_companies, expected_close_date, created_at, client_id, esn_id, clients(name, code, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code, unit_id, unit_info(name)), proposal_scope_items(hours, included, parent_id), payment_conditions(installment, amount, due_date)")
+    .select("id, number, status, product, type, hourly_rate, gp_percentage, expected_close_date, created_at, client_id, esn_id, clients(name, code, unit_id, unit_info(name, tax_factor)), sales_team!proposals_esn_id_fkey(name, code, unit_id, unit_info(name)), proposal_scope_items(hours, included, parent_id)")
     .order("created_at", { ascending: false });
 
-  // Apply status filter
   if (args.status) {
     query = query.eq("status", args.status);
   }
 
-  // Apply date filters on expected_close_date
   if (args.month && args.year) {
     const startDate = `${args.year}-${String(args.month).padStart(2, "0")}-01`;
     const endMonth = args.month === 12 ? 1 : args.month + 1;
@@ -632,26 +629,26 @@ async function querySalesSummary(
     query = query.gte("expected_close_date", `${args.year}-01-01`).lt("expected_close_date", `${args.year + 1}-01-01`);
   }
 
-  // Apply product filter
   if (args.product) {
     query = query.ilike("product", `%${args.product}%`);
   }
 
-  // Role-based access (mirror web rules)
-  const isEsn = context.userRole === "vendedor" || (context.salesMemberId && !["admin", "gsn", "arquiteto", "consulta"].includes(context.userRole || ""));
+  const { data: proposalTypes } = await supabase
+    .from("proposal_types")
+    .select("slug, rounding_factor");
+
+  const roundingByType = new Map((proposalTypes || []).map((pt: any) => [pt.slug, Number(pt.rounding_factor) || 8]));
 
   const { data: proposals, error } = await query.limit(200);
   if (error) return JSON.stringify({ error: error.message });
 
   let filtered = proposals || [];
 
-  // Filter by ESN name if provided
   if (args.esn_name) {
     const esn = args.esn_name.toLowerCase();
     filtered = filtered.filter((p: any) => p.sales_team?.name?.toLowerCase().includes(esn));
   }
 
-  // Filter by unit name if provided
   if (args.unit_name) {
     const unit = args.unit_name.toLowerCase();
     filtered = filtered.filter((p: any) => {
@@ -661,25 +658,28 @@ async function querySalesSummary(
     });
   }
 
-  // Calculate values for each proposal (same formula as web interface)
+  const roundUpFactor = (value: number, factor: number) => {
+    if (factor <= 0) return value;
+    return Math.ceil(value / factor) * factor;
+  };
+
   let totalNet = 0;
   let totalGross = 0;
   const details: any[] = [];
 
   for (const p of filtered) {
-    const includedItems = (p.proposal_scope_items || []).filter((i: any) => i.included);
-    const totalAnalystHours = includedItems.reduce((sum: number, i: any) => sum + (Number(i.hours) || 0), 0);
-    const gpPct = p.gp_percentage || 0;
-    const gpHours = totalAnalystHours * gpPct / 100;
-    const totalHours = totalAnalystHours + gpHours;
-    const analystValue = totalAnalystHours * (p.hourly_rate || 0);
-    const gpValue = gpHours * (p.hourly_rate || 0);
-    const accompValue = (p.accomp_analyst || 0) * (p.additional_analyst_rate || 0) + (p.accomp_gp || 0) * (p.additional_gp_rate || 0);
-    const travelHours = (p.travel_local_hours || 0) + (p.travel_trip_hours || 0);
-    const travelValue = travelHours * (p.travel_hourly_rate || 0);
-    const netTotal = analystValue + gpValue + accompValue + travelValue;
-    const taxFactor = p.clients?.unit_info?.tax_factor || 1;
-    const grossTotal = netTotal * taxFactor * (p.num_companies || 1);
+    const scopeItems = p.proposal_scope_items || [];
+    const roundingFactor = roundingByType.get(p.type) || 8;
+    const analystHoursRaw = scopeItems
+      .filter((item: any) => item.included && item.parent_id)
+      .reduce((sum: number, item: any) => sum + (Number(item.hours) || 0), 0);
+
+    const analystHours = roundUpFactor(analystHoursRaw, roundingFactor);
+    const gpHours = roundUpFactor(Math.ceil(analystHours * ((Number(p.gp_percentage) || 0) / 100)), roundingFactor);
+    const totalHours = analystHours + gpHours;
+    const netTotal = totalHours > 0 ? totalHours * (Number(p.hourly_rate) || 0) : 0;
+    const taxFactor = Number(p.clients?.unit_info?.tax_factor) || 1;
+    const grossTotal = netTotal > 0 ? netTotal / taxFactor : 0;
 
     totalNet += netTotal;
     totalGross += grossTotal;
@@ -693,10 +693,12 @@ async function querySalesSummary(
       status: p.status,
       esn: p.sales_team?.name || "N/A",
       unit: p.clients?.unit_info?.name || p.sales_team?.unit_info?.name || "N/A",
+      expected_close_date: p.expected_close_date,
+      analyst_hours: analystHours,
+      gp_hours: gpHours,
+      total_hours: totalHours,
       net_value: netTotal,
       gross_value: grossTotal,
-      expected_close_date: p.expected_close_date,
-      total_hours: totalHours,
     });
   }
 
@@ -716,7 +718,7 @@ async function querySalesSummary(
       esn: args.esn_name || null,
       unit: args.unit_name || null,
     },
-    proposals: details.map(d => ({
+    proposals: details.map((d) => ({
       ...d,
       net_value_formatted: `R$ ${fmtV(d.net_value)}`,
       gross_value_formatted: `R$ ${fmtV(d.gross_value)}`,

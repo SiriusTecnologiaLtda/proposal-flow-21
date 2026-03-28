@@ -113,6 +113,25 @@ export const TOOLS = [
   {
     type: "function",
     function: {
+      name: "query_sales_summary",
+      description: "Consulta agregada de vendas/oportunidades com filtros de status, período (mês/ano), produto, ESN, unidade. Retorna totais, contagem e lista detalhada. USE SEMPRE esta ferramenta quando o usuário perguntar sobre totais de vendas, faturamento, resultado comercial ou quiser filtrar oportunidades por critérios específicos.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["pendente", "proposta_gerada", "em_analise_ev", "analise_ev_concluida", "em_assinatura", "ganha", "cancelada"], description: "Filtrar por status da oportunidade" },
+          month: { type: "number", description: "Mês (1-12) para filtrar por previsão de fechamento" },
+          year: { type: "number", description: "Ano (ex: 2026) para filtrar por previsão de fechamento" },
+          product: { type: "string", description: "Filtrar por produto (ex: RM, SAP Business One)" },
+          esn_name: { type: "string", description: "Filtrar por nome do ESN (parcial)" },
+          unit_name: { type: "string", description: "Filtrar por nome da unidade (parcial)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "lookup_proposal",
       description: "Busca uma proposta pelo número ou nome do cliente. Retorna id, número, status, cliente, produto e link.",
       parameters: {

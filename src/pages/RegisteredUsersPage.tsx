@@ -273,10 +273,11 @@ export default function RegisteredUsersPage() {
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                           <UserCircle2 className="h-5 w-5" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{profile.display_name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{profile.email || "—"}</p>
-                        </div>
+                         <div className="flex-1 min-w-0">
+                           <p className="text-sm font-medium truncate">{profile.display_name}</p>
+                           <p className="text-[11px] text-muted-foreground truncate">{profile.email || "—"}</p>
+                           {profile.phone && <p className="text-[10px] text-muted-foreground/70 truncate">📱 {profile.phone}</p>}
+                         </div>
                         {currentRole && (
                           <Badge variant={currentRole === "admin" ? "default" : "secondary"} className="text-[10px] px-1.5 h-5 shrink-0">
                             {ROLE_LABELS[currentRole] || currentRole}

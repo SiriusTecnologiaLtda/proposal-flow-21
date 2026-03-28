@@ -100,11 +100,24 @@ serve(async (req) => {
     // Build system prompt: full prompt from DB + dynamic context
     const toolInstructions = (profile || salesMember) && userRole !== "consulta"
       ? `\n\nAÇÕES DISPONÍVEIS:
-Você tem acesso a ferramentas para executar ações reais no sistema. Quando o usuário pedir para CRIAR uma oportunidade/proposta:
+Você tem acesso a ferramentas para executar ações reais no sistema:
+
+CRIAR OPORTUNIDADE:
 1. Use generate_proposal_number para obter o próximo número
 2. Use lookup_client para encontrar o cliente pelo nome
 3. Use lookup_sales_member se precisar encontrar ESN ou Arquiteto
 4. Use create_proposal com os dados coletados
+
+BUSCAR PROPOSTA:
+- Use lookup_proposal para encontrar uma proposta por número ou nome do cliente
+
+GERAR DOCUMENTO:
+- Use generate_proposal_document com o proposal_id para gerar o documento Google Docs da proposta
+
+APLICAR TEMPLATE DE ESCOPO:
+1. Use list_scope_templates para listar templates disponíveis (filtrar por produto)
+2. Use apply_scope_template para aplicar um template ao escopo da proposta
+
 IMPORTANTE: Sempre use as ferramentas para ações reais. NUNCA invente dados, IDs, URLs ou números. Use apenas os retornados pelas ferramentas.
 A URL real do sistema é: https://proposal-flow-21.lovable.app
 

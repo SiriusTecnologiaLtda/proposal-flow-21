@@ -28,18 +28,83 @@ serve(async (req) => {
     let fromNumber = "";
     let body = "";
     let messageSid = "";
+    let numMedia = 0;
+    let mediaUrl0 = "";
+    let mediaContentType0 = "";
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const formData = await req.formData();
       fromNumber = formData.get("From")?.toString() || "";
       body = formData.get("Body")?.toString() || "";
       messageSid = formData.get("MessageSid")?.toString() || "";
+      numMedia = parseInt(formData.get("NumMedia")?.toString() || "0", 10);
+      mediaUrl0 = formData.get("MediaUrl0")?.toString() || "";
+      mediaContentType0 = formData.get("MediaContentType0")?.toString() || "";
     } else {
       // JSON payload (for testing or direct calls)
       const json = await req.json();
       fromNumber = json.From || json.from || "";
       body = json.Body || json.body || json.message || "";
       messageSid = json.MessageSid || "";
+      numMedia = parseInt(json.NumMedia || "0", 10);
+      mediaUrl0 = json.MediaUrl0 || "";
+      mediaContentType0 = json.MediaContentType0 || "";
+    }
+
+    // Handle audio messages: transcribe via ElevenLabs STT
+    if (numMedia > 0 && mediaContentType0.startsWith("audio/") && mediaUrl0) {
+      console.log(`Audio message detected: ${mediaContentType0}, URL: ${mediaUrl0}`);
+      const elevenlabsKey = Deno.env.get("ELEVENLABS_API_KEY");
+      if (elevenlabsKey) {
+        try {
+          // Download audio from Twilio (uses Basic Auth via Account SID + Auth Token in URL)
+          const audioResp = await fetch(mediaUrl0);
+          if (audioResp.ok) {
+            const audioBlob = await audioResp.blob();
+            // Determine file extension from content type
+            const extMap: Record<string, string> = {
+              "audio/ogg": "ogg",
+              "audio/mpeg": "mp3",
+              "audio/mp4": "m4a",
+              "audio/amr": "amr",
+              "audio/wav": "wav",
+              "audio/x-wav": "wav",
+            };
+            const ext = extMap[mediaContentType0] || "ogg";
+
+            // Send to ElevenLabs STT
+            const sttForm = new FormData();
+            sttForm.append("file", new File([audioBlob], `audio.${ext}`, { type: mediaContentType0 }));
+            sttForm.append("model_id", "scribe_v2");
+            sttForm.append("language_code", "por");
+
+            const sttResp = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+              method: "POST",
+              headers: { "xi-api-key": elevenlabsKey },
+              body: sttForm,
+            });
+
+            if (sttResp.ok) {
+              const sttData = await sttResp.json();
+              const transcribed = sttData.text?.trim();
+              if (transcribed) {
+                console.log(`Audio transcribed: "${transcribed}"`);
+                body = transcribed;
+              } else {
+                console.warn("STT returned empty text");
+              }
+            } else {
+              console.error("ElevenLabs STT error:", sttResp.status, await sttResp.text());
+            }
+          } else {
+            console.error("Failed to download audio from Twilio:", audioResp.status);
+          }
+        } catch (e) {
+          console.error("Audio transcription failed:", e);
+        }
+      } else {
+        console.warn("ELEVENLABS_API_KEY not set, cannot transcribe audio");
+      }
     }
 
     if (!body || !fromNumber) {

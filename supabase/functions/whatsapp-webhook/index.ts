@@ -122,10 +122,11 @@ ${contextResult.text}${toolInstructions}`;
       throw new Error("LOVABLE_API_KEY não configurada");
     }
 
-    // Identify user context for tool execution
+    // Identify user context for tool execution (mirrors web permissions)
     const userContext = {
       userId: userId || null,
       salesMemberId: salesMember?.id || null,
+      userRole: userRole || null,
     };
 
     // Tool calling loop: allow up to 5 iterations for multi-step actions

@@ -902,6 +902,77 @@ export default function ProposalsList() {
     setCancelId(null);
   }
 
+  async function handleCancelEv() {
+    if (!cancelEvId) return;
+    setCancelEvLoading(true);
+    try {
+      const proposal = proposals.find((p: any) => p.id === cancelEvId);
+      if (!proposal) throw new Error("Oportunidade não encontrada");
+
+      // Check if proposal already has generated documents → revert to proposta_gerada, else pendente
+      const { data: docs } = await supabase
+        .from("proposal_documents")
+        .select("id")
+        .eq("proposal_id", cancelEvId)
+        .eq("doc_type", "proposta")
+        .limit(1);
+      const newStatus = (docs && docs.length > 0) ? "proposta_gerada" : "pendente";
+
+      // Update proposal status
+      await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
+
+      // Cancel active projects (pendente or em_revisao) linked to this proposal
+      const { data: linkedProjects } = await supabase
+        .from("projects")
+        .select("id, status")
+        .eq("proposal_id", cancelEvId);
+      
+      if (linkedProjects) {
+        for (const proj of linkedProjects) {
+          if (proj.status === "pendente" || proj.status === "em_revisao") {
+            await supabase.from("projects").update({ status: "cancelado" }).eq("id", proj.id);
+          }
+        }
+      }
+
+      // Send notification to EV (arquiteto)
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              proposalId: cancelEvId,
+              type: "cancelar_ev",
+              message: "A solicitação de Análise E.V. foi cancelada pelo ESN.",
+              proposalLink: `${window.location.origin}/propostas/${cancelEvId}`,
+              _origin: window.location.origin,
+            }),
+          }
+        );
+      } catch (emailErr) {
+        console.error("Falha ao enviar notificação:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast({
+        title: "Solicitação E.V. cancelada",
+        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos ativos foram cancelados.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setCancelEvLoading(false);
+    setCancelEvId(null);
+  }
+
   async function handleWin() {
     if (!winId || !winCloseDate) return;
     try {

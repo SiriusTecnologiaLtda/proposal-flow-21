@@ -984,14 +984,8 @@ export default function ProposalsList() {
       const proposal = proposals.find((p: any) => p.id === cancelEvId);
       if (!proposal) throw new Error("Oportunidade não encontrada");
 
-      // Check if proposal already has generated documents → revert to proposta_gerada, else pendente
-      const { data: docs } = await supabase
-        .from("proposal_documents")
-        .select("id")
-        .eq("proposal_id", cancelEvId)
-        .eq("doc_type", "proposta")
-        .limit(1);
-      const newStatus = (docs && docs.length > 0) ? "proposta_gerada" : "pendente";
+      // Always revert to pendente when cancelling EV
+      const newStatus = "pendente";
 
       // Update proposal status
       await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);

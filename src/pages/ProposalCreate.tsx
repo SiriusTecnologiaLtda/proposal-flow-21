@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -181,6 +181,10 @@ export default function ProposalCreate() {
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
+  // Solicitar EV dialog state
+  const [solicitarEvDialogOpen, setSolicitarEvDialogOpen] = useState(false);
+  const [solicitarEvMessage, setSolicitarEvMessage] = useState("");
+  const [solicitarEvSending, setSolicitarEvSending] = useState(false);
 
   async function writeProposalLog(entry: {
     stage: string;
@@ -422,7 +426,7 @@ export default function ProposalCreate() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, product, status, created_at, description, group_notes, sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
+        .select("id, product, status, created_at, description, group_notes, proposal_id, proposal_number, sales_team!projects_arquiteto_id_fkey(name), project_scope_items(id, description, hours, included, parent_id, template_id, notes, sort_order, phase)")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -577,9 +581,14 @@ export default function ProposalCreate() {
    // Lock scope editing when projects are linked (any user/status)
    const isAdmin = userRole === "admin";
    const hasLinkedProject = addedProjectIds.size > 0;
-   const scopeLocked = hasLinkedProject;
-  const proposalStatus = (existingProposal as any)?.status || "pendente";
-  const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
+   // Find the project linked via proposal_id (the primary linked project)
+   const linkedProject = useMemo(() => {
+     if (!isEditing || !id) return null;
+     return clientProjects.find((p: any) => p.id && (addedProjectIds.has(p.id) || p.proposal_id === id)) || null;
+   }, [clientProjects, addedProjectIds, isEditing, id]);
+   const scopeLocked = hasLinkedProject || !!linkedProject;
+   const proposalStatus = (existingProposal as any)?.status || "pendente";
+   const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
 
   // Round up to nearest multiple of rounding factor
   function roundUpFactor(val: number) {
@@ -1159,6 +1168,84 @@ export default function ProposalCreate() {
         regenerateCommissionProjections(savedId).catch(() => {});
       }
 
+      // Auto-create project when scope exists but no project is linked
+      if (savedId && allScopeItems.length > 0 && addedProjectIds.size === 0) {
+        try {
+          const projectId = crypto.randomUUID();
+          await supabase.from("projects").insert({
+            id: projectId,
+            client_id: clientId,
+            product,
+            description: description || "",
+            arquiteto_id: arquitetoId || null,
+            created_by: (await supabase.auth.getSession()).data.session!.user.id,
+            status: "em_revisao",
+            proposal_id: savedId,
+            proposal_number: proposalNumber,
+          } as any);
+
+          // Read the saved proposal_scope_items to get real IDs
+          const { data: savedItems } = await supabase
+            .from("proposal_scope_items")
+            .select("*")
+            .eq("proposal_id", savedId);
+
+          if (savedItems && savedItems.length > 0) {
+            const idMap = new Map<string, string>();
+            for (const item of savedItems) {
+              idMap.set(item.id, crypto.randomUUID());
+            }
+
+            const parents = savedItems.filter(i => !i.parent_id);
+            const children = savedItems.filter(i => i.parent_id);
+
+            const projectItems = [...parents, ...children].map(item => ({
+              id: idMap.get(item.id)!,
+              project_id: projectId,
+              template_id: item.template_id || null,
+              parent_id: item.parent_id ? (idMap.get(item.parent_id) || null) : null,
+              description: item.description,
+              included: item.included,
+              hours: item.hours || 0,
+              phase: item.phase || 1,
+              sort_order: item.sort_order || 0,
+              notes: item.notes || "",
+            }));
+
+            await supabase.from("project_scope_items").insert(projectItems);
+
+            // Copy group_notes to the project with remapped IDs
+            const savedGroupNotes: any = proposalData.group_notes || {};
+
+            // Read real IDs from the saved proposal to remap
+            const { data: savedProposal } = await supabase.from("proposals").select("group_notes").eq("id", savedId).single();
+            const realPGM: Record<string, string> = (savedProposal?.group_notes as any)?._process_group_map || (savedGroupNotes._process_group_map || {});
+            const newPGM: Record<string, string> = {};
+            for (const [oldId, groupKey] of Object.entries(realPGM)) {
+              const newId = idMap.get(oldId);
+              if (newId) newPGM[newId] = groupKey;
+            }
+
+            await supabase.from("projects").update({
+              group_notes: {
+                _manual_groups: savedGroupNotes._manual_groups || {},
+                _group_order: savedGroupNotes._group_order || [],
+                _process_group_map: newPGM,
+              },
+            }).eq("id", projectId);
+
+            // Set project_id on proposal_scope_items
+            for (const item of savedItems) {
+              await supabase.from("proposal_scope_items")
+                .update({ project_id: projectId })
+                .eq("id", item.id);
+            }
+          }
+        } catch (projErr) {
+          console.error("Failed to auto-create project:", projErr);
+        }
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);
@@ -1550,6 +1637,45 @@ export default function ProposalCreate() {
       {/* Step 2: Escopo */}
       {currentStep === 2 && (
         <div className="space-y-4">
+          {/* Linked project banner */}
+          {linkedProject && (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <FolderKanban className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Projeto Vinculado</p>
+                  <p className="text-xs text-muted-foreground">
+                    {linkedProject.description || linkedProject.product || "Projeto"} ·{" "}
+                    {linkedProject.status === "concluido" ? "Concluído" : linkedProject.status === "em_revisao" ? "Em Revisão" : linkedProject.status === "cancelado" ? "Cancelado" : "Pendente"} ·{" "}
+                    {(linkedProject.project_scope_items || []).filter((i: any) => i.parent_id).length} itens
+                  </p>
+                </div>
+                <Badge variant={
+                  linkedProject.status === "concluido" ? "default" : 
+                  linkedProject.status === "em_revisao" ? "secondary" : 
+                  linkedProject.status === "cancelado" ? "destructive" : "outline"
+                } className="shrink-0">
+                  {linkedProject.status === "concluido" ? "Concluído" : linkedProject.status === "em_revisao" ? "Em Revisão" : linkedProject.status === "cancelado" ? "Cancelado" : "Pendente"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => navigate(`/projetos/editar/${linkedProject.id}`)}>
+                  <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Editar Escopo
+                </Button>
+                {arquitetoId && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    // Open notification dialog for Solicitar EV
+                    setSolicitarEvDialogOpen(true);
+                  }}>
+                    <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Solicitar Revisão EV
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Scope header with actions */}
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
@@ -2285,6 +2411,83 @@ export default function ProposalCreate() {
           </div>
         </div>
       )}
+
+      {/* Solicitar EV Dialog */}
+      <Dialog open={solicitarEvDialogOpen} onOpenChange={setSolicitarEvDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardHat className="h-5 w-5 text-primary" /> Solicitar Revisão EV
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              O escopo será enviado ao Engenheiro de Valor para revisão técnica.
+              O status da oportunidade será alterado para "Em Análise E.V.".
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Mensagem (opcional)</Label>
+              <Textarea
+                value={solicitarEvMessage}
+                onChange={(e) => setSolicitarEvMessage(e.target.value)}
+                placeholder="Observações para o Engenheiro de Valor..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSolicitarEvDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={solicitarEvSending}
+              onClick={async () => {
+                if (!id || !linkedProject) return;
+                setSolicitarEvSending(true);
+                try {
+                  // Update proposal status to em_analise_ev
+                  await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", id);
+
+                  // Update project status to em_revisao
+                  await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+
+                  // Send notification
+                  const session = (await supabase.auth.getSession()).data.session;
+                  await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                        Authorization: `Bearer ${session?.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        proposalId: id,
+                        type: "solicitar_ajuste",
+                        message: solicitarEvMessage || "Solicitação de revisão técnica do escopo.",
+                        proposalLink: `${window.location.origin}/propostas/${id}`,
+                        _origin: window.location.origin,
+                      }),
+                    }
+                  );
+
+                  queryClient.invalidateQueries({ queryKey: ["proposals"] });
+                  queryClient.invalidateQueries({ queryKey: ["projects"] });
+                  queryClient.invalidateQueries({ queryKey: ["client_projects", clientId] });
+                  toast({ title: "Solicitação enviada", description: "O Engenheiro de Valor foi notificado." });
+                  setSolicitarEvDialogOpen(false);
+                  navigate("/propostas");
+                } catch (err: any) {
+                  toast({ title: "Erro", description: err.message, variant: "destructive" });
+                } finally {
+                  setSolicitarEvSending(false);
+                }
+              }}
+            >
+              {solicitarEvSending ? "Enviando..." : "Enviar Solicitação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Floating Navigation Bar */}
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">

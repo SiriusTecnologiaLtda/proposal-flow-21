@@ -1002,7 +1002,7 @@ export default function ProposalsList() {
       // Update proposal status
       await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
 
-      // Cancel active projects (pendente or em_revisao) linked to this proposal
+      // Revert active projects back to 'pendente' so the creator can continue editing
       const { data: linkedProjects } = await supabase
         .from("projects")
         .select("id, status")
@@ -1010,8 +1010,8 @@ export default function ProposalsList() {
       
       if (linkedProjects) {
         for (const proj of linkedProjects) {
-          if (proj.status === "pendente" || proj.status === "em_revisao") {
-            await supabase.from("projects").update({ status: "cancelado" }).eq("id", proj.id);
+          if (proj.status === "pendente" || proj.status === "em_revisao" || proj.status === "concluido") {
+            await supabase.from("projects").update({ status: "pendente" }).eq("id", proj.id);
           }
         }
       }
@@ -1045,7 +1045,7 @@ export default function ProposalsList() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast({
         title: "Solicitação E.V. cancelada",
-        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos ativos foram cancelados.`,
+        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos revertidos para Pendente.`,
       });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });

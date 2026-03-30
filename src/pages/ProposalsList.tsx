@@ -645,7 +645,7 @@ export default function ProposalsList() {
     try {
       // For solicitar_ajuste, create/reopen project BEFORE sending email so edge function can find it
       if (capturedType === "solicitar_ajuste") {
-        await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", capturedProposal.id);
+        await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", capturedProposal.id);
 
         const { data: existingProjects } = await supabase
           .from("projects")

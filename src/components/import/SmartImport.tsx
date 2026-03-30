@@ -774,21 +774,25 @@ export default function SmartImport() {
       const commissionVal = ev(row, "commission_pct");
 
       const role = parseRole(roleText);
-      if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`); updateImportStats(entity, { errors }); continue; }
+      if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido. Valores aceitos: ESN, GSN, Arquiteto/Engenheiro de Valor.`); updateImportStats(entity, { errors }); continue; }
 
       const unit_id = unitVal ? findInList(unitList, unitVal) : null;
+      if (unitVal && !unit_id) {
+        addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro. Verifique se a unidade está cadastrada.`);
+      }
+
       const payload: any = { code, name, role, email, phone, unit_id };
       if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
 
       const { data: existing } = await supabase.from("sales_team").select("id").eq("code", code).maybeSingle();
       if (existing) {
         const { error } = await supabase.from("sales_team").update(payload).eq("id", existing.id);
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2}: ${error.message}`); }
-        else { insertedCodeMap.set(code.toLowerCase(), existing.id); updated++; }
+        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
+        else { insertedCodeMap.set(code.toLowerCase(), existing.id); updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
       } else {
         const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2}: ${error.message}`); }
-        else if (ins) { insertedCodeMap.set(code.toLowerCase(), ins.id); imported++; }
+        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
+        else if (ins) { insertedCodeMap.set(code.toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
       }
       updateImportStats(entity, { imported, updated, errors });
     }

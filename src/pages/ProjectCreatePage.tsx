@@ -87,6 +87,7 @@ const STATUS_MAP: Record<string, string> = {
   rascunho: "Pendente",
   em_revisao: "Em Revisão",
   concluido: "Concluído",
+  cancelado: "Cancelado",
 };
 
 const steps = [

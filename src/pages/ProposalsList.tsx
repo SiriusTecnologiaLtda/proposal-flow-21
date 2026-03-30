@@ -1392,14 +1392,14 @@ function hasScopeChangedAfterLastDoc(proposal: any): boolean {
                       : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
-                    {(p as any).needs_regen && (
+                    {hasScopeChangedAfterLastDoc(p) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-warning/15 text-warning">
                             <AlertTriangle className="h-3.5 w-3.5" />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>Proposta editada — documento precisa ser regerado</TooltipContent>
+                        <TooltipContent>Escopo alterado, avalie necessidade de regeneração da proposta</TooltipContent>
                       </Tooltip>
                     )}
                     {/* EV HardHat icon: orange for Em Revisão, green for Revisado — always last */}

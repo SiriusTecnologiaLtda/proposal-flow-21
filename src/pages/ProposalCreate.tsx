@@ -359,6 +359,7 @@ export default function ProposalCreate() {
     }
 
     setLoaded(true);
+    setMaxUnlockedStep(4); // all steps unlocked for editing/duplicating
     setLastHydratedAt((existingProposal as any)?.updated_at || null);
   }, [existingProposal, loaded, isDuplicating, lastHydratedAt]);
 

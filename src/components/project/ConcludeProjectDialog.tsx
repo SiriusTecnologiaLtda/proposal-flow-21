@@ -677,6 +677,8 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
     }
   }
 
+  const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+
   // --- Remove original (non-project) template groups that overlap with project templates ---
   // This prevents duplication: if ESN added template "X" and EV also used template "X" in the project,
   // the original template group is removed and replaced by the project's version
@@ -699,26 +701,27 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
     // Remove original template entries from group_notes
     for (const templateId of projectTemplateIds) {
       currentGroupOrder = currentGroupOrder.filter(g => g !== templateId);
-      // Clean process_group_map entries pointing to original template groups
       for (const [procId, groupKey] of Object.entries(currentProcessGroupMap)) {
         if (groupKey === templateId) delete currentProcessGroupMap[procId];
       }
     }
 
-    // Also remove original manual groups (non-project) that have no remaining items
-    // by deleting scope items with no project_id and no template_id that belong to removed manual groups
+    // Remove orphaned manual groups
     const manualGroupIds = Object.keys(currentManualGroups).filter(k => !k.startsWith("_project_"));
     for (const mgId of manualGroupIds) {
-      // Check if any processes still reference this manual group
       const stillReferenced = Object.values(currentProcessGroupMap).some(v => v === mgId);
       if (!stillReferenced) {
         delete currentManualGroups[mgId];
         currentGroupOrder = currentGroupOrder.filter(g => g !== mgId);
       }
     }
-  }
 
-  const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    // Also remove non-project scope items without template that were part of original ESN scope
+    // (manual group items that are now replaced by the project version)
+    await supabase.from("proposal_scope_items").delete()
+      .eq("proposal_id", proposalId)
+      .is("project_id", null);
+  }
   const childrenMap = new Map<string, any[]>();
   items.filter((i: any) => i.parent_id).forEach((i: any) => {
     if (!childrenMap.has(i.parent_id)) childrenMap.set(i.parent_id, []);

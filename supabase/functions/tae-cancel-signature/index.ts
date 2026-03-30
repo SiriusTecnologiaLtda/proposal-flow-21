@@ -183,10 +183,10 @@ Deno.serve(async (req) => {
 
     await adminSupabase
       .from("proposals")
-      .update({ status: "proposta_gerada" })
+      .update({ status: "pendente" })
       .eq("id", proposalId);
 
-    log(logs, "Finalização", "ok", "Processo de assinatura cancelado. Status voltou para Proposta Gerada.");
+    log(logs, "Finalização", "ok", "Processo de assinatura cancelado. Status voltou para Pendente.");
 
     // Log signature event
     await adminSupabase.from("signature_events").insert({
@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
       event_type: "cancelled",
       title: "Assinatura cancelada pelo usuário",
       description: cancelRes.ok
-        ? "O processo foi cancelado no TAE e localmente. Status revertido para Proposta Gerada."
+        ? "O processo foi cancelado no TAE e localmente. Status revertido para Pendente."
         : "Cancelamento local realizado. O TAE pode requerer cancelamento manual.",
     });
 

@@ -30,9 +30,9 @@ import DocumentManagementDialog from "@/components/proposal/DocumentManagementDi
 
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Análise E.V.", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
-  analise_ev_concluida: { label: "Análise E.V. Concluída", className: "bg-success/15 text-success", icon: <HardHat className="h-3.5 w-3.5" /> },
-  proposta_gerada: { label: "Proposta Gerada", className: "bg-primary/15 text-primary" },
+  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
+  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success", icon: <HardHat className="h-3.5 w-3.5" /> },
+  proposta_gerada: { label: "Pendente", className: "bg-muted text-muted-foreground" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
   cancelada: { label: "Cancelada", className: "bg-destructive/15 text-destructive" },
@@ -151,10 +151,10 @@ export default function ProposalsList() {
       ganha: "Ganha",
       cancelada: "Cancelada",
       em_assinatura: "Em Assinatura",
-      proposta_gerada: "Proposta Gerada",
+      proposta_gerada: "Pendente",
       pendente: "Pendente",
-      em_analise_ev: "Em Análise E.V.",
-      analise_ev_concluida: "Análise E.V. Concluída",
+      em_analise_ev: "Em Revisão",
+      analise_ev_concluida: "Revisado",
     };
 
     const channel = supabase
@@ -841,14 +841,8 @@ export default function ProposalsList() {
       const data = await response.json();
 
       if (response.ok && data?.docUrl) {
-        // Clear needs_regen flag and update status to proposta_gerada if generating proposal doc
+        // Clear needs_regen flag after generating document (no longer changes status)
         const updateFields: Record<string, any> = { needs_regen: false };
-        if (docType === "proposta") {
-          const currentProposal = proposals.find(p => p.id === proposalId);
-          if (currentProposal?.status === "pendente" || currentProposal?.status === "analise_ev_concluida") {
-            updateFields.status = "proposta_gerada";
-          }
-        }
         await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });
@@ -990,14 +984,8 @@ export default function ProposalsList() {
       const proposal = proposals.find((p: any) => p.id === cancelEvId);
       if (!proposal) throw new Error("Oportunidade não encontrada");
 
-      // Check if proposal already has generated documents → revert to proposta_gerada, else pendente
-      const { data: docs } = await supabase
-        .from("proposal_documents")
-        .select("id")
-        .eq("proposal_id", cancelEvId)
-        .eq("doc_type", "proposta")
-        .limit(1);
-      const newStatus = (docs && docs.length > 0) ? "proposta_gerada" : "pendente";
+      // Always revert to pendente when cancelling EV
+      const newStatus = "pendente";
 
       // Update proposal status
       await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
@@ -1045,7 +1033,7 @@ export default function ProposalsList() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast({
         title: "Solicitação E.V. cancelada",
-        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos revertidos para Pendente.`,
+        description: "Status revertido para Pendente. Projetos revertidos para Pendente.",
       });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -1301,7 +1289,7 @@ export default function ProposalsList() {
                       <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(statusMap).map(([key, { label, className: statusClassName }]) => {
+                      {Object.entries(statusMap).filter(([key]) => key !== "proposta_gerada").map(([key, { label, className: statusClassName }]) => {
                         const active = statusFilter.includes(key);
                         return (
                           <button
@@ -1377,6 +1365,19 @@ export default function ProposalsList() {
                       : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
+                    {/* EV HardHat icon: orange for Em Revisão, green for Revisado */}
+                    {(p.status === "em_analise_ev" || p.status === "analise_ev_concluida") && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${
+                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+                          }`}>
+                            <HardHat className="h-3.5 w-3.5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
+                      </Tooltip>
+                    )}
                     {(p as any).needs_regen && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1414,7 +1415,6 @@ export default function ProposalsList() {
                     })()}
                     {p.status !== "ganha" && (
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                        {status.icon}
                         {status.label}
                       </span>
                     )}
@@ -1604,7 +1604,7 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            {p.status === "proposta_gerada" && !isArquiteto && (
+                            {propostaCount > 0 && !isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
@@ -1618,7 +1618,7 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.status === "proposta_gerada" && isArquiteto && (
+                            {propostaCount > 0 && isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>

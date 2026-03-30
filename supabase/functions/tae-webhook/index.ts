@@ -223,12 +223,12 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("proposals")
-        .update({ status: "proposta_gerada" })
+        .update({ status: "pendente" })
         .eq("id", sigRecord.proposal_id);
 
       const rejectorEmail = singleSignerEmail || "Signatário não identificado";
-      await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Proposta Gerada.`);
-      console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → proposta_gerada`);
+      await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Pendente.`);
+      console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → pendente`);
     } else if (taeStatus === 7) {
       // Cancelado → cancelled / proposta_gerada
       await supabase
@@ -242,11 +242,11 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("proposals")
-        .update({ status: "proposta_gerada" })
+        .update({ status: "pendente" })
         .eq("id", sigRecord.proposal_id);
 
-      await logEvent("cancelled", "Assinatura cancelada", "O processo de assinatura foi cancelado. Status da oportunidade revertido para Proposta Gerada.");
-      console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → proposta_gerada`);
+      await logEvent("cancelled", "Assinatura cancelada", "O processo de assinatura foi cancelado. Status da oportunidade revertido para Pendente.");
+      console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → pendente`);
     } else if (taeStatus === 1) {
       // Assinado parcialmente
       await logEvent("info", "Assinatura parcial", `${singleSignerEmail || "Um signatário"} assinou. Aguardando demais signatários.`);

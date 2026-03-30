@@ -581,7 +581,9 @@ async function buildProposalContext(supabase: any, userMessage: string, phone: s
 
       const statusLabel: Record<string, string> = {
         pendente: "⏳ Pendente",
-        proposta_gerada: "📄 Proposta Gerada",
+        proposta_gerada: "⏳ Pendente",
+        em_analise_ev: "🔧 Em Revisão",
+        analise_ev_concluida: "✅ Revisado",
         em_assinatura: "✍️ Em Assinatura",
         ganha: "✅ Ganha",
         cancelada: "❌ Cancelada",

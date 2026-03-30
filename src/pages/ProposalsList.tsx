@@ -1033,7 +1033,7 @@ export default function ProposalsList() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast({
         title: "Solicitação E.V. cancelada",
-        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos revertidos para Pendente.`,
+        description: "Status revertido para Pendente. Projetos revertidos para Pendente.",
       });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });

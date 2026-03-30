@@ -151,10 +151,10 @@ export default function ProposalsList() {
       ganha: "Ganha",
       cancelada: "Cancelada",
       em_assinatura: "Em Assinatura",
-      proposta_gerada: "Proposta Gerada",
+      proposta_gerada: "Pendente",
       pendente: "Pendente",
-      em_analise_ev: "Em Análise E.V.",
-      analise_ev_concluida: "Análise E.V. Concluída",
+      em_analise_ev: "Em Revisão",
+      analise_ev_concluida: "Revisado",
     };
 
     const channel = supabase

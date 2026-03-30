@@ -1384,17 +1384,19 @@ export default function ProposalsList() {
                         <TooltipContent>Escopo alterado, avalie necessidade de regeneração da proposta</TooltipContent>
                       </Tooltip>
                     )}
-                    {/* EV HardHat icon: orange for Em Revisão, green for Revisado — always last */}
-                    {(p.status === "em_analise_ev" || p.status === "analise_ev_concluida") && (
+                    {/* EV HardHat icon: only when ev_requested flag is true */}
+                    {(p as any).ev_requested && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${
-                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning"
+                            : p.status === "analise_ev_concluida" ? "bg-success/15 text-success"
+                            : "bg-muted text-muted-foreground"
                           }`}>
                             <HardHat className="h-3.5 w-3.5" />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
+                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : p.status === "analise_ev_concluida" ? "Revisado pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
                       </Tooltip>
                     )}
                     {p.status === "ganha" && (() => {

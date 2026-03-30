@@ -1206,13 +1206,12 @@ export default function ProposalCreate() {
             await supabase.from("project_scope_items").insert(projectItems);
 
             // Copy group_notes to the project with remapped IDs
-            const savedGroupNotes = proposalData.group_notes || {};
-            const oldPGM: Record<string, string> = savedGroupNotes._process_group_map || {};
-            const newPGM: Record<string, string> = {};
+            const savedGroupNotes: any = proposalData.group_notes || {};
 
             // Read real IDs from the saved proposal to remap
             const { data: savedProposal } = await supabase.from("proposals").select("group_notes").eq("id", savedId).single();
-            const realPGM: Record<string, string> = (savedProposal?.group_notes as any)?._process_group_map || oldPGM;
+            const realPGM: Record<string, string> = (savedProposal?.group_notes as any)?._process_group_map || (savedGroupNotes._process_group_map || {});
+            const newPGM: Record<string, string> = {};
             for (const [oldId, groupKey] of Object.entries(realPGM)) {
               const newId = idMap.get(oldId);
               if (newId) newPGM[newId] = groupKey;

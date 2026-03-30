@@ -2498,7 +2498,7 @@ export default function ProposalCreate() {
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
+             <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
               <ArrowLeft className="mr-2 h-4 w-4" />Anterior
             </Button>
             <div className="flex items-center gap-3">
@@ -2508,6 +2508,24 @@ export default function ProposalCreate() {
                 </Button>
               ) : (
                 <>
+                  {/* Solicitar Análise EV — visible on step 1 for new proposals */}
+                  {currentStep === 1 && !isConsulta && (
+                    <Button
+                      variant="outline"
+                      className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      onClick={() => {
+                        // If proposal not yet saved, save first then open dialog
+                        if (!isEditing) {
+                          handleSave("em_analise_ev");
+                        } else {
+                          setSolicitarEvDialogOpen(true);
+                        }
+                      }}
+                      disabled={isSaving || !clientId || !proposalNumber}
+                    >
+                      <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
+                    </Button>
+                  )}
                   {currentStep === 4 && (
                     <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                       <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />
@@ -2523,7 +2541,11 @@ export default function ProposalCreate() {
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
                   {currentStep < 4 && (
-                    <Button onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}>
+                    <Button onClick={() => {
+                      const next = Math.min(4, currentStep + 1);
+                      setMaxUnlockedStep((prev) => Math.max(prev, next));
+                      setCurrentStep(next);
+                    }}>
                       Próximo<ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   )}

@@ -1661,7 +1661,7 @@ export default function ProposalCreate() {
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => navigate(`/projetos/editar/${linkedProject.id}`)}>
+                <Button size="sm" onClick={() => navigate(`/projetos/${linkedProject.id}`)}>
                   <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Editar Escopo
                 </Button>
                 {arquitetoId && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (

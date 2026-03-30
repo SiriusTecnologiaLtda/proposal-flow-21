@@ -724,10 +724,19 @@ export default function ProposalsList() {
               };
 
               await supabase.from("projects").update({ group_notes: projectGroupNotes }).eq("id", projectId);
+
+              // Remove original ESN scope from the opportunity (now lives in the project)
+              await supabase.from("proposal_scope_items").delete()
+                .eq("proposal_id", capturedProposal.id)
+                .is("project_id", null);
+
+              // Clear group_notes from the proposal (scope is now managed by the project)
+              await supabase.from("proposals").update({
+                group_notes: { _manual_groups: {}, _group_order: [], _process_group_map: {} },
+              }).eq("id", capturedProposal.id);
             }
           } catch (scopeCopyErr) {
             console.error("Failed to copy scope to project:", scopeCopyErr);
-            // Non-blocking: project is created, scope copy is best-effort
           }
         }
         queryClient.invalidateQueries({ queryKey: ["projects"] });

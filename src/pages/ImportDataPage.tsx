@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import SmartClientImport from "@/components/import/SmartClientImport";
+import SmartImport from "@/components/import/SmartImport";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -997,51 +997,15 @@ export default function ImportDataPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Importar Dados</h1>
-            <p className="text-sm text-muted-foreground">Importe clientes, time de vendas e templates via Excel</p>
+            <h1 className="text-2xl font-semibold text-foreground">Importação Inteligente</h1>
+            <p className="text-sm text-muted-foreground">Importe clientes, time de vendas, templates e metas via Excel</p>
           </div>
         </div>
         <ImportHistory />
       </div>
 
-      {/* Smart Import - full width */}
-      <SmartClientImport />
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <ImportCard
-          entity="clients"
-          icon={Users}
-          title="Clientes (Modelo Padrão)"
-          description="Importar com planilha no formato padrão"
-          templateFn={generateClientTemplate}
-          templateFilename="modelo_clientes.xlsx"
-          clearFn={clearClients}
-          importFn={(file, clear) => runClientImport(file, clear, qc, user?.id)}
-        />
-        <ImportCard
-          entity="templates"
-          icon={LayoutTemplate}
-          title="Templates de Escopo"
-          description="Templates com processos e sub-itens"
-          templateFn={generateTemplateTemplate}
-          templateFilename="modelo_templates_escopo.xlsx"
-          clearFn={clearTemplates}
-          importFn={(file, clear) => runTemplateImport(file, clear, qc, user?.id)}
-        />
-        <ImportCard
-          entity="sales_team"
-          icon={UserCog}
-          title="Time de Vendas"
-          description="ESN, GSN e Engenheiros de Valor"
-          templateFn={generateSalesTeamTemplate}
-          templateFilename="modelo_time_vendas.xlsx"
-          clearFn={clearSalesTeam}
-          importFn={(file, clear) => runSalesTeamImport(file, clear, qc, user?.id)}
-        />
-        <MetasImportCard
-          importFn={(file, year) => runSalesTargetsImport(file, year, qc, user?.id)}
-        />
-      </div>
+      {/* Importação Inteligente - full width */}
+      <SmartImport />
     </div>
   );
 }

@@ -1223,6 +1223,7 @@ export type Database = {
           date_validity: string | null
           description: string | null
           esn_id: string | null
+          ev_requested: boolean
           expected_close_date: string | null
           gp_percentage: number
           group_notes: Json | null
@@ -1254,6 +1255,7 @@ export type Database = {
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
+          ev_requested?: boolean
           expected_close_date?: string | null
           gp_percentage?: number
           group_notes?: Json | null
@@ -1285,6 +1287,7 @@ export type Database = {
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
+          ev_requested?: boolean
           expected_close_date?: string | null
           gp_percentage?: number
           group_notes?: Json | null

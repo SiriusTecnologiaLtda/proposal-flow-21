@@ -1248,6 +1248,51 @@ export default function ProposalCreate() {
         }
       }
 
+      // Handle Solicitar EV flow after save
+      if (status === "em_analise_ev" && savedId) {
+        try {
+          // Update project status to em_revisao if project was auto-created
+          const { data: linkedProjects } = await supabase
+            .from("projects")
+            .select("id")
+            .eq("proposal_id", savedId);
+          
+          if (linkedProjects && linkedProjects.length > 0) {
+            await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+          }
+
+          // Send notification
+          const notifSession = (await supabase.auth.getSession()).data.session;
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${notifSession?.access_token}`,
+              },
+              body: JSON.stringify({
+                proposalId: savedId,
+                type: "solicitar_ajuste",
+                message: "Solicitação de revisão técnica do escopo.",
+                proposalLink: `${window.location.origin}/propostas/${savedId}`,
+                _origin: window.location.origin,
+              }),
+            }
+          );
+
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          toast({ title: "Solicitação enviada", description: "O Engenheiro de Valor foi notificado." });
+        } catch (evErr) {
+          console.error("Failed to send EV notification:", evErr);
+          toast({ title: "Oportunidade salva, mas notificação falhou", variant: "destructive" });
+        }
+        navigate("/propostas");
+        return;
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);

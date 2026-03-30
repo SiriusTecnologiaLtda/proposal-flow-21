@@ -647,7 +647,7 @@ export default function ProposalsList() {
                 .eq("id", proj.id);
             }
           }
-        }
+        } else {
           const projectId = crypto.randomUUID();
           await supabase.from("projects").insert({
             id: projectId,

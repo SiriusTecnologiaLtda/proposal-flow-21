@@ -237,7 +237,7 @@ export default function ProjectsPage() {
       await updateStatus.mutateAsync({ id: project.id, status: "em_revisao" });
       // Update proposal status to em_analise_ev
       if (project.proposal_id) {
-        await supabase.from("proposals").update({ status: "em_analise_ev" }).eq("id", project.proposal_id);
+        await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", project.proposal_id);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
       }
       toast({ title: "Projeto retornado para revisão", description: "O status da oportunidade foi atualizado para 'Em Revisão'" });

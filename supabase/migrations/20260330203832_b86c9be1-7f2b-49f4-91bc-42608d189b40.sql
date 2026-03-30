@@ -1,0 +1,1 @@
+ALTER TABLE public.proposals ADD COLUMN ev_requested boolean NOT NULL DEFAULT false;

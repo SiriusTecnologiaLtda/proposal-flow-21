@@ -30,8 +30,8 @@ import DocumentManagementDialog from "@/components/proposal/DocumentManagementDi
 
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
-  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success", icon: <HardHat className="h-3.5 w-3.5" /> },
+  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
+  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success" },
   proposta_gerada: { label: "Pendente", className: "bg-muted text-muted-foreground" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },
@@ -645,7 +645,7 @@ export default function ProposalsList() {
     try {
       // For solicitar_ajuste, create/reopen project BEFORE sending email so edge function can find it
       if (capturedType === "solicitar_ajuste") {
-        await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", capturedProposal.id);
+        await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", capturedProposal.id);
 
         const { data: existingProjects } = await supabase
           .from("projects")
@@ -1000,7 +1000,7 @@ export default function ProposalsList() {
       const newStatus = "pendente";
 
       // Update proposal status
-      await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
+      await supabase.from("proposals").update({ status: newStatus, ev_requested: false } as any).eq("id", cancelEvId);
 
       // Revert active projects back to 'pendente' so the creator can continue editing
       const { data: linkedProjects } = await supabase
@@ -1384,17 +1384,19 @@ export default function ProposalsList() {
                         <TooltipContent>Escopo alterado, avalie necessidade de regeneração da proposta</TooltipContent>
                       </Tooltip>
                     )}
-                    {/* EV HardHat icon: orange for Em Revisão, green for Revisado — always last */}
-                    {(p.status === "em_analise_ev" || p.status === "analise_ev_concluida") && (
+                    {/* EV HardHat icon: only when ev_requested flag is true */}
+                    {(p as any).ev_requested && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${
-                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning"
+                            : p.status === "analise_ev_concluida" ? "bg-success/15 text-success"
+                            : "bg-muted text-muted-foreground"
                           }`}>
                             <HardHat className="h-3.5 w-3.5" />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
+                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : p.status === "analise_ev_concluida" ? "Revisado pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
                       </Tooltip>
                     )}
                     {p.status === "ganha" && (() => {

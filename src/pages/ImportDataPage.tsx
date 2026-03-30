@@ -997,8 +997,8 @@ export default function ImportDataPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Importar Dados</h1>
-            <p className="text-sm text-muted-foreground">Importe clientes, time de vendas e templates via Excel</p>
+            <h1 className="text-2xl font-semibold text-foreground">Importação Inteligente</h1>
+            <p className="text-sm text-muted-foreground">Importe clientes, time de vendas, templates e metas via Excel</p>
           </div>
         </div>
         <ImportHistory />

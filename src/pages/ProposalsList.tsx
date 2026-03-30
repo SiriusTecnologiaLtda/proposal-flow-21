@@ -66,6 +66,20 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
+/** Check if scope was changed after the last generated proposal document */
+function hasScopeChangedAfterLastDoc(proposal: any): boolean {
+  const docs = proposal.proposal_documents || [];
+  const propostaDocs = docs.filter((d: any) => d.doc_type === "proposta");
+  if (propostaDocs.length === 0) return false;
+  
+  const projects = proposal.projects || [];
+  if (projects.length === 0) return false;
+  
+  const latestDocDate = propostaDocs.reduce((max: string, d: any) => d.created_at > max ? d.created_at : max, "");
+  const latestProjectUpdate = projects.reduce((max: string, p: any) => p.updated_at > max ? p.updated_at : max, "");
+  
+  return latestProjectUpdate > latestDocDate;
+}
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");
@@ -115,6 +129,7 @@ export default function ProposalsList() {
   const [winId, setWinId] = useState<string | null>(null);
   const [winCloseDate, setWinCloseDate] = useState("");
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
+  const [scopeChangedWarningProposal, setScopeChangedWarningProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
@@ -841,9 +856,6 @@ export default function ProposalsList() {
       const data = await response.json();
 
       if (response.ok && data?.docUrl) {
-        // Clear needs_regen flag after generating document (no longer changes status)
-        const updateFields: Record<string, any> = { needs_regen: false };
-        await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });
 
@@ -1150,9 +1162,6 @@ export default function ProposalsList() {
     }
     setChangeLogLoading(false);
   }
-
-
-
   const isLocked = (status: string) => ["em_assinatura", "ganha", "cancelada"].includes(status);
 
   function getDocCounts(proposal: any) {
@@ -1365,14 +1374,14 @@ export default function ProposalsList() {
                       : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
-                    {(p as any).needs_regen && (
+                    {hasScopeChangedAfterLastDoc(p) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-warning/15 text-warning">
                             <AlertTriangle className="h-3.5 w-3.5" />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>Proposta editada — documento precisa ser regerado</TooltipContent>
+                        <TooltipContent>Escopo alterado, avalie necessidade de regeneração da proposta</TooltipContent>
                       </Tooltip>
                     )}
                     {/* EV HardHat icon: orange for Em Revisão, green for Revisado — always last */}
@@ -1607,7 +1616,13 @@ export default function ProposalsList() {
                             {propostaCount > 0 && !isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
+                                <DropdownMenuItem onClick={() => {
+                                  if (hasScopeChangedAfterLastDoc(p)) {
+                                    setScopeChangedWarningProposal(p);
+                                  } else {
+                                    setSignatureProposal(p);
+                                  }
+                                }}>
                                   <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
@@ -1816,6 +1831,40 @@ export default function ProposalsList() {
           proposalId={versionsProposalId}
           docType={versionsDocType}
         />
+
+        {/* Scope Changed Warning before Signature */}
+        <AlertDialog open={!!scopeChangedWarningProposal} onOpenChange={(open) => !open && setScopeChangedWarningProposal(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+                Escopo alterado após última proposta
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Houveram alterações no escopo após a última proposta gerada. Deseja continuar mesmo assim, gerar uma nova proposta antes ou cancelar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setScopeChangedWarningProposal(null)}>
+                Cancelar
+              </Button>
+              <Button variant="secondary" onClick={() => {
+                const p = scopeChangedWarningProposal;
+                setScopeChangedWarningProposal(null);
+                if (p) handleGenerateDoc(p.id, "proposta");
+              }}>
+                <FileText className="mr-2 h-4 w-4" />Gerar Proposta
+              </Button>
+              <Button onClick={() => {
+                const p = scopeChangedWarningProposal;
+                setScopeChangedWarningProposal(null);
+                if (p) setSignatureProposal(p);
+              }}>
+                <Send className="mr-2 h-4 w-4" />Continuar
+              </Button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Send to Signature dialog */}
         <SendToSignatureDialog

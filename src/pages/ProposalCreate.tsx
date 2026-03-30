@@ -1082,15 +1082,11 @@ export default function ProposalCreate() {
       ? existingStatus
       : status;
 
-    // Set needs_regen flag: true when editing an already-generated proposal without regenerating
-    const needsRegen = isEditing && status === "pendente" && existingStatus && existingStatus !== "pendente";
-
     const proposalData = {
       number: proposalNumber,
       type: proposalType as any,
       product,
       status: effectiveStatus,
-      needs_regen: needsRegen ? true : (status === "proposta_gerada" ? false : undefined),
       scope_type: scopeType as any,
       client_id: clientId,
       esn_id: esnId || null,

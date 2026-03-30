@@ -974,7 +974,8 @@ export default function SmartImport() {
 
       if (!esnId) {
         errors++;
-        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${ev(row, "esn_code")}" não encontrado.`);
+        const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
+        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas. Verifique o código/nome.`);
         updateImportStats(entity, { errors });
         continue;
       }

@@ -1604,7 +1604,7 @@ export default function ProposalsList() {
                             <DropdownMenuItem onClick={() => handleDuplicate(p)}>
                               <Copy className="mr-2 h-3.5 w-3.5" />Duplicar
                             </DropdownMenuItem>
-                            {p.status === "proposta_gerada" && !isArquiteto && (
+                            {propostaCount > 0 && !isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
@@ -1618,7 +1618,7 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {p.status === "proposta_gerada" && isArquiteto && (
+                            {propostaCount > 0 && isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>

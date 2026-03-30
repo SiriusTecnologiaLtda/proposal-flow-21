@@ -718,7 +718,7 @@ export default function SmartImport() {
         skipped: totalSkipped, finished_at: new Date().toISOString(),
         duration_ms: Date.now() - importRun.startedAt,
         summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados`,
-      } as any).eq("id", dbLogId).catch(() => {});
+      } as any).eq("id", dbLogId);
     }
   }
 
@@ -825,7 +825,7 @@ export default function SmartImport() {
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
       summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros`,
-    } as any).eq("id", dbLogId).catch(() => {});
+    } as any).eq("id", dbLogId);
   }
 
   // ── TEMPLATE import with mapped columns ───────────────────────
@@ -905,7 +905,7 @@ export default function SmartImport() {
       status: finalStatus, total_rows: dataRows.length, imported, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
       summary: `${imported} templates importados, ${errors} erros`,
-    } as any).eq("id", dbLogId).catch(() => {});
+    } as any).eq("id", dbLogId);
   }
 
   // ── SALES TARGETS import with mapped columns ──────────────────
@@ -987,7 +987,7 @@ export default function SmartImport() {
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
       finished_at: new Date().toISOString(), duration_ms: dur,
       summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros`,
-    } as any).eq("id", dbLogId).catch(() => {});
+    } as any).eq("id", dbLogId);
   }
 
   // ── AI Filter prompt ──────────────────────────────────────────

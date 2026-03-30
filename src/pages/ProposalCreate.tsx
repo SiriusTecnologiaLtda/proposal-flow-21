@@ -2412,6 +2412,83 @@ export default function ProposalCreate() {
         </div>
       )}
 
+      {/* Solicitar EV Dialog */}
+      <Dialog open={solicitarEvDialogOpen} onOpenChange={setSolicitarEvDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardHat className="h-5 w-5 text-primary" /> Solicitar Revisão EV
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              O escopo será enviado ao Engenheiro de Valor para revisão técnica.
+              O status da oportunidade será alterado para "Em Análise E.V.".
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Mensagem (opcional)</Label>
+              <Textarea
+                value={solicitarEvMessage}
+                onChange={(e) => setSolicitarEvMessage(e.target.value)}
+                placeholder="Observações para o Engenheiro de Valor..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSolicitarEvDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={solicitarEvSending}
+              onClick={async () => {
+                if (!id || !linkedProject) return;
+                setSolicitarEvSending(true);
+                try {
+                  // Update proposal status to em_analise_ev
+                  await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", id);
+
+                  // Update project status to em_revisao
+                  await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+
+                  // Send notification
+                  const session = (await supabase.auth.getSession()).data.session;
+                  await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                        Authorization: `Bearer ${session?.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        proposalId: id,
+                        type: "solicitar_ajuste",
+                        message: solicitarEvMessage || "Solicitação de revisão técnica do escopo.",
+                        proposalLink: `${window.location.origin}/propostas/${id}`,
+                        _origin: window.location.origin,
+                      }),
+                    }
+                  );
+
+                  queryClient.invalidateQueries({ queryKey: ["proposals"] });
+                  queryClient.invalidateQueries({ queryKey: ["projects"] });
+                  queryClient.invalidateQueries({ queryKey: ["client_projects", clientId] });
+                  toast({ title: "Solicitação enviada", description: "O Engenheiro de Valor foi notificado." });
+                  setSolicitarEvDialogOpen(false);
+                  navigate("/propostas");
+                } catch (err: any) {
+                  toast({ title: "Erro", description: err.message, variant: "destructive" });
+                } finally {
+                  setSolicitarEvSending(false);
+                }
+              }}
+            >
+              {solicitarEvSending ? "Enviando..." : "Enviar Solicitação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Floating Navigation Bar */}
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">

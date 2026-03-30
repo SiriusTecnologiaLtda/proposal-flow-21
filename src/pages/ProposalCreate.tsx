@@ -125,6 +125,7 @@ export default function ProposalCreate() {
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 4 : 1);
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
   const [product, setProduct] = useState<string>("");

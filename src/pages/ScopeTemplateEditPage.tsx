@@ -1,6 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,16 +59,32 @@ export default function ScopeTemplateEditPage() {
   const [saving, setSaving] = useState(false);
   const [createdByName, setCreatedByName] = useState("");
   const [createdAt, setCreatedAt] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Track if content was actually modified (dirty flag)
+  const loadedSnapshotRef = useRef<string>("");
+  const isDirty = useMemo(() => {
+    if (!isEditing || !loadedSnapshotRef.current) return true; // new templates always "dirty"
+    const currentSnapshot = JSON.stringify({ form, parentItems });
+    return currentSnapshot !== loadedSnapshotRef.current;
+  }, [form, parentItems, isEditing]);
 
   // Load existing template
   useEffect(() => {
     if (existingTemplate) {
-      setForm({ name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category });
+      const newForm = { name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category };
+      setForm(newForm);
       setStatus((existingTemplate as any).status || "em_revisao");
       setCreatedByName((existingTemplate as any).created_by_name || "");
       setCreatedAt(existingTemplate.created_at || "");
       const flatItems = (existingTemplate as any).scope_template_items || [];
-      setParentItems(buildHierarchy(flatItems));
+      const hierarchy = buildHierarchy(flatItems);
+      setParentItems(hierarchy);
+      // Snapshot for dirty tracking
+      setTimeout(() => {
+        loadedSnapshotRef.current = JSON.stringify({ form: newForm, parentItems: hierarchy });
+      }, 0);
     }
   }, [existingTemplate]);
 
@@ -171,8 +191,8 @@ export default function ScopeTemplateEditPage() {
     setSaving(true);
     try {
       let templateId = id;
-      // On edit, set status back to em_revisao
-      const newStatus = isEditing ? "em_revisao" : "em_revisao";
+      // Only revert to em_revisao if content actually changed
+      const newStatus = isEditing ? (isDirty ? "em_revisao" : status) : "em_revisao";
 
       if (isEditing && id) {
         const { error } = await supabase.from("scope_templates").update({
@@ -237,7 +257,8 @@ export default function ScopeTemplateEditPage() {
         }
       }
 
-      toast({ title: isEditing ? "Template atualizado! Status: Em Revisão" : "Template criado!" });
+      const statusMsg = isDirty && isEditing ? " Status: Em Revisão" : "";
+      toast({ title: isEditing ? `Template atualizado!${statusMsg}` : "Template criado!" });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
       navigate("/templates");
     } catch (err: any) {
@@ -257,9 +278,38 @@ export default function ScopeTemplateEditPage() {
       setStatus(newStatus);
       toast({ title: `Status alterado para ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
+      // On approve, close editor and return to list
+      if (newStatus === "aprovado") {
+        navigate("/templates");
+        return;
+      }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      // Delete children first, then parents, then template
+      const { data: items } = await supabase.from("scope_template_items").select("id, parent_id").eq("template_id", id);
+      if (items) {
+        const childIds = items.filter(i => i.parent_id).map(i => i.id);
+        if (childIds.length > 0) await supabase.from("scope_template_items").delete().in("id", childIds);
+        const parentIds = items.filter(i => !i.parent_id).map(i => i.id);
+        if (parentIds.length > 0) await supabase.from("scope_template_items").delete().in("id", parentIds);
+      }
+      const { error } = await supabase.from("scope_templates").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Template excluído com sucesso" });
+      qc.invalidateQueries({ queryKey: ["scope_templates"] });
+      navigate("/templates");
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleting(false);
+    setDeleteDialogOpen(false);
   };
 
   const isAdmin = userRole === "admin";
@@ -302,6 +352,9 @@ export default function ScopeTemplateEditPage() {
                     <Clock className="mr-1.5 h-3.5 w-3.5" /> Reativar
                   </Button>
                 )}
+                <Button size="sm" variant="secondary" className="bg-red-500/20 hover:bg-red-500/30 text-white border-0" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Excluir
+                </Button>
               </>
             )}
             <Button size="sm" onClick={handleSave} disabled={saving} className="bg-white/20 hover:bg-white/30 text-white border-0">
@@ -521,6 +574,25 @@ export default function ScopeTemplateEditPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todos os itens de escopo deste template serão removidos permanentemente.
+              Propostas existentes que usaram este template não serão afetadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,11 +1,18 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LayoutTemplate, ChevronDown, ChevronRight, ChevronUp, Edit2, Plus, CheckCircle2, XCircle, Clock, SlidersHorizontal, CalendarRange, FileText, X } from "lucide-react";
+import { Search, LayoutTemplate, ChevronDown, ChevronRight, ChevronUp, Edit2, Plus, CheckCircle2, XCircle, Clock, SlidersHorizontal, CalendarRange, FileText, X, Trash2 } from "lucide-react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { useScopeTemplates } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; badgeClass: string; filterClass: string }> = {
   em_revisao: { label: "Em Revisão", icon: Clock, badgeClass: "bg-warning/10 text-warning border-warning/20", filterClass: "text-warning" },
@@ -24,6 +31,8 @@ interface ScopeItemForm {
 
 export default function ScopeTemplatesPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
@@ -31,7 +40,31 @@ export default function ScopeTemplatesPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { data: templates = [] } = useScopeTemplates();
+
+  const handleDeleteTemplate = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const { data: items } = await supabase.from("scope_template_items").select("id, parent_id").eq("template_id", deleteId);
+      if (items) {
+        const childIds = items.filter(i => i.parent_id).map(i => i.id);
+        if (childIds.length > 0) await supabase.from("scope_template_items").delete().in("id", childIds);
+        const parentIds = items.filter(i => !i.parent_id).map(i => i.id);
+        if (parentIds.length > 0) await supabase.from("scope_template_items").delete().in("id", parentIds);
+      }
+      const { error } = await supabase.from("scope_templates").delete().eq("id", deleteId);
+      if (error) throw error;
+      toast({ title: "Template excluído com sucesso" });
+      qc.invalidateQueries({ queryKey: ["scope_templates"] });
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleting(false);
+    setDeleteId(null);
+  };
 
   function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
     const parents = flatItems.filter((it: any) => !it.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
@@ -273,13 +306,20 @@ export default function ScopeTemplatesPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <span
                           role="button"
                           className="rounded p-1 text-muted-foreground hover:text-foreground"
                           onClick={(e) => { e.stopPropagation(); navigate(`/templates/${template.id}`); }}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
+                        </span>
+                        <span
+                          role="button"
+                          className="rounded p-1 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeleteId(template.id); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </span>
                         {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </div>
@@ -321,6 +361,24 @@ export default function ScopeTemplatesPage() {
           <p className="text-sm text-muted-foreground">Nenhum template encontrado.</p>
         )}
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todos os itens de escopo deste template serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTemplate} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

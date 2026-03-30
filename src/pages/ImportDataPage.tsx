@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import SmartClientImport from "@/components/import/SmartClientImport";
+import SmartImport from "@/components/import/SmartImport";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

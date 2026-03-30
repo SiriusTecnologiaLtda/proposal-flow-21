@@ -306,13 +306,20 @@ export default function ScopeTemplatesPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <span
                           role="button"
                           className="rounded p-1 text-muted-foreground hover:text-foreground"
                           onClick={(e) => { e.stopPropagation(); navigate(`/templates/${template.id}`); }}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
+                        </span>
+                        <span
+                          role="button"
+                          className="rounded p-1 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setDeleteId(template.id); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </span>
                         {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </div>

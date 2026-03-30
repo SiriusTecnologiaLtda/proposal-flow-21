@@ -2423,7 +2423,7 @@ export default function ProposalCreate() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               O escopo será enviado ao Engenheiro de Valor para revisão técnica.
-              O status da oportunidade será alterado para "Em Análise E.V.".
+              O status da oportunidade será alterado para "Em Revisão".
             </p>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Mensagem (opcional)</Label>

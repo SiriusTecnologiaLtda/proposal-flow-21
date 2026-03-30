@@ -240,7 +240,7 @@ export default function ProjectsPage() {
         await supabase.from("proposals").update({ status: "em_analise_ev" }).eq("id", project.proposal_id);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
       }
-      toast({ title: "Projeto retornado para revisão", description: "O status da oportunidade foi atualizado para 'Em Análise E.V.'" });
+      toast({ title: "Projeto retornado para revisão", description: "O status da oportunidade foi atualizado para 'Em Revisão'" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }

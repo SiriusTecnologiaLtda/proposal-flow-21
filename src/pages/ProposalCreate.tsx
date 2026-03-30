@@ -1159,6 +1159,85 @@ export default function ProposalCreate() {
         regenerateCommissionProjections(savedId).catch(() => {});
       }
 
+      // Auto-create project when scope exists but no project is linked
+      if (savedId && allScopeItems.length > 0 && addedProjectIds.size === 0) {
+        try {
+          const projectId = crypto.randomUUID();
+          await supabase.from("projects").insert({
+            id: projectId,
+            client_id: clientId,
+            product,
+            description: description || "",
+            arquiteto_id: arquitetoId || null,
+            created_by: (await supabase.auth.getSession()).data.session!.user.id,
+            status: "em_revisao",
+            proposal_id: savedId,
+            proposal_number: proposalNumber,
+          } as any);
+
+          // Read the saved proposal_scope_items to get real IDs
+          const { data: savedItems } = await supabase
+            .from("proposal_scope_items")
+            .select("*")
+            .eq("proposal_id", savedId);
+
+          if (savedItems && savedItems.length > 0) {
+            const idMap = new Map<string, string>();
+            for (const item of savedItems) {
+              idMap.set(item.id, crypto.randomUUID());
+            }
+
+            const parents = savedItems.filter(i => !i.parent_id);
+            const children = savedItems.filter(i => i.parent_id);
+
+            const projectItems = [...parents, ...children].map(item => ({
+              id: idMap.get(item.id)!,
+              project_id: projectId,
+              template_id: item.template_id || null,
+              parent_id: item.parent_id ? (idMap.get(item.parent_id) || null) : null,
+              description: item.description,
+              included: item.included,
+              hours: item.hours || 0,
+              phase: item.phase || 1,
+              sort_order: item.sort_order || 0,
+              notes: item.notes || "",
+            }));
+
+            await supabase.from("project_scope_items").insert(projectItems);
+
+            // Copy group_notes to the project with remapped IDs
+            const savedGroupNotes = proposalData.group_notes || {};
+            const oldPGM: Record<string, string> = savedGroupNotes._process_group_map || {};
+            const newPGM: Record<string, string> = {};
+
+            // Read real IDs from the saved proposal to remap
+            const { data: savedProposal } = await supabase.from("proposals").select("group_notes").eq("id", savedId).single();
+            const realPGM: Record<string, string> = (savedProposal?.group_notes as any)?._process_group_map || oldPGM;
+            for (const [oldId, groupKey] of Object.entries(realPGM)) {
+              const newId = idMap.get(oldId);
+              if (newId) newPGM[newId] = groupKey;
+            }
+
+            await supabase.from("projects").update({
+              group_notes: {
+                _manual_groups: savedGroupNotes._manual_groups || {},
+                _group_order: savedGroupNotes._group_order || [],
+                _process_group_map: newPGM,
+              },
+            }).eq("id", projectId);
+
+            // Set project_id on proposal_scope_items
+            for (const item of savedItems) {
+              await supabase.from("proposal_scope_items")
+                .update({ project_id: projectId })
+                .eq("id", item.id);
+            }
+          }
+        } catch (projErr) {
+          console.error("Failed to auto-create project:", projErr);
+        }
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);

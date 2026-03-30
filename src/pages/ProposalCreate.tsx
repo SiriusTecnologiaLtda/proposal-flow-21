@@ -1286,7 +1286,7 @@ export default function ProposalCreate() {
   const statusLabel = useMemo(() => {
     if (!isEditing) return "Novo";
     const s = (existingProposal as any)?.status;
-    const map: Record<string, string> = { pendente: "Pendente", em_analise_ev: "Em Análise E.V.", analise_ev_concluida: "Análise E.V. Concluída", proposta_gerada: "Proposta Gerada", em_assinatura: "Em Assinatura", ganha: "Ganha", cancelada: "Cancelada" };
+    const map: Record<string, string> = { pendente: "Pendente", em_analise_ev: "Em Revisão", analise_ev_concluida: "Revisado", proposta_gerada: "Pendente", em_assinatura: "Em Assinatura", ganha: "Ganha", cancelada: "Cancelada" };
     return map[s] || s || "—";
   }, [isEditing, existingProposal]);
 

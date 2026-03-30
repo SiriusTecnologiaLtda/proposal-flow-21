@@ -125,6 +125,7 @@ export default function ProposalCreate() {
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 4 : 1);
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
   const [product, setProduct] = useState<string>("");
@@ -358,6 +359,7 @@ export default function ProposalCreate() {
     }
 
     setLoaded(true);
+    setMaxUnlockedStep(4); // all steps unlocked for editing/duplicating
     setLastHydratedAt((existingProposal as any)?.updated_at || null);
   }, [existingProposal, loaded, isDuplicating, lastHydratedAt]);
 
@@ -1246,6 +1248,51 @@ export default function ProposalCreate() {
         }
       }
 
+      // Handle Solicitar EV flow after save
+      if (status === "em_analise_ev" && savedId) {
+        try {
+          // Update project status to em_revisao if project was auto-created
+          const { data: linkedProjects } = await supabase
+            .from("projects")
+            .select("id")
+            .eq("proposal_id", savedId);
+          
+          if (linkedProjects && linkedProjects.length > 0) {
+            await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+          }
+
+          // Send notification
+          const notifSession = (await supabase.auth.getSession()).data.session;
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${notifSession?.access_token}`,
+              },
+              body: JSON.stringify({
+                proposalId: savedId,
+                type: "solicitar_ajuste",
+                message: "Solicitação de revisão técnica do escopo.",
+                proposalLink: `${window.location.origin}/propostas/${savedId}`,
+                _origin: window.location.origin,
+              }),
+            }
+          );
+
+          queryClient.invalidateQueries({ queryKey: ["proposals"] });
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          toast({ title: "Solicitação enviada", description: "O Engenheiro de Valor foi notificado." });
+        } catch (evErr) {
+          console.error("Failed to send EV notification:", evErr);
+          toast({ title: "Oportunidade salva, mas notificação falhou", variant: "destructive" });
+        }
+        navigate("/propostas");
+        return;
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);
@@ -1376,9 +1423,12 @@ export default function ProposalCreate() {
             return (
               <button
                 key={step.id}
-                onClick={() => setCurrentStep(step.id)}
+                onClick={() => { if (step.id <= maxUnlockedStep) setCurrentStep(step.id); }}
+                disabled={step.id > maxUnlockedStep}
                 className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
-                  active
+                  step.id > maxUnlockedStep
+                    ? "border-border bg-muted/50 text-muted-foreground/50 cursor-not-allowed opacity-60"
+                    : active
                     ? "border-primary bg-primary text-primary-foreground shadow-sm"
                     : completed
                     ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40"
@@ -1386,14 +1436,14 @@ export default function ProposalCreate() {
                 }`}
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                  step.id > maxUnlockedStep ? "bg-muted/30" : active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
                 }`}>
-                  {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                  {completed && step.id <= maxUnlockedStep ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold truncate">{step.label}</div>
-                  <div className={`text-[11px] ${active ? "text-white/70" : "text-muted-foreground"}`}>
-                    {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                  <div className={`text-[11px] ${step.id > maxUnlockedStep ? "text-muted-foreground/50" : active ? "text-white/70" : "text-muted-foreground"}`}>
+                    {step.id > maxUnlockedStep ? "Bloqueada" : active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
                   </div>
                 </div>
               </button>
@@ -2493,7 +2543,7 @@ export default function ProposalCreate() {
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
+             <Button variant="outline" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1}>
               <ArrowLeft className="mr-2 h-4 w-4" />Anterior
             </Button>
             <div className="flex items-center gap-3">
@@ -2503,6 +2553,24 @@ export default function ProposalCreate() {
                 </Button>
               ) : (
                 <>
+                  {/* Solicitar Análise EV — visible on step 1 for new proposals */}
+                  {currentStep === 1 && !isConsulta && (
+                    <Button
+                      variant="outline"
+                      className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      onClick={() => {
+                        // If proposal not yet saved, save first then open dialog
+                        if (!isEditing) {
+                          handleSave("em_analise_ev");
+                        } else {
+                          setSolicitarEvDialogOpen(true);
+                        }
+                      }}
+                      disabled={isSaving || !clientId || !proposalNumber}
+                    >
+                      <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
+                    </Button>
+                  )}
                   {currentStep === 4 && (
                     <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                       <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />
@@ -2518,7 +2586,11 @@ export default function ProposalCreate() {
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
                   {currentStep < 4 && (
-                    <Button onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}>
+                    <Button onClick={() => {
+                      const next = Math.min(4, currentStep + 1);
+                      setMaxUnlockedStep((prev) => Math.max(prev, next));
+                      setCurrentStep(next);
+                    }}>
                       Próximo<ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   )}

@@ -30,8 +30,8 @@ import DocumentManagementDialog from "@/components/proposal/DocumentManagementDi
 
 const statusMap: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
   pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning", icon: <HardHat className="h-3.5 w-3.5" /> },
-  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success", icon: <HardHat className="h-3.5 w-3.5" /> },
+  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
+  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success" },
   proposta_gerada: { label: "Pendente", className: "bg-muted text-muted-foreground" },
   em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
   ganha: { label: "Ganha", className: "bg-success/15 text-success" },

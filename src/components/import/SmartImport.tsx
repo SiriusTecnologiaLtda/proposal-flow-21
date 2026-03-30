@@ -635,14 +635,21 @@ export default function SmartImport() {
     const willUpdate = updateFieldsArr.length > 0;
     const allMappedKeys = Object.values(mapping);
 
-    function buildPayload(row: any[], keys: string[]): Record<string, any> {
+    const unresolvedWarnings: string[] = [];
+    function buildPayload(row: any[], keys: string[], rowLabel?: string): Record<string, any> {
       const p: Record<string, any> = {};
       for (const key of keys) {
         const val = ev(row, key);
-        if (key === "unit_code") p.unit_id = findInList(unitList, val || "");
-        else if (key === "esn_code") p.esn_id = findInList(esnList, val || "");
-        else if (key === "gsn_code") p.gsn_id = findInList(gsnList, val || "");
-        else p[key] = val;
+        if (key === "unit_code") {
+          p.unit_id = findInList(unitList, val || "");
+          if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
+        } else if (key === "esn_code") {
+          p.esn_id = findInList(esnList, val || "");
+          if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
+        } else if (key === "gsn_code") {
+          p.gsn_id = findInList(gsnList, val || "");
+          if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
+        } else p[key] = val;
       }
       return p;
     }
@@ -662,17 +669,22 @@ export default function SmartImport() {
         const storeCode = ev(row, "store_code") || "";
         const key = `${code}|${storeCode}`;
         const existingId = existingMap.get(key);
+        const rowLabel = `Cliente ${code}`;
 
         if (existingId) {
           if (willUpdate) {
-            const upd = buildPayload(row, updateFieldsArr);
+            unresolvedWarnings.length = 0;
+            const upd = buildPayload(row, updateFieldsArr, rowLabel);
+            for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
             const clean: Record<string, any> = {};
             for (const [k, v] of Object.entries(upd)) if (v != null && v !== "") clean[k] = v;
             if (Object.keys(clean).length > 0) toUpdate.push({ id: existingId, data: clean });
             else skipped++;
           } else skipped++;
         } else {
-          const payload = buildPayload(row, allMappedKeys);
+          unresolvedWarnings.length = 0;
+          const payload = buildPayload(row, allMappedKeys, rowLabel);
+          for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
           payload.code = payload.code || code;
           payload.name = payload.name || ev(row, "name");
           payload.cnpj = ev(row, "cnpj") || "";
@@ -774,21 +786,25 @@ export default function SmartImport() {
       const commissionVal = ev(row, "commission_pct");
 
       const role = parseRole(roleText);
-      if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`); updateImportStats(entity, { errors }); continue; }
+      if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido. Valores aceitos: ESN, GSN, Arquiteto/Engenheiro de Valor.`); updateImportStats(entity, { errors }); continue; }
 
       const unit_id = unitVal ? findInList(unitList, unitVal) : null;
+      if (unitVal && !unit_id) {
+        addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro. Verifique se a unidade está cadastrada.`);
+      }
+
       const payload: any = { code, name, role, email, phone, unit_id };
       if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
 
       const { data: existing } = await supabase.from("sales_team").select("id").eq("code", code).maybeSingle();
       if (existing) {
         const { error } = await supabase.from("sales_team").update(payload).eq("id", existing.id);
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2}: ${error.message}`); }
-        else { insertedCodeMap.set(code.toLowerCase(), existing.id); updated++; }
+        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
+        else { insertedCodeMap.set(code.toLowerCase(), existing.id); updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
       } else {
         const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2}: ${error.message}`); }
-        else if (ins) { insertedCodeMap.set(code.toLowerCase(), ins.id); imported++; }
+        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
+        else if (ins) { insertedCodeMap.set(code.toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
       }
       updateImportStats(entity, { imported, updated, errors });
     }
@@ -802,19 +818,23 @@ export default function SmartImport() {
       teamMap.set(t.name.trim().toLowerCase(), t.id);
     }
 
-    let linked = 0;
+    let linked = 0, gsnNotFound = 0;
     for (const row of dataRows) {
       const code = (ev(row, "code") || "").toLowerCase();
       const gsnCode = (ev(row, "gsn_code") || "").toLowerCase();
       const gsnName = (ev(row, "gsn_name") || "").toLowerCase();
       const memberId = teamMap.get(code);
+      if (!gsnCode && !gsnName) continue; // no GSN info provided
       const gsnId = (gsnCode && teamMap.get(gsnCode)) || (gsnName && teamMap.get(gsnName));
       if (memberId && gsnId) {
         await supabase.from("sales_team").update({ linked_gsn_id: gsnId }).eq("id", memberId);
         linked++;
+      } else if (memberId && !gsnId) {
+        gsnNotFound++;
+        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}". Verifique se o GSN está cadastrado.`);
       }
     }
-    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos.`);
+    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`);
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
@@ -954,7 +974,8 @@ export default function SmartImport() {
 
       if (!esnId) {
         errors++;
-        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${ev(row, "esn_code")}" não encontrado.`);
+        const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
+        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas. Verifique o código/nome.`);
         updateImportStats(entity, { errors });
         continue;
       }

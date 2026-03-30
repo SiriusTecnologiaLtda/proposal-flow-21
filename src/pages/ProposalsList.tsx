@@ -110,6 +110,8 @@ export default function ProposalsList() {
   });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelEvId, setCancelEvId] = useState<string | null>(null);
+  const [cancelEvLoading, setCancelEvLoading] = useState(false);
   const [winId, setWinId] = useState<string | null>(null);
   const [winCloseDate, setWinCloseDate] = useState("");
   const [signatureProposal, setSignatureProposal] = useState<any>(null);

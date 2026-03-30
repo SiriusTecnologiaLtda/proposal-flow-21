@@ -635,14 +635,21 @@ export default function SmartImport() {
     const willUpdate = updateFieldsArr.length > 0;
     const allMappedKeys = Object.values(mapping);
 
-    function buildPayload(row: any[], keys: string[]): Record<string, any> {
+    const unresolvedWarnings: string[] = [];
+    function buildPayload(row: any[], keys: string[], rowLabel?: string): Record<string, any> {
       const p: Record<string, any> = {};
       for (const key of keys) {
         const val = ev(row, key);
-        if (key === "unit_code") p.unit_id = findInList(unitList, val || "");
-        else if (key === "esn_code") p.esn_id = findInList(esnList, val || "");
-        else if (key === "gsn_code") p.gsn_id = findInList(gsnList, val || "");
-        else p[key] = val;
+        if (key === "unit_code") {
+          p.unit_id = findInList(unitList, val || "");
+          if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
+        } else if (key === "esn_code") {
+          p.esn_id = findInList(esnList, val || "");
+          if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
+        } else if (key === "gsn_code") {
+          p.gsn_id = findInList(gsnList, val || "");
+          if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
+        } else p[key] = val;
       }
       return p;
     }

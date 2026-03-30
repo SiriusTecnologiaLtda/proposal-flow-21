@@ -31,6 +31,8 @@ interface ScopeItemForm {
 
 export default function ScopeTemplatesPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
@@ -38,7 +40,31 @@ export default function ScopeTemplatesPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { data: templates = [] } = useScopeTemplates();
+
+  const handleDeleteTemplate = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const { data: items } = await supabase.from("scope_template_items").select("id, parent_id").eq("template_id", deleteId);
+      if (items) {
+        const childIds = items.filter(i => i.parent_id).map(i => i.id);
+        if (childIds.length > 0) await supabase.from("scope_template_items").delete().in("id", childIds);
+        const parentIds = items.filter(i => !i.parent_id).map(i => i.id);
+        if (parentIds.length > 0) await supabase.from("scope_template_items").delete().in("id", parentIds);
+      }
+      const { error } = await supabase.from("scope_templates").delete().eq("id", deleteId);
+      if (error) throw error;
+      toast({ title: "Template excluído com sucesso" });
+      qc.invalidateQueries({ queryKey: ["scope_templates"] });
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleting(false);
+    setDeleteId(null);
+  };
 
   function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
     const parents = flatItems.filter((it: any) => !it.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);

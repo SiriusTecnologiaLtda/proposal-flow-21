@@ -352,6 +352,9 @@ export default function ScopeTemplateEditPage() {
                     <Clock className="mr-1.5 h-3.5 w-3.5" /> Reativar
                   </Button>
                 )}
+                <Button size="sm" variant="secondary" className="bg-red-500/20 hover:bg-red-500/30 text-white border-0" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Excluir
+                </Button>
               </>
             )}
             <Button size="sm" onClick={handleSave} disabled={saving} className="bg-white/20 hover:bg-white/30 text-white border-0">

@@ -14,9 +14,12 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
   FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save,
-  Sparkles, Filter, Trash2, Users, UserCog, LayoutTemplate, Target
+  Sparkles, Filter, Trash2, Users, UserCog, LayoutTemplate, Target, AlertTriangle, Link2
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -129,6 +132,64 @@ const ENTITY_CONFIGS: Record<ImportEntity, {
     queryKeys: ["sales_targets"],
   },
 };
+
+// ─── Relational field config per entity ─────────────────────────
+interface RelationalFieldDef {
+  fieldKey: string;       // column key from mapping (e.g. "unit_code")
+  label: string;          // human label
+  listType: "units" | "esn" | "gsn" | "sales_team";
+}
+
+const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
+  clients: [
+    { fieldKey: "unit_code", label: "Unidade", listType: "units" },
+    { fieldKey: "esn_code", label: "ESN", listType: "esn" },
+    { fieldKey: "gsn_code", label: "GSN", listType: "gsn" },
+  ],
+  sales_team: [
+    { fieldKey: "unit_code", label: "Unidade", listType: "units" },
+    { fieldKey: "gsn_code", label: "GSN (código)", listType: "gsn" },
+    { fieldKey: "gsn_name", label: "GSN (nome)", listType: "gsn" },
+  ],
+  templates: [],
+  sales_targets: [
+    { fieldKey: "esn_code", label: "ESN (código)", listType: "esn" },
+    { fieldKey: "esn_name", label: "ESN (nome)", listType: "esn" },
+  ],
+};
+
+// ─── Relational alias persistence ───────────────────────────────
+const RELATIONAL_ALIASES_KEY = "smart_import_relational_aliases_v1";
+
+type AliasStore = Record<string, Record<string, string>>; // "entity:field" -> { "value_lower": "uuid" }
+
+function loadAliasStore(): AliasStore {
+  try { return JSON.parse(localStorage.getItem(RELATIONAL_ALIASES_KEY) || "{}"); } catch { return {}; }
+}
+
+function saveAliasStore(store: AliasStore) {
+  try { localStorage.setItem(RELATIONAL_ALIASES_KEY, JSON.stringify(store)); } catch {}
+}
+
+function getAliasKey(entity: ImportEntity, field: string): string {
+  return `${entity}:${field}`;
+}
+
+function findInListWithAlias(
+  list: { id: string; code: string; name: string }[],
+  search: string,
+  aliasKey: string,
+  aliases: AliasStore,
+): string | null {
+  if (!search) return null;
+  // Check alias first
+  const aliasMap = aliases[aliasKey];
+  if (aliasMap) {
+    const aliasId = aliasMap[search.trim().toLowerCase()];
+    if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
+  }
+  return findInList(list, search);
+}
 
 // ─── Filter rule types ─────────────────────────────────────────
 interface FilterRule {
@@ -289,16 +350,12 @@ function detectHeaderRow(raw: any[][]): number {
 // ─── Entity auto-detection ──────────────────────────────────────
 function detectEntity(headers: string[], sheetNames: string[]): { entity: ImportEntity; confidence: number }[] {
   const scores: { entity: ImportEntity; score: number }[] = [];
-
-  // Check for sales_targets specific sheet
   if (sheetNames.some(s => s.includes("BASE DE DADOS") && s.includes("Time Comercial"))) {
     scores.push({ entity: "sales_targets", score: 90 });
   }
-
   const h = headers.map(h => normalize(h));
   const has = (keyword: string) => h.some(col => col.includes(normalize(keyword)));
 
-  // Client indicators
   let clientScore = 0;
   if (has("cnpj")) clientScore += 40;
   if (has("razao social") || has("razão social")) clientScore += 20;
@@ -308,7 +365,6 @@ function detectEntity(headers: string[], sheetNames: string[]): { entity: Import
   if (has("a1_cod") || has("a1_nome") || has("a1_cgc")) clientScore += 30;
   scores.push({ entity: "clients", score: clientScore });
 
-  // Sales team indicators
   let stScore = 0;
   if (has("cargo") || has("funcao") || has("função")) stScore += 35;
   if (has("esn") || has("gsn")) stScore += 25;
@@ -316,7 +372,6 @@ function detectEntity(headers: string[], sheetNames: string[]): { entity: Import
   if ((has("codigo") || has("código")) && has("nome") && !has("cnpj")) stScore += 15;
   scores.push({ entity: "sales_team", score: stScore });
 
-  // Template indicators
   let tplScore = 0;
   if (has("template") || has("modelo")) tplScore += 30;
   if (has("processo") && has("sub")) tplScore += 25;
@@ -325,7 +380,6 @@ function detectEntity(headers: string[], sheetNames: string[]): { entity: Import
   if (has("processo pai") || has("parent")) tplScore += 15;
   scores.push({ entity: "templates", score: tplScore });
 
-  // Sales targets indicators (from headers if not detected by sheet)
   let targScore = scores.find(s => s.entity === "sales_targets")?.score || 0;
   const monthKeywords = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const monthMatches = monthKeywords.filter(m => has(m)).length;
@@ -370,6 +424,17 @@ function findInList(list: { id: string; code: string; name: string }[], search: 
   return partial ? partial.id : null;
 }
 
+// ─── Unresolved relation types ──────────────────────────────────
+interface UnresolvedRelation {
+  fieldKey: string;
+  fieldLabel: string;
+  value: string;         // original value from spreadsheet
+  valueLower: string;    // normalized
+  occurrences: number;   // how many rows have this value
+  listType: "units" | "esn" | "gsn" | "sales_team";
+  resolvedId?: string;   // user's selection
+}
+
 // ─── Steps ──────────────────────────────────────────────────────
 type Step = "upload" | "confirm" | "mapping" | "options" | "running" | "done";
 
@@ -400,6 +465,19 @@ export default function SmartImport() {
   const { getImport } = useImportStore();
   const run = getImport(detectedEntity);
 
+  // Relational resolution state
+  const [showResolutionDialog, setShowResolutionDialog] = useState(false);
+  const [unresolvedItems, setUnresolvedItems] = useState<UnresolvedRelation[]>([]);
+  const [resolutionSelections, setResolutionSelections] = useState<Record<string, string>>({});
+  const [lookupListsCache, setLookupListsCache] = useState<{
+    unitList: { id: string; code: string; name: string }[];
+    esnList: { id: string; code: string; name: string }[];
+    gsnList: { id: string; code: string; name: string }[];
+    salesTeamList: { id: string; code: string; name: string }[];
+  }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [] });
+  const [scanningRelations, setScanningRelations] = useState(false);
+  const [aliasStore, setAliasStore] = useState<AliasStore>(loadAliasStore);
+
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
   const dbFields = entityConfig.dbFields;
 
@@ -429,12 +507,9 @@ export default function SmartImport() {
       setAllDataRows(data);
       setPreviewRows(data.slice(0, 5));
 
-      // Auto-detect entity
       const results = detectEntity(hdrs, wb.SheetNames);
       setDetectionResults(results);
-      if (results.length > 0) {
-        setDetectedEntity(results[0].entity);
-      }
+      if (results.length > 0) setDetectedEntity(results[0].entity);
 
       setStep("confirm");
     } catch (err: any) {
@@ -447,7 +522,6 @@ export default function SmartImport() {
     setDetectedEntity(entity);
     const fields = ENTITY_CONFIGS[entity].dbFields;
 
-    // For sales_targets with specific sheet, re-read correct sheet
     if (entity === "sales_targets" && rawWorkbook) {
       const specificSheet = rawWorkbook.SheetNames.find(s => s.includes("BASE DE DADOS") && s.includes("Time Comercial"));
       if (specificSheet) {
@@ -463,7 +537,6 @@ export default function SmartImport() {
       }
     }
 
-    // Try saved layout, then auto-map
     const savedLayout = findMatchingLayout(headers, entity);
     let autoMap: Record<number, string>;
     if (savedLayout) {
@@ -506,7 +579,120 @@ export default function SmartImport() {
     return String(row[colIdx] || "").trim() || null;
   }, []);
 
-  // ── Run import ────────────────────────────────────────────────
+  // ── Pre-scan for unresolved relational values ─────────────────
+  const preScanRelations = useCallback(async () => {
+    const relFields = RELATIONAL_FIELDS[detectedEntity];
+    if (!relFields || relFields.length === 0) return true; // no relational fields, proceed
+
+    const fieldToCol: Record<string, number> = {};
+    for (const [colStr, field] of Object.entries(mapping)) {
+      fieldToCol[field] = Number(colStr);
+    }
+
+    // Check which relational fields are actually mapped
+    const mappedRelFields = relFields.filter(rf => rf.fieldKey in fieldToCol);
+    if (mappedRelFields.length === 0) return true;
+
+    setScanningRelations(true);
+
+    // Load lookup lists
+    const [{ data: units }, { data: salesTeam }] = await Promise.all([
+      supabase.from("unit_info").select("id, code, name"),
+      supabase.from("sales_team").select("id, code, name, role"),
+    ]);
+    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+    const allSalesTeam = (salesTeam || []).map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase(), role: s.role }));
+    const esnList = allSalesTeam.filter(s => s.role === "esn").map(({ role, ...r }) => r);
+    const gsnList = allSalesTeam.filter(s => s.role === "gsn").map(({ role, ...r }) => r);
+    const salesTeamList = allSalesTeam.map(({ role, ...r }) => r);
+
+    setLookupListsCache({ unitList, esnList, gsnList, salesTeamList });
+
+    const currentAliases = loadAliasStore();
+
+    // Collect unique values per relational field
+    const unresolved: UnresolvedRelation[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const rf of mappedRelFields) {
+      const listForField = rf.listType === "units" ? unitList
+        : rf.listType === "esn" ? esnList
+        : rf.listType === "gsn" ? gsnList
+        : salesTeamList;
+
+      const aliasKey = getAliasKey(detectedEntity, rf.fieldKey);
+      const valueCountMap = new Map<string, { original: string; count: number }>();
+
+      for (const row of allDataRows) {
+        const val = extractValue(row, rf.fieldKey, fieldToCol);
+        if (!val) continue;
+        const lower = val.trim().toLowerCase();
+        const existing = valueCountMap.get(lower);
+        if (existing) { existing.count++; }
+        else { valueCountMap.set(lower, { original: val.trim(), count: 1 }); }
+      }
+
+      for (const [lower, { original, count }] of valueCountMap) {
+        // Check if resolved by normal lookup or alias
+        const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases);
+        if (resolved) continue;
+
+        const uniqueKey = `${rf.fieldKey}:${lower}`;
+        if (seenKeys.has(uniqueKey)) continue;
+        seenKeys.add(uniqueKey);
+
+        unresolved.push({
+          fieldKey: rf.fieldKey,
+          fieldLabel: rf.label,
+          value: original,
+          valueLower: lower,
+          occurrences: count,
+          listType: rf.listType,
+        });
+      }
+    }
+
+    setScanningRelations(false);
+
+    if (unresolved.length === 0) return true; // all resolved
+
+    // Show dialog
+    setUnresolvedItems(unresolved);
+    setResolutionSelections({});
+    setShowResolutionDialog(true);
+    return false; // don't proceed yet
+  }, [detectedEntity, mapping, allDataRows, extractValue]);
+
+  // ── Save resolutions and proceed ──────────────────────────────
+  const handleSaveResolutions = useCallback(() => {
+    const newAliases = { ...aliasStore };
+    let savedCount = 0;
+
+    for (const item of unresolvedItems) {
+      const selectionKey = `${item.fieldKey}:${item.valueLower}`;
+      const selectedId = resolutionSelections[selectionKey];
+      if (!selectedId || selectedId === "__skip__") continue;
+
+      const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
+      if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
+      newAliases[aliasKey][item.valueLower] = selectedId;
+      savedCount++;
+    }
+
+    saveAliasStore(newAliases);
+    setAliasStore(newAliases);
+    setShowResolutionDialog(false);
+
+    toast({
+      title: "Mapeamentos salvos",
+      description: `${savedCount} associação(ões) salva(s). Serão reutilizadas em futuras importações.`,
+    });
+
+    // Now proceed with import
+    executeImport(newAliases);
+  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast]);
+
+  // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {
     if (!layoutSaved && headers.length > 0) {
       saveLayout({
@@ -520,6 +706,15 @@ export default function SmartImport() {
       });
     }
 
+    // Pre-scan relational fields
+    const allResolved = await preScanRelations();
+    if (!allResolved) return; // dialog will be shown, import will proceed after resolution
+
+    executeImport(aliasStore);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules, detectedEntity, dbFields, extractValue, targetYear, preScanRelations, aliasStore]);
+
+  // ── Execute import (after resolution) ─────────────────────────
+  const executeImport = useCallback(async (currentAliases: AliasStore) => {
     setStep("running");
 
     const fieldToCol: Record<string, number> = {};
@@ -539,24 +734,24 @@ export default function SmartImport() {
 
     switch (detectedEntity) {
       case "clients":
-        await runClientImportMapped(fieldToCol, ev);
+        await runClientImportMapped(fieldToCol, ev, currentAliases);
         break;
       case "sales_team":
-        await runSalesTeamImportMapped(fieldToCol, ev);
+        await runSalesTeamImportMapped(fieldToCol, ev, currentAliases);
         break;
       case "templates":
         await runTemplateImportMapped(fieldToCol, ev);
         break;
       case "sales_targets":
-        await runSalesTargetsImportMapped(fieldToCol, ev);
+        await runSalesTargetsImportMapped(fieldToCol, ev, currentAliases);
         break;
     }
 
     setStep("done");
-  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules, detectedEntity, dbFields, extractValue, targetYear]);
+  }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, filterRules, detectedEntity, dbFields, extractValue, targetYear]);
 
   // ── CLIENT import with mapped columns ─────────────────────────
-  async function runClientImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any) {
+  async function runClientImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any, currentAliases: AliasStore) {
     const entity: ImportEntity = "clients";
     const importRun = startImportRun(entity, file!.name, false);
 
@@ -589,7 +784,11 @@ export default function SmartImport() {
     const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
     const gsnList = (salesTeam || []).filter(s => s.role === "gsn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
 
-    // Pre-filter: valid unit
+    const unitAliasKey = getAliasKey(entity, "unit_code");
+    const esnAliasKey = getAliasKey(entity, "esn_code");
+    const gsnAliasKey = getAliasKey(entity, "gsn_code");
+
+    // Pre-filter: valid unit (now with aliases)
     const hasUnitMapping = "unit_code" in fieldToCol;
     let filteredRows = dataRows;
     let unitFilteredCount = 0;
@@ -597,7 +796,7 @@ export default function SmartImport() {
       filteredRows = dataRows.filter(row => {
         const unitVal = ev(row, "unit_code");
         if (!unitVal) return false;
-        return !!findInList(unitList, unitVal);
+        return !!findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases);
       });
       unitFilteredCount = dataRows.length - filteredRows.length;
       if (unitFilteredCount > 0) addImportLog(entity, "error", `⚠ ${unitFilteredCount} registros descartados por Unidade inválida.`);
@@ -619,7 +818,6 @@ export default function SmartImport() {
       return;
     }
 
-    // Load existing clients
     addImportLog(entity, "info", "Carregando clientes existentes...");
     const existingMap = new Map<string, string>();
     let dbOffset = 0;
@@ -641,13 +839,13 @@ export default function SmartImport() {
       for (const key of keys) {
         const val = ev(row, key);
         if (key === "unit_code") {
-          p.unit_id = findInList(unitList, val || "");
+          p.unit_id = findInListWithAlias(unitList, val || "", unitAliasKey, currentAliases);
           if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
         } else if (key === "esn_code") {
-          p.esn_id = findInList(esnList, val || "");
+          p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, currentAliases);
           if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
         } else if (key === "gsn_code") {
-          p.gsn_id = findInList(gsnList, val || "");
+          p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, currentAliases);
           if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
         } else p[key] = val;
       }
@@ -735,7 +933,7 @@ export default function SmartImport() {
   }
 
   // ── SALES TEAM import with mapped columns ─────────────────────
-  async function runSalesTeamImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any) {
+  async function runSalesTeamImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any, currentAliases: AliasStore) {
     const entity: ImportEntity = "sales_team";
     const importRun = startImportRun(entity, file!.name, false);
 
@@ -761,6 +959,7 @@ export default function SmartImport() {
 
     const { data: units } = await supabase.from("unit_info").select("id, code, name");
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+    const unitAliasKey = getAliasKey(entity, "unit_code");
 
     function parseRole(cargo: string): "esn" | "gsn" | "arquiteto" | null {
       const c = cargo.toLowerCase().trim();
@@ -788,9 +987,9 @@ export default function SmartImport() {
       const role = parseRole(roleText);
       if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido. Valores aceitos: ESN, GSN, Arquiteto/Engenheiro de Valor.`); updateImportStats(entity, { errors }); continue; }
 
-      const unit_id = unitVal ? findInList(unitList, unitVal) : null;
+      const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
       if (unitVal && !unit_id) {
-        addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro. Verifique se a unidade está cadastrada.`);
+        addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`);
       }
 
       const payload: any = { code, name, role, email, phone, unit_id };
@@ -818,20 +1017,27 @@ export default function SmartImport() {
       teamMap.set(t.name.trim().toLowerCase(), t.id);
     }
 
+    // Also consider GSN aliases
+    const gsnCodeAliasKey = getAliasKey(entity, "gsn_code");
+    const gsnNameAliasKey = getAliasKey(entity, "gsn_name");
+    const gsnCodeAliases = currentAliases[gsnCodeAliasKey] || {};
+    const gsnNameAliases = currentAliases[gsnNameAliasKey] || {};
+
     let linked = 0, gsnNotFound = 0;
     for (const row of dataRows) {
       const code = (ev(row, "code") || "").toLowerCase();
       const gsnCode = (ev(row, "gsn_code") || "").toLowerCase();
       const gsnName = (ev(row, "gsn_name") || "").toLowerCase();
       const memberId = teamMap.get(code);
-      if (!gsnCode && !gsnName) continue; // no GSN info provided
-      const gsnId = (gsnCode && teamMap.get(gsnCode)) || (gsnName && teamMap.get(gsnName));
+      if (!gsnCode && !gsnName) continue;
+      const gsnId = (gsnCode && (teamMap.get(gsnCode) || gsnCodeAliases[gsnCode]))
+        || (gsnName && (teamMap.get(gsnName) || gsnNameAliases[gsnName]));
       if (memberId && gsnId) {
         await supabase.from("sales_team").update({ linked_gsn_id: gsnId }).eq("id", memberId);
         linked++;
       } else if (memberId && !gsnId) {
         gsnNotFound++;
-        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}". Verifique se o GSN está cadastrado.`);
+        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}".`);
       }
     }
     addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`);
@@ -873,7 +1079,6 @@ export default function SmartImport() {
       return;
     }
 
-    // Group by template name
     const templateGroups = new Map<string, { product: string; category: string; items: any[] }>();
     for (const row of dataRows) {
       const tplName = ev(row, "template_name")!;
@@ -929,7 +1134,7 @@ export default function SmartImport() {
   }
 
   // ── SALES TARGETS import with mapped columns ──────────────────
-  async function runSalesTargetsImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any) {
+  async function runSalesTargetsImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any, currentAliases: AliasStore) {
     const entity: ImportEntity = "sales_targets";
     const importRun = startImportRun(entity, file!.name, false);
     const year = Number(targetYear);
@@ -954,7 +1159,6 @@ export default function SmartImport() {
       return;
     }
 
-    // Load ESN map
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role");
     const esnMap = new Map<string, string>();
     for (const s of (salesTeam || [])) {
@@ -964,18 +1168,23 @@ export default function SmartImport() {
       }
     }
 
+    // Also add aliases
+    const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
+    const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
+
     let imported = 0, updated = 0, errors = 0, skipped = 0;
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
-      const esnId = esnMap.get(esnCode) || esnMap.get(esnName);
+      const esnId = esnMap.get(esnCode) || esnMap.get(esnName)
+        || esnCodeAliases[esnCode] || esnNameAliases[esnName];
 
       if (!esnId) {
         errors++;
         const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
-        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas. Verifique o código/nome.`);
+        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
         updateImportStats(entity, { errors });
         continue;
       }
@@ -1063,489 +1272,607 @@ export default function SmartImport() {
     setFilterRules([]);
     setFilterPrompt("");
     setDetectionResults([]);
+    setUnresolvedItems([]);
+    setResolutionSelections({});
   };
+
+  // ── Helper to get lookup list for a relational field ──────────
+  function getListForType(listType: "units" | "esn" | "gsn" | "sales_team") {
+    switch (listType) {
+      case "units": return lookupListsCache.unitList;
+      case "esn": return lookupListsCache.esnList;
+      case "gsn": return lookupListsCache.gsnList;
+      case "sales_team": return lookupListsCache.salesTeamList;
+    }
+  }
 
   const mappedCount = Object.keys(mapping).length;
   const requiredMapped = dbFields.filter(f => f.required).every(f => Object.values(mapping).includes(f.key));
   const isRunning = run?.status === "running";
   const EntityIcon = entityConfig.icon;
 
+  // Count how many unresolved items were assigned
+  const resolvedCount = unresolvedItems.filter(item => {
+    const key = `${item.fieldKey}:${item.valueLower}`;
+    const sel = resolutionSelections[key];
+    return sel && sel !== "__skip__";
+  }).length;
+
   // ── Render ────────────────────────────────────────────────────
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shrink-0">
-            <Wand2 className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <CardTitle className="text-base truncate">Importação Inteligente</CardTitle>
-            <CardDescription className="truncate">Carregue qualquer planilha — o sistema identifica os dados e mapeia automaticamente</CardDescription>
-          </div>
-        </div>
-
-        {/* Step indicators */}
-        <div className="flex items-center gap-1 mt-3">
-          {(["upload", "confirm", "mapping", "options", "running"] as Step[]).map((s, i) => {
-            const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Importação"];
-            const icons = [Upload, Eye, Settings2, Filter, Play];
-            const Icon = icons[i];
-            const isActive = step === s || (step === "done" && s === "running");
-            const isPast = ["upload", "confirm", "mapping", "options", "running"].indexOf(step) > i || step === "done";
-            return (
-              <div key={s} className="flex items-center gap-1 flex-1">
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors w-full justify-center
-                  ${isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  <Icon className="h-3 w-3 shrink-0" />
-                  <span className="hidden sm:inline truncate">{labels[i]}</span>
-                </div>
-                {i < 4 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
-              </div>
-            );
-          })}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* ── STEP: Upload ───────────────────────────────────── */}
-        {step === "upload" && (
-          <div
-            className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-sm font-medium">Clique para selecionar ou arraste um arquivo</p>
-            <p className="text-xs text-muted-foreground mt-1">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-              e.target.value = "";
-            }} />
-          </div>
-        )}
-
-        {/* ── STEP: Confirm entity ───────────────────────────── */}
-        {step === "confirm" && (
-          <>
-            <div className="text-sm mb-2">
-              <span className="font-medium">{file?.name}</span>
-              <span className="text-muted-foreground ml-2">({allDataRows.length} linhas · {sheetNames.length} aba(s))</span>
+    <>
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shrink-0">
+              <Wand2 className="h-5 w-5" />
             </div>
-
-            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Tipo de dados detectado</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                O sistema analisou as colunas da planilha e identificou o tipo de dados. Confirme ou selecione o tipo correto:
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(["clients", "sales_team", "templates", "sales_targets"] as ImportEntity[]).map(entity => {
-                  const config = ENTITY_CONFIGS[entity];
-                  const Icon = config.icon;
-                  const detection = detectionResults.find(d => d.entity === entity);
-                  const isSelected = detectedEntity === entity;
-                  return (
-                    <button
-                      key={entity}
-                      onClick={() => setDetectedEntity(entity)}
-                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-all ${
-                        isSelected
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                          : "border-border hover:border-primary/30 hover:bg-muted/30"
-                      }`}
-                    >
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                        isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
-                      }`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{config.label}</span>
-                          {detection && detection.confidence > 20 && (
-                            <Badge variant={detection.confidence >= 50 ? "default" : "outline"} className="text-[10px]">
-                              {detection.confidence}% match
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{config.description}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="min-w-0">
+              <CardTitle className="text-base truncate">Importação Inteligente</CardTitle>
+              <CardDescription className="truncate">Carregue qualquer planilha — o sistema identifica os dados e mapeia automaticamente</CardDescription>
             </div>
+          </div>
 
-            {/* Preview */}
-            {previewRows.length > 0 && (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="text-xs font-medium px-3 py-1.5 bg-muted/50 text-muted-foreground">
-                  Prévia das primeiras linhas
-                </div>
-                <ScrollArea className="max-h-[120px] w-full">
-                  <div className="min-w-max">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b bg-muted/30">
-                          {headers.map((h, i) => (
-                            <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap text-muted-foreground">{h || `Col ${i + 1}`}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {previewRows.slice(0, 3).map((row, ri) => (
-                          <tr key={ri} className="border-b last:border-0">
-                            {headers.map((_, ci) => (
-                              <td key={ci} className="px-2 py-1 whitespace-nowrap max-w-[200px] truncate">{String(row[ci] ?? "")}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+          {/* Step indicators */}
+          <div className="flex items-center gap-1 mt-3">
+            {(["upload", "confirm", "mapping", "options", "running"] as Step[]).map((s, i) => {
+              const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Importação"];
+              const icons = [Upload, Eye, Settings2, Filter, Play];
+              const Icon = icons[i];
+              const isActive = step === s || (step === "done" && s === "running");
+              const isPast = ["upload", "confirm", "mapping", "options", "running"].indexOf(step) > i || step === "done";
+              return (
+                <div key={s} className="flex items-center gap-1 flex-1">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors w-full justify-center
+                    ${isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    <Icon className="h-3 w-3 shrink-0" />
+                    <span className="hidden sm:inline truncate">{labels[i]}</span>
                   </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-              </div>
-            )}
+                  {i < 4 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+        </CardHeader>
 
-            <div className="flex gap-2 justify-between">
-              <Button variant="outline" size="sm" onClick={reset}>
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
-              </Button>
-              <Button size="sm" onClick={() => confirmEntity(detectedEntity)}>
-                Confirmar e Mapear <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
+        <CardContent className="space-y-4">
+          {/* ── STEP: Upload ───────────────────────────────────── */}
+          {step === "upload" && (
+            <div
+              className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm font-medium">Clique para selecionar ou arraste um arquivo</p>
+              <p className="text-xs text-muted-foreground mt-1">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+                e.target.value = "";
+              }} />
             </div>
-          </>
-        )}
+          )}
 
-        {/* ── STEP: Mapping ──────────────────────────────────── */}
-        {step === "mapping" && (
-          <>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2 text-sm min-w-0">
-                <EntityIcon className="h-4 w-4 text-primary shrink-0" />
-                <span className="font-medium truncate">{entityConfig.label}</span>
-                <span className="text-muted-foreground">— {file?.name} ({allDataRows.length} linhas)</span>
+          {/* ── STEP: Confirm entity ───────────────────────────── */}
+          {step === "confirm" && (
+            <>
+              <div className="text-sm mb-2">
+                <span className="font-medium">{file?.name}</span>
+                <span className="text-muted-foreground ml-2">({allDataRows.length} linhas · {sheetNames.length} aba(s))</span>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {layoutRestored && (
-                  <Badge variant="outline" className="text-xs border-green-500/50 text-green-600 dark:text-green-400">
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> Layout restaurado
-                  </Badge>
-                )}
-                <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs">
-                  {mappedCount} colunas mapeadas
-                </Badge>
-              </div>
-            </div>
 
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
-                <span>Coluna da Planilha</span>
-                <span></span>
-                <span>Campo do Sistema</span>
-              </div>
-              <div className="max-h-[350px] overflow-y-auto">
-                <div className="divide-y divide-border">
-                  {headers.map((header, colIdx) => {
-                    if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
-                    const isMapped = !!mapping[colIdx];
+              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Tipo de dados detectado</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  O sistema analisou as colunas da planilha e identificou o tipo de dados. Confirme ou selecione o tipo correto:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(["clients", "sales_team", "templates", "sales_targets"] as ImportEntity[]).map(entity => {
+                    const config = ENTITY_CONFIGS[entity];
+                    const Icon = config.icon;
+                    const detection = detectionResults.find(d => d.entity === entity);
+                    const isSelected = detectedEntity === entity;
                     return (
-                      <div key={colIdx} className={`grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-2 transition-colors ${isMapped ? "bg-primary/5" : "hover:bg-muted/30"}`}>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {previewRows.slice(0, 2).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" · ") || "—"}
-                          </div>
+                      <button
+                        key={entity}
+                        onClick={() => setDetectedEntity(entity)}
+                        className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/30 hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+                          isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                        }`}>
+                          <Icon className="h-4 w-4" />
                         </div>
-                        <ArrowRight className={`h-3.5 w-3.5 shrink-0 ${isMapped ? "text-primary" : "text-muted-foreground/40"}`} />
-                        <Select
-                          value={mapping[colIdx] || "__none__"}
-                          onValueChange={val => {
-                            setMapping(prev => {
-                              const next = { ...prev };
-                              if (val === "__none__") { delete next[colIdx]; }
-                              else {
-                                for (const [k, v] of Object.entries(next)) {
-                                  if (v === val && Number(k) !== colIdx) delete next[Number(k)];
-                                }
-                                next[colIdx] = val;
-                              }
-                              return next;
-                            });
-                            setLayoutSaved(false);
-                          }}
-                        >
-                          <SelectTrigger className="w-full text-xs h-8">
-                            <SelectValue placeholder="Ignorar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— Ignorar —</SelectItem>
-                            {dbFields.map(f => {
-                              const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
-                              return (
-                                <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
-                                  {f.label} {f.required && "*"} {usedByOther && "(usado)"}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{config.label}</span>
+                            {detection && detection.confidence > 20 && (
+                              <Badge variant={detection.confidence >= 50 ? "default" : "outline"} className="text-[10px]">
+                                {detection.confidence}% match
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{config.description}</p>
+                        </div>
+                      </button>
                     );
                   })}
                 </div>
               </div>
-            </div>
 
-            {/* Preview table */}
-            {previewRows.length > 0 && (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="text-xs font-medium px-3 py-1.5 bg-muted/50 text-muted-foreground">
-                  Prévia (primeiras {Math.min(previewRows.length, 5)} linhas)
-                </div>
-                <ScrollArea className="max-h-[150px] w-full">
-                  <div className="min-w-max">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b bg-muted/30">
-                          {headers.map((h, i) => (
-                            <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap">
-                              {mapping[i] ? (
-                                <span className="text-primary">{dbFields.find(f => f.key === mapping[i])?.label || h}</span>
-                              ) : (
-                                <span className="text-muted-foreground line-through">{h}</span>
-                              )}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {previewRows.slice(0, 5).map((row, ri) => (
-                          <tr key={ri} className="border-b last:border-0">
-                            {headers.map((_, ci) => (
-                              <td key={ci} className={`px-2 py-1 whitespace-nowrap max-w-[200px] truncate ${mapping[ci] ? "" : "text-muted-foreground/50"}`}>
-                                {String(row[ci] ?? "")}
-                              </td>
+              {/* Preview */}
+              {previewRows.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="text-xs font-medium px-3 py-1.5 bg-muted/50 text-muted-foreground">
+                    Prévia das primeiras linhas
+                  </div>
+                  <ScrollArea className="max-h-[120px] w-full">
+                    <div className="min-w-max">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            {headers.map((h, i) => (
+                              <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap text-muted-foreground">{h || `Col ${i + 1}`}</th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-between flex-wrap">
-              <Button variant="outline" size="sm" onClick={() => setStep("confirm")}>
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleSaveLayout} disabled={layoutSaved}>
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
-                  {layoutSaved ? "Salvo" : "Salvar Layout"}
-                </Button>
-                <Button size="sm" disabled={!requiredMapped} onClick={() => setStep("options")}>
-                  Próximo <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* ── STEP: Options ──────────────────────────────────── */}
-        {step === "options" && (
-          <>
-            {/* Update fields (for clients & sales_team) */}
-            {(detectedEntity === "clients" || detectedEntity === "sales_team") && (
-              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Campos para atualizar em registros existentes</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Quando um registro já existir na base, marque quais campos deseja sobrescrever.
-                </p>
-                <Separator />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {dbFields.filter(f => !f.required && Object.values(mapping).includes(f.key)).map(f => (
-                    <div key={f.key} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`upd-${f.key}`}
-                        checked={updateFields.has(f.key)}
-                        onCheckedChange={checked => {
-                          setUpdateFields(prev => {
-                            const next = new Set(prev);
-                            if (checked) next.add(f.key); else next.delete(f.key);
-                            return next;
-                          });
-                        }}
-                      />
-                      <Label htmlFor={`upd-${f.key}`} className="text-sm cursor-pointer">{f.label}</Label>
+                        </thead>
+                        <tbody>
+                          {previewRows.slice(0, 3).map((row, ri) => (
+                            <tr key={ri} className="border-b last:border-0">
+                              {headers.map((_, ci) => (
+                                <td key={ci} className="px-2 py-1 whitespace-nowrap max-w-[200px] truncate">{String(row[ci] ?? "")}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-between">
+                <Button variant="outline" size="sm" onClick={reset}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
+                </Button>
+                <Button size="sm" onClick={() => confirmEntity(detectedEntity)}>
+                  Confirmar e Mapear <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── STEP: Mapping ──────────────────────────────────── */}
+          {step === "mapping" && (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <EntityIcon className="h-4 w-4 text-primary shrink-0" />
+                  <span className="font-medium truncate">{entityConfig.label}</span>
+                  <span className="text-muted-foreground">— {file?.name} ({allDataRows.length} linhas)</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {layoutRestored && (
+                    <Badge variant="outline" className="text-xs border-green-500/50 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Layout restaurado
+                    </Badge>
+                  )}
+                  <Badge variant={requiredMapped ? "default" : "destructive"} className="text-xs">
+                    {mappedCount} colunas mapeadas
+                  </Badge>
                 </div>
               </div>
-            )}
 
-            {/* Year selector for sales_targets */}
-            {detectedEntity === "sales_targets" && (
-              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Configuração de Metas</span>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+                  <span>Coluna da Planilha</span>
+                  <span></span>
+                  <span>Campo do Sistema</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano da meta:</Label>
-                  <Select value={targetYear} onValueChange={setTargetYear}>
-                    <SelectTrigger className="w-[100px] h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
-                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="max-h-[350px] overflow-y-auto">
+                  <div className="divide-y divide-border">
+                    {headers.map((header, colIdx) => {
+                      if (!header && !previewRows.some(r => r[colIdx] != null && String(r[colIdx]).trim() !== "")) return null;
+                      const isMapped = !!mapping[colIdx];
+                      return (
+                        <div key={colIdx} className={`grid grid-cols-[1fr_auto_minmax(160px,200px)] gap-x-2 items-center px-3 py-2 transition-colors ${isMapped ? "bg-primary/5" : "hover:bg-muted/30"}`}>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{header || `(Coluna ${colIdx + 1})`}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {previewRows.slice(0, 2).map(r => String(r[colIdx] ?? "")).filter(Boolean).join(" · ") || "—"}
+                            </div>
+                          </div>
+                          <ArrowRight className={`h-3.5 w-3.5 shrink-0 ${isMapped ? "text-primary" : "text-muted-foreground/40"}`} />
+                          <Select
+                            value={mapping[colIdx] || "__none__"}
+                            onValueChange={val => {
+                              setMapping(prev => {
+                                const next = { ...prev };
+                                if (val === "__none__") { delete next[colIdx]; }
+                                else {
+                                  for (const [k, v] of Object.entries(next)) {
+                                    if (v === val && Number(k) !== colIdx) delete next[Number(k)];
+                                  }
+                                  next[colIdx] = val;
+                                }
+                                return next;
+                              });
+                              setLayoutSaved(false);
+                            }}
+                          >
+                            <SelectTrigger className="w-full text-xs h-8">
+                              <SelectValue placeholder="Ignorar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— Ignorar —</SelectItem>
+                              {dbFields.map(f => {
+                                const usedByOther = Object.entries(mapping).some(([k, v]) => v === f.key && Number(k) !== colIdx);
+                                return (
+                                  <SelectItem key={f.key} value={f.key} disabled={usedByOther}>
+                                    {f.label} {f.required && "*"} {usedByOther && "(usado)"}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* AI Filter Rules (for clients) */}
-            {detectedEntity === "clients" && (
-              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Regras de Pré-filtro</span>
-                  <Badge variant="outline" className="text-xs">{filterRules.length} regra(s)</Badge>
+              {/* Preview table */}
+              {previewRows.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="text-xs font-medium px-3 py-1.5 bg-muted/50 text-muted-foreground">
+                    Prévia (primeiras {Math.min(previewRows.length, 5)} linhas)
+                  </div>
+                  <ScrollArea className="max-h-[150px] w-full">
+                    <div className="min-w-max">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            {headers.map((h, i) => (
+                              <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap">
+                                {mapping[i] ? (
+                                  <span className="text-primary">{dbFields.find(f => f.key === mapping[i])?.label || h}</span>
+                                ) : (
+                                  <span className="text-muted-foreground line-through">{h}</span>
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewRows.slice(0, 5).map((row, ri) => (
+                            <tr key={ri} className="border-b last:border-0">
+                              {headers.map((_, ci) => (
+                                <td key={ci} className={`px-2 py-1 whitespace-nowrap max-w-[200px] truncate ${mapping[ci] ? "" : "text-muted-foreground/50"}`}>
+                                  {String(row[ci] ?? "")}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Descreva em linguagem natural quais registros devem ser importados.
-                </p>
+              )}
+
+              <div className="flex gap-2 justify-between flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => setStep("confirm")}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
+                </Button>
                 <div className="flex gap-2">
-                  <Textarea
-                    placeholder='Ex: "Importar apenas clientes com unidade válida"'
-                    value={filterPrompt}
-                    onChange={e => setFilterPrompt(e.target.value)}
-                    className="min-h-[60px] text-sm resize-none flex-1"
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleFilterPrompt(); } }}
-                  />
-                  <Button size="sm" onClick={handleFilterPrompt} disabled={!filterPrompt.trim() || filterLoading} className="self-end">
-                    {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  <Button variant="outline" size="sm" onClick={handleSaveLayout} disabled={layoutSaved}>
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                    {layoutSaved ? "Salvo" : "Salvar Layout"}
+                  </Button>
+                  <Button size="sm" disabled={!requiredMapped} onClick={() => setStep("options")}>
+                    Próximo <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </div>
+              </div>
+            </>
+          )}
 
-                {savedPresets.length > 0 && (
-                  <div className="space-y-1.5">
-                    <span className="text-xs text-muted-foreground font-medium">Presets salvos:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {savedPresets.map(preset => (
-                        <div key={preset.id} className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" className="text-xs h-7 px-2"
-                            onClick={() => { setFilterRules(preset.rules); toast({ title: "Preset aplicado" }); }}>
-                            <Filter className="h-3 w-3 mr-1" /> {preset.name} ({preset.rules.length})
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => { deleteFilterPreset(preset.id); setSavedPresets(loadSavedFilterPresets(detectedEntity)); }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+          {/* ── STEP: Options ──────────────────────────────────── */}
+          {step === "options" && (
+            <>
+              {/* Update fields (for clients & sales_team) */}
+              {(detectedEntity === "clients" || detectedEntity === "sales_team") && (
+                <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Campos para atualizar em registros existentes</span>
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground">
+                    Quando um registro já existir na base, marque quais campos deseja sobrescrever.
+                  </p>
+                  <Separator />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {dbFields.filter(f => !f.required && Object.values(mapping).includes(f.key)).map(f => (
+                      <div key={f.key} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`upd-${f.key}`}
+                          checked={updateFields.has(f.key)}
+                          onCheckedChange={checked => {
+                            setUpdateFields(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(f.key); else next.delete(f.key);
+                              return next;
+                            });
+                          }}
+                        />
+                        <Label htmlFor={`upd-${f.key}`} className="text-sm cursor-pointer">{f.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                {filterRules.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Separator />
-                    <div className="space-y-1">
-                      {filterRules.map((rule, idx) => {
-                        const fieldLabel = dbFields.find(f => f.key === rule.field)?.label || rule.field;
-                        return (
-                          <div key={idx} className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                            <Filter className="h-3 w-3 text-primary shrink-0" />
-                            <span className="flex-1 min-w-0">
-                              <span className="font-medium">{fieldLabel}</span>{" "}
-                              <span className="text-muted-foreground">{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
-                              {rule.value && <span className="font-medium text-primary"> "{rule.value}"</span>}
-                              <span className="text-muted-foreground ml-2">— {rule.description}</span>
-                            </span>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                              onClick={() => setFilterRules(prev => prev.filter((_, i) => i !== idx))}>
-                              <XCircle className="h-3.5 w-3.5" />
+              {/* Year selector for sales_targets */}
+              {detectedEntity === "sales_targets" && (
+                <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Configuração de Metas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano da meta:</Label>
+                    <Select value={targetYear} onValueChange={setTargetYear}>
+                      <SelectTrigger className="w-[100px] h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Filter Rules (for clients) */}
+              {detectedEntity === "clients" && (
+                <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Regras de Pré-filtro</span>
+                    <Badge variant="outline" className="text-xs">{filterRules.length} regra(s)</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Descreva em linguagem natural quais registros devem ser importados.
+                  </p>
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder='Ex: "Importar apenas clientes com unidade válida"'
+                      value={filterPrompt}
+                      onChange={e => setFilterPrompt(e.target.value)}
+                      className="min-h-[60px] text-sm resize-none flex-1"
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleFilterPrompt(); } }}
+                    />
+                    <Button size="sm" onClick={handleFilterPrompt} disabled={!filterPrompt.trim() || filterLoading} className="self-end">
+                      {filterLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    </Button>
+                  </div>
+
+                  {savedPresets.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-xs text-muted-foreground font-medium">Presets salvos:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {savedPresets.map(preset => (
+                          <div key={preset.id} className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" className="text-xs h-7 px-2"
+                              onClick={() => { setFilterRules(preset.rules); toast({ title: "Preset aplicado" }); }}>
+                              <Filter className="h-3 w-3 mr-1" /> {preset.name} ({preset.rules.length})
                             </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => { deleteFilterPreset(preset.id); setSavedPresets(loadSavedFilterPresets(detectedEntity)); }}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filterRules.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Separator />
+                      <div className="space-y-1">
+                        {filterRules.map((rule, idx) => {
+                          const fieldLabel = dbFields.find(f => f.key === rule.field)?.label || rule.field;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+                              <Filter className="h-3 w-3 text-primary shrink-0" />
+                              <span className="flex-1 min-w-0">
+                                <span className="font-medium">{fieldLabel}</span>{" "}
+                                <span className="text-muted-foreground">{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
+                                {rule.value && <span className="font-medium text-primary"> "{rule.value}"</span>}
+                                <span className="text-muted-foreground ml-2">— {rule.description}</span>
+                              </span>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                                onClick={() => setFilterRules(prev => prev.filter((_, i) => i !== idx))}>
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleSaveFilterPreset}>
+                          <Save className="h-3 w-3 mr-1" /> Salvar Preset
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive" onClick={() => setFilterRules([])}>
+                          <Trash2 className="h-3 w-3 mr-1" /> Limpar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Relationship warning */}
+              {(Object.values(mapping).includes("unit_code") || Object.values(mapping).includes("esn_code") || Object.values(mapping).includes("gsn_code")) && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                    <Link2 className="h-3.5 w-3.5 shrink-0" />
+                    Campos relacionais detectados
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O sistema verificará vínculos de Unidade, ESN e GSN antes de importar. Valores não encontrados serão apresentados para que você indique a correspondência correta.
+                  </p>
+                </div>
+              )}
+
+              {/* Summary */}
+              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-primary" /> Resumo da importação
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{entityConfig.label}</span></div>
+                  <div><span className="text-muted-foreground">Arquivo:</span> <span className="font-medium truncate">{file?.name}</span></div>
+                  <div><span className="text-muted-foreground">Linhas:</span> <span className="font-medium">{allDataRows.length}</span></div>
+                  <div><span className="text-muted-foreground">Campos mapeados:</span> <span className="font-medium">{mappedCount}</span></div>
+                  {detectedEntity === "sales_targets" && (
+                    <div><span className="text-muted-foreground">Ano:</span> <span className="font-medium">{targetYear}</span></div>
+                  )}
+                  {filterRules.length > 0 && (
+                    <div><span className="text-muted-foreground">Filtros:</span> <span className="font-medium">{filterRules.length}</span></div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-between">
+                <Button variant="outline" size="sm" onClick={() => setStep("mapping")}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
+                </Button>
+                <Button size="sm" onClick={runImport} disabled={scanningRelations}>
+                  {scanningRelations ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verificando vínculos...</>
+                  ) : (
+                    <><Play className="mr-1.5 h-3.5 w-3.5" /> Iniciar Importação</>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── STEP: Running / Done ───────────────────────────── */}
+          {(step === "running" || step === "done") && run && (
+            <RunningView run={run} onReset={reset} isDone={step === "done"} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Relational Resolution Dialog ───────────────────────── */}
+      <Dialog open={showResolutionDialog} onOpenChange={(open) => {
+        if (!open) setShowResolutionDialog(false);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Resolver Vínculos Relacionais
+            </DialogTitle>
+            <DialogDescription>
+              {unresolvedItems.length} valor(es) da planilha não foram encontrados no cadastro.
+              Selecione a correspondência correta para cada um. Essa associação será salva para futuras importações.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="space-y-3 py-2">
+              {/* Group by field */}
+              {(() => {
+                const groups = new Map<string, UnresolvedRelation[]>();
+                for (const item of unresolvedItems) {
+                  const key = item.fieldKey;
+                  if (!groups.has(key)) groups.set(key, []);
+                  groups.get(key)!.push(item);
+                }
+                return Array.from(groups.entries()).map(([fieldKey, items]) => (
+                  <div key={fieldKey} className="rounded-lg border border-border overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/50 flex items-center gap-2">
+                      <Link2 className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-sm font-medium">{items[0].fieldLabel}</span>
+                      <Badge variant="outline" className="text-[10px]">{items.length} não resolvido(s)</Badge>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {items.map((item) => {
+                        const selKey = `${item.fieldKey}:${item.valueLower}`;
+                        const list = getListForType(item.listType);
+                        return (
+                          <div key={selKey} className="px-3 py-2.5 flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-destructive truncate">"{item.value}"</div>
+                              <div className="text-[11px] text-muted-foreground">{item.occurrences} registro(s) na planilha</div>
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <Select
+                              value={resolutionSelections[selKey] || "__skip__"}
+                              onValueChange={val => {
+                                setResolutionSelections(prev => ({ ...prev, [selKey]: val }));
+                              }}
+                            >
+                              <SelectTrigger className="w-[220px] text-xs h-8 shrink-0">
+                                <SelectValue placeholder="Ignorar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__skip__">— Ignorar (não vincular) —</SelectItem>
+                                {list.map(item => (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    {item.code ? `${item.code} — ` : ""}{item.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         );
                       })}
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleSaveFilterPreset}>
-                        <Save className="h-3 w-3 mr-1" /> Salvar Preset
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive" onClick={() => setFilterRules([])}>
-                        <Trash2 className="h-3 w-3 mr-1" /> Limpar
-                      </Button>
-                    </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Relationship warning */}
-            {(Object.values(mapping).includes("unit_code") || Object.values(mapping).includes("esn_code") || Object.values(mapping).includes("gsn_code")) && (
-              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
-                <div className="flex items-center gap-2 text-xs font-medium text-yellow-700 dark:text-yellow-400">
-                  <XCircle className="h-3.5 w-3.5 shrink-0" />
-                  Campos relacionais detectados
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Os campos Unidade, ESN e GSN serão vinculados por código ou nome. Registros sem correspondência terão esses campos importados como vazio.
-                </p>
-              </div>
-            )}
-
-            {/* Summary */}
-            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Eye className="h-4 w-4 text-primary" /> Resumo da importação
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{entityConfig.label}</span></div>
-                <div><span className="text-muted-foreground">Arquivo:</span> <span className="font-medium truncate">{file?.name}</span></div>
-                <div><span className="text-muted-foreground">Linhas:</span> <span className="font-medium">{allDataRows.length}</span></div>
-                <div><span className="text-muted-foreground">Campos mapeados:</span> <span className="font-medium">{mappedCount}</span></div>
-                {detectedEntity === "sales_targets" && (
-                  <div><span className="text-muted-foreground">Ano:</span> <span className="font-medium">{targetYear}</span></div>
-                )}
-                {filterRules.length > 0 && (
-                  <div><span className="text-muted-foreground">Filtros:</span> <span className="font-medium">{filterRules.length}</span></div>
-                )}
-              </div>
+                ));
+              })()}
             </div>
+          </ScrollArea>
 
-            <div className="flex gap-2 justify-between">
-              <Button variant="outline" size="sm" onClick={() => setStep("mapping")}>
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
+          <DialogFooter className="flex-row justify-between sm:justify-between gap-2 pt-3 border-t">
+            <div className="text-xs text-muted-foreground self-center">
+              {resolvedCount} de {unresolvedItems.length} resolvido(s)
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => {
+                setShowResolutionDialog(false);
+                // Proceed anyway with current aliases (unresolved will be null)
+                executeImport(aliasStore);
+              }}>
+                Pular e Importar
               </Button>
-              <Button size="sm" onClick={runImport}>
-                <Play className="mr-1.5 h-3.5 w-3.5" /> Iniciar Importação
+              <Button size="sm" onClick={handleSaveResolutions}>
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+                Salvar e Importar
               </Button>
             </div>
-          </>
-        )}
-
-        {/* ── STEP: Running / Done ───────────────────────────── */}
-        {(step === "running" || step === "done") && run && (
-          <RunningView run={run} onReset={reset} isDone={step === "done"} />
-        )}
-      </CardContent>
-    </Card>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -1645,11 +1972,4 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
       )}
     </div>
   );
-}
-
-function formatDurationUtil(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}min ${s % 60}s`;
 }

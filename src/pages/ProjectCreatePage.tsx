@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -116,7 +116,9 @@ export default function ProjectCreatePage() {
 
   const arquitetos = useMemo(() => salesTeam.filter((m: any) => m.role === "arquiteto"), [salesTeam]);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [searchParams] = useSearchParams();
+  const initialStep = Number(searchParams.get("step")) || 1;
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [form, setForm] = useState({
     client_id: "",
     arquiteto_id: "",

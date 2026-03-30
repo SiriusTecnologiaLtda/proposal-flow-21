@@ -110,6 +110,8 @@ export default function ProposalsList() {
   });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelEvId, setCancelEvId] = useState<string | null>(null);
+  const [cancelEvLoading, setCancelEvLoading] = useState(false);
   const [winId, setWinId] = useState<string | null>(null);
   const [winCloseDate, setWinCloseDate] = useState("");
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
@@ -632,15 +634,18 @@ export default function ProposalsList() {
 
         const { data: existingProjects } = await supabase
           .from("projects")
-          .select("id, proposal_id, proposal_number")
+          .select("id, status, proposal_id, proposal_number")
           .or(`proposal_id.eq.${capturedProposal.id},proposal_number.eq.${capturedProposal.number}`);
 
         if (existingProjects && existingProjects.length > 0) {
           for (const proj of existingProjects) {
-            await supabase
-              .from("projects")
-              .update({ status: "em_revisao", proposal_id: capturedProposal.id, proposal_number: capturedProposal.number })
-              .eq("id", proj.id);
+            // Reopen cancelled projects back to em_revisao, skip concluido
+            if (proj.status !== "concluido") {
+              await supabase
+                .from("projects")
+                .update({ status: "em_revisao", proposal_id: capturedProposal.id, proposal_number: capturedProposal.number })
+                .eq("id", proj.id);
+            }
           }
         } else {
           const projectId = crypto.randomUUID();
@@ -898,6 +903,77 @@ export default function ProposalsList() {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
     setCancelId(null);
+  }
+
+  async function handleCancelEv() {
+    if (!cancelEvId) return;
+    setCancelEvLoading(true);
+    try {
+      const proposal = proposals.find((p: any) => p.id === cancelEvId);
+      if (!proposal) throw new Error("Oportunidade não encontrada");
+
+      // Check if proposal already has generated documents → revert to proposta_gerada, else pendente
+      const { data: docs } = await supabase
+        .from("proposal_documents")
+        .select("id")
+        .eq("proposal_id", cancelEvId)
+        .eq("doc_type", "proposta")
+        .limit(1);
+      const newStatus = (docs && docs.length > 0) ? "proposta_gerada" : "pendente";
+
+      // Update proposal status
+      await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
+
+      // Cancel active projects (pendente or em_revisao) linked to this proposal
+      const { data: linkedProjects } = await supabase
+        .from("projects")
+        .select("id, status")
+        .eq("proposal_id", cancelEvId);
+      
+      if (linkedProjects) {
+        for (const proj of linkedProjects) {
+          if (proj.status === "pendente" || proj.status === "em_revisao") {
+            await supabase.from("projects").update({ status: "cancelado" }).eq("id", proj.id);
+          }
+        }
+      }
+
+      // Send notification to EV (arquiteto)
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-proposal-notification`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              proposalId: cancelEvId,
+              type: "cancelar_ev",
+              message: "A solicitação de Análise E.V. foi cancelada pelo ESN.",
+              proposalLink: `${window.location.origin}/propostas/${cancelEvId}`,
+              _origin: window.location.origin,
+            }),
+          }
+        );
+      } catch (emailErr) {
+        console.error("Falha ao enviar notificação:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast({
+        title: "Solicitação E.V. cancelada",
+        description: `Status revertido para "${newStatus === "proposta_gerada" ? "Proposta Gerada" : "Pendente"}". Projetos ativos foram cancelados.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setCancelEvLoading(false);
+    setCancelEvId(null);
   }
 
   async function handleWin() {
@@ -1423,6 +1499,14 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {p.status === "em_analise_ev" && !isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setCancelEvId(p.id)} className="text-destructive focus:text-destructive">
+                                  <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Solicitação EV
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {isArquiteto && p.esn_id && (
                               <>
                                 <DropdownMenuSeparator />
@@ -1686,7 +1770,43 @@ export default function ProposalsList() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Notification dialog (Arquiteto ↔ ESN) */}
+        {/* Cancel EV Request confirmation */}
+        <AlertDialog open={!!cancelEvId} onOpenChange={(open) => !open && setCancelEvId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <AlertDialogTitle>Cancelar Solicitação E.V.?</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="space-y-3 pt-2">
+                <span className="block">
+                  Ao cancelar a solicitação de Análise E.V., as seguintes ações serão realizadas:
+                </span>
+                <span className="block rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>O status da oportunidade voltará para <strong>"Pendente"</strong> ou <strong>"Proposta Gerada"</strong></li>
+                    <li>Projetos ativos vinculados serão <strong>cancelados</strong></li>
+                    <li>O Engenheiro de Valor será <strong>notificado</strong> por e-mail</li>
+                    <li>O escopo dos projetos será <strong>preservado</strong> para reuso futuro</li>
+                  </ul>
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelEvLoading}>Voltar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCancelEv}
+                disabled={cancelEvLoading}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {cancelEvLoading ? "Cancelando..." : "Confirmar Cancelamento"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Sheet open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
           <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
             {/* Hero Header */}

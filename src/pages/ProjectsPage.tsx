@@ -24,6 +24,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   rascunho: { label: "Pendente", className: "bg-muted text-muted-foreground" }, // legacy
   em_revisao: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
   concluido: { label: "Concluído", className: "bg-success/15 text-success" },
+  cancelado: { label: "Cancelado", className: "bg-destructive/15 text-destructive" },
 };
 
 const PROPOSAL_STATUS_MAP: Record<string, { label: string; className: string; icon: any }> = {
@@ -568,6 +569,11 @@ export default function ProjectsPage() {
                           {effectiveStatus === "concluido" && (
                             <DropdownMenuItem onClick={() => handleReturnToReview(project)}>
                               <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
+                            </DropdownMenuItem>
+                          )}
+                          {effectiveStatus === "cancelado" && (
+                            <DropdownMenuItem disabled>
+                              <XCircle className="mr-2 h-4 w-4" />Projeto Cancelado
                             </DropdownMenuItem>
                           )}
                           {role === "admin" && (

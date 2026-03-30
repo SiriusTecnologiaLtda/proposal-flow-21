@@ -116,7 +116,9 @@ export default function ProjectCreatePage() {
 
   const arquitetos = useMemo(() => salesTeam.filter((m: any) => m.role === "arquiteto"), [salesTeam]);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [searchParams] = useSearchParams();
+  const initialStep = Number(searchParams.get("step")) || 1;
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [form, setForm] = useState({
     client_id: "",
     arquiteto_id: "",

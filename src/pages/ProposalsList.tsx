@@ -1850,6 +1850,40 @@ function hasScopeChangedAfterLastDoc(proposal: any): boolean {
           docType={versionsDocType}
         />
 
+        {/* Scope Changed Warning before Signature */}
+        <AlertDialog open={!!scopeChangedWarningProposal} onOpenChange={(open) => !open && setScopeChangedWarningProposal(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+                Escopo alterado após última proposta
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Houveram alterações no escopo após a última proposta gerada. Deseja continuar mesmo assim, gerar uma nova proposta antes ou cancelar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+              <Button variant="outline" onClick={() => setScopeChangedWarningProposal(null)}>
+                Cancelar
+              </Button>
+              <Button variant="secondary" onClick={() => {
+                const p = scopeChangedWarningProposal;
+                setScopeChangedWarningProposal(null);
+                if (p) handleGenerateDoc(p.id, "proposta");
+              }}>
+                <FileText className="mr-2 h-4 w-4" />Gerar Proposta
+              </Button>
+              <Button onClick={() => {
+                const p = scopeChangedWarningProposal;
+                setScopeChangedWarningProposal(null);
+                if (p) setSignatureProposal(p);
+              }}>
+                <Send className="mr-2 h-4 w-4" />Continuar
+              </Button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Send to Signature dialog */}
         <SendToSignatureDialog
           proposal={signatureProposal}

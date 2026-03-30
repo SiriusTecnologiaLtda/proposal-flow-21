@@ -1756,45 +1756,43 @@ export default function ProposalCreate() {
                       >
                         <MessageSquare className="h-4 w-4" />
                       </button>
-                      {!scopeLocked && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (group.templateId?.startsWith("_project_")) {
-                              const gid = group.templateId;
-                              setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
-                              setGroupOrder((prev) => prev.filter((key) => key !== gid));
-                              setAddedTemplateIds((prev) => {
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (group.templateId?.startsWith("_project_")) {
+                            const gid = group.templateId;
+                            setScopeProcesses((prev) => prev.filter((p) => p.templateId !== gid));
+                            setGroupOrder((prev) => prev.filter((key) => key !== gid));
+                            setAddedTemplateIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(gid);
+                              return next;
+                            });
+                            const projectId = gid.replace("_project_", "").split("_")[0];
+                            const remainingProjectGroups = scopeProcesses.filter(
+                              (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
+                            );
+                            if (remainingProjectGroups.length === 0) {
+                              setAddedProjectIds((prev) => {
                                 const next = new Set(prev);
-                                next.delete(gid);
+                                next.delete(projectId);
                                 return next;
                               });
-                              const projectId = gid.replace("_project_", "").split("_")[0];
-                              const remainingProjectGroups = scopeProcesses.filter(
-                                (p) => (p.templateId?.startsWith(`_project_${projectId}_`) || p.groupId?.startsWith(`_project_${projectId}_`)) && p.templateId !== gid
-                              );
-                              if (remainingProjectGroups.length === 0) {
-                                setAddedProjectIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(projectId);
-                                  return next;
-                                });
-                              }
-                            } else if (group.templateId) {
-                              removeTemplateFromScope(group.templateId);
-                            } else if (group.groupId) {
-                              setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
-                              setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
-                              setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
                             }
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                          } else if (group.templateId) {
+                            removeTemplateFromScope(group.templateId);
+                          } else if (group.groupId) {
+                            setScopeProcesses((prev) => prev.filter((p) => p.groupId !== group.groupId));
+                            setGroupOrder((prev) => prev.filter((key) => key !== group.groupId));
+                            setManualGroupNames((prev) => { const next = { ...prev }; delete next[group.groupId!]; return next; });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                       {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                     </div>
 

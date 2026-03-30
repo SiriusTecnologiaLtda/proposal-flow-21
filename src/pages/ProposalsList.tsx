@@ -1365,6 +1365,19 @@ export default function ProposalsList() {
                       : "—"}
                   </p>
                   <div className="flex items-center justify-end gap-1.5">
+                    {/* EV HardHat icon: orange for Em Revisão, green for Revisado */}
+                    {(p.status === "em_analise_ev" || p.status === "analise_ev_concluida") && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full ${
+                            p.status === "em_analise_ev" ? "bg-warning/15 text-warning" : "bg-success/15 text-success"
+                          }`}>
+                            <HardHat className="h-3.5 w-3.5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>{p.status === "em_analise_ev" ? "Em Revisão pelo E.V." : "Revisado pelo E.V."}</TooltipContent>
+                      </Tooltip>
+                    )}
                     {(p as any).needs_regen && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1402,7 +1415,6 @@ export default function ProposalsList() {
                     })()}
                     {p.status !== "ganha" && (
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
-                        {status.icon}
                         {status.label}
                       </span>
                     )}

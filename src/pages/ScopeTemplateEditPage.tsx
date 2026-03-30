@@ -288,6 +288,30 @@ export default function ScopeTemplateEditPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      // Delete children first, then parents, then template
+      const { data: items } = await supabase.from("scope_template_items").select("id, parent_id").eq("template_id", id);
+      if (items) {
+        const childIds = items.filter(i => i.parent_id).map(i => i.id);
+        if (childIds.length > 0) await supabase.from("scope_template_items").delete().in("id", childIds);
+        const parentIds = items.filter(i => !i.parent_id).map(i => i.id);
+        if (parentIds.length > 0) await supabase.from("scope_template_items").delete().in("id", parentIds);
+      }
+      const { error } = await supabase.from("scope_templates").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Template excluído com sucesso" });
+      qc.invalidateQueries({ queryKey: ["scope_templates"] });
+      navigate("/templates");
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    }
+    setDeleting(false);
+    setDeleteDialogOpen(false);
+  };
+
   const isAdmin = userRole === "admin";
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.em_revisao;
   const StatusIcon = statusCfg.icon;

@@ -223,12 +223,12 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("proposals")
-        .update({ status: "proposta_gerada" })
+        .update({ status: "pendente" })
         .eq("id", sigRecord.proposal_id);
 
       const rejectorEmail = singleSignerEmail || "Signatário não identificado";
-      await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Proposta Gerada.`);
-      console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → proposta_gerada`);
+      await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Pendente.`);
+      console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → pendente`);
     } else if (taeStatus === 7) {
       // Cancelado → cancelled / proposta_gerada
       await supabase

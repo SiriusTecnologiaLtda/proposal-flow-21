@@ -1000,7 +1000,7 @@ export default function ProposalsList() {
       const newStatus = "pendente";
 
       // Update proposal status
-      await supabase.from("proposals").update({ status: newStatus } as any).eq("id", cancelEvId);
+      await supabase.from("proposals").update({ status: newStatus, ev_requested: false } as any).eq("id", cancelEvId);
 
       // Revert active projects back to 'pendente' so the creator can continue editing
       const { data: linkedProjects } = await supabase

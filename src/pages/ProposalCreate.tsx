@@ -2490,7 +2490,7 @@ export default function ProposalCreate() {
                 setSolicitarEvSending(true);
                 try {
                   // Update proposal status to em_analise_ev
-                  await supabase.from("proposals").update({ status: "em_analise_ev" } as any).eq("id", id);
+                  await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", id);
 
                   // Update project status to em_revisao
                   await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);

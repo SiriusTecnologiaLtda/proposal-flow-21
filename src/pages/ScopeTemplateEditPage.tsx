@@ -73,12 +73,18 @@ export default function ScopeTemplateEditPage() {
   // Load existing template
   useEffect(() => {
     if (existingTemplate) {
-      setForm({ name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category });
+      const newForm = { name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category };
+      setForm(newForm);
       setStatus((existingTemplate as any).status || "em_revisao");
       setCreatedByName((existingTemplate as any).created_by_name || "");
       setCreatedAt(existingTemplate.created_at || "");
       const flatItems = (existingTemplate as any).scope_template_items || [];
-      setParentItems(buildHierarchy(flatItems));
+      const hierarchy = buildHierarchy(flatItems);
+      setParentItems(hierarchy);
+      // Snapshot for dirty tracking
+      setTimeout(() => {
+        loadedSnapshotRef.current = JSON.stringify({ form: newForm, parentItems: hierarchy });
+      }, 0);
     }
   }, [existingTemplate]);
 

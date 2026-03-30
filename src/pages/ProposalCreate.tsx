@@ -1633,6 +1633,45 @@ export default function ProposalCreate() {
       {/* Step 2: Escopo */}
       {currentStep === 2 && (
         <div className="space-y-4">
+          {/* Linked project banner */}
+          {linkedProject && (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <FolderKanban className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Projeto Vinculado</p>
+                  <p className="text-xs text-muted-foreground">
+                    {linkedProject.description || linkedProject.product || "Projeto"} ·{" "}
+                    {linkedProject.status === "concluido" ? "Concluído" : linkedProject.status === "em_revisao" ? "Em Revisão" : linkedProject.status === "cancelado" ? "Cancelado" : "Pendente"} ·{" "}
+                    {(linkedProject.project_scope_items || []).filter((i: any) => i.parent_id).length} itens
+                  </p>
+                </div>
+                <Badge variant={
+                  linkedProject.status === "concluido" ? "default" : 
+                  linkedProject.status === "em_revisao" ? "secondary" : 
+                  linkedProject.status === "cancelado" ? "destructive" : "outline"
+                } className="shrink-0">
+                  {linkedProject.status === "concluido" ? "Concluído" : linkedProject.status === "em_revisao" ? "Em Revisão" : linkedProject.status === "cancelado" ? "Cancelado" : "Pendente"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => navigate(`/projetos/editar/${linkedProject.id}`)}>
+                  <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Editar Escopo
+                </Button>
+                {arquitetoId && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    // Open notification dialog for Solicitar EV
+                    setSolicitarEvDialogOpen(true);
+                  }}>
+                    <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Solicitar Revisão EV
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Scope header with actions */}
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>

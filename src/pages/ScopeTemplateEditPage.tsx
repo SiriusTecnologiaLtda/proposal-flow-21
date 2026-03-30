@@ -574,6 +574,25 @@ export default function ScopeTemplateEditPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todos os itens de escopo deste template serão removidos permanentemente.
+              Propostas existentes que usaram este template não serão afetadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

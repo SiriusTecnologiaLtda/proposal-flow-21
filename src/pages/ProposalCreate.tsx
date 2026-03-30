@@ -1378,9 +1378,12 @@ export default function ProposalCreate() {
             return (
               <button
                 key={step.id}
-                onClick={() => setCurrentStep(step.id)}
+                onClick={() => { if (step.id <= maxUnlockedStep) setCurrentStep(step.id); }}
+                disabled={step.id > maxUnlockedStep}
                 className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
-                  active
+                  step.id > maxUnlockedStep
+                    ? "border-border bg-muted/50 text-muted-foreground/50 cursor-not-allowed opacity-60"
+                    : active
                     ? "border-primary bg-primary text-primary-foreground shadow-sm"
                     : completed
                     ? "border-primary/20 bg-primary/5 text-foreground hover:border-primary/40"
@@ -1388,14 +1391,14 @@ export default function ProposalCreate() {
                 }`}
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
+                  step.id > maxUnlockedStep ? "bg-muted/30" : active ? "bg-white/20" : completed ? "bg-primary/10" : "bg-muted"
                 }`}>
-                  {completed ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
+                  {completed && step.id <= maxUnlockedStep ? <Check className="h-4 w-4 text-primary" /> : <Icon className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold truncate">{step.label}</div>
-                  <div className={`text-[11px] ${active ? "text-white/70" : "text-muted-foreground"}`}>
-                    {active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
+                  <div className={`text-[11px] ${step.id > maxUnlockedStep ? "text-muted-foreground/50" : active ? "text-white/70" : "text-muted-foreground"}`}>
+                    {step.id > maxUnlockedStep ? "Bloqueada" : active ? "Etapa atual" : completed ? "Concluída" : "Pendente"}
                   </div>
                 </div>
               </button>

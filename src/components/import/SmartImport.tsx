@@ -806,19 +806,23 @@ export default function SmartImport() {
       teamMap.set(t.name.trim().toLowerCase(), t.id);
     }
 
-    let linked = 0;
+    let linked = 0, gsnNotFound = 0;
     for (const row of dataRows) {
       const code = (ev(row, "code") || "").toLowerCase();
       const gsnCode = (ev(row, "gsn_code") || "").toLowerCase();
       const gsnName = (ev(row, "gsn_name") || "").toLowerCase();
       const memberId = teamMap.get(code);
+      if (!gsnCode && !gsnName) continue; // no GSN info provided
       const gsnId = (gsnCode && teamMap.get(gsnCode)) || (gsnName && teamMap.get(gsnName));
       if (memberId && gsnId) {
         await supabase.from("sales_team").update({ linked_gsn_id: gsnId }).eq("id", memberId);
         linked++;
+      } else if (memberId && !gsnId) {
+        gsnNotFound++;
+        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}". Verifique se o GSN está cadastrado.`);
       }
     }
-    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos.`);
+    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`);
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);

@@ -191,8 +191,8 @@ export default function ScopeTemplateEditPage() {
     setSaving(true);
     try {
       let templateId = id;
-      // On edit, set status back to em_revisao
-      const newStatus = isEditing ? "em_revisao" : "em_revisao";
+      // Only revert to em_revisao if content actually changed
+      const newStatus = isEditing ? (isDirty ? "em_revisao" : status) : "em_revisao";
 
       if (isEditing && id) {
         const { error } = await supabase.from("scope_templates").update({
@@ -257,7 +257,8 @@ export default function ScopeTemplateEditPage() {
         }
       }
 
-      toast({ title: isEditing ? "Template atualizado! Status: Em Revisão" : "Template criado!" });
+      const statusMsg = isDirty && isEditing ? " Status: Em Revisão" : "";
+      toast({ title: isEditing ? `Template atualizado!${statusMsg}` : "Template criado!" });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
       navigate("/templates");
     } catch (err: any) {
@@ -277,6 +278,11 @@ export default function ScopeTemplateEditPage() {
       setStatus(newStatus);
       toast({ title: `Status alterado para ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
+      // On approve, close editor and return to list
+      if (newStatus === "aprovado") {
+        navigate("/templates");
+        return;
+      }
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }

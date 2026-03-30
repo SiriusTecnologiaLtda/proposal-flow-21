@@ -115,6 +115,7 @@ export default function ProposalsList() {
   const [winId, setWinId] = useState<string | null>(null);
   const [winCloseDate, setWinCloseDate] = useState("");
   const [signatureProposal, setSignatureProposal] = useState<any>(null);
+  const [scopeChangedWarningProposal, setScopeChangedWarningProposal] = useState<any>(null);
   const [cancelSignatureId, setCancelSignatureId] = useState<string | null>(null);
   const [monitorProposal, setMonitorProposal] = useState<any>(null);
   const [changeLogOpen, setChangeLogOpen] = useState(false);

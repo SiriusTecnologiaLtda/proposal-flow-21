@@ -1289,7 +1289,7 @@ export default function ProposalsList() {
                       <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(statusMap).map(([key, { label, className: statusClassName }]) => {
+                      {Object.entries(statusMap).filter(([key]) => key !== "proposta_gerada").map(([key, { label, className: statusClassName }]) => {
                         const active = statusFilter.includes(key);
                         return (
                           <button

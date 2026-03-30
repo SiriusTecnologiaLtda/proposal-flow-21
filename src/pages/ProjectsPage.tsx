@@ -571,6 +571,11 @@ export default function ProjectsPage() {
                               <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
                             </DropdownMenuItem>
                           )}
+                          {effectiveStatus === "cancelado" && (
+                            <DropdownMenuItem disabled>
+                              <XCircle className="mr-2 h-4 w-4" />Projeto Cancelado
+                            </DropdownMenuItem>
+                          )}
                           {role === "admin" && (
                             <>
                               <DropdownMenuSeparator />

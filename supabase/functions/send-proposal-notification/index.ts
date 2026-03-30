@@ -717,7 +717,7 @@ Deno.serve(async (req) => {
       }
       recipientEmail = arq.email;
       recipientName = arq.name;
-      subject = customSubject || `[Oportunidade ${proposalNumber}] Solicitação de Análise E.V. Cancelada`;
+      subject = customSubject || `[Oportunidade ${proposalNumber}] Solicitação de Revisão E.V. Cancelada`;
 
       const opportunityLinkHtml = _origin
         ? `<p style="margin: 16px 0;"><a href="${_origin}/propostas/${proposalId}" style="display: inline-block; padding: 10px 20px; background: #1a1a2e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Oportunidade na Plataforma</a></p>`

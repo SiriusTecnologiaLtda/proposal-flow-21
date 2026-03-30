@@ -242,11 +242,11 @@ Deno.serve(async (req) => {
 
       await supabase
         .from("proposals")
-        .update({ status: "proposta_gerada" })
+        .update({ status: "pendente" })
         .eq("id", sigRecord.proposal_id);
 
-      await logEvent("cancelled", "Assinatura cancelada", "O processo de assinatura foi cancelado. Status da oportunidade revertido para Proposta Gerada.");
-      console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → proposta_gerada`);
+      await logEvent("cancelled", "Assinatura cancelada", "O processo de assinatura foi cancelado. Status da oportunidade revertido para Pendente.");
+      console.log(`[tae-webhook] Signature ${sigRecord.id} → cancelled, proposal → pendente`);
     } else if (taeStatus === 1) {
       // Assinado parcialmente
       await logEvent("info", "Assinatura parcial", `${singleSignerEmail || "Um signatário"} assinou. Aguardando demais signatários.`);

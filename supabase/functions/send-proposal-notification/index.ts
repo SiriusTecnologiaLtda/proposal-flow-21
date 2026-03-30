@@ -725,7 +725,7 @@ Deno.serve(async (req) => {
 
       bodyHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #c0392b;">Solicitação de Análise E.V. Cancelada</h2>
+          <h2 style="color: #c0392b;">Solicitação de Revisão E.V. Cancelada</h2>
           <p>Olá <strong>${recipientName}</strong>,</p>
           <p><strong>${senderName}</strong> cancelou a solicitação de análise de engenharia de valor para a seguinte oportunidade:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">

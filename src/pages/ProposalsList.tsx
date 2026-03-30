@@ -660,6 +660,75 @@ export default function ProposalsList() {
             proposal_id: capturedProposal.id,
             proposal_number: capturedProposal.number,
           } as any);
+
+          // Copy opportunity scope items to the new project so the EV can see and refine them
+          try {
+            const { data: proposalItems } = await supabase
+              .from("proposal_scope_items")
+              .select("*")
+              .eq("proposal_id", capturedProposal.id);
+
+            if (proposalItems && proposalItems.length > 0) {
+              // Build ID mapping (old proposal item ID → new project item ID)
+              const idMap = new Map<string, string>();
+              for (const item of proposalItems) {
+                idMap.set(item.id, crypto.randomUUID());
+              }
+
+              // Insert parents first, then children
+              const parents = proposalItems.filter(i => !i.parent_id);
+              const children = proposalItems.filter(i => i.parent_id);
+
+              const projectItems = [...parents, ...children].map(item => ({
+                id: idMap.get(item.id)!,
+                project_id: projectId,
+                template_id: item.template_id || null,
+                parent_id: item.parent_id ? (idMap.get(item.parent_id) || null) : null,
+                description: item.description,
+                included: item.included,
+                hours: item.hours || 0,
+                phase: item.phase || 1,
+                sort_order: item.sort_order || 0,
+                notes: item.notes || "",
+              }));
+
+              if (projectItems.length > 0) {
+                await supabase.from("project_scope_items").insert(projectItems);
+              }
+
+              // Copy group_notes from the proposal to the project, remapping IDs
+              const { data: proposalData } = await supabase
+                .from("proposals")
+                .select("group_notes")
+                .eq("id", capturedProposal.id)
+                .single();
+
+              const groupNotes = (proposalData?.group_notes as any) || {};
+              const oldProcessGroupMap: Record<string, string> = groupNotes._process_group_map || {};
+              const oldManualGroups: Record<string, string> = groupNotes._manual_groups || {};
+              const oldGroupOrder: string[] = groupNotes._group_order || [];
+
+              // Remap process_group_map keys (old item IDs → new item IDs)
+              const newProcessGroupMap: Record<string, string> = {};
+              for (const [oldItemId, groupKey] of Object.entries(oldProcessGroupMap)) {
+                const newItemId = idMap.get(oldItemId);
+                if (newItemId) {
+                  newProcessGroupMap[newItemId] = groupKey;
+                }
+              }
+
+              const projectGroupNotes: Record<string, any> = {
+                _manual_groups: oldManualGroups,
+                _group_order: oldGroupOrder,
+                _process_group_map: newProcessGroupMap,
+              };
+
+              await supabase.from("projects").update({ group_notes: projectGroupNotes }).eq("id", projectId);
+            }
+          } catch (scopeCopyErr) {
+            console.error("Failed to copy scope to project:", scopeCopyErr);
+            // Non-blocking: project is created, scope copy is best-effort
+          }
         }
         queryClient.invalidateQueries({ queryKey: ["projects"] });
       }

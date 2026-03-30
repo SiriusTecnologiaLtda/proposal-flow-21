@@ -677,6 +677,47 @@ async function includeProjectInOpportunity(project: any, proposalId: string) {
     }
   }
 
+  // --- Remove original (non-project) template groups that overlap with project templates ---
+  // This prevents duplication: if ESN added template "X" and EV also used template "X" in the project,
+  // the original template group is removed and replaced by the project's version
+  const projectTemplateIds = new Set<string>();
+  for (const parent of parents) {
+    if (parent.template_id) projectTemplateIds.add(parent.template_id);
+    const origGroupId = processGroupMap[parent.id];
+    if (origGroupId && !manualGroups[origGroupId]) projectTemplateIds.add(origGroupId);
+  }
+
+  if (projectTemplateIds.size > 0) {
+    // Remove original (non-project) scope items that belong to overlapping templates
+    for (const templateId of projectTemplateIds) {
+      await supabase.from("proposal_scope_items").delete()
+        .eq("proposal_id", proposalId)
+        .eq("template_id", templateId)
+        .is("project_id", null);
+    }
+
+    // Remove original template entries from group_notes
+    for (const templateId of projectTemplateIds) {
+      currentGroupOrder = currentGroupOrder.filter(g => g !== templateId);
+      // Clean process_group_map entries pointing to original template groups
+      for (const [procId, groupKey] of Object.entries(currentProcessGroupMap)) {
+        if (groupKey === templateId) delete currentProcessGroupMap[procId];
+      }
+    }
+
+    // Also remove original manual groups (non-project) that have no remaining items
+    // by deleting scope items with no project_id and no template_id that belong to removed manual groups
+    const manualGroupIds = Object.keys(currentManualGroups).filter(k => !k.startsWith("_project_"));
+    for (const mgId of manualGroupIds) {
+      // Check if any processes still reference this manual group
+      const stillReferenced = Object.values(currentProcessGroupMap).some(v => v === mgId);
+      if (!stillReferenced) {
+        delete currentManualGroups[mgId];
+        currentGroupOrder = currentGroupOrder.filter(g => g !== mgId);
+      }
+    }
+  }
+
   const parents = items.filter((i: any) => !i.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
   const childrenMap = new Map<string, any[]>();
   items.filter((i: any) => i.parent_id).forEach((i: any) => {

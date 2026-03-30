@@ -1499,6 +1499,14 @@ export default function ProposalsList() {
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {p.status === "em_analise_ev" && !isArquiteto && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setCancelEvId(p.id)} className="text-destructive focus:text-destructive">
+                                  <XSquare className="mr-2 h-3.5 w-3.5" />Cancelar Solicitação EV
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {isArquiteto && p.esn_id && (
                               <>
                                 <DropdownMenuSeparator />

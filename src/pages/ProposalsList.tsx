@@ -1770,7 +1770,43 @@ export default function ProposalsList() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Notification dialog (Arquiteto ↔ ESN) */}
+        {/* Cancel EV Request confirmation */}
+        <AlertDialog open={!!cancelEvId} onOpenChange={(open) => !open && setCancelEvId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <AlertDialogTitle>Cancelar Solicitação E.V.?</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="space-y-3 pt-2">
+                <span className="block">
+                  Ao cancelar a solicitação de Análise E.V., as seguintes ações serão realizadas:
+                </span>
+                <span className="block rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>O status da oportunidade voltará para <strong>"Pendente"</strong> ou <strong>"Proposta Gerada"</strong></li>
+                    <li>Projetos ativos vinculados serão <strong>cancelados</strong></li>
+                    <li>O Engenheiro de Valor será <strong>notificado</strong> por e-mail</li>
+                    <li>O escopo dos projetos será <strong>preservado</strong> para reuso futuro</li>
+                  </ul>
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelEvLoading}>Voltar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCancelEv}
+                disabled={cancelEvLoading}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {cancelEvLoading ? "Cancelando..." : "Confirmar Cancelamento"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Sheet open={notifDialogOpen} onOpenChange={setNotifDialogOpen}>
           <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col gap-0 [&>button]:hidden">
             {/* Hero Header */}

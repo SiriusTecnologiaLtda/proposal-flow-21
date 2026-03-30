@@ -59,6 +59,16 @@ export default function ScopeTemplateEditPage() {
   const [saving, setSaving] = useState(false);
   const [createdByName, setCreatedByName] = useState("");
   const [createdAt, setCreatedAt] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Track if content was actually modified (dirty flag)
+  const loadedSnapshotRef = useRef<string>("");
+  const isDirty = useMemo(() => {
+    if (!isEditing || !loadedSnapshotRef.current) return true; // new templates always "dirty"
+    const currentSnapshot = JSON.stringify({ form, parentItems });
+    return currentSnapshot !== loadedSnapshotRef.current;
+  }, [form, parentItems, isEditing]);
 
   // Load existing template
   useEffect(() => {

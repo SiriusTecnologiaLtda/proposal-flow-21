@@ -634,17 +634,20 @@ export default function ProposalsList() {
 
         const { data: existingProjects } = await supabase
           .from("projects")
-          .select("id, proposal_id, proposal_number")
+          .select("id, status, proposal_id, proposal_number")
           .or(`proposal_id.eq.${capturedProposal.id},proposal_number.eq.${capturedProposal.number}`);
 
         if (existingProjects && existingProjects.length > 0) {
           for (const proj of existingProjects) {
-            await supabase
-              .from("projects")
-              .update({ status: "em_revisao", proposal_id: capturedProposal.id, proposal_number: capturedProposal.number })
-              .eq("id", proj.id);
+            // Reopen cancelled projects back to em_revisao, skip concluido
+            if (proj.status !== "concluido") {
+              await supabase
+                .from("projects")
+                .update({ status: "em_revisao", proposal_id: capturedProposal.id, proposal_number: capturedProposal.number })
+                .eq("id", proj.id);
+            }
           }
-        } else {
+        }
           const projectId = crypto.randomUUID();
           await supabase.from("projects").insert({
             id: projectId,

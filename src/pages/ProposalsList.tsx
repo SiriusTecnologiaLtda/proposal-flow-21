@@ -66,6 +66,20 @@ function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): num
   return (totalHours + gpHours) * proposal.hourly_rate;
 }
 
+/** Check if scope was changed after the last generated proposal document */
+function hasScopeChangedAfterLastDoc(proposal: any): boolean {
+  const docs = proposal.proposal_documents || [];
+  const propostaDocs = docs.filter((d: any) => d.doc_type === "proposta");
+  if (propostaDocs.length === 0) return false;
+  
+  const projects = proposal.projects || [];
+  if (projects.length === 0) return false;
+  
+  const latestDocDate = propostaDocs.reduce((max: string, d: any) => d.created_at > max ? d.created_at : max, "");
+  const latestProjectUpdate = projects.reduce((max: string, p: any) => p.updated_at > max ? p.updated_at : max, "");
+  
+  return latestProjectUpdate > latestDocDate;
+}
 
 export default function ProposalsList() {
   const [search, setSearch] = useState("");

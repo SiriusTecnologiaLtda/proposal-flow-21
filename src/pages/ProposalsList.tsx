@@ -1634,7 +1634,13 @@ function hasScopeChangedAfterLastDoc(proposal: any): boolean {
                             {propostaCount > 0 && !isArquiteto && !locked && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setSignatureProposal(p)}>
+                                <DropdownMenuItem onClick={() => {
+                                  if (hasScopeChangedAfterLastDoc(p)) {
+                                    setScopeChangedWarningProposal(p);
+                                  } else {
+                                    setSignatureProposal(p);
+                                  }
+                                }}>
                                   <Send className="mr-2 h-3.5 w-3.5" />Enviar para Assinatura
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>

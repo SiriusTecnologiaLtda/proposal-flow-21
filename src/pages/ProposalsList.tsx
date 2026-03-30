@@ -1162,8 +1162,8 @@ export default function ProposalsList() {
     }
     setChangeLogLoading(false);
   }
-/** Check if scope was changed after the last generated proposal document */
-function hasScopeChangedAfterLastDoc(proposal: any): boolean {
+
+  const isLocked2 = false; // placeholder removed
   const docs = proposal.proposal_documents || [];
   const propostaDocs = docs.filter((d: any) => d.doc_type === "proposta");
   if (propostaDocs.length === 0) return false;

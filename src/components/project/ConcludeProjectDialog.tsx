@@ -295,6 +295,31 @@ export default function ConcludeProjectDialog({ open, onOpenChange, project }: C
       return;
     }
 
+    // Validate scope items exist and have hours > 0
+    try {
+      const { data: scopeItems } = await supabase
+        .from("project_scope_items")
+        .select("id, hours, included")
+        .eq("project_id", project?.id);
+      
+      if (!scopeItems || scopeItems.length === 0) {
+        toast({ title: "Escopo vazio", description: "Não é possível concluir a revisão sem itens no escopo do projeto.", variant: "destructive" });
+        return;
+      }
+
+      const totalHours = scopeItems
+        .filter((i: any) => i.included)
+        .reduce((sum: number, i: any) => sum + (Number(i.hours) || 0), 0);
+
+      if (totalHours <= 0) {
+        toast({ title: "Horas zeradas", description: "O total de horas do escopo deve ser maior que zero para concluir a revisão.", variant: "destructive" });
+        return;
+      }
+    } catch (err) {
+      toast({ title: "Erro", description: "Não foi possível validar o escopo do projeto.", variant: "destructive" });
+      return;
+    }
+
     // Validate before closing
     const effectiveProposalIdCheck = proposalData?.id || fullProject?.proposal_id || project?.proposal_id;
     if (!effectiveProposalIdCheck || !proposalData) {

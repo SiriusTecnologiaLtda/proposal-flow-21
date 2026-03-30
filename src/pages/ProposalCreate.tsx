@@ -577,9 +577,14 @@ export default function ProposalCreate() {
    // Lock scope editing when projects are linked (any user/status)
    const isAdmin = userRole === "admin";
    const hasLinkedProject = addedProjectIds.size > 0;
-   const scopeLocked = hasLinkedProject;
-  const proposalStatus = (existingProposal as any)?.status || "pendente";
-  const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
+   // Find the project linked via proposal_id (the primary linked project)
+   const linkedProject = useMemo(() => {
+     if (!isEditing || !id) return null;
+     return clientProjects.find((p: any) => p.id && (addedProjectIds.has(p.id) || p.proposal_id === id)) || null;
+   }, [clientProjects, addedProjectIds, isEditing, id]);
+   const scopeLocked = hasLinkedProject || !!linkedProject;
+   const proposalStatus = (existingProposal as any)?.status || "pendente";
+   const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
 
   // Round up to nearest multiple of rounding factor
   function roundUpFactor(val: number) {

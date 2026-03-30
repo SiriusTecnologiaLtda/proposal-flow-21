@@ -841,14 +841,8 @@ export default function ProposalsList() {
       const data = await response.json();
 
       if (response.ok && data?.docUrl) {
-        // Clear needs_regen flag and update status to proposta_gerada if generating proposal doc
+        // Clear needs_regen flag after generating document (no longer changes status)
         const updateFields: Record<string, any> = { needs_regen: false };
-        if (docType === "proposta") {
-          const currentProposal = proposals.find(p => p.id === proposalId);
-          if (currentProposal?.status === "pendente" || currentProposal?.status === "analise_ev_concluida") {
-            updateFields.status = "proposta_gerada";
-          }
-        }
         await supabase.from("proposals").update(updateFields as any).eq("id", proposalId);
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", proposalId] });

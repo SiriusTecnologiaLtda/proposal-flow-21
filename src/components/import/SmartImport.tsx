@@ -669,17 +669,22 @@ export default function SmartImport() {
         const storeCode = ev(row, "store_code") || "";
         const key = `${code}|${storeCode}`;
         const existingId = existingMap.get(key);
+        const rowLabel = `Cliente ${code}`;
 
         if (existingId) {
           if (willUpdate) {
-            const upd = buildPayload(row, updateFieldsArr);
+            unresolvedWarnings.length = 0;
+            const upd = buildPayload(row, updateFieldsArr, rowLabel);
+            for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
             const clean: Record<string, any> = {};
             for (const [k, v] of Object.entries(upd)) if (v != null && v !== "") clean[k] = v;
             if (Object.keys(clean).length > 0) toUpdate.push({ id: existingId, data: clean });
             else skipped++;
           } else skipped++;
         } else {
-          const payload = buildPayload(row, allMappedKeys);
+          unresolvedWarnings.length = 0;
+          const payload = buildPayload(row, allMappedKeys, rowLabel);
+          for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
           payload.code = payload.code || code;
           payload.name = payload.name || ev(row, "name");
           payload.cnpj = ev(row, "cnpj") || "";

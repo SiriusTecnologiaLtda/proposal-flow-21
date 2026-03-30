@@ -1,11 +1,18 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LayoutTemplate, ChevronDown, ChevronRight, ChevronUp, Edit2, Plus, CheckCircle2, XCircle, Clock, SlidersHorizontal, CalendarRange, FileText, X } from "lucide-react";
+import { Search, LayoutTemplate, ChevronDown, ChevronRight, ChevronUp, Edit2, Plus, CheckCircle2, XCircle, Clock, SlidersHorizontal, CalendarRange, FileText, X, Trash2 } from "lucide-react";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { useScopeTemplates } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; badgeClass: string; filterClass: string }> = {
   em_revisao: { label: "Em Revisão", icon: Clock, badgeClass: "bg-warning/10 text-warning border-warning/20", filterClass: "text-warning" },

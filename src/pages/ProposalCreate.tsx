@@ -1396,8 +1396,7 @@ export default function ProposalCreate() {
 
         // If this was a new proposal, redirect to edit mode so subsequent saves work correctly
         if (!isEditing) {
-          navigate(`/propostas/${savedId}`, { replace: true });
-          // Small delay to let navigation settle, then the component will remount in edit mode
+          navigate(`/propostas/${savedId}?step=3`, { replace: true });
           setIsAutoSaving(false);
           return;
         }

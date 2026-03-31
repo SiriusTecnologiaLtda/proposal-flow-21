@@ -70,9 +70,7 @@ export default function FeatureRequestsPanel() {
 
       const authorIds = [...new Set((items || []).map((i: any) => i.created_by))];
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name")
-        .in("user_id", authorIds);
+        .rpc("get_profile_display_names", { _user_ids: authorIds });
 
       const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p.display_name]));
 

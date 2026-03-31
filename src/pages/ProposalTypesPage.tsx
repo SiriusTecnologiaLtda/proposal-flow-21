@@ -15,9 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, ArrowLeft, FileText } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { Plus, Pencil, Trash2, ArrowLeft, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import ServiceItemsManager from "@/components/proposal-types/ServiceItemsManager";
 
 interface ProposalType {
   id: string;
@@ -25,12 +24,9 @@ interface ProposalType {
   slug: string;
   template_doc_id: string | null;
   mit_template_doc_id: string | null;
-  analyst_label: string;
-  gp_label: string;
-  rounding_factor: number;
 }
 
-const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8 };
+const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "" };
 
 export default function ProposalTypesPage() {
   const navigate = useNavigate();
@@ -41,6 +37,7 @@ export default function ProposalTypesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ["proposal_types"],
@@ -62,9 +59,6 @@ export default function ProposalTypesPage() {
         slug: values.slug,
         template_doc_id: values.template_doc_id || null,
         mit_template_doc_id: values.mit_template_doc_id || null,
-        analyst_label: values.analyst_label || "Analista de Implantação",
-        gp_label: values.gp_label || "Coordenador de Projeto",
-        rounding_factor: values.rounding_factor || 8,
       };
       if (values.id) {
         const { error } = await supabase.from("proposal_types").update(payload).eq("id", values.id);
@@ -76,7 +70,7 @@ export default function ProposalTypesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["proposal_types"] });
-      toast({ title: "Salvo", description: "Tipo de proposta salvo com sucesso." });
+      toast({ title: "Salvo", description: "Tipo de oportunidade salvo com sucesso." });
       closeDialog();
     },
     onError: (err: any) => {
@@ -117,9 +111,6 @@ export default function ProposalTypesPage() {
       slug: item.slug,
       template_doc_id: item.template_doc_id || "",
       mit_template_doc_id: item.mit_template_doc_id || "",
-      analyst_label: item.analyst_label || "Analista de Implantação",
-      gp_label: item.gp_label || "Coordenador de Projeto",
-      rounding_factor: item.rounding_factor || 8,
     });
     setEditingId(item.id);
     setDialogOpen(true);
@@ -141,7 +132,7 @@ export default function ProposalTypesPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Tipos de Oportunidade</h1>
-          <p className="text-sm text-muted-foreground">Gerencie os tipos de oportunidade e seus templates de documento</p>
+          <p className="text-sm text-muted-foreground">Gerencie os tipos e seus itens de serviço</p>
         </div>
       </div>
 
@@ -152,74 +143,45 @@ export default function ProposalTypesPage() {
             <Plus className="mr-1 h-4 w-4" /> Novo Tipo
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-0">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : types.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum tipo cadastrado.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Template Proposta (Doc ID)</TableHead>
-                  <TableHead>Template MIT (Doc ID)</TableHead>
-                  <TableHead className="w-24">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {types.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        {item.name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{item.slug}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {item.template_doc_id ? (
-                        <a
-                          href={`https://docs.google.com/document/d/${item.template_doc_id}/edit`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {item.template_doc_id.substring(0, 20)}…
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {item.mit_template_doc_id ? (
-                        <a
-                          href={`https://docs.google.com/document/d/${item.mit_template_doc_id}/edit`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {item.mit_template_doc_id.substring(0, 20)}…
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(item.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-2">
+              {types.map((item) => (
+                <div key={item.id} className="border rounded-lg">
+                  {/* Row header */}
+                  <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  >
+                    {expandedId === item.id
+                      ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    }
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium text-sm flex-1">{item.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{item.slug}</span>
+                    <div className="flex gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteId(item.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Expanded: service items */}
+                  {expandedId === item.id && (
+                    <div className="px-4 pb-4 pt-1 border-t bg-muted/30">
+                      <ServiceItemsManager proposalTypeId={item.id} proposalTypeName={item.name} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -228,7 +190,7 @@ export default function ProposalTypesPage() {
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Tipo" : "Novo Tipo de Proposta"}</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Tipo" : "Novo Tipo de Oportunidade"}</DialogTitle>
             <DialogDescription>Defina o nome, slug e IDs dos templates Google Docs.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -265,35 +227,6 @@ export default function ProposalTypesPage() {
                 Template usado para gerar o documento MIT-065 deste tipo de proposta
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <Label>Label Recurso 1 (Analista)</Label>
-                <Input
-                  placeholder="Analista de Implantação"
-                  value={form.analyst_label}
-                  onChange={(e) => setForm({ ...form, analyst_label: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Label Recurso 2 (Coordenador)</Label>
-                <Input
-                  placeholder="Coordenador de Projeto"
-                  value={form.gp_label}
-                  onChange={(e) => setForm({ ...form, gp_label: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Fator de Arredondamento (horas)</Label>
-                <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">4 horas</SelectItem>
-                    <SelectItem value="8">8 horas</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">Arredonda horas para o múltiplo mais próximo</p>
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
@@ -308,9 +241,9 @@ export default function ProposalTypesPage() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir tipo de proposta?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir tipo de oportunidade?</AlertDialogTitle>
             <AlertDialogDescription>
-              Propostas existentes deste tipo não serão afetadas, mas novas propostas não poderão mais usar este tipo.
+              Os itens de serviço deste tipo também serão excluídos. Propostas existentes não serão afetadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

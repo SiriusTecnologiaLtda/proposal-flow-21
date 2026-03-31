@@ -163,6 +163,63 @@ export default function ProjectCreatePage() {
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
 
+  // Financial summary data from linked proposal
+  const [finServiceItems, setFinServiceItems] = useState<any[]>([]);
+  const [finTaxFactor, setFinTaxFactor] = useState(0);
+  const [finUnitName, setFinUnitName] = useState("");
+  const [finLoading, setFinLoading] = useState(false);
+
+  useEffect(() => {
+    if (!existingProject?.proposal_id) { setFinServiceItems([]); return; }
+    let cancelled = false;
+    (async () => {
+      setFinLoading(true);
+      try {
+        const { data: items } = await supabase
+          .from("proposal_service_items")
+          .select("*")
+          .eq("proposal_id", existingProject.proposal_id)
+          .order("sort_order");
+        if (!cancelled) setFinServiceItems(items || []);
+
+        // Get tax factor from client's unit
+        const { data: proposal } = await supabase
+          .from("proposals")
+          .select("client_id")
+          .eq("id", existingProject.proposal_id)
+          .single();
+        if (proposal && !cancelled) {
+          const { data: client } = await supabase
+            .from("clients")
+            .select("unit_id")
+            .eq("id", proposal.client_id)
+            .single();
+          if (client?.unit_id && !cancelled) {
+            const { data: unit } = await supabase
+              .from("unit_info")
+              .select("tax_factor, name")
+              .eq("id", client.unit_id)
+              .single();
+            if (unit && !cancelled) {
+              setFinTaxFactor(Number(unit.tax_factor) || 0);
+              setFinUnitName(unit.name || "");
+            }
+          }
+        }
+      } catch {}
+      if (!cancelled) setFinLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [existingProject?.proposal_id]);
+
+  const finTotalHours = useMemo(() => finServiceItems.reduce((s, i) => s + Number(i.calculated_hours || 0), 0), [finServiceItems]);
+  const finTotalNet = useMemo(() => finServiceItems.reduce((s, i) => s + Number(i.calculated_hours || 0) * Number(i.hourly_rate || 0), 0), [finServiceItems]);
+  const finTotalGross = useMemo(() => finTaxFactor > 0 ? finTotalNet / finTaxFactor : finTotalNet, [finTotalNet, finTaxFactor]);
+  const finGoLiveItems = useMemo(() => finServiceItems.filter(i => Number(i.golive_pct) > 0).map(i => ({
+    ...i,
+    golive_hours: Math.round(Number(i.calculated_hours || 0) * Number(i.golive_pct || 0) / 100),
+  })), [finServiceItems]);
+
   // Load existing project data
   useEffect(() => {
     const projectUpdatedAt = (existingProject as any)?.updated_at;

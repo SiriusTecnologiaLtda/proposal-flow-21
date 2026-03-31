@@ -1081,6 +1081,18 @@ async function replaceAvulsoTablePlaceholder(
   await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_AVULSO}}", headerCells, dataRows, logs);
 }
 
+async function replaceRecHrTotTablePlaceholder(
+  accessToken: string, docId: string, items: { label: string; hours: number; value: number }[], logs: LogEntry[]
+) {
+  const headerCells = ["Recurso", "Horas", "Valor Total"];
+  const dataRows = items.map(si => [
+    si.label,
+    si.hours.toString(),
+    `R$ ${fmt(si.value)}`,
+  ]);
+  await findAndReplaceTablePlaceholder(accessToken, docId, "{{TAB_REC_HR_TOT}}", headerCells, dataRows, logs);
+}
+
 // ─── Main handler ───────────────────────────────────────────────────
 
 Deno.serve(async (req) => {

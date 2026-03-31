@@ -765,7 +765,7 @@ export default function ProjectCreatePage() {
         <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {steps.map((step) => {
             const Icon = step.icon;
             const active = step.id === currentStep;

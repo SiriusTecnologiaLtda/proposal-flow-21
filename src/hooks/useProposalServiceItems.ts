@@ -91,6 +91,41 @@ export function useProposalServiceItems(
   useEffect(() => {
     if (loaded) return;
 
+    // When items were reset (e.g. type change), load from template even during editing
+    if (items.length === 0 && typeServiceItems.length > 0 && !loaded) {
+      // Create local copies from template
+      const localItems: ProposalServiceItem[] = [];
+      const idMap = new Map<string, string>();
+      for (const ti of typeServiceItems) {
+        const localId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        idMap.set(ti.id, localId);
+        localItems.push({
+          id: localId,
+          source_item_id: ti.id,
+          label: ti.label,
+          rounding_factor: Number(ti.rounding_factor),
+          is_base_scope: ti.is_base_scope,
+          additional_pct: Number(ti.additional_pct),
+          hourly_rate: Number(ti.hourly_rate),
+          golive_pct: Number(ti.golive_pct),
+          related_item_id: ti.related_item_id ? (idMap.get(ti.related_item_id) || null) : null,
+          calculated_hours: 0,
+          sort_order: ti.sort_order,
+        });
+      }
+      for (const item of localItems) {
+        if (!item.related_item_id) {
+          const sourceItem = typeServiceItems.find((ti: any) => ti.id === item.source_item_id);
+          if (sourceItem?.related_item_id) {
+            item.related_item_id = idMap.get(sourceItem.related_item_id) || null;
+          }
+        }
+      }
+      setItems(localItems);
+      setLoaded(true);
+      return;
+    }
+
     if (isEditing && existingItems.length > 0) {
       setItems(existingItems.map((i: any) => ({
         id: i.id,

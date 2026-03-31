@@ -64,6 +64,7 @@ const PLACEHOLDERS = [
     { placeholder: "{{TABELA_RECURSOS}}", desc: "Tabela dinâmica com todos os itens: Label, Horas, Valor/Hora, Valor Total" },
     { placeholder: "{{TABELA_GOLIVE}}", desc: "Tabela dinâmica de acompanhamento pós Go-Live por item" },
     { placeholder: "{{TABELA_AVULSO}}", desc: "Tabela dinâmica de hora avulsa/adicional: Serviço Contratado, Valor Hora (Líquido)" },
+    { placeholder: "{{TAB_REC_HR_TOT}}", desc: "Tabela dinâmica com Recurso, Horas e Valor Total de cada item de serviço" },
     { placeholder: "{{QTHR_REC1}}", desc: "Horas do 1º item de serviço (por sort_order)" },
     { placeholder: "{{VRLIQTOT_REC1}}", desc: "Valor total do 1º item de serviço" },
     { placeholder: "{{DESC_RECURSO1}}", desc: "Label/nome do 1º item de serviço" },

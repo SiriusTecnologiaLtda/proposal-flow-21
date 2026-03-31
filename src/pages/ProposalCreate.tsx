@@ -149,6 +149,7 @@ export default function ProposalCreate() {
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
+  const [dateValidity, setDateValidity] = useState("");
   const [travelLocalHours, setTravelLocalHours] = useState(1);
   const [travelTripHours, setTravelTripHours] = useState(4);
   const [travelHourlyRate, setTravelHourlyRate] = useState(250);

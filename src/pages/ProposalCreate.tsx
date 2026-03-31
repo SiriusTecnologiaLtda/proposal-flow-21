@@ -1592,6 +1592,10 @@ export default function ProposalCreate() {
                 <Label className="text-xs text-muted-foreground">Data Prevista de Fechamento</Label>
                 <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} className="h-10" />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data de Validade</Label>
+                <Input type="date" value={dateValidity} onChange={(e) => setDateValidity(e.target.value)} className="h-10" />
+              </div>
             </div>
           </div>
 

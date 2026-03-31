@@ -1596,6 +1596,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Replace {{TAB_REC_HR_TOT}} with Label, Horas, Valor Total ──
+    if (calcServiceItems.length > 0) {
+      log(logs, "Tabela Rec Hr Tot", "info", "Inserindo tabela dinâmica de recursos com horas e valor total...");
+      try {
+        await replaceRecHrTotTablePlaceholder(accessToken, newDocId, calcServiceItems, logs);
+      } catch (e: any) {
+        log(logs, "Tabela Rec Hr Tot", "info", `Placeholder {{TAB_REC_HR_TOT}} não encontrado ou falha: ${e.message}`);
+      }
+    }
+
     // ─── Append detailed scope pages ────────────────────────────
     if (scopeItems.length > 0) {
       log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");

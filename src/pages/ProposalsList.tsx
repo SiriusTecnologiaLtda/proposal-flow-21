@@ -1811,13 +1811,20 @@ export default function ProposalsList() {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Data de Previsão (Validade)</Label>
+                <Label>Data de Validade</Label>
                 <Input type="date" value={editDateValidity} onChange={(e) => setEditDateValidity(e.target.value)} />
               </div>
-              <div className="space-y-2">
-                <Label>Data de Fechamento</Label>
-                <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} />
-              </div>
+              {(() => {
+                const sigs = (editDatesProposal as any)?.proposal_signatures || [];
+                const isTaeWin = editDatesProposal?.status === "ganha" && sigs.some((s: any) => s.status === "completed" && (s.tae_publication_id || s.tae_document_id));
+                return (
+                  <div className="space-y-2">
+                    <Label>Data de Fechamento</Label>
+                    <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} disabled={isTaeWin} />
+                    {isTaeWin && <p className="text-xs text-muted-foreground">Data definida pela integração TAE e não pode ser alterada.</p>}
+                  </div>
+                );
+              })()}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditDatesProposal(null)}>Cancelar</Button>

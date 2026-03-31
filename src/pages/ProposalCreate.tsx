@@ -2520,17 +2520,6 @@ export default function ProposalCreate() {
                           <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
                         </td>
                       </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso Analista (R$)</td>
-                        <td className="py-1 px-3 text-right">
-                          <Input type="number" min={0} value={additionalAnalystRate} onChange={(e) => setAdditionalAnalystRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                        </td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso GP (R$)</td>
-                        <td className="py-1 px-3 text-right">
-                          <Input type="number" min={0} value={additionalGpRate} onChange={(e) => setAdditionalGpRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                        </td>
                       </tr>
                     </tbody>
                   </table>

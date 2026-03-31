@@ -43,10 +43,6 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
-function roundUpFactor(val: number, factor: number): number {
-  if (factor <= 0) return val;
-  return Math.ceil(val / factor) * factor;
-}
 
 function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;

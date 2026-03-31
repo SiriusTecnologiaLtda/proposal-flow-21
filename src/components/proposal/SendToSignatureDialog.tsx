@@ -781,212 +781,27 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   const [previewZoom, setPreviewZoom] = useState(100);
-  const [previewMaximized, setPreviewMaximized] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDialogDoc, setPreviewDialogDoc] = useState<EnvelopeDoc | null>(null);
+  const [previewDialogSize, setPreviewDialogSize] = useState<"default" | "full">("default");
+
+  function openDocPreview(doc: EnvelopeDoc) {
+    setPreviewZoom(100);
+    setPreviewDialogSize("default");
+    setPreviewDialogDoc(doc);
+  }
 
   function renderDocumentosPage() {
     const zoomIn = () => setPreviewZoom((z) => Math.min(z + 25, 200));
     const zoomOut = () => setPreviewZoom((z) => Math.max(z - 25, 50));
     const zoomReset = () => setPreviewZoom(100);
 
-    const docListContent = (
-      <ScrollArea className="h-full">
-        <div className="p-4 space-y-2">
-          {loadingDocs ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center">
-              <p className="text-sm text-muted-foreground">Carregando documentos...</p>
-            </div>
-          ) : envelopeDocs.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center">
-              <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
-            </div>
-          ) : (
-            envelopeDocs.map((doc) => {
-              const isActive = doc.id === activeDocId;
-              return (
-                <button
-                  key={doc.id}
-                  type="button"
-                  onClick={() => setActiveDocId(doc.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-all text-left group",
-                    doc.hasWarning
-                      ? "border-destructive/40 bg-destructive/5"
-                      : isActive
-                      ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                      : doc.selected
-                      ? "border-border bg-gradient-to-r from-accent/30 to-transparent hover:border-primary/30"
-                      : "border-border bg-muted/30 opacity-60 hover:opacity-80"
-                  )}
-                >
-                  <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
-                    <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
-                  </div>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {doc.origin === "Proposta" ? (
-                        <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                      ) : (
-                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      )}
-                      <span className="text-sm font-medium text-foreground truncate min-w-0">{doc.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
-                      {doc.mandatory && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                          <Lock className="h-2.5 w-2.5" /> Obrigatório
-                        </span>
-                      )}
-                    </div>
-                    {doc.hasWarning && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                        <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
-                      </div>
-                    )}
-                  </div>
-                  {isActive ? (
-                    <Eye className="h-4 w-4 text-primary shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
-                  )}
-                </button>
-              );
-            })
-          )}
-
-          {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
-            <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
-              <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
-              </p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    );
-
-    const previewContent = (
-      <div className="flex flex-col h-full">
-        {activeDoc && (
-          <div className="shrink-0 px-3 py-2 border-b border-border bg-card/50 flex items-center gap-2 min-w-0 overflow-hidden">
-            <Eye className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{activeDoc.name}</span>
-            <div className="flex items-center gap-0.5 shrink-0">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut} title="Diminuir zoom">
-                <ZoomOut className="h-3.5 w-3.5" />
-              </Button>
-              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[32px] text-center transition-colors">
-                {previewZoom}%
-              </button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn} title="Aumentar zoom">
-                <ZoomIn className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized(true)} title="Maximizar">
-                <Maximize2 className="h-3.5 w-3.5" />
-              </Button>
-              {activeDoc.fileUrl && (
-                <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir externamente">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
-                </a>
-              )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewOpen(false)} title="Fechar preview">
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
-        <div className="flex-1 min-h-0 overflow-auto">
-          {!activeDoc ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <FileText className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Selecione um documento para visualizar</p>
-              </div>
-            </div>
-          ) : previewUrl ? (
-            <iframe
-              key={activeDocId}
-              src={previewUrl}
-              className="border-0 w-full h-full"
-              style={{ minWidth: "100%", minHeight: "100%" }}
-              title={`Preview: ${activeDoc.name}`}
-              sandbox="allow-scripts allow-same-origin allow-popups"
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center p-8">
-              <div className="text-center max-w-sm">
-                <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
-                  <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
-                </div>
-                <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
-                <p className="text-xs text-muted-foreground mb-4">Não foi possível gerar a pré-visualização.</p>
-                {activeDoc.fileUrl && (
-                  <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <ExternalLink className="h-3.5 w-3.5" /> Abrir no Drive
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-
-    // Maximized preview overlay
-    if (previewMaximized && activeDoc) {
-      return (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col">
-          <div className="shrink-0 px-4 py-2.5 border-b border-border bg-card flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Eye className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut}><ZoomOut className="h-3.5 w-3.5" /></Button>
-              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[40px] text-center">{previewZoom}%</button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn}><ZoomIn className="h-3.5 w-3.5" /></Button>
-              <Separator orientation="vertical" className="h-4 mx-1" />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized(false)}><Minimize2 className="h-3.5 w-3.5" /></Button>
-              {activeDoc.fileUrl && (
-                <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="icon" className="h-7 w-7"><ExternalLink className="h-3.5 w-3.5" /></Button>
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 min-h-0 overflow-auto">
-            {previewUrl ? (
-              <iframe
-                key={`max-${activeDocId}`}
-                src={previewUrl}
-                className="border-0 w-full h-full"
-                style={{ minWidth: "100%", minHeight: "100%" }}
-                title={`Preview: ${activeDoc.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Preview indisponível</p>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
+    const pDoc = previewDialogDoc;
+    const pUrl = pDoc ? buildPreviewUrl(pDoc) : null;
 
     return (
       <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: "calc(100vh - 380px)" }}>
-          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3 shrink-0">
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
+          <div className="px-5 pt-5 pb-3 shrink-0">
             <div className="min-w-0">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 shrink-0">
@@ -995,34 +810,179 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                 Documentos do envelope
               </div>
               <p className="text-sm text-muted-foreground">
-                Confira os documentos que serão enviados. A proposta é obrigatória.
+                Confira os documentos que serão enviados. A proposta é obrigatória. Clique no ícone de visualização para pré-visualizar.
               </p>
             </div>
-            {activeDoc && !previewOpen && (
-              <Button variant="outline" size="sm" className="shrink-0 gap-1.5 text-xs" onClick={() => setPreviewOpen(true)}>
-                <Eye className="h-3.5 w-3.5" /> Visualizar
-              </Button>
-            )}
           </div>
 
-          <div className="border-t border-border flex-1 min-h-0" style={{ minHeight: previewOpen ? "400px" : undefined }}>
-            {previewOpen ? (
-              <ResizablePanelGroup direction="horizontal" className="h-full">
-                <ResizablePanel defaultSize={35} minSize={20} maxSize={60}>
-                  {docListContent}
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={65} minSize={30}>
-                  <div className="h-full bg-muted/20">
-                    {previewContent}
+          <div className="border-t border-border">
+            <ScrollArea className="max-h-[calc(100vh-480px)]">
+              <div className="p-4 space-y-2">
+                {loadingDocs ? (
+                  <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                    <p className="text-sm text-muted-foreground">Carregando documentos...</p>
                   </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            ) : (
-              docListContent
-            )}
+                ) : envelopeDocs.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                    <FileQuestion className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-muted-foreground">Nenhum documento encontrado</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Gere a proposta primeiro.</p>
+                  </div>
+                ) : (
+                  envelopeDocs.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-all text-left",
+                        doc.hasWarning
+                          ? "border-destructive/40 bg-destructive/5"
+                          : doc.selected
+                          ? "border-border bg-gradient-to-r from-accent/30 to-transparent"
+                          : "border-border bg-muted/30 opacity-60"
+                      )}
+                    >
+                      <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
+                        <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
+                      </div>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {doc.origin === "Proposta" ? (
+                            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                          ) : (
+                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="text-sm font-medium text-foreground truncate min-w-0">{doc.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
+                          {doc.mandatory && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                              <Lock className="h-2.5 w-2.5" /> Obrigatório
+                            </span>
+                          )}
+                        </div>
+                        {doc.hasWarning && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <AlertTriangle className="h-3 w-3 text-destructive" />
+                            <span className="text-[11px] text-destructive">{doc.warningMessage}</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary"
+                        onClick={() => openDocPreview(doc)}
+                        title="Visualizar documento"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+
+                {!loadingDocs && !projectInfo && envelopeDocs.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
+                    <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground">
+                      Nenhum projeto vinculado a esta oportunidade. Anexos de escopo não serão incluídos.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </div>
         </div>
+
+        {/* Preview Dialog */}
+        {pDoc && (
+          <div
+            className={cn(
+              "fixed inset-0 z-[60] flex items-center justify-center bg-black/60",
+              previewDialogSize === "full" ? "" : ""
+            )}
+            onClick={() => setPreviewDialogDoc(null)}
+          >
+            <div
+              className={cn(
+                "bg-background border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden",
+                previewDialogSize === "full"
+                  ? "w-[calc(100vw-40px)] h-[calc(100vh-40px)]"
+                  : "w-[80vw] max-w-4xl h-[75vh]"
+              )}
+              onClick={(e) => e.stopPropagation()}
+              style={{ resize: previewDialogSize === "default" ? "both" : undefined, minWidth: 400, minHeight: 300 }}
+            >
+              {/* Toolbar */}
+              <div className="shrink-0 px-4 py-2.5 border-b border-border bg-card flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Eye className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate">{pDoc.name}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut} title="Diminuir zoom">
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </Button>
+                  <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[40px] text-center transition-colors">
+                    {previewZoom}%
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn} title="Aumentar zoom">
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </Button>
+                  <Separator orientation="vertical" className="h-4 mx-1" />
+                  <Button
+                    variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => setPreviewDialogSize(previewDialogSize === "full" ? "default" : "full")}
+                    title={previewDialogSize === "full" ? "Restaurar" : "Maximizar"}
+                  >
+                    {previewDialogSize === "full" ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  </Button>
+                  {pDoc.fileUrl && (
+                    <a href={pDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir externamente">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    </a>
+                  )}
+                  <Separator orientation="vertical" className="h-4 mx-1" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewDialogDoc(null)} title="Fechar">
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-h-0 overflow-auto bg-muted/20">
+                {pUrl ? (
+                  <iframe
+                    key={pDoc.id}
+                    src={pUrl}
+                    className="border-0 w-full h-full"
+                    style={{ minWidth: `${previewZoom}%`, minHeight: `${previewZoom}%` }}
+                    title={`Preview: ${pDoc.name}`}
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center p-8">
+                    <div className="text-center max-w-sm">
+                      <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center">
+                        <FileQuestion className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground mb-1">Preview indisponível</p>
+                      <p className="text-xs text-muted-foreground mb-4">Não foi possível gerar a pré-visualização.</p>
+                      {pDoc.fileUrl && (
+                        <a href={pDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <ExternalLink className="h-3.5 w-3.5" /> Abrir no Drive
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

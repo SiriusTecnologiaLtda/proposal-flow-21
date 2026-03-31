@@ -143,6 +143,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </header>
         <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </div>
+      <XaiAssistant />
     </div>
   );
 }

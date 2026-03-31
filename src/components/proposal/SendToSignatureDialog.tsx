@@ -592,8 +592,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   }
 
   const selectedDocsCount = envelopeDocs.filter((d) => d.selected).length;
-  const activeDoc = envelopeDocs.find((d) => d.id === activeDocId) || null;
-  const previewUrl = activeDoc ? buildPreviewUrl(activeDoc) : null;
 
   const progress = useMemo(() => ((currentStep + 1) / STEPS.length) * 100, [currentStep]);
 

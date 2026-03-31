@@ -447,6 +447,15 @@ Deno.serve(async (req) => {
       unitInfo = data;
     }
 
+    // ─── Fetch proposal service items ───────────────────────────
+    const { data: serviceItems = [] } = await supabase
+      .from("proposal_service_items")
+      .select("*")
+      .eq("proposal_id", proposalId)
+      .order("sort_order");
+
+    log(logs, "Itens de serviço", "ok", `${serviceItems.length} item(ns) de serviço encontrado(s)`);
+
     // ─── Calculate values ───────────────────────────────────────
     const scopeItems = proposal.proposal_scope_items || [];
     const includedItems = scopeItems.filter((i: any) => i.included);
@@ -458,18 +467,74 @@ Deno.serve(async (req) => {
       templateNames = (templates || []).reduce((acc: any, t: any) => ({ ...acc, [t.id]: t.name }), {});
     }
 
-    const totalAnalystHours = roundUp(parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0), roundingFactor);
-    const gpPercentage = Number(proposal.gp_percentage);
-    const gpHours = roundUp(Math.ceil(totalAnalystHours * (gpPercentage / 100)), roundingFactor);
-    const hourlyRate = Number(proposal.hourly_rate);
-    const totalHours = totalAnalystHours + gpHours;
-    const totalValueNet = totalHours * hourlyRate;
+    const totalAnalystHoursRaw = parentItems.reduce((s: number, i: any) => s + Number(i.hours), 0);
+
+    // ─── Dynamic service items calculation ──────────────────────
+    let totalHours = 0;
+    let totalValueNet = 0;
+    let totalAnalystHours = 0;
+    let gpHours = 0;
+    let accompAnalystHours = 0;
+    let accompGPHours = 0;
+
+    interface CalcServiceItem {
+      label: string;
+      hours: number;
+      hourlyRate: number;
+      value: number;
+      golivePct: number;
+      goliveHours: number;
+      isBaseScope: boolean;
+    }
+    const calcServiceItems: CalcServiceItem[] = [];
+
+    if (serviceItems.length > 0) {
+      const baseItem = serviceItems.find((si: any) => si.is_base_scope);
+      const baseHours = baseItem ? roundUp(totalAnalystHoursRaw, Number(baseItem.rounding_factor || roundingFactor)) : roundUp(totalAnalystHoursRaw, roundingFactor);
+
+      for (const si of serviceItems) {
+        let hours: number;
+        if (si.is_base_scope) {
+          hours = baseHours;
+        } else {
+          const relatedItem = si.related_item_id
+            ? serviceItems.find((r: any) => r.id === si.related_item_id)
+            : baseItem;
+          const relatedHours = relatedItem?.is_base_scope ? baseHours : 0;
+          const rawH = Math.ceil(relatedHours * (Number(si.additional_pct) / 100));
+          hours = roundUp(rawH, Number(si.rounding_factor || roundingFactor));
+        }
+        const rate = Number(si.hourly_rate || 250);
+        const golivePct = Number(si.golive_pct || 0);
+        const goliveHours = golivePct > 0 ? roundUp(Math.ceil(hours * (golivePct / 100)), Number(si.rounding_factor || roundingFactor)) : 0;
+
+        calcServiceItems.push({ label: si.label, hours, hourlyRate: rate, value: hours * rate, golivePct, goliveHours, isBaseScope: si.is_base_scope });
+        totalHours += hours;
+        totalValueNet += hours * rate;
+      }
+
+      totalAnalystHours = calcServiceItems.find(i => i.isBaseScope)?.hours || baseHours;
+      gpHours = totalHours - totalAnalystHours;
+      accompAnalystHours = calcServiceItems.find(i => i.isBaseScope)?.goliveHours || 0;
+      accompGPHours = calcServiceItems.filter(i => !i.isBaseScope).reduce((s, i) => s + i.goliveHours, 0);
+    } else {
+      totalAnalystHours = roundUp(totalAnalystHoursRaw, roundingFactor);
+      const gpPercentage = Number(proposal.gp_percentage);
+      gpHours = roundUp(Math.ceil(totalAnalystHours * (gpPercentage / 100)), roundingFactor);
+      const hourlyRate = Number(proposal.hourly_rate);
+      totalHours = totalAnalystHours + gpHours;
+      totalValueNet = totalHours * hourlyRate;
+      const accompAnalyst = Number(proposal.accomp_analyst) || 0;
+      const accompGP = Number(proposal.accomp_gp) || 0;
+      accompAnalystHours = roundUp(Math.ceil(totalAnalystHours * (accompAnalyst / 100)), roundingFactor);
+      accompGPHours = roundUp(Math.ceil(gpHours * (accompGP / 100)), roundingFactor);
+
+      calcServiceItems.push({ label: analystLabel, hours: totalAnalystHours, hourlyRate, value: totalAnalystHours * hourlyRate, golivePct: accompAnalyst, goliveHours: accompAnalystHours, isBaseScope: true });
+      calcServiceItems.push({ label: gpLabelText, hours: gpHours, hourlyRate, value: gpHours * hourlyRate, golivePct: accompGP, goliveHours: accompGPHours, isBaseScope: false });
+    }
+
     const taxFactor = unitInfo?.tax_factor || 0;
     const totalValueGross = taxFactor > 0 ? totalValueNet / taxFactor : totalValueNet;
-    const accompAnalyst = Number(proposal.accomp_analyst) || 0;
-    const accompGP = Number(proposal.accomp_gp) || 0;
-    const accompAnalystHours = roundUp(Math.ceil(totalAnalystHours * (accompAnalyst / 100)), roundingFactor);
-    const accompGPHours = roundUp(Math.ceil(gpHours * (accompGP / 100)), roundingFactor);
 
     const client = proposal.clients;
     const esn = proposal.esn;
@@ -479,66 +544,14 @@ Deno.serve(async (req) => {
     const isProjeto = proposal.type === "projeto";
     const desc = proposal.description || (isProjeto ? "Projeto de Implantação" : "Banco de Horas");
 
-    log(logs, "Calcular valores", "ok", `${totalHours}h total — R$ ${fmt(totalValueGross)} bruto`);
+    log(logs, "Calcular valores", "ok", `${totalHours}h total — R$ ${fmt(totalValueGross)} bruto — ${calcServiceItems.length} item(ns)`);
 
-    // ─── Google Auth ────────────────────────────────────────────
-    log(logs, "Autenticação Google", "info", `Obtendo token (${authType})...`);
-    let accessToken: string;
-    try {
-      if (authType === "oauth2") {
-        accessToken = await getAccessTokenOAuth2(oauthClientId, oauthClientSecret, oauthRefreshToken);
-      } else {
-        accessToken = await getAccessTokenServiceAccount(serviceAccountKey);
-      }
-      log(logs, "Autenticação Google", "ok", "Token obtido");
-    } catch (e: any) {
-      log(logs, "Autenticação Google", "error", `Falha: ${e.message}`);
-      return respondWithLogs(logs, { error: e.message }, 500);
-    }
-
-    // ─── Find MIT template from proposal_types ────────────────
-    log(logs, "Buscar template MIT", "info", `Buscando template MIT para tipo "${proposal.type}"...`);
-
-    const { data: proposalTypeRow } = await supabase
-      .from("proposal_types")
-      .select("mit_template_doc_id")
-      .eq("slug", proposal.type)
-      .maybeSingle();
-
-    const templateDocId = proposalTypeRow?.mit_template_doc_id;
-    if (!templateDocId) {
-      log(logs, "Buscar template MIT", "error", `Nenhum template MIT configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.`);
-      return respondWithLogs(logs, { error: `No MIT template configured for type "${proposal.type}"` }, 404);
-    }
-    log(logs, "Buscar template MIT", "ok", `Template MIT ID: ${templateDocId}`);
-
-    // ─── Version check ──────────────────────────────────────────
-    const mitBaseName = `MIT-065 ${proposal.number} - ${client?.name || "Cliente"}`;
-    const existingFiles = await listFilesInFolder(accessToken, outputFolderId, mitBaseName);
-    const version = existingFiles.length + 1;
-    const newFileName = `${mitBaseName} v${version}`;
-    log(logs, "Versionamento", "ok", `Versão ${version} — Nome: "${newFileName}"`);
-
-    // ─── Copy template ──────────────────────────────────────────
-    const folderInfo = await getFolderDriveInfo(accessToken, outputFolderId, logs);
-    log(logs, "Copiar template", "info", "Criando cópia...");
-    let newDocId: string;
-    try {
-      newDocId = await copyFile(accessToken, templateDocId, newFileName, outputFolderId, folderInfo.driveId, logs);
-      log(logs, "Copiar template", "ok", `Documento criado: ${newDocId}`);
-    } catch (e: any) {
-      log(logs, "Copiar template", "error", `Falha: ${e.message}`);
-      return respondWithLogs(logs, { error: e.message }, 500);
-    }
-
-    // ─── Build placeholders ─────────────────────────────────────
-    // Build macro scope names using group_notes to respect UI ordering
+    // Build macro scope names
     const proposalGroupNotes = proposal.group_notes || {};
     const manualGroups: Record<string, string> = proposalGroupNotes._manual_groups || {};
     const processGroupMap: Record<string, string> = proposalGroupNotes._process_group_map || {};
     const groupOrderList: string[] = Array.isArray(proposalGroupNotes._group_order) ? proposalGroupNotes._group_order : [];
     
-    // Build groups from included parents
     const groupMap: Record<string, string> = {};
     for (const parent of parentItems) {
       let groupKey = processGroupMap[parent.id] || "";
@@ -564,11 +577,16 @@ Deno.serve(async (req) => {
       }
       groupMap[groupKey] = groupName;
     }
-    // Order
     const orderedKeys: string[] = [];
     for (const key of groupOrderList) { if (groupMap[key]) orderedKeys.push(key); }
     for (const key of Object.keys(groupMap)) { if (!orderedKeys.includes(key)) orderedKeys.push(key); }
     const macroScopeNames = orderedKeys.map(k => groupMap[k]);
+
+    // Backward compat
+    const rec1 = calcServiceItems[0];
+    const rec2 = calcServiceItems[1];
+    const hourlyRate = rec1?.hourlyRate || Number(proposal.hourly_rate || 250);
+
     const placeholders: Record<string, string> = {
       "{{ID_PROPOSTA}}": proposal.number || "",
       "{{CLIENTE}}": client?.name || "—",
@@ -597,27 +615,38 @@ Deno.serve(async (req) => {
       "{{CIDADE}}": unitInfo?.city || "—",
       "{{DESC_PROJETO}}": desc,
       "{{QT_TOTALHRS}}": totalHours.toString(),
-      "{{QTHR_REC1}}": totalAnalystHours.toString(),
-      "{{VRLIQTOT_REC1}}": fmt(totalAnalystHours * hourlyRate),
-      "{{QTHR_REC2}}": gpHours.toString(),
-      "{{VRLIQTOT_REC2}}": fmt(gpHours * hourlyRate),
+      "{{QTHR_REC1}}": rec1 ? rec1.hours.toString() : totalAnalystHours.toString(),
+      "{{VRLIQTOT_REC1}}": rec1 ? fmt(rec1.value) : fmt(totalAnalystHours * hourlyRate),
+      "{{DESC_RECURSO1}}": rec1 ? rec1.label : analystLabel,
+      "{{QTHR_REC2}}": rec2 ? rec2.hours.toString() : gpHours.toString(),
+      "{{VRLIQTOT_REC2}}": rec2 ? fmt(rec2.value) : fmt(gpHours * hourlyRate),
+      "{{DESC_RECURSO2}}": rec2 ? rec2.label : gpLabelText,
       "{{QTHR_TOTAL}}": totalHours.toString(),
-      "{{QT_HR_ACOMP1}}": accompAnalystHours.toString(),
-      "{{QT_HR_ACOMP2}}": accompGPHours.toString(),
+      "{{QT_HR_ACOMP1}}": rec1 ? rec1.goliveHours.toString() : accompAnalystHours.toString(),
+      "{{QT_HR_ACOMP2}}": rec2 ? rec2.goliveHours.toString() : accompGPHours.toString(),
       "{{QT_HORAS_TRASL}}": (proposal.travel_local_hours || 1).toString(),
       "{{QT_HORAS_TRASV}}": (proposal.travel_trip_hours || 4).toString(),
       "{{VR_TRAS}}": fmt(Number(proposal.travel_hourly_rate || 250)),
       "{{QT_EMPRESAS}}": (proposal.num_companies || 1).toString(),
-      "{{VR_HORA_ADIC1}}": fmt(Number(proposal.additional_analyst_rate)),
-      "{{VR_HORA_ADIC2}}": fmt(Number(proposal.additional_gp_rate)),
+      "{{VR_HORA_ADIC1}}": rec1 ? fmt(rec1.hourlyRate) : fmt(Number(proposal.additional_analyst_rate)),
+      "{{VR_HORA_ADIC2}}": rec2 ? fmt(rec2.hourlyRate) : fmt(Number(proposal.additional_gp_rate)),
       "{{TOTAL_VALOR_BRUTO}}": fmt(totalValueGross),
       "{{TOTAL_VALOR_LIQUI}}": fmt(totalValueNet),
       "{{QT_PARCELAS}}": payments.length.toString(),
-      "{{DESC_RECURSO1}}": analystLabel,
-      "{{DESC_RECURSO2}}": gpLabelText,
       "{{NEGOCIACAO}}": proposal.negotiation || "",
       "{{CONTEUDO_NEGESPECIFICA}}": proposal.negotiation || "",
     };
+
+    // Dynamic service item placeholders: {{QTHR_REC3}}, etc.
+    for (let idx = 2; idx < calcServiceItems.length; idx++) {
+      const si = calcServiceItems[idx];
+      const n = idx + 1;
+      placeholders[`{{QTHR_REC${n}}}`] = si.hours.toString();
+      placeholders[`{{VRLIQTOT_REC${n}}}`] = fmt(si.value);
+      placeholders[`{{DESC_RECURSO${n}}}`] = si.label;
+      placeholders[`{{QT_HR_ACOMP${n}}}`] = si.goliveHours.toString();
+      placeholders[`{{VR_HORA_ADIC${n}}}`] = fmt(si.hourlyRate);
+    }
 
     // ─── Replace placeholders ───────────────────────────────────
     log(logs, "Substituir placeholders", "info", `Substituindo ${Object.keys(placeholders).length} placeholders...`);

@@ -14,8 +14,10 @@ import {
   Plus, Trash2, UserPlus, Users, Send, Lock, Building,
   FileText, Paperclip, ChevronRight, AlertTriangle,
   BookOpen, ExternalLink, Eye, FileQuestion, CheckCircle2,
-  Check, Mail, ClipboardList, ArrowLeft, ArrowRight, Sparkles, X
+  Check, Mail, ClipboardList, ArrowLeft, ArrowRight, Sparkles, X,
+  ZoomIn, ZoomOut, Maximize2, Minimize2
 } from "lucide-react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";

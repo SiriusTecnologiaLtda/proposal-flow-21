@@ -26,8 +26,8 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
     let contextData = "";
+    let aiModel = "google/gemini-2.5-flash"; // default
 
     if (authHeader) {
       const supabase = createClient(supabaseUrl, supabaseKey, {

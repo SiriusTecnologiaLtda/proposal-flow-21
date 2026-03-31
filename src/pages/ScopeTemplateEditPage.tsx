@@ -620,7 +620,25 @@ export default function ScopeTemplateEditPage() {
         </div>
       </div>
 
-      {/* Delete Confirmation */}
+      {/* Notes Dialog */}
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{notesDialogLabel}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={notesDialogValue}
+            onChange={(e) => setNotesDialogValue(e.target.value)}
+            placeholder="Digite o comentário..."
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={saveNotesDialog}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

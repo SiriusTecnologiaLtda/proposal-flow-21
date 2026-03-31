@@ -2199,6 +2199,24 @@ export type Database = {
         }
         Relationships: []
       }
+      xai_config: {
+        Row: {
+          ai_model: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       profiles_safe: {

@@ -26,8 +26,8 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
     let contextData = "";
+    let aiModel = "google/gemini-2.5-flash"; // default
 
     if (authHeader) {
       const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -35,6 +35,14 @@ serve(async (req) => {
       });
 
       try {
+        // Read configured AI model
+        const { data: xaiCfg } = await supabase
+          .from("xai_config")
+          .select("ai_model")
+          .limit(1)
+          .maybeSingle();
+        if (xaiCfg?.ai_model) aiModel = xaiCfg.ai_model;
+
         if (allowedResources?.includes("propostas") || userRole === "admin") {
           // Fetch detailed proposals with client names for rich context
           const { data: proposals, count } = await supabase
@@ -202,7 +210,7 @@ REGRAS IMPORTANTES:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: aiModel,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,

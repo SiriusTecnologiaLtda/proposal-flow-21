@@ -1586,11 +1586,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Replace {{TABELA_AVULSO}} with service items hourly rates ──
+    // ─── Replace {{TABELA_AVULSO}} with template hourly rates (from Tipo de Oportunidade) ──
     if (calcServiceItems.length > 0) {
-      log(logs, "Tabela Avulso", "info", "Inserindo tabela dinâmica de hora avulsa/adicional...");
+      log(logs, "Tabela Avulso", "info", "Buscando valores hora do cadastro de Tipo de Oportunidade...");
       try {
-        await replaceAvulsoTablePlaceholder(accessToken, newDocId, calcServiceItems, logs);
+        // Fetch template hourly rates from proposal_type_service_items via source_item_id
+        const sourceItemIds = serviceItems.map((si: any) => si.source_item_id).filter(Boolean);
+        let templateRateMap: Record<string, number> = {};
+        if (sourceItemIds.length > 0) {
+          const { data: templateItems } = await supabase
+            .from("proposal_type_service_items")
+            .select("id, hourly_rate")
+            .in("id", sourceItemIds);
+          if (templateItems) {
+            templateRateMap = templateItems.reduce((acc: any, ti: any) => ({ ...acc, [ti.id]: Number(ti.hourly_rate) }), {});
+          }
+        }
+        const avulsoItems = calcServiceItems.map((ci, idx) => {
+          const si = serviceItems[idx];
+          const templateRate = si?.source_item_id ? templateRateMap[si.source_item_id] : undefined;
+          return { label: ci.label, hourlyRate: templateRate ?? ci.hourlyRate };
+        });
+        await replaceAvulsoTablePlaceholder(accessToken, newDocId, avulsoItems, logs);
       } catch (e: any) {
         log(logs, "Tabela Avulso", "info", `Placeholder {{TABELA_AVULSO}} não encontrado ou falha: ${e.message}`);
       }

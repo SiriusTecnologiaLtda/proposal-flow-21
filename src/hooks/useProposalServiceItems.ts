@@ -153,6 +153,12 @@ export function useProposalServiceItems(
     }
   }, [proposalTypeSlug, isEditing]);
 
+  // Force reload items from template (used when type changes on existing proposal)
+  const resetToTemplate = useCallback(() => {
+    setLoaded(false);
+    setItems([]);
+  }, []);
+
   // Recalculate hours whenever rawScopeHours or items change
   const calculatedItems = useMemo(() => {
     if (items.length === 0) return [];

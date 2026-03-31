@@ -343,7 +343,7 @@ export function useCreateProposal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (proposal: any) => {
-      const { scopeItems, payments, id, ...proposalData } = proposal;
+      const { scopeItems, payments, serviceItems, id, ...proposalData } = proposal;
       const proposalId = id || crypto.randomUUID();
 
       const { error } = await supabase.from("proposals").insert({
@@ -363,6 +363,12 @@ export function useCreateProposal() {
         }));
         const { error: payError } = await supabase.from("payment_conditions").insert(paymentRows);
         if (payError) throw payError;
+      }
+
+      // Persist service items
+      if (serviceItems && serviceItems.length > 0) {
+        const { error: siError } = await supabase.from("proposal_service_items").insert(serviceItems);
+        if (siError) throw siError;
       }
 
       return { id: proposalId };

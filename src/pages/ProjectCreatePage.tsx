@@ -94,6 +94,7 @@ const steps = [
   { id: 1, label: "Dados do Projeto", icon: FileText },
   { id: 2, label: "Escopo", icon: ClipboardList },
   { id: 3, label: "Anexos", icon: Paperclip },
+  { id: 4, label: "Resumo Financeiro", icon: DollarSign },
 ];
 
 export default function ProjectCreatePage() {

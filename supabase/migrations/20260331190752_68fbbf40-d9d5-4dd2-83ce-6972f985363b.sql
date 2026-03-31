@@ -1,0 +1,1 @@
+ALTER TABLE public.scope_template_items ADD COLUMN notes text DEFAULT null;

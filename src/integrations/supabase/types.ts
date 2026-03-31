@@ -1583,6 +1583,7 @@ export type Database = {
           default_hours: number
           description: string
           id: string
+          notes: string | null
           parent_id: string | null
           sort_order: number
           template_id: string
@@ -1591,6 +1592,7 @@ export type Database = {
           default_hours?: number
           description: string
           id?: string
+          notes?: string | null
           parent_id?: string | null
           sort_order?: number
           template_id: string
@@ -1599,6 +1601,7 @@ export type Database = {
           default_hours?: number
           description?: string
           id?: string
+          notes?: string | null
           parent_id?: string | null
           sort_order?: number
           template_id?: string

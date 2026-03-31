@@ -583,9 +583,6 @@ export default function ProposalCreate() {
   const analystLabel = currentProposalTypeConfig?.analyst_label || "Analista de Implantação";
   const gpLabel = currentProposalTypeConfig?.gp_label || "Coordenador de Projeto";
   const roundingFactor = currentProposalTypeConfig?.rounding_factor || 8;
-  const allowProject = currentProposalTypeConfig?.allow_project ?? true;
-  const requireProject = currentProposalTypeConfig?.require_project ?? false;
-  const allowStandaloneScope = currentProposalTypeConfig?.allow_standalone_scope ?? true;
 
    // Lock scope editing when projects are linked (any user/status)
    const isAdmin = userRole === "admin";

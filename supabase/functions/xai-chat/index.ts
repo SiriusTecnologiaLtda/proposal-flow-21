@@ -35,6 +35,14 @@ serve(async (req) => {
       });
 
       try {
+        // Read configured AI model
+        const { data: xaiCfg } = await supabase
+          .from("xai_config")
+          .select("ai_model")
+          .limit(1)
+          .maybeSingle();
+        if (xaiCfg?.ai_model) aiModel = xaiCfg.ai_model;
+
         if (allowedResources?.includes("propostas") || userRole === "admin") {
           // Fetch detailed proposals with client names for rich context
           const { data: proposals, count } = await supabase

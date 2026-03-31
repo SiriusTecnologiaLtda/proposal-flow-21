@@ -1061,11 +1061,10 @@ async function replaceResourceTablePlaceholder(
 async function replaceGoLiveTablePlaceholder(
   accessToken: string, docId: string, items: { label: string; goliveHours: number; golivePct: number }[], logs: LogEntry[]
 ) {
-  const headerCells = ["Recurso", "% Go-Live", "Horas Acompanhamento"];
+  const headerCells = ["Recurso", "Horas Acompanhamento"];
   const dataRows = items.map(si => [
-    si.label,
-    `${si.golivePct}%`,
-    si.goliveHours.toString(),
+    `${si.label} (${si.golivePct}%)`,
+    `${si.goliveHours}h`,
   ]);
   await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_GOLIVE}}", headerCells, dataRows, logs);
 }

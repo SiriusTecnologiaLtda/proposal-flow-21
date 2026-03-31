@@ -12,7 +12,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -425,174 +425,172 @@ export default function ProjectsPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">OPP</TableHead>
-              <TableHead className="min-w-[120px]">Cliente</TableHead>
-              <TableHead className="hidden xl:table-cell">ESN</TableHead>
-              <TableHead className="hidden xl:table-cell">GSN</TableHead>
-              <TableHead className="hidden lg:table-cell">Unidade</TableHead>
-              <TableHead>Produto</TableHead>
-              <TableHead className="hidden lg:table-cell">Eng. Valor</TableHead>
-              <TableHead className="hidden md:table-cell">Data</TableHead>
-              <TableHead className="text-right">Horas</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell w-24">Oportunidade</TableHead>
-              <TableHead className="text-right hidden sm:table-cell">Itens</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-              <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
-                  <FolderKanban className="mx-auto h-8 w-8 mb-2 opacity-40" />
-                  Nenhum projeto encontrado
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleProjects.map((project: any) => {
-                const effectiveStatus = project.status === "rascunho" ? "pendente" : project.status;
-                const statusInfo = STATUS_MAP[effectiveStatus] || STATUS_MAP.pendente;
-                const scopeCount = project.project_scope_items?.length || 0;
-                const attachCount = project.project_attachments?.length || 0;
-                const totalHours = getTotalHours(project);
-                const createdDate = project.created_at
-                  ? new Date(project.created_at).toLocaleDateString("pt-BR")
-                  : "—";
-                const hasProposal = !!(project.proposal_id || project.proposal_number);
-                const proposalStatus = project.proposals?.status || null;
-                const proposalCategory = getProposalStatusCategory(proposalStatus);
-                const proposalStatusInfo = proposalCategory ? PROPOSAL_STATUS_MAP[proposalCategory] : null;
-                const ProposalIcon = proposalStatusInfo?.icon || null;
+        {/* Grid Header */}
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[auto_2fr_1fr_1fr_1fr_auto_1fr_auto_auto_auto_auto_auto_auto] md:gap-3 md:items-center">
+          <span className="text-xs font-medium text-muted-foreground">OPP</span>
+          <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+          <span className="text-xs font-medium text-muted-foreground">ESN</span>
+          <span className="text-xs font-medium text-muted-foreground">GSN</span>
+          <span className="text-xs font-medium text-muted-foreground">Unidade</span>
+          <span className="text-xs font-medium text-muted-foreground">Produto</span>
+          <span className="text-xs font-medium text-muted-foreground">Eng. Valor</span>
+          <span className="text-xs font-medium text-muted-foreground">Data</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Horas</span>
+          <span className="text-xs font-medium text-muted-foreground">Status</span>
+          <span className="text-xs font-medium text-muted-foreground">Oportunidade</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Itens</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+        </div>
+        <div className="divide-y divide-border">
+          {isLoading ? (
+            <div className="text-center text-muted-foreground py-8">Carregando...</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <FolderKanban className="mx-auto h-8 w-8 mb-2 opacity-40" />
+              Nenhum projeto encontrado
+            </div>
+          ) : (
+            visibleProjects.map((project: any) => {
+              const effectiveStatus = project.status === "rascunho" ? "pendente" : project.status;
+              const statusInfo = STATUS_MAP[effectiveStatus] || STATUS_MAP.pendente;
+              const scopeCount = project.project_scope_items?.length || 0;
+              const attachCount = project.project_attachments?.length || 0;
+              const totalHours = getTotalHours(project);
+              const createdDate = project.created_at
+                ? new Date(project.created_at).toLocaleDateString("pt-BR")
+                : "—";
+              const hasProposal = !!(project.proposal_id || project.proposal_number);
+              const proposalStatus = project.proposals?.status || null;
+              const proposalCategory = getProposalStatusCategory(proposalStatus);
+              const proposalStatusInfo = proposalCategory ? PROPOSAL_STATUS_MAP[proposalCategory] : null;
+              const ProposalIcon = proposalStatusInfo?.icon || null;
 
-                return (
-                  <TableRow key={project.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/projetos/${project.id}`)}>
-                    <TableCell>
+              return (
+                <div
+                  key={project.id}
+                  className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 cursor-pointer md:grid md:grid-cols-[auto_2fr_1fr_1fr_1fr_auto_1fr_auto_auto_auto_auto_auto_auto] md:items-center md:gap-3"
+                  onClick={() => navigate(`/projetos/${project.id}`)}
+                >
+                  {/* OPP */}
+                  <div className="flex items-center justify-center">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          {hasProposal ? (
+                            <Link2 className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Link2Off className="h-4 w-4 text-muted-foreground/40" />
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {hasProposal
+                          ? `Vinculado à OPP ${project.proposal_number || ""}`
+                          : "Sem oportunidade vinculada"
+                        }
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {/* Cliente */}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{project.clients?.name || "—"}</p>
+                    {project.clients?.code && (
+                      <p className="text-xs text-muted-foreground truncate">{project.clients.code} · {project.clients.cnpj || ""}</p>
+                    )}
+                  </div>
+                  {/* ESN */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.clients?.sales_team_esn?.name || "—"}</p>
+                  {/* GSN */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.clients?.sales_team_gsn?.name || "—"}</p>
+                  {/* Unidade */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.clients?.unit_info?.name || "—"}</p>
+                  {/* Produto */}
+                  <p className="text-sm text-foreground whitespace-nowrap">{project.product || "—"}</p>
+                  {/* Eng. Valor */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.sales_team?.name || "—"}</p>
+                  {/* Data */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">{createdDate}</p>
+                  {/* Horas */}
+                  <p className="text-sm font-medium text-foreground text-right whitespace-nowrap">{totalHours > 0 ? `${totalHours}h` : "—"}</p>
+                  {/* Status */}
+                  <div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${statusInfo.className}`}>
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  {/* Oportunidade */}
+                  <div>
+                    {proposalStatusInfo && ProposalIcon ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center justify-center">
-                            {hasProposal ? (
-                              <Link2 className="h-4 w-4 text-primary" />
-                            ) : (
-                              <Link2Off className="h-4 w-4 text-muted-foreground/40" />
-                            )}
-                          </div>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${proposalStatusInfo.className}`}>
+                            <ProposalIcon className="h-3 w-3" />
+                            {proposalStatusInfo.label}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {hasProposal
-                            ? `Vinculado à OPP ${project.proposal_number || ""}`
-                            : "Sem oportunidade vinculada"
-                          }
+                          Status da Oportunidade: {proposalStatusInfo.label}
                         </TooltipContent>
                       </Tooltip>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="truncate max-w-[180px]">{project.clients?.name || "—"}</div>
-                      {project.clients?.code && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[180px]">{project.clients.code} · {project.clients.cnpj || ""}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm hidden xl:table-cell">
-                      <span className="truncate block max-w-[120px]">{project.clients?.sales_team_esn?.name || "—"}</span>
-                    </TableCell>
-                    <TableCell className="text-sm hidden xl:table-cell">
-                      <span className="truncate block max-w-[120px]">{project.clients?.sales_team_gsn?.name || "—"}</span>
-                    </TableCell>
-                    <TableCell className="text-sm hidden lg:table-cell">
-                      <span className="truncate block max-w-[120px]">{project.clients?.unit_info?.name || "—"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="truncate block max-w-[100px]">{project.product || "—"}</span>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <span className="truncate block max-w-[120px]">{project.sales_team?.name || "—"}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground hidden md:table-cell whitespace-nowrap">{createdDate}</TableCell>
-                    <TableCell className="text-right text-sm font-medium whitespace-nowrap">{totalHours > 0 ? `${totalHours}h` : "—"}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${statusInfo.className}`}>
-                        {statusInfo.label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {proposalStatusInfo && ProposalIcon ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${proposalStatusInfo.className}`}>
-                              <ProposalIcon className="h-3 w-3" />
-                              {proposalStatusInfo.label}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Status da Oportunidade: {proposalStatusInfo.label}
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/40">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap hidden sm:table-cell">
-                      {scopeCount} itens · {attachCount} anexos
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" />Abrir
+                    ) : (
+                      <span className="text-xs text-muted-foreground/40">—</span>
+                    )}
+                  </div>
+                  {/* Itens */}
+                  <p className="text-sm text-muted-foreground text-right whitespace-nowrap">{scopeCount} itens · {attachCount} anexos</p>
+                  {/* Ações */}
+                  <div className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => navigate(`/projetos/${project.id}`)}>
+                          <Eye className="mr-2 h-4 w-4" />Abrir
+                        </DropdownMenuItem>
+                        {canViewProposal(project) && (
+                          <DropdownMenuItem onClick={() => setReviewProposalId(project.proposal_id)}>
+                            <FileText className="mr-2 h-4 w-4" />Ver Proposta
                           </DropdownMenuItem>
-                          {canViewProposal(project) && (
-                            <DropdownMenuItem onClick={() => setReviewProposalId(project.proposal_id)}>
-                              <FileText className="mr-2 h-4 w-4" />Ver Proposta
+                        )}
+                        {(effectiveStatus === "pendente" || effectiveStatus === "em_revisao") && hasProposal && (
+                          <DropdownMenuItem onClick={() => setConcludeProject(project)}>
+                            <CheckCircle className="mr-2 h-4 w-4" />Concluir Revisão
+                          </DropdownMenuItem>
+                        )}
+                        {effectiveStatus === "em_revisao" && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
+                            <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
+                          </DropdownMenuItem>
+                        )}
+                        {effectiveStatus === "concluido" && (
+                          <DropdownMenuItem onClick={() => handleReturnToReview(project)}>
+                            <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
+                          </DropdownMenuItem>
+                        )}
+                        {effectiveStatus === "cancelado" && (
+                          <DropdownMenuItem disabled>
+                            <XCircle className="mr-2 h-4 w-4" />Projeto Cancelado
+                          </DropdownMenuItem>
+                        )}
+                        {role === "admin" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirmProject(project)}>
+                              <Trash2 className="mr-2 h-4 w-4" />Excluir
                             </DropdownMenuItem>
-                          )}
-                          {(effectiveStatus === "pendente" || effectiveStatus === "em_revisao") && hasProposal && (
-                            <DropdownMenuItem onClick={() => setConcludeProject(project)}>
-                              <CheckCircle className="mr-2 h-4 w-4" />Concluir Revisão
-                            </DropdownMenuItem>
-                          )}
-                          {effectiveStatus === "em_revisao" && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
-                              <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
-                            </DropdownMenuItem>
-                          )}
-                          {effectiveStatus === "concluido" && (
-                            <DropdownMenuItem onClick={() => handleReturnToReview(project)}>
-                              <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
-                            </DropdownMenuItem>
-                          )}
-                          {effectiveStatus === "cancelado" && (
-                            <DropdownMenuItem disabled>
-                              <XCircle className="mr-2 h-4 w-4" />Projeto Cancelado
-                            </DropdownMenuItem>
-                          )}
-                          {role === "admin" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirmProject(project)}>
-                                <Trash2 className="mr-2 h-4 w-4" />Excluir
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
       {hasMoreProjects && (
         <div className="flex justify-center py-3">

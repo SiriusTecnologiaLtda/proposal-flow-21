@@ -2520,7 +2520,6 @@ export default function ProposalCreate() {
                           <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
                         </td>
                       </tr>
-                      </tr>
                     </tbody>
                   </table>
                 </div>

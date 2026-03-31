@@ -112,7 +112,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   const [envelopeDocs, setEnvelopeDocs] = useState<EnvelopeDoc[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [projectInfo, setProjectInfo] = useState<any>(null);
-  const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  
 
   const clientName = (proposal as any)?.clients?.name || "Cliente";
 

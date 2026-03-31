@@ -1333,7 +1333,7 @@ export default function ProposalsList() {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
-              const netValue = computeNetValue(p, units, proposalTypes);
+              const netValue = computeNetValue(p);
               const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (
@@ -1695,7 +1695,7 @@ export default function ProposalsList() {
               <span className="text-sm font-semibold text-foreground">
                 Total: R${" "}
                 {filtered
-                  .reduce((sum, p) => sum + (computeNetValue(p, units, proposalTypes) || 0), 0)
+                  .reduce((sum, p) => sum + (computeNetValue(p) || 0), 0)
                   .toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>

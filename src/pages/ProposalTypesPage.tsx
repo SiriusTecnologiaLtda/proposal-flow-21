@@ -17,7 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, ArrowLeft, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+
 
 interface ProposalType {
   id: string;
@@ -28,12 +28,9 @@ interface ProposalType {
   analyst_label: string;
   gp_label: string;
   rounding_factor: number;
-  allow_project: boolean;
-  require_project: boolean;
-  allow_standalone_scope: boolean;
 }
 
-const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8, allow_project: true, require_project: false, allow_standalone_scope: true };
+const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8 };
 
 export default function ProposalTypesPage() {
   const navigate = useNavigate();
@@ -68,9 +65,6 @@ export default function ProposalTypesPage() {
         analyst_label: values.analyst_label || "Analista de Implantação",
         gp_label: values.gp_label || "Coordenador de Projeto",
         rounding_factor: values.rounding_factor || 8,
-        allow_project: values.allow_project,
-        require_project: values.require_project,
-        allow_standalone_scope: values.allow_standalone_scope,
       };
       if (values.id) {
         const { error } = await supabase.from("proposal_types").update(payload).eq("id", values.id);
@@ -126,9 +120,6 @@ export default function ProposalTypesPage() {
       analyst_label: item.analyst_label || "Analista de Implantação",
       gp_label: item.gp_label || "Coordenador de Projeto",
       rounding_factor: item.rounding_factor || 8,
-      allow_project: item.allow_project ?? true,
-      require_project: item.require_project ?? false,
-      allow_standalone_scope: item.allow_standalone_scope ?? true,
     });
     setEditingId(item.id);
     setDialogOpen(true);
@@ -301,42 +292,6 @@ export default function ProposalTypesPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">Arredonda horas para o múltiplo mais próximo</p>
-              </div>
-            </div>
-            {/* Project & Scope Parameters */}
-            <div className="space-y-3 rounded-md border border-border p-3">
-              <p className="text-sm font-medium text-foreground">Parâmetros de Escopo</p>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm">Permitir Associar Projeto</Label>
-                  <p className="text-xs text-muted-foreground">Habilita o botão "Incluir Projeto" no escopo da proposta</p>
-                </div>
-                <Switch
-                  checked={form.allow_project}
-                  onCheckedChange={(v) => setForm({ ...form, allow_project: v, require_project: v ? form.require_project : false })}
-                />
-              </div>
-              {form.allow_project && (
-                <div className="flex items-center justify-between pl-4 border-l-2 border-primary/30">
-                  <div>
-                    <Label className="text-sm">Projeto Obrigatório</Label>
-                    <p className="text-xs text-muted-foreground">Exige que pelo menos um projeto seja vinculado à proposta</p>
-                  </div>
-                  <Switch
-                    checked={form.require_project}
-                    onCheckedChange={(v) => setForm({ ...form, require_project: v })}
-                  />
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm">Permitir Escopo sem Projeto</Label>
-                  <p className="text-xs text-muted-foreground">Habilita os botões "Template" e "Novo Processo" no escopo</p>
-                </div>
-                <Switch
-                  checked={form.allow_standalone_scope}
-                  onCheckedChange={(v) => setForm({ ...form, allow_standalone_scope: v })}
-                />
               </div>
             </div>
           </div>

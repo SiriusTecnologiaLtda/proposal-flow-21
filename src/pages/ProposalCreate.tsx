@@ -583,9 +583,6 @@ export default function ProposalCreate() {
   const analystLabel = currentProposalTypeConfig?.analyst_label || "Analista de Implantação";
   const gpLabel = currentProposalTypeConfig?.gp_label || "Coordenador de Projeto";
   const roundingFactor = currentProposalTypeConfig?.rounding_factor || 8;
-  const allowProject = currentProposalTypeConfig?.allow_project ?? true;
-  const requireProject = currentProposalTypeConfig?.require_project ?? false;
-  const allowStandaloneScope = currentProposalTypeConfig?.allow_standalone_scope ?? true;
 
    // Lock scope editing when projects are linked (any user/status)
    const isAdmin = userRole === "admin";
@@ -965,10 +962,6 @@ export default function ProposalCreate() {
     if (!product) missing.push("Produto");
     if (!proposalType) missing.push("Tipo de Proposta");
 
-    // Check require_project: at least one project must be linked
-    if (requireProject && addedProjectIds.size === 0) {
-      missing.push("Projeto vinculado (obrigatório para este tipo)");
-    }
 
     if (missing.length > 0) {
       toast({
@@ -1739,7 +1732,7 @@ export default function ProposalCreate() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Escopo da Proposta</h2>
             <div className="flex items-center gap-2">
-              {allowStandaloneScope && !scopeLocked && (
+              {!scopeLocked && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => { setTemplateSearch(""); setTemplateDialogOpen(true); }}>
                     <Library className="mr-1 h-3.5 w-3.5" /> Adicionar Template

@@ -912,6 +912,164 @@ function fmtDate(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString("pt-BR");
 }
 
+// ─── Dynamic table helpers ──────────────────────────────────────────
+
+async function findAndReplaceTablePlaceholder(
+  accessToken: string, docId: string, placeholder: string,
+  headerCells: string[], dataRows: string[][], logs: LogEntry[]
+) {
+  // Find the placeholder in the document
+  const doc = await getDocumentStructure(accessToken, docId);
+  const body = doc.body?.content || [];
+
+  // First check if it's inside a table cell
+  for (const el of body) {
+    if (!el.table) continue;
+    const rows = el.table.tableRows || [];
+    for (let ri = 0; ri < rows.length; ri++) {
+      const cells = rows[ri].tableCells || [];
+      for (const cell of cells) {
+        const cellText = (cell.content || [])
+          .map((c: any) => (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join(""))
+          .join("");
+        if (cellText.includes(placeholder)) {
+          // Found in a table - replace with rows in this table
+          log(logs, "Tabela dinâmica", "info", `Placeholder ${placeholder} encontrado em tabela — inserindo linhas`);
+          await replaceTableCellWithRows(accessToken, docId, el, ri, dataRows, headerCells, logs);
+          return;
+        }
+      }
+    }
+  }
+
+  // Check if it's in a paragraph (standalone placeholder)
+  for (const el of body) {
+    if (!el.paragraph) continue;
+    const text = (el.paragraph.elements || []).map((e: any) => e.textRun?.content || "").join("");
+    if (text.includes(placeholder)) {
+      // Replace the placeholder text with a table
+      log(logs, "Tabela dinâmica", "info", `Placeholder ${placeholder} encontrado em parágrafo — inserindo tabela`);
+      // Simple text replacement with formatted list
+      const textLines = dataRows.map(row => row.join(" | ")).join("\n");
+      await batchReplace(accessToken, docId, { [placeholder]: textLines });
+      return;
+    }
+  }
+
+  log(logs, "Tabela dinâmica", "info", `Placeholder ${placeholder} não encontrado no documento`);
+}
+
+async function replaceTableCellWithRows(
+  accessToken: string, docId: string, tableElement: any,
+  templateRowIndex: number, dataRows: string[][], headerCells: string[], logs: LogEntry[]
+) {
+  const tableStartIndex = tableElement.startIndex;
+
+  // Clear the placeholder text first
+  const templateRow = tableElement.table.tableRows[templateRowIndex];
+  const firstCell = templateRow.tableCells?.[0];
+  const para = firstCell?.content?.[0]?.paragraph;
+  if (para?.elements?.[0]) {
+    const startIdx = para.elements[0].startIndex;
+    const endIdx = para.elements[para.elements.length - 1].endIndex;
+    if (startIdx && endIdx && endIdx > startIdx + 1) {
+      await docBatchUpdate(accessToken, docId, [{
+        deleteContentRange: { range: { startIndex: startIdx, endIndex: endIdx - 1 } },
+      }]);
+    }
+    // Insert first row data
+    if (dataRows.length > 0) {
+      await docBatchUpdate(accessToken, docId, [{
+        insertText: { location: { index: startIdx }, text: dataRows[0][0] || "" },
+      }]);
+    }
+  }
+
+  // Insert additional rows
+  if (dataRows.length > 1) {
+    const insertRequests: any[] = [];
+    for (let i = 1; i < dataRows.length; i++) {
+      insertRequests.push({
+        insertTableRow: {
+          tableCellLocation: {
+            tableStartLocation: { index: tableStartIndex },
+            rowIndex: templateRowIndex,
+            columnIndex: 0,
+          },
+          insertBelow: true,
+        },
+      });
+    }
+    await docBatchUpdate(accessToken, docId, insertRequests);
+
+    // Re-read and fill rows
+    const updatedDoc = await getDocumentStructure(accessToken, docId);
+    const updatedBody = updatedDoc.body?.content || [];
+    let table: any = null;
+    for (const el of updatedBody) {
+      if (el.table && Math.abs(el.startIndex - tableStartIndex) < 5) {
+        table = el;
+        break;
+      }
+    }
+    if (!table) {
+      for (const el of updatedBody) {
+        if (el.table) { table = el; break; }
+      }
+    }
+
+    if (table) {
+      const rows = table.table.tableRows || [];
+      const fillRequests: any[] = [];
+      for (let i = 0; i < dataRows.length; i++) {
+        const rowIdx = templateRowIndex + i;
+        if (rowIdx >= rows.length) break;
+        const rowCells = rows[rowIdx].tableCells || [];
+        for (let c = 0; c < Math.min(rowCells.length, dataRows[i].length); c++) {
+          const cellContent = rowCells[c].content?.[0];
+          if (cellContent?.paragraph) {
+            const insertIdx = cellContent.paragraph.elements?.[0]?.startIndex;
+            if (insertIdx && (i > 0 || c > 0)) { // skip first cell of first row (already filled)
+              fillRequests.push({
+                insertText: { location: { index: insertIdx }, text: dataRows[i][c] },
+              });
+            }
+          }
+        }
+      }
+      fillRequests.sort((a: any, b: any) => (b.insertText?.location?.index || 0) - (a.insertText?.location?.index || 0));
+      if (fillRequests.length > 0) {
+        await docBatchUpdate(accessToken, docId, fillRequests);
+      }
+    }
+  }
+}
+
+async function replaceResourceTablePlaceholder(
+  accessToken: string, docId: string, items: { label: string; hours: number; hourlyRate: number; value: number }[], logs: LogEntry[]
+) {
+  const headerCells = ["Recurso", "Qtd. Horas", "Valor Hora", "Valor Total"];
+  const dataRows = items.map(si => [
+    si.label,
+    si.hours.toString(),
+    `R$ ${fmt(si.hourlyRate)}`,
+    `R$ ${fmt(si.value)}`,
+  ]);
+  await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_RECURSOS}}", headerCells, dataRows, logs);
+}
+
+async function replaceGoLiveTablePlaceholder(
+  accessToken: string, docId: string, items: { label: string; goliveHours: number; golivePct: number }[], logs: LogEntry[]
+) {
+  const headerCells = ["Recurso", "% Go-Live", "Horas Acompanhamento"];
+  const dataRows = items.map(si => [
+    si.label,
+    `${si.golivePct}%`,
+    si.goliveHours.toString(),
+  ]);
+  await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_GOLIVE}}", headerCells, dataRows, logs);
+}
+
 // ─── Main handler ───────────────────────────────────────────────────
 
 Deno.serve(async (req) => {

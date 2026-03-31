@@ -282,6 +282,18 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                 />
               </div>
 
+              <div>
+                <Label>% Go Live</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0"
+                  value={form.golive_pct}
+                  onChange={(e) => setForm({ ...form, golive_pct: Number(e.target.value) })}
+                />
+              </div>
+
               <div className="flex items-end gap-3 pb-1">
                 <div className="flex items-center gap-2">
                   <Switch

@@ -559,6 +559,13 @@ export default function ScopeTemplateEditPage() {
                           className="w-16 h-8 text-xs"
                         />
                       </div>
+                      <button
+                        onClick={() => openNotesDialog({ type: "child", parentIndex: pi, childIndex: ci }, child.notes || "", "📝 Comentário do item")}
+                        className={`shrink-0 rounded p-1.5 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                        title="Comentário do item"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </button>
                       <button onClick={() => removeChild(pi, ci)} className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

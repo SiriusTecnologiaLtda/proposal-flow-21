@@ -824,16 +824,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
                     <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {doc.origin === "Proposta" ? (
                         <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
                       ) : (
                         <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate min-w-0">{doc.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
                       {doc.mandatory && (
                         <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
@@ -873,27 +873,21 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     const previewContent = (
       <div className="flex flex-col h-full">
         {activeDoc && (
-          <div className="shrink-0 px-4 py-2.5 border-b border-border bg-card/50 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Eye className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
-              <Badge variant={activeDoc.origin === "Proposta" ? "default" : "outline"} className="text-[10px] px-1.5 py-0 shrink-0">
-                {activeDoc.origin}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="shrink-0 px-3 py-2 border-b border-border bg-card/50 flex items-center gap-2 min-w-0 overflow-hidden">
+            <Eye className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{activeDoc.name}</span>
+            <div className="flex items-center gap-0.5 shrink-0">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut} title="Diminuir zoom">
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
-              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[40px] text-center transition-colors">
+              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[32px] text-center transition-colors">
                 {previewZoom}%
               </button>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn} title="Aumentar zoom">
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
-              <Separator orientation="vertical" className="h-4 mx-1" />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized((v) => !v)} title={previewMaximized ? "Restaurar" : "Maximizar"}>
-                {previewMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized(true)} title="Maximizar">
+                <Maximize2 className="h-3.5 w-3.5" />
               </Button>
               {activeDoc.fileUrl && (
                 <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -902,7 +896,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   </Button>
                 </a>
               )}
-              <Separator orientation="vertical" className="h-4 mx-1" />
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewOpen(false)} title="Fechar preview">
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -918,22 +911,14 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
               </div>
             </div>
           ) : previewUrl ? (
-            <div className="h-full w-full" style={{ overflow: "auto" }}>
-              <iframe
-                key={activeDocId}
-                src={previewUrl}
-                className="border-0"
-                style={{
-                  width: `${previewZoom}%`,
-                  height: `${previewZoom}%`,
-                  minWidth: "100%",
-                  minHeight: "100%",
-                  transformOrigin: "top left",
-                }}
-                title={`Preview: ${activeDoc.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            </div>
+            <iframe
+              key={activeDocId}
+              src={previewUrl}
+              className="border-0 w-full h-full"
+              style={{ minWidth: "100%", minHeight: "100%" }}
+              title={`Preview: ${activeDoc.name}`}
+              sandbox="allow-scripts allow-same-origin allow-popups"
+            />
           ) : (
             <div className="h-full flex items-center justify-center p-8">
               <div className="text-center max-w-sm">
@@ -1000,17 +985,17 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
     return (
       <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-4">
-            <div>
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col" style={{ maxHeight: "calc(100vh - 380px)" }}>
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3 shrink-0">
+            <div className="min-w-0">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                   <FileText className="h-3.5 w-3.5 text-primary" />
                 </div>
                 Documentos do envelope
               </div>
               <p className="text-sm text-muted-foreground">
-                Confira os documentos que serão enviados. A proposta é obrigatória. Clique em um documento para selecioná-lo.
+                Confira os documentos que serão enviados. A proposta é obrigatória.
               </p>
             </div>
             {activeDoc && !previewOpen && (
@@ -1020,14 +1005,14 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             )}
           </div>
 
-          <div className="border-t border-border" style={{ height: previewOpen ? "calc(100vh - 480px)" : "auto", minHeight: previewOpen ? "420px" : undefined, maxHeight: previewOpen ? undefined : "calc(100vh - 480px)" }}>
+          <div className="border-t border-border flex-1 min-h-0" style={{ minHeight: previewOpen ? "400px" : undefined }}>
             {previewOpen ? (
               <ResizablePanelGroup direction="horizontal" className="h-full">
-                <ResizablePanel defaultSize={35} minSize={25} maxSize={55}>
+                <ResizablePanel defaultSize={35} minSize={20} maxSize={60}>
                   {docListContent}
                 </ResizablePanel>
                 <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={65} minSize={35}>
+                <ResizablePanel defaultSize={65} minSize={30}>
                   <div className="h-full bg-muted/20">
                     {previewContent}
                   </div>

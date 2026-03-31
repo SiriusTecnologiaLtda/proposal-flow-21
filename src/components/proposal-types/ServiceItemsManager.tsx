@@ -264,6 +264,18 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                 </Select>
               </div>
 
+              <div>
+                <Label>Valor Hora (R$)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="250"
+                  value={form.hourly_rate}
+                  onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
+                />
+              </div>
+
               <div className="flex items-end gap-3 pb-1">
                 <div className="flex items-center gap-2">
                   <Switch

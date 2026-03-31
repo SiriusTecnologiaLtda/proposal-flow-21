@@ -136,7 +136,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       loadContacts();
       loadPreviousSignatories();
       loadEnvelopeDocuments();
-      setActiveDocId(null);
+      
 
       // Set default email content
       const proposalNum = proposal?.number || "";

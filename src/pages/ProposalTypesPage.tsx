@@ -28,12 +28,9 @@ interface ProposalType {
   analyst_label: string;
   gp_label: string;
   rounding_factor: number;
-  allow_project: boolean;
-  require_project: boolean;
-  allow_standalone_scope: boolean;
 }
 
-const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8, allow_project: true, require_project: false, allow_standalone_scope: true };
+const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "", analyst_label: "Analista de Implantação", gp_label: "Coordenador de Projeto", rounding_factor: 8 };
 
 export default function ProposalTypesPage() {
   const navigate = useNavigate();

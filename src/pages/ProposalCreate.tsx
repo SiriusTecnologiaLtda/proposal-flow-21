@@ -1516,7 +1516,20 @@ export default function ProposalCreate() {
             return (
               <button
                 key={step.id}
-                onClick={() => { if (step.id <= maxUnlockedStep) setCurrentStep(step.id); }}
+                onClick={() => {
+                  if (step.id > maxUnlockedStep) return;
+                  // Block jumping to Financeiro+ from Escopo without scope
+                  if (currentStep === 2 && step.id >= 3) {
+                    const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => p.children.some(c => c.included));
+                    if (!hasScope) {
+                      toast({ title: "Escopo obrigatório", description: "Adicione itens ao escopo antes de prosseguir.", variant: "destructive" });
+                      return;
+                    }
+                    handleNext();
+                    return;
+                  }
+                  setCurrentStep(step.id);
+                }}
                 disabled={step.id > maxUnlockedStep}
                 className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
                   step.id > maxUnlockedStep

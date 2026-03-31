@@ -35,7 +35,7 @@ export default function RegisteredUsersPage() {
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ["all-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").order("display_name");
+      const { data, error } = await supabase.from("profiles").select("id, user_id, display_name, email, phone, avatar_url, sales_team_member_id, is_cra, created_at, updated_at").order("display_name");
       if (error) throw error;
       return data;
     },

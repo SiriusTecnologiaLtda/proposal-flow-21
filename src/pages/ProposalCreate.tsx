@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -1403,9 +1403,12 @@ export default function ProposalCreate() {
           return;
         }
 
-        // Refresh data to get the linked project
-        await queryClient.refetchQueries({ queryKey: ["proposal", savedId] });
-        await queryClient.refetchQueries({ queryKey: ["projects"] });
+        // Refresh data to get the linked project and service items
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
+          queryClient.refetchQueries({ queryKey: ["projects"] }),
+          queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
+        ]);
 
         toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
       } catch (err: any) {
@@ -1495,6 +1498,17 @@ export default function ProposalCreate() {
           </div>
         </div>
       </div>
+
+      {/* ─── Auto-save overlay ───────────────────────────────────── */}
+      {isAutoSaving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 shadow-xl">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-base font-semibold text-foreground">Sincronizando escopo e projeto...</p>
+            <p className="text-sm text-muted-foreground">Aguarde enquanto preparamos o Financeiro.</p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Step Navigator ──────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -2788,7 +2802,11 @@ export default function ProposalCreate() {
                   </Button>
                   {currentStep < 4 && (
                     <Button onClick={handleNext} disabled={isSaving}>
-                      {isAutoSaving ? "Salvando..." : "Próximo"}<ArrowRight className="ml-2 h-4 w-4" />
+                      {isAutoSaving ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando...</>
+                      ) : (
+                        <>Próximo<ArrowRight className="ml-2 h-4 w-4" /></>
+                      )}
                     </Button>
                   )}
                 </>

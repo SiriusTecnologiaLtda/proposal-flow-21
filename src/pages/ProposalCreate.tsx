@@ -1124,7 +1124,7 @@ export default function ProposalCreate() {
       group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _group_order: groupOrder },
       scopeItems: allScopeItems,
       payments: paymentRows,
-      _serviceItemsGetter: hasServiceItems ? getServiceItemsForSave : null,
+      serviceItems: [],
       ...(effectiveStatus === "em_analise_ev" ? { ev_requested: true } : {}),
     };
 

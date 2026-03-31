@@ -873,27 +873,21 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     const previewContent = (
       <div className="flex flex-col h-full">
         {activeDoc && (
-          <div className="shrink-0 px-4 py-2.5 border-b border-border bg-card/50 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Eye className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-sm font-medium text-foreground truncate">{activeDoc.name}</span>
-              <Badge variant={activeDoc.origin === "Proposta" ? "default" : "outline"} className="text-[10px] px-1.5 py-0 shrink-0">
-                {activeDoc.origin}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="shrink-0 px-3 py-2 border-b border-border bg-card/50 flex items-center gap-2 min-w-0 overflow-hidden">
+            <Eye className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{activeDoc.name}</span>
+            <div className="flex items-center gap-0.5 shrink-0">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut} title="Diminuir zoom">
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
-              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[40px] text-center transition-colors">
+              <button onClick={zoomReset} className="text-[11px] font-medium text-muted-foreground hover:text-foreground min-w-[32px] text-center transition-colors">
                 {previewZoom}%
               </button>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn} title="Aumentar zoom">
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
-              <Separator orientation="vertical" className="h-4 mx-1" />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized((v) => !v)} title={previewMaximized ? "Restaurar" : "Maximizar"}>
-                {previewMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewMaximized(true)} title="Maximizar">
+                <Maximize2 className="h-3.5 w-3.5" />
               </Button>
               {activeDoc.fileUrl && (
                 <a href={activeDoc.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -902,7 +896,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   </Button>
                 </a>
               )}
-              <Separator orientation="vertical" className="h-4 mx-1" />
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewOpen(false)} title="Fechar preview">
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -918,22 +911,14 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
               </div>
             </div>
           ) : previewUrl ? (
-            <div className="h-full w-full" style={{ overflow: "auto" }}>
-              <iframe
-                key={activeDocId}
-                src={previewUrl}
-                className="border-0"
-                style={{
-                  width: `${previewZoom}%`,
-                  height: `${previewZoom}%`,
-                  minWidth: "100%",
-                  minHeight: "100%",
-                  transformOrigin: "top left",
-                }}
-                title={`Preview: ${activeDoc.name}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            </div>
+            <iframe
+              key={activeDocId}
+              src={previewUrl}
+              className="border-0 w-full h-full"
+              style={{ minWidth: "100%", minHeight: "100%" }}
+              title={`Preview: ${activeDoc.name}`}
+              sandbox="allow-scripts allow-same-origin allow-popups"
+            />
           ) : (
             <div className="h-full flex items-center justify-center p-8">
               <div className="text-center max-w-sm">

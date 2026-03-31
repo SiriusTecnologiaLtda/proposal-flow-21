@@ -26,6 +26,7 @@ interface ServiceItem {
   is_base_scope: boolean;
   additional_pct: number;
   hourly_rate: number;
+  golive_pct: number;
   related_item_id: string | null;
   sort_order: number;
 }

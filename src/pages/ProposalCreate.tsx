@@ -193,6 +193,29 @@ export default function ProposalCreate() {
   const [editServiceItemOpen, setEditServiceItemOpen] = useState(false);
   const [editingServiceItem, setEditingServiceItem] = useState<ProposalServiceItem | null>(null);
 
+  // Type change confirmation
+  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null);
+  const [isTypeChangeProcessing, setIsTypeChangeProcessing] = useState(false);
+
+  function handleProposalTypeChange(newType: string) {
+    // If editing and service items already exist, ask for confirmation
+    if (isEditing && hasServiceItems && newType !== proposalType) {
+      setPendingTypeChange(newType);
+      return;
+    }
+    setProposalType(newType);
+  }
+
+  function confirmTypeChange() {
+    if (!pendingTypeChange) return;
+    setIsTypeChangeProcessing(true);
+    setProposalType(pendingTypeChange);
+    resetServiceItemsToTemplate();
+    setPendingTypeChange(null);
+    // Small delay for visual feedback
+    setTimeout(() => setIsTypeChangeProcessing(false), 600);
+  }
+
   async function writeProposalLog(entry: {
     stage: string;
     severity?: "info" | "error" | "warn";

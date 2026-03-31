@@ -1070,6 +1070,17 @@ async function replaceGoLiveTablePlaceholder(
   await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_GOLIVE}}", headerCells, dataRows, logs);
 }
 
+async function replaceAvulsoTablePlaceholder(
+  accessToken: string, docId: string, items: { label: string; hourlyRate: number }[], logs: LogEntry[]
+) {
+  const headerCells = ["Serviço Contratado", "Valor Hora (Líquido)"];
+  const dataRows = items.map(si => [
+    si.label,
+    `R$ ${fmt(si.hourlyRate)}`,
+  ]);
+  await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_AVULSO}}", headerCells, dataRows, logs);
+}
+
 // ─── Main handler ───────────────────────────────────────────────────
 
 Deno.serve(async (req) => {

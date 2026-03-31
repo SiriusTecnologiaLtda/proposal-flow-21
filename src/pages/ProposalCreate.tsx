@@ -971,7 +971,7 @@ export default function ProposalCreate() {
     }
   }, [totalValue, firstDueDate]);
 
-  async function handleSave(status: string) {
+  async function handleSave(status: string, opts?: { stayOnPage?: boolean }): Promise<string | undefined> {
     const missing: string[] = [];
     if (!proposalNumber) missing.push("Número da Proposta");
     if (!clientId) missing.push("Cliente");

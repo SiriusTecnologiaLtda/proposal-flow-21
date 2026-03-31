@@ -2633,6 +2633,16 @@ export default function ProposalCreate() {
                     ))}
                   </div>
                 )}
+                {goLiveItems.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Acompanhamento Pós Go-Live</p>
+                    {goLiveItems.map((item) => (
+                      <p key={`rev-golive-${item.id}`} className="text-xs text-muted-foreground">
+                        {item.label} ({item.golive_pct}%): {item.golive_hours}h
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

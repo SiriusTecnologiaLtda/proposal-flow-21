@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import totvsLogo from "@/assets/totvs-logo.png";
+import XaiAssistant from "@/components/xai/XaiAssistant";
 
 const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },

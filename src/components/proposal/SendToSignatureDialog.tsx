@@ -824,16 +824,16 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   <div onClick={(e) => { e.stopPropagation(); toggleDocSelected(doc.id); }}>
                     <Checkbox checked={doc.selected} disabled={doc.mandatory} className={doc.mandatory ? "opacity-60" : ""} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {doc.origin === "Proposta" ? (
                         <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
                       ) : (
                         <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-sm font-medium text-foreground truncate">{doc.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate min-w-0">{doc.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-muted-foreground">{doc.origin}</span>
                       {doc.mandatory && (
                         <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">

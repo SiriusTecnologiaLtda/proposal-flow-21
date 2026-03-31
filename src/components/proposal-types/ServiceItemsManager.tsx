@@ -241,61 +241,27 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar Item de Serviço" : "Novo Item de Serviço"}</DialogTitle>
             <DialogDescription>Configure o item de serviço para o tipo "{proposalTypeName}"</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Nome do Item</Label>
-              <Input
-                placeholder="Ex: Analista de Implantação"
-                value={form.label}
-                onChange={(e) => setForm({ ...form, label: e.target.value })}
-              />
-            </div>
 
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              <div>
-                <Label>Fator de Arredondamento (horas)</Label>
-                <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 hora</SelectItem>
-                    <SelectItem value="2">2 horas</SelectItem>
-                    <SelectItem value="4">4 horas</SelectItem>
-                    <SelectItem value="8">8 horas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Valor Hora (R$)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="250"
-                  value={form.hourly_rate}
-                  onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
-                />
-              </div>
-
-              <div>
-                <Label>% Go Live</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  placeholder="0"
-                  value={form.golive_pct}
-                  onChange={(e) => setForm({ ...form, golive_pct: Number(e.target.value) })}
-                />
-              </div>
-
-              <div className="flex items-end gap-3 pb-1">
-                <div className="flex items-center gap-2">
+          <div className="space-y-5">
+            {/* Seção: Identificação */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nome do Item</Label>
+                  <Input
+                    placeholder="Ex: Analista de Implantação"
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-1">
                   <Switch
                     checked={form.is_base_scope}
                     onCheckedChange={(checked) => {
@@ -306,46 +272,96 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                       setForm({ ...form, is_base_scope: checked, additional_pct: 0, related_item_id: "" });
                     }}
                   />
-                  <Label className="text-sm">Item Base Escopo</Label>
+                  <Label className="text-sm font-medium">Item Base Escopo</Label>
                 </div>
               </div>
             </div>
 
-            {!form.is_base_scope && (
-              <>
-                <div>
-                  <Label>Percentual Adicional (%)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    placeholder="Ex: 20"
-                    value={form.additional_pct}
-                    onChange={(e) => setForm({ ...form, additional_pct: Number(e.target.value) })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Percentual aplicado sobre as horas do item base</p>
+            {/* Seção: Parâmetros */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Parâmetros</p>
+              <div className="rounded-lg border bg-card p-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Arredondamento (h)</Label>
+                    <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 hora</SelectItem>
+                        <SelectItem value="2">2 horas</SelectItem>
+                        <SelectItem value="4">4 horas</SelectItem>
+                        <SelectItem value="8">8 horas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Valor Hora (R$)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="250"
+                      value={form.hourly_rate}
+                      onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">% Go Live</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="0"
+                      value={form.golive_pct}
+                      onChange={(e) => setForm({ ...form, golive_pct: Number(e.target.value) })}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div>
-                  <Label>Item Relacionado (Base Escopo)</Label>
-                  <Select value={form.related_item_id} onValueChange={(v) => setForm({ ...form, related_item_id: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o item base" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {baseItems.map((bi) => (
-                        <SelectItem key={bi.id} value={bi.id}>{bi.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {baseItems.length === 0 && (
-                    <p className="text-xs text-destructive mt-1">Cadastre primeiro um item com Base Escopo = Sim</p>
-                  )}
+            {/* Seção: Vínculo (apenas não-base) */}
+            {!form.is_base_scope && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vínculo</p>
+                <div className="rounded-lg border bg-card p-4 space-y-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Percentual Adicional (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="Ex: 20"
+                      value={form.additional_pct}
+                      onChange={(e) => setForm({ ...form, additional_pct: Number(e.target.value) })}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Percentual aplicado sobre as horas do item base</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Item Relacionado (Base Escopo)</Label>
+                    <Select value={form.related_item_id} onValueChange={(v) => setForm({ ...form, related_item_id: v })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Selecione o item base" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {baseItems.map((bi) => (
+                          <SelectItem key={bi.id} value={bi.id}>{bi.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {baseItems.length === 0 && (
+                      <p className="text-xs text-destructive mt-1">Cadastre primeiro um item com Base Escopo = Sim</p>
+                    )}
+                  </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Salvando..." : "Salvar"}

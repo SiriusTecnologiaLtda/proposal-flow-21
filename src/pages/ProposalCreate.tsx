@@ -1694,7 +1694,7 @@ export default function ProposalCreate() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Tipo de Oportunidade</Label>
-                <Select value={proposalType} onValueChange={setProposalType}>
+                <Select value={proposalType} onValueChange={handleProposalTypeChange}>
                   <SelectTrigger id="proposalType" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {proposalTypes.map((pt: any) => (

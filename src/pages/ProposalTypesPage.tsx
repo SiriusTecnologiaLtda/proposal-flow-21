@@ -65,9 +65,6 @@ export default function ProposalTypesPage() {
         analyst_label: values.analyst_label || "Analista de Implantação",
         gp_label: values.gp_label || "Coordenador de Projeto",
         rounding_factor: values.rounding_factor || 8,
-        allow_project: values.allow_project,
-        require_project: values.require_project,
-        allow_standalone_scope: values.allow_standalone_scope,
       };
       if (values.id) {
         const { error } = await supabase.from("proposal_types").update(payload).eq("id", values.id);

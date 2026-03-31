@@ -43,35 +43,12 @@ const typeMap: Record<string, string> = {
   banco_de_horas: "Banco de Horas",
 };
 
-function roundUpFactor(val: number, factor: number): number {
-  if (factor <= 0) return val;
-  return Math.ceil(val / factor) * factor;
-}
 
-function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): number | null {
-  // Use service items if available
+function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;
-  if (serviceItems && serviceItems.length > 0) {
-    return serviceItems.reduce((sum: number, item: any) =>
-      sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
-  }
-
-  // Fallback to legacy calculation
-  const scopeItems = proposal.proposal_scope_items;
-  if (!scopeItems || scopeItems.length === 0) return null;
-
-  const typeConfig = proposalTypes.find((pt: any) => pt.slug === proposal.type);
-  const roundingFactor = typeConfig?.rounding_factor || 8;
-
-  const totalHours = roundUpFactor(
-    scopeItems
-      .filter((item: any) => item.included && item.parent_id)
-      .reduce((sum: number, item: any) => sum + (item.hours || 0), 0),
-    roundingFactor
-  );
-
-  const gpHours = roundUpFactor(Math.ceil(totalHours * (proposal.gp_percentage / 100)), roundingFactor);
-  return (totalHours + gpHours) * proposal.hourly_rate;
+  if (!serviceItems || serviceItems.length === 0) return null;
+  return serviceItems.reduce((sum: number, item: any) =>
+    sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
 }
 
 /** Check if scope was changed after the last generated proposal document */
@@ -1352,7 +1329,7 @@ export default function ProposalsList() {
               const status = statusMap[p.status] || statusMap.pendente;
               const clientName = (p as any).clients?.name || "—";
               const description = (p as any).description || "";
-              const netValue = computeNetValue(p, units, proposalTypes);
+              const netValue = computeNetValue(p);
               const locked = isLocked(p.status);
               const { propostas: propostaCount, mits: mitCount } = getDocCounts(p);
               return (
@@ -1714,7 +1691,7 @@ export default function ProposalsList() {
               <span className="text-sm font-semibold text-foreground">
                 Total: R${" "}
                 {filtered
-                  .reduce((sum, p) => sum + (computeNetValue(p, units, proposalTypes) || 0), 0)
+                  .reduce((sum, p) => sum + (computeNetValue(p) || 0), 0)
                   .toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>

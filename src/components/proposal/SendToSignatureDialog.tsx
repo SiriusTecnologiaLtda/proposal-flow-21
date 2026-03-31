@@ -902,6 +902,10 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   </Button>
                 </a>
               )}
+              <Separator orientation="vertical" className="h-4 mx-1" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewOpen(false)} title="Fechar preview">
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         )}

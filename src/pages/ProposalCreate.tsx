@@ -2566,6 +2566,87 @@ export default function ProposalCreate() {
         </DialogContent>
       </Dialog>
 
+      {/* Service Item Edit Dialog */}
+      <Dialog open={editServiceItemOpen} onOpenChange={(open) => { if (!open) { setEditServiceItemOpen(false); setEditingServiceItem(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" /> Editar Parâmetros — {editingServiceItem?.label}
+            </DialogTitle>
+          </DialogHeader>
+          {editingServiceItem && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor Hora (R$)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={editingServiceItem.hourly_rate}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setEditingServiceItem({ ...editingServiceItem, hourly_rate: val });
+                    updateServiceItem(editingServiceItem.id, { hourly_rate: val });
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Fator de Arredondamento (horas)</Label>
+                <Select
+                  value={String(editingServiceItem.rounding_factor)}
+                  onValueChange={(v) => {
+                    const val = Number(v);
+                    setEditingServiceItem({ ...editingServiceItem, rounding_factor: val });
+                    updateServiceItem(editingServiceItem.id, { rounding_factor: val });
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hora</SelectItem>
+                    <SelectItem value="2">2 horas</SelectItem>
+                    <SelectItem value="4">4 horas</SelectItem>
+                    <SelectItem value="8">8 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Go Live</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editingServiceItem.golive_pct}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setEditingServiceItem({ ...editingServiceItem, golive_pct: val });
+                    updateServiceItem(editingServiceItem.id, { golive_pct: val });
+                  }}
+                />
+              </div>
+              {!editingServiceItem.is_base_scope && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">% Adicional</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editingServiceItem.additional_pct}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setEditingServiceItem({ ...editingServiceItem, additional_pct: val });
+                      updateServiceItem(editingServiceItem.id, { additional_pct: val });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditServiceItemOpen(false); setEditingServiceItem(null); }}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Floating Navigation Bar */}
       <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 mt-6">
         <div className="border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">

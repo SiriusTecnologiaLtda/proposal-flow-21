@@ -1384,6 +1384,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Replace {{TABELA_RECURSOS}} with dynamic service items table ──
+    if (calcServiceItems.length > 0) {
+      log(logs, "Tabela recursos", "info", "Inserindo tabela dinâmica de recursos...");
+      try {
+        await replaceResourceTablePlaceholder(accessToken, newDocId, calcServiceItems, logs);
+      } catch (e: any) {
+        log(logs, "Tabela recursos", "info", `Placeholder {{TABELA_RECURSOS}} não encontrado ou falha: ${e.message}`);
+      }
+    }
+
+    // ─── Replace {{TABELA_GOLIVE}} with Go-Live items ──────────
+    const goliveItems = calcServiceItems.filter(si => si.goliveHours > 0);
+    if (goliveItems.length > 0) {
+      log(logs, "Tabela Go-Live", "info", "Inserindo tabela dinâmica de Go-Live...");
+      try {
+        await replaceGoLiveTablePlaceholder(accessToken, newDocId, goliveItems, logs);
+      } catch (e: any) {
+        log(logs, "Tabela Go-Live", "info", `Placeholder {{TABELA_GOLIVE}} não encontrado ou falha: ${e.message}`);
+      }
+    }
+
     // ─── Append detailed scope pages ────────────────────────────
     if (scopeItems.length > 0) {
       log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");

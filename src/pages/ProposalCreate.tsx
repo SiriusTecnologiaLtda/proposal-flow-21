@@ -2468,13 +2468,21 @@ export default function ProposalCreate() {
               <div className="rounded-md border border-border bg-primary/5 p-4">
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Financeiro</h3>
                 <div className="grid gap-1 text-sm md:grid-cols-2">
-                  <p><span className="text-muted-foreground">Total Horas:</span> <span className="font-semibold">{totalHours + gpHours}h</span></p>
-                  <p><span className="text-muted-foreground">Valor Hora:</span> <span className="font-semibold">R$ {hourlyRate.toFixed(2)}</span></p>
+                  <p><span className="text-muted-foreground">Total Horas:</span> <span className="font-semibold">{hasServiceItems ? totalServiceHours : (totalHours + gpHours)}h</span></p>
                   <p><span className="text-muted-foreground">Valor Líquido:</span> <span className="font-semibold">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
                   <p><span className="text-muted-foreground">Valor Bruto:</span> <span className="text-lg font-bold text-primary">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
                   <p><span className="text-muted-foreground">Parcelas:</span> <span className="font-semibold">{payments.length}x</span></p>
                   {taxFactor > 0 && <p><span className="text-muted-foreground">Fator Imposto:</span> <span className="font-medium">{Number(taxFactor).toFixed(4)}</span></p>}
                 </div>
+                {hasServiceItems && (
+                  <div className="mt-2 pt-2 border-t border-border space-y-0.5">
+                    {serviceItems.map((item) => (
+                      <p key={item.id} className="text-xs text-muted-foreground">
+                        {item.label}: {item.calculated_hours}h × R$ {item.hourly_rate.toFixed(2)} = R$ {(item.calculated_hours * item.hourly_rate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

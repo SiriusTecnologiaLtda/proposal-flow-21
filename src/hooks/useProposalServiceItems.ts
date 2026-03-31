@@ -91,27 +91,11 @@ export function useProposalServiceItems(
   useEffect(() => {
     if (loaded) return;
 
-    if (isEditing && existingItems.length > 0) {
-      setItems(existingItems.map((i: any) => ({
-        id: i.id,
-        source_item_id: i.source_item_id,
-        label: i.label,
-        rounding_factor: Number(i.rounding_factor),
-        is_base_scope: i.is_base_scope,
-        additional_pct: Number(i.additional_pct),
-        hourly_rate: Number(i.hourly_rate),
-        golive_pct: Number(i.golive_pct),
-        related_item_id: i.related_item_id,
-        calculated_hours: Number(i.calculated_hours),
-        sort_order: i.sort_order,
-      })));
-      setLoaded(true);
-    } else if (!isEditing && typeServiceItems.length > 0) {
+    // When items were reset (e.g. type change), load from template even during editing
+    if (items.length === 0 && typeServiceItems.length > 0 && !loaded) {
       // Create local copies from template
       const localItems: ProposalServiceItem[] = [];
-      const idMap = new Map<string, string>(); // source_id -> local_id
-
-      // First pass: create items and map IDs
+      const idMap = new Map<string, string>();
       for (const ti of typeServiceItems) {
         const localId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         idMap.set(ti.id, localId);
@@ -129,22 +113,36 @@ export function useProposalServiceItems(
           sort_order: ti.sort_order,
         });
       }
-
-      // Second pass: fix related_item_id references
       for (const item of localItems) {
         if (!item.related_item_id) {
-          // Check if the source had a related_item_id
           const sourceItem = typeServiceItems.find((ti: any) => ti.id === item.source_item_id);
           if (sourceItem?.related_item_id) {
             item.related_item_id = idMap.get(sourceItem.related_item_id) || null;
           }
         }
       }
-
       setItems(localItems);
       setLoaded(true);
+      return;
     }
-  }, [isEditing, existingItems, typeServiceItems, loaded]);
+
+    if (isEditing && existingItems.length > 0) {
+      setItems(existingItems.map((i: any) => ({
+        id: i.id,
+        source_item_id: i.source_item_id,
+        label: i.label,
+        rounding_factor: Number(i.rounding_factor),
+        is_base_scope: i.is_base_scope,
+        additional_pct: Number(i.additional_pct),
+        hourly_rate: Number(i.hourly_rate),
+        golive_pct: Number(i.golive_pct),
+        related_item_id: i.related_item_id,
+        calculated_hours: Number(i.calculated_hours),
+        sort_order: i.sort_order,
+      })));
+      setLoaded(true);
+    }
+  }, [isEditing, existingItems, typeServiceItems, loaded, items.length]);
 
   // Reset when proposal type changes (new proposal)
   useEffect(() => {
@@ -152,6 +150,12 @@ export function useProposalServiceItems(
       setLoaded(false);
     }
   }, [proposalTypeSlug, isEditing]);
+
+  // Force reload items from template (used when type changes on existing proposal)
+  const resetToTemplate = useCallback(() => {
+    setLoaded(false);
+    setItems([]);
+  }, []);
 
   // Recalculate hours whenever rawScopeHours or items change
   const calculatedItems = useMemo(() => {
@@ -237,5 +241,6 @@ export function useProposalServiceItems(
     updateItem,
     getItemsForSave,
     hasItems: items.length > 0,
+    resetToTemplate,
   };
 }

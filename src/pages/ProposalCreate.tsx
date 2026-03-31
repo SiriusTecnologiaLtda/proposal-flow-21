@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -192,6 +193,29 @@ export default function ProposalCreate() {
   // Service item inline edit dialog
   const [editServiceItemOpen, setEditServiceItemOpen] = useState(false);
   const [editingServiceItem, setEditingServiceItem] = useState<ProposalServiceItem | null>(null);
+
+  // Type change confirmation
+  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null);
+  const [isTypeChangeProcessing, setIsTypeChangeProcessing] = useState(false);
+
+  function handleProposalTypeChange(newType: string) {
+    // If editing and service items already exist, ask for confirmation
+    if (isEditing && hasServiceItems && newType !== proposalType) {
+      setPendingTypeChange(newType);
+      return;
+    }
+    setProposalType(newType);
+  }
+
+  function confirmTypeChange() {
+    if (!pendingTypeChange) return;
+    setIsTypeChangeProcessing(true);
+    setProposalType(pendingTypeChange);
+    resetServiceItemsToTemplate();
+    setPendingTypeChange(null);
+    // Small delay for visual feedback
+    setTimeout(() => setIsTypeChangeProcessing(false), 600);
+  }
 
   async function writeProposalLog(entry: {
     stage: string;
@@ -633,6 +657,7 @@ export default function ProposalCreate() {
     updateItem: updateServiceItem,
     getItemsForSave: getServiceItemsForSave,
     hasItems: hasServiceItems,
+    resetToTemplate: resetServiceItemsToTemplate,
   } = useProposalServiceItems(proposalType, id, isEditing, rawScopeHours);
 
    // Group scope processes by template for grouped display
@@ -1510,6 +1535,36 @@ export default function ProposalCreate() {
         </div>
       )}
 
+      {/* ─── Type change processing overlay ──────────────────────── */}
+      {isTypeChangeProcessing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 shadow-xl">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-base font-semibold text-foreground">Atualizando itens de serviço...</p>
+            <p className="text-sm text-muted-foreground">Carregando parâmetros do novo tipo de oportunidade.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Type change confirmation dialog ─────────────────────── */}
+      <AlertDialog open={!!pendingTypeChange} onOpenChange={(open) => { if (!open) setPendingTypeChange(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar Tipo de Oportunidade?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O tipo de oportunidade possui parâmetros de itens de serviço próprios (valores hora, arredondamento, percentuais, Go-Live).
+              Ao confirmar, os itens de serviço atuais serão <strong>substituídos</strong> pelos itens padrão do novo tipo selecionado.
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmTypeChange}>Confirmar Alteração</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ─── Step Navigator ──────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
@@ -1670,7 +1725,7 @@ export default function ProposalCreate() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Tipo de Oportunidade</Label>
-                <Select value={proposalType} onValueChange={setProposalType}>
+                <Select value={proposalType} onValueChange={handleProposalTypeChange}>
                   <SelectTrigger id="proposalType" className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {proposalTypes.map((pt: any) => (

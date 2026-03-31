@@ -528,6 +528,13 @@ export default function ScopeTemplateEditPage() {
                     className="text-sm font-semibold flex-1 h-9"
                   />
                   <Badge variant="secondary" className="text-xs shrink-0">{parentHours(parent)}h</Badge>
+                  <button
+                    onClick={() => openNotesDialog({ type: "parent", parentIndex: pi }, parent.notes || "", "📝 Comentário do processo")}
+                    className={`shrink-0 rounded p-1.5 transition-colors ${parent.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                    title="Comentário do processo"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </button>
                   <button onClick={() => removeParent(pi)} className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

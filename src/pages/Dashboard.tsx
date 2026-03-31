@@ -25,6 +25,13 @@ function roundUp8(val: number): number {
 }
 
 function computeNetValue(proposal: any): number | null {
+  // Use service items if available
+  const serviceItems = proposal.proposal_service_items;
+  if (serviceItems && serviceItems.length > 0) {
+    return serviceItems.reduce((sum: number, item: any) =>
+      sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+  }
+  // Fallback to legacy
   const scopeItems = proposal.proposal_scope_items;
   if (!scopeItems || scopeItems.length === 0) return null;
   const totalHours = roundUp8(

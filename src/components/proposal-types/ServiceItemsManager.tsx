@@ -77,6 +77,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
         label: values.label,
         rounding_factor: values.rounding_factor,
         is_base_scope: values.is_base_scope,
+        hourly_rate: values.hourly_rate,
         additional_pct: values.is_base_scope ? 0 : values.additional_pct,
         related_item_id: values.is_base_scope ? null : (values.related_item_id || null),
         sort_order: values.is_base_scope ? 0 : (items.length + 1),

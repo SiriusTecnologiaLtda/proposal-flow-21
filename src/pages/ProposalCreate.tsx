@@ -978,6 +978,7 @@ export default function ProposalCreate() {
     if (!clientId) missing.push("Cliente");
     if (!product) missing.push("Produto");
     if (!proposalType) missing.push("Tipo de Proposta");
+    if (!esnId) missing.push("ESN (Executivo de Vendas)");
 
 
     if (missing.length > 0) {

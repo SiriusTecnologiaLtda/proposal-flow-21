@@ -782,6 +782,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   const [previewZoom, setPreviewZoom] = useState(100);
   const [previewMaximized, setPreviewMaximized] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   function renderDocumentosPage() {
     const zoomIn = () => setPreviewZoom((z) => Math.min(z + 25, 200));

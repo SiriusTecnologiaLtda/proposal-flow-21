@@ -243,6 +243,7 @@ export default function ScopeTemplateEditPage() {
               default_hours: hours,
               sort_order: pi,
               parent_id: null,
+              notes: p.notes || null,
             })
             .select()
             .single();
@@ -255,6 +256,7 @@ export default function ScopeTemplateEditPage() {
               default_hours: c.default_hours,
               sort_order: ci,
               parent_id: parentData.id,
+              notes: c.notes || null,
             }));
             const { error: childError } = await supabase.from("scope_template_items").insert(childRows);
             if (childError) throw childError;

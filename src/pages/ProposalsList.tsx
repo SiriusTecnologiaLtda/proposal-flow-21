@@ -1630,7 +1630,7 @@ export default function ProposalsList() {
                                 <DropdownMenuItem onClick={() => setMonitorProposal(p)}>
                                   <ClipboardList className="mr-2 h-3.5 w-3.5" />Monitor de Assinatura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setWinId(p.id); setWinCloseDate(new Date().toISOString().substring(0, 10)); }}>
+                                <DropdownMenuItem onClick={() => { setWinId(p.id); setWinCloseDate(p.expected_close_date || new Date().toISOString().substring(0, 10)); }}>
                                   <Trophy className="mr-2 h-3.5 w-3.5" />Encerrar como Ganha
                                 </DropdownMenuItem>
                               </>
@@ -1784,7 +1784,7 @@ export default function ProposalsList() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">Informe a data de fechamento desta proposta:</p>
+              <p className="text-sm text-muted-foreground">Confirme a data de fechamento desta oportunidade:</p>
               <div className="space-y-1.5">
                 <Label htmlFor="win-close-date">Data de Fechamento</Label>
                 <Input
@@ -1811,13 +1811,20 @@ export default function ProposalsList() {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Data de Previsão (Validade)</Label>
+                <Label>Data de Validade</Label>
                 <Input type="date" value={editDateValidity} onChange={(e) => setEditDateValidity(e.target.value)} />
               </div>
-              <div className="space-y-2">
-                <Label>Data de Fechamento</Label>
-                <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} />
-              </div>
+              {(() => {
+                const sigs = (editDatesProposal as any)?.proposal_signatures || [];
+                const isTaeWin = editDatesProposal?.status === "ganha" && sigs.some((s: any) => s.status === "completed" && (s.tae_publication_id || s.tae_document_id));
+                return (
+                  <div className="space-y-2">
+                    <Label>Data de Fechamento</Label>
+                    <Input type="date" value={editExpectedClose} onChange={(e) => setEditExpectedClose(e.target.value)} disabled={isTaeWin} />
+                    {isTaeWin && <p className="text-xs text-muted-foreground">Data definida pela integração TAE e não pode ser alterada.</p>}
+                  </div>
+                );
+              })()}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditDatesProposal(null)}>Cancelar</Button>

@@ -149,6 +149,7 @@ export default function ProposalCreate() {
   const [negotiation, setNegotiation] = useState("");
   const [description, setDescription] = useState("");
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
+  const [dateValidity, setDateValidity] = useState("");
   const [travelLocalHours, setTravelLocalHours] = useState(1);
   const [travelTripHours, setTravelTripHours] = useState(4);
   const [travelHourlyRate, setTravelHourlyRate] = useState(250);
@@ -249,6 +250,7 @@ export default function ProposalCreate() {
     setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
     setAdditionalGpRate(existingProposal.additional_gp_rate);
     setExpectedCloseDate(existingProposal.expected_close_date || "");
+    setDateValidity(existingProposal.date_validity || "");
     const loadedGroupNotes = (existingProposal as any).group_notes || {};
     setGroupNotes(loadedGroupNotes);
     const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};
@@ -380,6 +382,11 @@ export default function ProposalCreate() {
       const now = new Date();
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       setExpectedCloseDate(lastDay.toISOString().split("T")[0]);
+
+      // Default date validity = today + 30 days
+      const validity = new Date();
+      validity.setDate(validity.getDate() + 30);
+      setDateValidity(formatDateForInput(validity));
 
       // Default first payment due date = 30 days from today
       setFirstDueDate(getDefaultFirstDueDate());
@@ -1103,7 +1110,8 @@ export default function ProposalCreate() {
       additional_gp_rate: additionalGpRate,
       negotiation,
       description,
-      expected_close_date: expectedCloseDate || null,
+      expected_close_date: expectedCloseDate || formatDateForInput(new Date()),
+      date_validity: dateValidity || null,
       group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _group_order: groupOrder },
       scopeItems: allScopeItems,
       payments: paymentRows,
@@ -1583,6 +1591,10 @@ export default function ProposalCreate() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Data Prevista de Fechamento</Label>
                 <Input type="date" value={expectedCloseDate} onChange={(e) => setExpectedCloseDate(e.target.value)} className="h-10" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data de Validade</Label>
+                <Input type="date" value={dateValidity} onChange={(e) => setDateValidity(e.target.value)} className="h-10" />
               </div>
             </div>
           </div>
@@ -2375,6 +2387,8 @@ export default function ProposalCreate() {
                   <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>
                   <p><span className="text-muted-foreground">ESN:</span> <span className="font-medium">{selectedEsn?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">GSN:</span> <span className="font-medium">{autoGsn?.name || "—"}</span></p>
+                  <p><span className="text-muted-foreground">Previsão de Fechamento:</span> <span className="font-medium">{expectedCloseDate ? new Date(expectedCloseDate + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</span></p>
+                  <p><span className="text-muted-foreground">Data de Validade:</span> <span className="font-medium">{dateValidity ? new Date(dateValidity + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</span></p>
                 </div>
               </div>
 

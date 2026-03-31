@@ -42,6 +42,7 @@ const emptyForm = {
   is_base_scope: false,
   additional_pct: 0,
   hourly_rate: 250,
+  golive_pct: 0,
   related_item_id: "",
 };
 

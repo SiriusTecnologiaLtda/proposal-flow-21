@@ -565,7 +565,7 @@ export default function ProjectsPage() {
                             <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
                           </DropdownMenuItem>
                         )}
-                        {effectiveStatus === "concluido" && (
+                        {effectiveStatus === "concluido" && project.proposals?.status !== "ganha" && (
                           <DropdownMenuItem onClick={() => handleReturnToReview(project)}>
                             <RotateCcw className="mr-2 h-4 w-4" />Retornar Revisão
                           </DropdownMenuItem>

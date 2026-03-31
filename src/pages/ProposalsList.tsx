@@ -1051,7 +1051,20 @@ export default function ProposalsList() {
         .from("commission_projections")
         .update({ proposal_status: "ganha" } as any)
         .eq("proposal_id", winId);
+      // Concluir projetos vinculados à oportunidade ganha
+      const { data: linkedProjects } = await supabase
+        .from("projects")
+        .select("id, status")
+        .eq("proposal_id", winId);
+      if (linkedProjects && linkedProjects.length > 0) {
+        for (const proj of linkedProjects) {
+          if (proj.status !== "concluido" && proj.status !== "cancelado") {
+            await supabase.from("projects").update({ status: "concluido" }).eq("id", proj.id);
+          }
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["proposals"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast({ title: "Proposta encerrada como ganha!" });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });

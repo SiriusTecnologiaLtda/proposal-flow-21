@@ -1535,6 +1535,36 @@ export default function ProposalCreate() {
         </div>
       )}
 
+      {/* ─── Type change processing overlay ──────────────────────── */}
+      {isTypeChangeProcessing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 shadow-xl">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-base font-semibold text-foreground">Atualizando itens de serviço...</p>
+            <p className="text-sm text-muted-foreground">Carregando parâmetros do novo tipo de oportunidade.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Type change confirmation dialog ─────────────────────── */}
+      <AlertDialog open={!!pendingTypeChange} onOpenChange={(open) => { if (!open) setPendingTypeChange(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar Tipo de Oportunidade?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O tipo de oportunidade possui parâmetros de itens de serviço próprios (valores hora, arredondamento, percentuais, Go-Live).
+              Ao confirmar, os itens de serviço atuais serão <strong>substituídos</strong> pelos itens padrão do novo tipo selecionado.
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmTypeChange}>Confirmar Alteração</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ─── Step Navigator ──────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">

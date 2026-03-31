@@ -1142,8 +1142,8 @@ export default function ProposalCreate() {
       travel_local_hours: travelLocalHours,
       travel_trip_hours: travelTripHours,
       travel_hourly_rate: travelHourlyRate,
-      additional_analyst_rate: additionalAnalystRate,
-      additional_gp_rate: additionalGpRate,
+      additional_analyst_rate: serviceItems.find(i => i.is_base_scope)?.hourly_rate ?? 280,
+      additional_gp_rate: serviceItems.find(i => !i.is_base_scope)?.hourly_rate ?? 300,
       negotiation,
       description,
       expected_close_date: expectedCloseDate || formatDateForInput(new Date()),
@@ -2518,18 +2518,6 @@ export default function ProposalCreate() {
                         <td className="py-2 px-3 text-foreground">Valor Hora Traslado (R$)</td>
                         <td className="py-1 px-3 text-right">
                           <Input type="number" min={0} value={travelHourlyRate} onChange={(e) => setTravelHourlyRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                        </td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso Analista (R$)</td>
-                        <td className="py-1 px-3 text-right">
-                          <Input type="number" min={0} value={additionalAnalystRate} onChange={(e) => setAdditionalAnalystRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
-                        </td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-3 text-foreground">Valor Hora Adicional/Avulso GP (R$)</td>
-                        <td className="py-1 px-3 text-right">
-                          <Input type="number" min={0} value={additionalGpRate} onChange={(e) => setAdditionalGpRate(Number(e.target.value))} className="h-7 w-24 text-right text-xs ml-auto" />
                         </td>
                       </tr>
                     </tbody>

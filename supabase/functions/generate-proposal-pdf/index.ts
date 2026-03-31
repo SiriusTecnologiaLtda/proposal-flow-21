@@ -1070,6 +1070,17 @@ async function replaceGoLiveTablePlaceholder(
   await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_GOLIVE}}", headerCells, dataRows, logs);
 }
 
+async function replaceAvulsoTablePlaceholder(
+  accessToken: string, docId: string, items: { label: string; hourlyRate: number }[], logs: LogEntry[]
+) {
+  const headerCells = ["Serviço Contratado", "Valor Hora (Líquido)"];
+  const dataRows = items.map(si => [
+    si.label,
+    `R$ ${fmt(si.hourlyRate)}`,
+  ]);
+  await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_AVULSO}}", headerCells, dataRows, logs);
+}
+
 // ─── Main handler ───────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -1560,6 +1571,16 @@ Deno.serve(async (req) => {
         await replaceGoLiveTablePlaceholder(accessToken, newDocId, goliveItems, logs);
       } catch (e: any) {
         log(logs, "Tabela Go-Live", "info", `Placeholder {{TABELA_GOLIVE}} não encontrado ou falha: ${e.message}`);
+      }
+    }
+
+    // ─── Replace {{TABELA_AVULSO}} with service items hourly rates ──
+    if (calcServiceItems.length > 0) {
+      log(logs, "Tabela Avulso", "info", "Inserindo tabela dinâmica de hora avulsa/adicional...");
+      try {
+        await replaceAvulsoTablePlaceholder(accessToken, newDocId, calcServiceItems, logs);
+      } catch (e: any) {
+        log(logs, "Tabela Avulso", "info", `Placeholder {{TABELA_AVULSO}} não encontrado ou falha: ${e.message}`);
       }
     }
 

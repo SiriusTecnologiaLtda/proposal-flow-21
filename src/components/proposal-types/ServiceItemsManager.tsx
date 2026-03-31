@@ -190,6 +190,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead className="w-28">Arredond. (h)</TableHead>
+                  <TableHead className="w-28">Valor Hora</TableHead>
                   <TableHead className="w-28">Base Escopo</TableHead>
                   <TableHead className="w-28">% Adicional</TableHead>
                   <TableHead>Item Relacionado</TableHead>

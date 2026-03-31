@@ -250,6 +250,7 @@ export default function ProposalCreate() {
     setAdditionalAnalystRate(existingProposal.additional_analyst_rate);
     setAdditionalGpRate(existingProposal.additional_gp_rate);
     setExpectedCloseDate(existingProposal.expected_close_date || "");
+    setDateValidity(existingProposal.date_validity || "");
     const loadedGroupNotes = (existingProposal as any).group_notes || {};
     setGroupNotes(loadedGroupNotes);
     const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};

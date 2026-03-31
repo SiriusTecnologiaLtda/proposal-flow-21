@@ -40,6 +40,7 @@ const emptyForm = {
   rounding_factor: 8,
   is_base_scope: false,
   additional_pct: 0,
+  hourly_rate: 250,
   related_item_id: "",
 };
 

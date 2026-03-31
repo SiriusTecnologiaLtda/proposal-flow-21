@@ -96,6 +96,7 @@ export default function ProposalCreate() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const duplicateId = searchParams.get("duplicar");
+  const initialStep = searchParams.get("step");
   const isEditing = !!id;
   const isDuplicating = !!duplicateId;
 

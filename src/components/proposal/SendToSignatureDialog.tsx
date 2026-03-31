@@ -1244,9 +1244,14 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             {/* ─── Step Content ───────────────────────────────────────── */}
             {currentStep === 0 && renderSignatariosPage()}
             {currentStep === 1 && renderMensagemPage()}
-            {currentStep === 2 && renderDocumentosPage()}
             {currentStep === 3 && renderRevisaoPage()}
           </div>
+          {/* Documents step rendered outside max-w-5xl for full width */}
+          {currentStep === 2 && (
+            <div className="px-5 pb-28">
+              {renderDocumentosPage()}
+            </div>
+          )}
         </ScrollArea>
 
         {/* ─── Fixed Footer ──────────────────────────────────────────── */}

@@ -96,6 +96,7 @@ export default function ProposalCreate() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const duplicateId = searchParams.get("duplicar");
+  const initialStep = searchParams.get("step");
   const isEditing = !!id;
   const isDuplicating = !!duplicateId;
 
@@ -124,8 +125,8 @@ export default function ProposalCreate() {
 
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 4 : 1);
+  const [currentStep, setCurrentStep] = useState(initialStep ? parseInt(initialStep, 10) : 1);
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 4 : (initialStep ? parseInt(initialStep, 10) : 1));
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
   const [product, setProduct] = useState<string>("");
@@ -971,7 +972,7 @@ export default function ProposalCreate() {
     }
   }, [totalValue, firstDueDate]);
 
-  async function handleSave(status: string) {
+  async function handleSave(status: string, opts?: { stayOnPage?: boolean }): Promise<string | undefined> {
     const missing: string[] = [];
     if (!proposalNumber) missing.push("Número da Proposta");
     if (!clientId) missing.push("Cliente");
@@ -1005,7 +1006,7 @@ export default function ProposalCreate() {
           }
         }
       }, 100);
-      return;
+      return undefined;
     }
 
     // Flatten scope to save: parents + children with parent_id reference
@@ -1089,7 +1090,7 @@ export default function ProposalCreate() {
         variant: "destructive",
       });
       setCurrentStep(3);
-      return;
+      return undefined;
     }
 
     // When editing, never downgrade status. If not generating, keep existing status.
@@ -1323,6 +1324,14 @@ export default function ProposalCreate() {
         return;
       }
 
+      // If stayOnPage, return savedId without navigating
+      if (opts?.stayOnPage) {
+        // Refresh queries so linked project data is available
+        queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        return savedId;
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);
@@ -1356,7 +1365,61 @@ export default function ProposalCreate() {
     }
   }
 
-  const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating;
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  async function handleNext() {
+    const next = Math.min(4, currentStep + 1);
+
+    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save
+    if (currentStep === 2 && next === 3) {
+      // Check if scope has items
+      const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => 
+        p.children.some(c => c.included)
+      );
+
+      if (!hasScope) {
+        toast({
+          title: "Escopo obrigatório",
+          description: "Adicione pelo menos um item ao escopo antes de prosseguir para o Financeiro.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Auto-save the opportunity to create/update the project
+      setIsAutoSaving(true);
+      try {
+        const savedId = await handleSave("pendente", { stayOnPage: true });
+        if (!savedId) {
+          setIsAutoSaving(false);
+          return; // handleSave already showed error toast
+        }
+
+        // If this was a new proposal, redirect to edit mode so subsequent saves work correctly
+        if (!isEditing) {
+          navigate(`/propostas/${savedId}?step=3`, { replace: true });
+          setIsAutoSaving(false);
+          return;
+        }
+
+        // Refresh data to get the linked project
+        await queryClient.refetchQueries({ queryKey: ["proposal", savedId] });
+        await queryClient.refetchQueries({ queryKey: ["projects"] });
+
+        toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
+      } catch (err: any) {
+        toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+        setIsAutoSaving(false);
+        return;
+      }
+      setIsAutoSaving(false);
+    }
+
+    setMaxUnlockedStep((prev) => Math.max(prev, next));
+    setCurrentStep(next);
+  }
+
+  const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating || isAutoSaving;
 
   const progress = useMemo(() => (currentStep / steps.length) * 100, [currentStep]);
 
@@ -1453,7 +1516,20 @@ export default function ProposalCreate() {
             return (
               <button
                 key={step.id}
-                onClick={() => { if (step.id <= maxUnlockedStep) setCurrentStep(step.id); }}
+                onClick={() => {
+                  if (step.id > maxUnlockedStep) return;
+                  // Block jumping to Financeiro+ from Escopo without scope
+                  if (currentStep === 2 && step.id >= 3) {
+                    const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => p.children.some(c => c.included));
+                    if (!hasScope) {
+                      toast({ title: "Escopo obrigatório", description: "Adicione itens ao escopo antes de prosseguir.", variant: "destructive" });
+                      return;
+                    }
+                    handleNext();
+                    return;
+                  }
+                  setCurrentStep(step.id);
+                }}
                 disabled={step.id > maxUnlockedStep}
                 className={`group flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 ${
                   step.id > maxUnlockedStep
@@ -2710,12 +2786,8 @@ export default function ProposalCreate() {
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
                   {currentStep < 4 && (
-                    <Button onClick={() => {
-                      const next = Math.min(4, currentStep + 1);
-                      setMaxUnlockedStep((prev) => Math.max(prev, next));
-                      setCurrentStep(next);
-                    }}>
-                      Próximo<ArrowRight className="ml-2 h-4 w-4" />
+                    <Button onClick={handleNext} disabled={isSaving}>
+                      {isAutoSaving ? "Salvando..." : "Próximo"}<ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   )}
                 </>

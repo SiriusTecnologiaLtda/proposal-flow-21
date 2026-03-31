@@ -1166,6 +1166,7 @@ export type Database = {
         Row: {
           additional_pct: number
           created_at: string
+          hourly_rate: number
           id: string
           is_base_scope: boolean
           label: string
@@ -1178,6 +1179,7 @@ export type Database = {
         Insert: {
           additional_pct?: number
           created_at?: string
+          hourly_rate?: number
           id?: string
           is_base_scope?: boolean
           label: string
@@ -1190,6 +1192,7 @@ export type Database = {
         Update: {
           additional_pct?: number
           created_at?: string
+          hourly_rate?: number
           id?: string
           is_base_scope?: boolean
           label?: string

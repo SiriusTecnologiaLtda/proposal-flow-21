@@ -192,7 +192,7 @@ export default function ProposalCreate() {
   const [editServiceItemOpen, setEditServiceItemOpen] = useState(false);
   const [editingServiceItem, setEditingServiceItem] = useState<ProposalServiceItem | null>(null);
 
-
+  async function writeProposalLog(entry: {
     stage: string;
     severity?: "info" | "error" | "warn";
     action?: string;

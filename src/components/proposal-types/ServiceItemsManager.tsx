@@ -135,12 +135,13 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
     setDialogOpen(true);
   }
 
-  function openEdit(item: ServiceItem & { hourly_rate?: number }) {
+  function openEdit(item: ServiceItem) {
     setForm({
       label: item.label,
       rounding_factor: item.rounding_factor,
       is_base_scope: item.is_base_scope,
       additional_pct: item.additional_pct,
+      hourly_rate: item.hourly_rate,
       related_item_id: item.related_item_id || "",
     });
     setEditingId(item.id);

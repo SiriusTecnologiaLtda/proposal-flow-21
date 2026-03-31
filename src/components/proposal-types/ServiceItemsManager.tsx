@@ -204,6 +204,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.label}</TableCell>
                       <TableCell>{item.rounding_factor}h</TableCell>
+                      <TableCell>R$ {Number(item.hourly_rate).toFixed(2)}</TableCell>
                       <TableCell>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${item.is_base_scope ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                           {item.is_base_scope ? "Sim" : "Não"}

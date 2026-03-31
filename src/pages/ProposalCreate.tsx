@@ -2788,7 +2788,11 @@ export default function ProposalCreate() {
                   </Button>
                   {currentStep < 4 && (
                     <Button onClick={handleNext} disabled={isSaving}>
-                      {isAutoSaving ? "Salvando..." : "Próximo"}<ArrowRight className="ml-2 h-4 w-4" />
+                      {isAutoSaving ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando...</>
+                      ) : (
+                        <>Próximo<ArrowRight className="ml-2 h-4 w-4" /></>
+                      )}
                     </Button>
                   )}
                 </>

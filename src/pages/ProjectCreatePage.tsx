@@ -1315,7 +1315,102 @@ export default function ProjectCreatePage() {
         </div>
       )}
 
-      {/* ─── Floating Footer ─────────────────────────────────────── */}
+      {/* ═══ Step 4: Resumo Financeiro ════════════════════════════ */}
+      {currentStep === 4 && (
+        <div className="space-y-4 rounded-lg border border-border bg-card p-4 md:p-6">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Resumo Financeiro
+          </h2>
+
+          {!existingProject?.proposal_id ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Este projeto não está vinculado a uma oportunidade. O resumo financeiro é exibido apenas para projetos com oportunidade associada.
+            </p>
+          ) : finLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Carregando dados financeiros...</div>
+          ) : finServiceItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nenhum item de serviço configurado na oportunidade vinculada.
+            </p>
+          ) : (
+            <>
+              <div className="rounded-md border border-border bg-muted/50 p-4">
+                <div className="overflow-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item de Serviço</th>
+                        <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {finServiceItems.map((item) => {
+                        const hours = Number(item.calculated_hours || 0);
+                        const rate = Number(item.hourly_rate || 0);
+                        const netVal = hours * rate;
+                        const grossVal = finTaxFactor > 0 ? netVal / finTaxFactor : netVal;
+                        return (
+                          <tr key={item.id} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <span>{item.label}</span>
+                                {item.is_base_scope && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Base</span>
+                                )}
+                                {!item.is_base_scope && Number(item.additional_pct) > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">({item.additional_pct}%)</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-center text-foreground">{hours}</td>
+                            <td className="py-2 px-3 text-right text-foreground">R$ {rate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 px-3 text-right text-foreground">R$ {netVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 px-3 text-right font-medium text-foreground">R$ {grossVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-accent/30">
+                        <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                        <td className="py-2 px-3 text-center font-semibold text-foreground">{finTotalHours}</td>
+                        <td className="py-2 px-3 text-right text-foreground">—</td>
+                        <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {finTotalNet.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-3 text-right font-bold text-foreground">R$ {finTotalGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {finGoLiveItems.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Acompanhamento Pós Go-Live</p>
+                    <div className="space-y-1">
+                      {finGoLiveItems.map((item) => (
+                        <div key={`golive-${item.id}`} className="flex justify-between text-xs text-muted-foreground">
+                          <span>{item.label} ({item.golive_pct}%)</span>
+                          <span>{item.golive_hours}h</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {finTaxFactor > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground text-right">
+                    Fator imposto: {finTaxFactor}% ({finUnitName})
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {!isReadOnly && (
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">

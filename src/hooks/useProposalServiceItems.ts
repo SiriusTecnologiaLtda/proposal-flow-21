@@ -241,5 +241,6 @@ export function useProposalServiceItems(
     updateItem,
     getItemsForSave,
     hasItems: items.length > 0,
+    resetToTemplate,
   };
 }

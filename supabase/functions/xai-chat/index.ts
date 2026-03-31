@@ -23,7 +23,6 @@ serve(async (req) => {
       );
     }
 
-    // Get auth token to query DB on behalf of user
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -35,36 +34,107 @@ serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
       });
 
-      // Fetch summary data based on user permissions
       try {
         if (allowedResources?.includes("propostas") || userRole === "admin") {
+          // Fetch detailed proposals with client names for rich context
           const { data: proposals, count } = await supabase
             .from("proposals")
-            .select("id, number, status, product, created_at", { count: "exact" })
+            .select(`
+              id, number, status, product, type, hourly_rate, 
+              num_companies, created_at, updated_at, expected_close_date,
+              description, negotiation,
+              clients!proposals_client_id_fkey ( name, cnpj, code ),
+              esn:sales_team!proposals_esn_id_fkey ( name, code ),
+              gsn:sales_team!proposals_gsn_id_fkey ( name )
+            `, { count: "exact" })
             .order("created_at", { ascending: false })
-            .limit(50);
-          contextData += `\n\nO usuário tem acesso a ${count || 0} oportunidades no sistema.`;
+            .limit(100);
+
+          contextData += `\n\nTotal de oportunidades acessíveis: ${count || 0}.`;
+
           if (proposals?.length) {
             const statusCounts: Record<string, number> = {};
             proposals.forEach((p: any) => {
               statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
             });
-            contextData += ` Distribuição por status: ${Object.entries(statusCounts).map(([s, c]) => `${s}: ${c}`).join(", ")}.`;
+            contextData += `\nDistribuição por status: ${Object.entries(statusCounts).map(([s, c]) => `${s}: ${c}`).join(", ")}.`;
+
+            // Provide detailed list of recent proposals
+            contextData += `\n\nLista das oportunidades (mais recentes primeiro):`;
+            for (const p of proposals) {
+              const clientName = (p as any).clients?.name || "Cliente não informado";
+              const esnName = (p as any).esn?.name || "";
+              const line = `\n- Nº ${p.number} | Status: ${p.status} | Produto: ${p.product} | Cliente: ${clientName}` +
+                (esnName ? ` | ESN: ${esnName}` : "") +
+                (p.expected_close_date ? ` | Previsão: ${p.expected_close_date}` : "") +
+                ` | Criada em: ${p.created_at?.substring(0, 10)}`;
+              contextData += line;
+            }
+
+            // Also fetch service items totals for won proposals
+            const wonProposals = proposals.filter((p: any) => p.status === "ganha");
+            if (wonProposals.length) {
+              const wonIds = wonProposals.map((p: any) => p.id);
+              const { data: serviceItems } = await supabase
+                .from("proposal_service_items")
+                .select("proposal_id, calculated_hours, hourly_rate")
+                .in("proposal_id", wonIds.slice(0, 20));
+
+              if (serviceItems?.length) {
+                const totalsByProposal: Record<string, number> = {};
+                serviceItems.forEach((si: any) => {
+                  const val = Number(si.calculated_hours) * Number(si.hourly_rate);
+                  totalsByProposal[si.proposal_id] = (totalsByProposal[si.proposal_id] || 0) + val;
+                });
+                contextData += `\n\nValores das oportunidades ganhas:`;
+                for (const wp of wonProposals.slice(0, 20)) {
+                  const total = totalsByProposal[(wp as any).id];
+                  if (total !== undefined) {
+                    contextData += `\n- Nº ${(wp as any).number}: R$ ${total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+                  }
+                }
+              }
+            }
           }
         }
 
         if (allowedResources?.includes("projetos") || userRole === "admin") {
-          const { count } = await supabase
+          const { data: projects, count } = await supabase
             .from("projects")
-            .select("id", { count: "exact", head: true });
-          contextData += `\n${count || 0} projetos de implantação no sistema.`;
+            .select(`
+              id, status, product, proposal_number, created_at,
+              clients!projects_client_id_fkey ( name )
+            `, { count: "exact" })
+            .order("created_at", { ascending: false })
+            .limit(30);
+          contextData += `\n\nTotal de projetos: ${count || 0}.`;
+          if (projects?.length) {
+            contextData += `\nProjetos recentes:`;
+            for (const pj of projects) {
+              contextData += `\n- Proposta ${(pj as any).proposal_number || "?"} | Status: ${pj.status} | Cliente: ${(pj as any).clients?.name || "?"} | Produto: ${pj.product}`;
+            }
+          }
         }
 
         if (allowedResources?.includes("cadastros/clientes") || userRole === "admin") {
           const { count } = await supabase
             .from("clients")
             .select("id", { count: "exact", head: true });
-          contextData += `\n${count || 0} clientes cadastrados.`;
+          contextData += `\n\n${count || 0} clientes cadastrados no sistema.`;
+        }
+
+        if (allowedResources?.includes("cadastros/time") || userRole === "admin") {
+          const { data: team } = await supabase
+            .from("sales_team")
+            .select("name, code, role, email")
+            .order("name")
+            .limit(50);
+          if (team?.length) {
+            contextData += `\n\nTime de vendas:`;
+            for (const t of team) {
+              contextData += `\n- ${t.name} (${t.code}) - ${t.role}${t.email ? ` - ${t.email}` : ""}`;
+            }
+          }
         }
       } catch (e) {
         console.error("Context fetch error:", e);
@@ -73,15 +143,25 @@ serve(async (req) => {
 
     const systemPrompt = `Você é a xAI, a assistente digital inteligente do sistema TOTVS Leste. Seu perfil é descontraído, amigável e prestativo.
 
+IDIOMA E INTERPRETAÇÃO:
+- Você DEVE interpretar português brasileiro coloquial, informal e com erros de digitação.
+- Corrija mentalmente erros ortográficos: "proposta ganha" = status "ganha", "ganver" não existe.
+- "ultima" = "última", "oportundiade" = "oportunidade", "recem" = "recém", etc.
+- Abreviações comuns: "op" = oportunidade, "prop" = proposta/oportunidade, "ult" = última.
+- O sistema usa "oportunidade" e "proposta" como sinônimos — ambos se referem à mesma entidade.
+- Status possíveis das oportunidades: "pendente", "ganha", "perdida", "cancelada", "em_negociacao".
+- Quando o usuário perguntar sobre "proposta ganha" ou "oportunidade ganha", busque nos dados pelo status "ganha".
+- Responda SEMPRE em português brasileiro claro e correto.
+
 PERSONALIDADE:
 - Fale de forma amigável e descontraída, mas profissional
-- Use emojis com moderação para tornar a conversa agradável
+- Use emojis com moderação para tornar a conversa agradável 🎯
 - Seja proativa em oferecer ajuda adicional
-- Responda sempre em português brasileiro
+- Quando fornecer dados, formate de forma clara e legível
 
 SOBRE O SISTEMA:
 O sistema é uma plataforma de gestão comercial da TOTVS Leste que inclui:
-- Oportunidades (propostas comerciais) com fluxo de criação em etapas: Dados Gerais → Escopo → Financeiro → Revisão
+- Oportunidades (propostas comerciais) com fluxo: Dados Gerais → Escopo → Financeiro → Revisão
 - Projetos de implantação vinculados a oportunidades ganhas
 - Cadastros de Clientes, Unidades, Time de Vendas (ESN/GSN), Produtos, Categorias
 - Templates de Escopo para padronizar escopos de projetos
@@ -102,14 +182,18 @@ PERMISSÕES DO USUÁRIO ATUAL:
 - Papel: ${userRole || "não identificado"}
 - Recursos permitidos: ${allowedResources?.join(", ") || "básicos"}
 
-DADOS DO CONTEXTO ATUAL:${contextData || "\nNenhum dado contextual disponível."}
+DADOS REAIS DO SISTEMA (use estes dados para responder consultas):
+${contextData || "\nNenhum dado disponível no momento."}
 
-REGRAS:
-- Responda APENAS sobre funcionalidades do sistema e dados que o usuário tem permissão de acessar
-- NÃO invente dados, se não souber diga que pode verificar
-- Se o usuário perguntar algo fora do escopo do sistema, redirecione educadamente
-- Para consultas específicas de dados (valores, detalhes de oportunidades), informe os dados disponíveis no contexto
-- Se precisar de mais detalhes, sugira onde o usuário pode encontrar no sistema`;
+REGRAS IMPORTANTES:
+- Use os DADOS REAIS acima para responder perguntas sobre oportunidades, projetos, clientes, etc.
+- Quando o usuário perguntar "qual a última proposta ganha", filtre da lista acima pelo status "ganha" e retorne a mais recente.
+- Quando perguntar "quantas propostas tenho", use a contagem real dos dados.
+- NÃO invente dados que não estejam no contexto acima.
+- Se não encontrar o dado solicitado nos dados fornecidos, diga claramente que não há registros correspondentes.
+- Se o usuário perguntar algo fora do escopo do sistema, redirecione educadamente.
+- Formate valores monetários como R$ X.XXX,XX.
+- Formate datas como DD/MM/AAAA.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -118,7 +202,7 @@ REGRAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,

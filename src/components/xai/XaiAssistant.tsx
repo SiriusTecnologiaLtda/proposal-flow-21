@@ -158,7 +158,7 @@ export default function XaiAssistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 350 }}
-            className="fixed bottom-6 right-6 z-50 flex w-[380px] max-h-[560px] flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+            className="fixed bottom-6 right-6 z-50 flex w-[380px] h-[560px] flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center gap-3 border-b border-border bg-primary/5 px-4 py-3">
@@ -176,7 +176,7 @@ export default function XaiAssistant() {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollRef as any}>
+            <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef as any}>
               <div className="space-y-3">
                 {messages.length === 0 && (
                   <div className="text-center py-8 space-y-3">

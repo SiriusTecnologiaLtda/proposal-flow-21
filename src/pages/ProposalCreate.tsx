@@ -1364,7 +1364,62 @@ export default function ProposalCreate() {
     }
   }
 
-  const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating;
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  async function handleNext() {
+    const next = Math.min(4, currentStep + 1);
+
+    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save
+    if (currentStep === 2 && next === 3) {
+      // Check if scope has items
+      const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => 
+        p.children.some(c => c.included)
+      );
+
+      if (!hasScope) {
+        toast({
+          title: "Escopo obrigatório",
+          description: "Adicione pelo menos um item ao escopo antes de prosseguir para o Financeiro.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Auto-save the opportunity to create/update the project
+      setIsAutoSaving(true);
+      try {
+        const savedId = await handleSave("pendente", { stayOnPage: true });
+        if (!savedId) {
+          setIsAutoSaving(false);
+          return; // handleSave already showed error toast
+        }
+
+        // If this was a new proposal, redirect to edit mode so subsequent saves work correctly
+        if (!isEditing) {
+          navigate(`/propostas/${savedId}`, { replace: true });
+          // Small delay to let navigation settle, then the component will remount in edit mode
+          setIsAutoSaving(false);
+          return;
+        }
+
+        // Refresh data to get the linked project
+        await queryClient.refetchQueries({ queryKey: ["proposal", savedId] });
+        await queryClient.refetchQueries({ queryKey: ["projects"] });
+
+        toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
+      } catch (err: any) {
+        toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+        setIsAutoSaving(false);
+        return;
+      }
+      setIsAutoSaving(false);
+    }
+
+    setMaxUnlockedStep((prev) => Math.max(prev, next));
+    setCurrentStep(next);
+  }
+
+  const isSaving = createProposal.isPending || updateProposal.isPending || isGenerating || isAutoSaving;
 
   const progress = useMemo(() => (currentStep / steps.length) * 100, [currentStep]);
 

@@ -99,6 +99,7 @@ export default function ScopeTemplateEditPage() {
       default_hours: p.default_hours,
       sort_order: p.sort_order,
       parent_id: null,
+      notes: p.notes || null,
       children: flatItems
         .filter((c: any) => c.parent_id === p.id)
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
@@ -108,6 +109,7 @@ export default function ScopeTemplateEditPage() {
           default_hours: c.default_hours,
           sort_order: c.sort_order,
           parent_id: p.id,
+          notes: c.notes || null,
         })),
     }));
   }

@@ -980,16 +980,6 @@ export default function ProposalCreate() {
     if (!proposalType) missing.push("Tipo de Proposta");
     if (!esnId) missing.push("ESN (Executivo de Vendas)");
 
-      {/* ─── Auto-save overlay ───────────────────────────────────── */}
-      {isAutoSaving && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 shadow-xl">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-base font-semibold text-foreground">Sincronizando escopo e projeto...</p>
-            <p className="text-sm text-muted-foreground">Aguarde enquanto preparamos o Financeiro.</p>
-          </div>
-        </div>
-      )}
 
     if (missing.length > 0) {
       toast({

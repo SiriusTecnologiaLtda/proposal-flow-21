@@ -623,6 +623,17 @@ export default function ProposalCreate() {
     return roundUpFactor(rawScopeHours);
   }, [rawScopeHours, roundingFactor]);
 
+  // Service items hook - dynamic service items per proposal
+  const {
+    items: serviceItems,
+    totalServiceHours,
+    totalServiceValue,
+    goLiveItems,
+    updateItem: updateServiceItem,
+    getItemsForSave: getServiceItemsForSave,
+    hasItems: hasServiceItems,
+  } = useProposalServiceItems(proposalType, id, isEditing, rawScopeHours);
+
    // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
     const groupsByKey = new Map<string, { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }>();
@@ -687,8 +698,9 @@ export default function ProposalCreate() {
     });
   }
 
-  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
-  const totalValue = (totalHours + gpHours) * hourlyRate;
+  // Use service items for financial calculations when available, fallback to legacy
+  const gpHours = hasServiceItems ? 0 : roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
+  const totalValue = hasServiceItems ? totalServiceValue : (totalHours + gpHours) * hourlyRate;
 
   const clientUnit = useMemo(() => {
     if (!selectedClient?.unit_id) return null;

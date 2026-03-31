@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Upload, FileIcon, X, Paperclip, Library, Search, Layers, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, MessageSquare, Check, FileText, ClipboardList, FolderKanban, UserRoundSearch, Users, Sparkles, AlertTriangle, DollarSign } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -94,6 +94,7 @@ const steps = [
   { id: 1, label: "Dados do Projeto", icon: FileText },
   { id: 2, label: "Escopo", icon: ClipboardList },
   { id: 3, label: "Anexos", icon: Paperclip },
+  { id: 4, label: "Resumo Financeiro", icon: DollarSign },
 ];
 
 export default function ProjectCreatePage() {
@@ -161,6 +162,63 @@ export default function ProjectCreatePage() {
 
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
+
+  // Financial summary data from linked proposal
+  const [finServiceItems, setFinServiceItems] = useState<any[]>([]);
+  const [finTaxFactor, setFinTaxFactor] = useState(0);
+  const [finUnitName, setFinUnitName] = useState("");
+  const [finLoading, setFinLoading] = useState(false);
+
+  useEffect(() => {
+    if (!existingProject?.proposal_id) { setFinServiceItems([]); return; }
+    let cancelled = false;
+    (async () => {
+      setFinLoading(true);
+      try {
+        const { data: items } = await supabase
+          .from("proposal_service_items")
+          .select("*")
+          .eq("proposal_id", existingProject.proposal_id)
+          .order("sort_order");
+        if (!cancelled) setFinServiceItems(items || []);
+
+        // Get tax factor from client's unit
+        const { data: proposal } = await supabase
+          .from("proposals")
+          .select("client_id")
+          .eq("id", existingProject.proposal_id)
+          .single();
+        if (proposal && !cancelled) {
+          const { data: client } = await supabase
+            .from("clients")
+            .select("unit_id")
+            .eq("id", proposal.client_id)
+            .single();
+          if (client?.unit_id && !cancelled) {
+            const { data: unit } = await supabase
+              .from("unit_info")
+              .select("tax_factor, name")
+              .eq("id", client.unit_id)
+              .single();
+            if (unit && !cancelled) {
+              setFinTaxFactor(Number(unit.tax_factor) || 0);
+              setFinUnitName(unit.name || "");
+            }
+          }
+        }
+      } catch {}
+      if (!cancelled) setFinLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [existingProject?.proposal_id]);
+
+  const finTotalHours = useMemo(() => finServiceItems.reduce((s, i) => s + Number(i.calculated_hours || 0), 0), [finServiceItems]);
+  const finTotalNet = useMemo(() => finServiceItems.reduce((s, i) => s + Number(i.calculated_hours || 0) * Number(i.hourly_rate || 0), 0), [finServiceItems]);
+  const finTotalGross = useMemo(() => finTaxFactor > 0 ? finTotalNet / finTaxFactor : finTotalNet, [finTotalNet, finTaxFactor]);
+  const finGoLiveItems = useMemo(() => finServiceItems.filter(i => Number(i.golive_pct) > 0).map(i => ({
+    ...i,
+    golive_hours: Math.round(Number(i.calculated_hours || 0) * Number(i.golive_pct || 0) / 100),
+  })), [finServiceItems]);
 
   // Load existing project data
   useEffect(() => {
@@ -707,7 +765,7 @@ export default function ProjectCreatePage() {
         <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {steps.map((step) => {
             const Icon = step.icon;
             const active = step.id === currentStep;
@@ -1257,7 +1315,102 @@ export default function ProjectCreatePage() {
         </div>
       )}
 
-      {/* ─── Floating Footer ─────────────────────────────────────── */}
+      {/* ═══ Step 4: Resumo Financeiro ════════════════════════════ */}
+      {currentStep === 4 && (
+        <div className="space-y-4 rounded-lg border border-border bg-card p-4 md:p-6">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Resumo Financeiro
+          </h2>
+
+          {!existingProject?.proposal_id ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Este projeto não está vinculado a uma oportunidade. O resumo financeiro é exibido apenas para projetos com oportunidade associada.
+            </p>
+          ) : finLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Carregando dados financeiros...</div>
+          ) : finServiceItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nenhum item de serviço configurado na oportunidade vinculada.
+            </p>
+          ) : (
+            <>
+              <div className="rounded-md border border-border bg-muted/50 p-4">
+                <div className="overflow-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item de Serviço</th>
+                        <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                        <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {finServiceItems.map((item) => {
+                        const hours = Number(item.calculated_hours || 0);
+                        const rate = Number(item.hourly_rate || 0);
+                        const netVal = hours * rate;
+                        const grossVal = finTaxFactor > 0 ? netVal / finTaxFactor : netVal;
+                        return (
+                          <tr key={item.id} className="border-b border-border/50">
+                            <td className="py-2 px-3 text-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <span>{item.label}</span>
+                                {item.is_base_scope && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Base</span>
+                                )}
+                                {!item.is_base_scope && Number(item.additional_pct) > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">({item.additional_pct}%)</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-center text-foreground">{hours}</td>
+                            <td className="py-2 px-3 text-right text-foreground">R$ {rate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 px-3 text-right text-foreground">R$ {netVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 px-3 text-right font-medium text-foreground">R$ {grossVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-accent/30">
+                        <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                        <td className="py-2 px-3 text-center font-semibold text-foreground">{finTotalHours}</td>
+                        <td className="py-2 px-3 text-right text-foreground">—</td>
+                        <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {finTotalNet.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-3 text-right font-bold text-foreground">R$ {finTotalGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {finGoLiveItems.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Acompanhamento Pós Go-Live</p>
+                    <div className="space-y-1">
+                      {finGoLiveItems.map((item) => (
+                        <div key={`golive-${item.id}`} className="flex justify-between text-xs text-muted-foreground">
+                          <span>{item.label} ({item.golive_pct}%)</span>
+                          <span>{item.golive_hours}h</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {finTaxFactor > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground text-right">
+                    Fator imposto: {finTaxFactor}% ({finUnitName})
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {!isReadOnly && (
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">

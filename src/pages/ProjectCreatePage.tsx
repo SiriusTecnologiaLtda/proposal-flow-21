@@ -383,11 +383,13 @@ export default function ProjectCreatePage() {
         description: parent.description,
         included: true,
         templateId,
+        notes: parent.notes || undefined,
         children: kids.map((kid: any) => ({
           id: localId(),
           description: kid.description,
           hours: kid.default_hours || 0,
           included: true,
+          notes: kid.notes || undefined,
         })),
       };
     });

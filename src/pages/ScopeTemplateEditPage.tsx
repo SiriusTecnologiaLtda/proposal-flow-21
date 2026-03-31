@@ -65,6 +65,30 @@ export default function ScopeTemplateEditPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Notes dialog
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesDialogValue, setNotesDialogValue] = useState("");
+  const [notesDialogTarget, setNotesDialogTarget] = useState<{ type: "parent" | "child"; parentIndex: number; childIndex?: number } | null>(null);
+  const [notesDialogLabel, setNotesDialogLabel] = useState("");
+
+  function openNotesDialog(target: typeof notesDialogTarget, currentValue: string, label: string) {
+    setNotesDialogTarget(target);
+    setNotesDialogValue(currentValue);
+    setNotesDialogLabel(label);
+    setNotesDialogOpen(true);
+  }
+
+  function saveNotesDialog() {
+    if (!notesDialogTarget) return;
+    const { type, parentIndex, childIndex } = notesDialogTarget;
+    if (type === "parent") {
+      updateParent(parentIndex, "notes", notesDialogValue || null);
+    } else if (type === "child" && childIndex !== undefined) {
+      updateChild(parentIndex, childIndex, "notes", notesDialogValue || null);
+    }
+    setNotesDialogOpen(false);
+  }
+
   // Track if content was actually modified (dirty flag)
   const loadedSnapshotRef = useRef<string>("");
   const isDirty = useMemo(() => {

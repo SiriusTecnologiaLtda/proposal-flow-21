@@ -1063,7 +1063,7 @@ async function replaceGoLiveTablePlaceholder(
 ) {
   const headerCells = ["Recurso", "Horas Acompanhamento"];
   const dataRows = items.map(si => [
-    `${si.label} (${si.golivePct}%)`,
+    si.label,
     `${si.goliveHours}h`,
   ]);
   await findAndReplaceTablePlaceholder(accessToken, docId, "{{TABELA_GOLIVE}}", headerCells, dataRows, logs);

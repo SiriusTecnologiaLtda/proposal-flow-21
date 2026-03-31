@@ -250,7 +250,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
               />
             </div>
 
-            <div className="grid gap-4 grid-cols-2">
+            <div className="grid gap-4 grid-cols-3">
               <div>
                 <Label>Fator de Arredondamento (horas)</Label>
                 <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>

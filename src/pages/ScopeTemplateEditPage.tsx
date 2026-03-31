@@ -25,6 +25,7 @@ interface ScopeItemForm {
   default_hours: number;
   sort_order: number;
   parent_id?: string | null;
+  notes?: string | null;
   children?: ScopeItemForm[];
 }
 

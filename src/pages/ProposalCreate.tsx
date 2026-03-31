@@ -2387,6 +2387,8 @@ export default function ProposalCreate() {
                   <p><span className="text-muted-foreground">Descrição:</span> <span className="font-medium">{description || "—"}</span></p>
                   <p><span className="text-muted-foreground">ESN:</span> <span className="font-medium">{selectedEsn?.name || "—"}</span></p>
                   <p><span className="text-muted-foreground">GSN:</span> <span className="font-medium">{autoGsn?.name || "—"}</span></p>
+                  <p><span className="text-muted-foreground">Previsão de Fechamento:</span> <span className="font-medium">{expectedCloseDate ? new Date(expectedCloseDate + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</span></p>
+                  <p><span className="text-muted-foreground">Data de Validade:</span> <span className="font-medium">{dateValidity ? new Date(dateValidity + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</span></p>
                 </div>
               </div>
 

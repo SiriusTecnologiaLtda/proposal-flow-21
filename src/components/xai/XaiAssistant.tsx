@@ -20,7 +20,7 @@ export default function XaiAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
+  const { session } = useAuth();
   const { role, allowedResources } = useUserRole();
 
   useEffect(() => {
@@ -37,12 +37,14 @@ export default function XaiAssistant() {
 
   const streamChat = useCallback(
     async (allMessages: Message[]) => {
+      const accessToken = session?.access_token;
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           messages: allMessages,
@@ -101,7 +103,7 @@ export default function XaiAssistant() {
         }
       }
     },
-    [role, allowedResources]
+    [role, allowedResources, session?.access_token]
   );
 
   const send = async () => {

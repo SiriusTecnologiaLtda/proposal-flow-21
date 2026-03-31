@@ -292,6 +292,7 @@ function Top10Proposals({
         {top10.map((proposal: any, i: number) => {
           const status = sMap[proposal.status] || sMap.pendente;
           const clientName = proposal.clients?.name || "—";
+          const esnName = proposal.sales_team?.name || "";
           const isTop3 = i < 3;
           return (
             <motion.div
@@ -321,7 +322,7 @@ function Top10Proposals({
                       {clientName}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      Oportunidade {proposal.number}
+                      {proposal.number}{esnName ? ` · ${esnName}` : ""}
                     </p>
                   </div>
                 </div>

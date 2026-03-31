@@ -1180,6 +1180,21 @@ export default function ProposalCreate() {
         toast({ title: status === "proposta_gerada" ? "Proposta salva! Gerando documento..." : "Proposta salva!" });
       }
 
+      // Persist service items
+      if (savedId && hasServiceItems) {
+        try {
+          const siRows = getServiceItemsForSave(savedId);
+          // Clear existing service items for this proposal
+          await supabase.from("proposal_service_items").update({ related_item_id: null }).eq("proposal_id", savedId);
+          await supabase.from("proposal_service_items").delete().eq("proposal_id", savedId);
+          if (siRows.length > 0) {
+            await supabase.from("proposal_service_items").insert(siRows as any);
+          }
+        } catch (e: any) {
+          console.error("Failed to save service items:", e);
+        }
+      }
+
       // Regenerate commission projections
       if (savedId) {
         regenerateCommissionProjections(savedId).catch(() => {});

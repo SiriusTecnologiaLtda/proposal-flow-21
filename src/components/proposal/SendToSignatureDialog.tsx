@@ -149,12 +149,6 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     }
   }, [open, clientId]);
 
-  // Auto-select first doc for preview
-  useEffect(() => {
-    if (envelopeDocs.length > 0 && !activeDocId) {
-      setActiveDocId(envelopeDocs[0].id);
-    }
-  }, [envelopeDocs, activeDocId]);
 
   // ─── Data Loading (preserved logic) ──────────────────────────────
   async function loadEnvelopeDocuments() {

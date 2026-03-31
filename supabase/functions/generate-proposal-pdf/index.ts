@@ -1082,7 +1082,34 @@ Deno.serve(async (req) => {
     const esn = proposal.esn;
     const gsn = proposal.gsn;
     const arq = proposal.arquiteto;
-    const payments = (proposal.payment_conditions || []).sort((a: any, b: any) => a.installment - b.installment);
+    let payments = (proposal.payment_conditions || []).sort((a: any, b: any) => a.installment - b.installment);
+
+    // Auto-generate default single installment if no payments exist but financial data is available
+    if (payments.length === 0 && totalValueNet > 0) {
+      const defaultDueDate = new Date();
+      defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+      const defaultPayment = {
+        installment: 1,
+        due_date: defaultDueDate.toISOString().split("T")[0],
+        amount: Math.round(totalValueNet * 100) / 100,
+      };
+      payments = [defaultPayment];
+      log(logs, "Pagamento", "info", `Nenhuma parcela cadastrada — gerada parcela padrão: 1x R$ ${fmt(totalValueNet)} venc. ${fmtDate(defaultPayment.due_date)}`);
+
+      // Persist the auto-generated payment so it's available for future operations
+      try {
+        await supabase.from("payment_conditions").insert({
+          proposal_id: proposalId,
+          installment: 1,
+          due_date: defaultPayment.due_date,
+          amount: defaultPayment.amount,
+        });
+        log(logs, "Pagamento", "ok", "Parcela padrão salva no banco de dados");
+      } catch (e: any) {
+        log(logs, "Pagamento", "info", `Não foi possível persistir parcela padrão: ${e.message}`);
+      }
+    }
+
     const firstPayment = payments[0];
     const desc = proposal.description || (isProjeto ? "Projeto de Implantação" : "Banco de Horas");
 

@@ -2164,88 +2164,87 @@ export default function ProposalCreate() {
         <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-foreground">Informações Financeiras</h2>
 
-          {/* Parâmetros Financeiros - Collapsible */}
-          <Collapsible defaultOpen={true}>
-            <div className="rounded-md border border-border bg-muted/50">
-              <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-md">
-                <h3 className="text-sm font-semibold text-foreground">Parâmetros Financeiros</h3>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-4 pb-4 space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Valor Hora (R$)</Label>
-                      <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Hrs Projeto GP</Label>
-                      <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Acomp. Analista</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} className="flex-1" />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUpFactor(Math.ceil(totalHours * (accompAnalyst / 100)))}h
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Acomp. GP</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUpFactor(Math.ceil(totalHours * (accompGP / 100)))}h
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-
+          {/* Resumo Financeiro — Itens de Serviço */}
           <div className="rounded-md border border-border bg-muted/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo Financeiro</h3>
-            <div className="overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Descritivo</th>
-                    <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">{analystLabel}</td>
-                    <td className="py-2 px-3 text-center text-foreground">{totalHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {(totalHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">{gpLabel}</td>
-                    <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(gpHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-border bg-accent/30">
-                    <td className="py-2 px-3 font-semibold text-foreground">Total</td>
-                    <td className="py-2 px-3 text-center font-semibold text-foreground">{totalHours + gpHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            {!hasServiceItems ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum item de serviço configurado para o tipo de oportunidade selecionado.
+                Configure os itens em Cadastros → Tipos de Oportunidade.
+              </p>
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item de Serviço</th>
+                      <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                      <th className="py-2 px-3 text-center font-medium text-muted-foreground w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serviceItems.map((item) => {
+                      const itemNetValue = item.calculated_hours * item.hourly_rate;
+                      const itemGrossValue = taxFactor > 0 ? itemNetValue / taxFactor : itemNetValue;
+                      return (
+                        <tr key={item.id} className="border-b border-border/50">
+                          <td className="py-2 px-3 text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.label}</span>
+                              {item.is_base_scope && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Base</span>
+                              )}
+                              {!item.is_base_scope && item.additional_pct > 0 && (
+                                <span className="text-[10px] text-muted-foreground">({item.additional_pct}%)</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-center text-foreground">{item.calculated_hours}</td>
+                          <td className="py-2 px-3 text-right text-foreground">R$ {item.hourly_rate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-right text-foreground">R$ {itemNetValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-right font-medium text-foreground">R$ {itemGrossValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-center">
+                            <button
+                              onClick={() => { setEditingServiceItem(item); setEditServiceItemOpen(true); }}
+                              className="rounded p-1 text-muted-foreground hover:text-primary transition-colors"
+                              title="Editar parâmetros"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border bg-accent/30">
+                      <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                      <td className="py-2 px-3 text-center font-semibold text-foreground">{totalServiceHours}</td>
+                      <td className="py-2 px-3 text-right text-foreground">—</td>
+                      <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+            {goLiveItems.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Acompanhamento Pós Go-Live</p>
+                <div className="space-y-1">
+                  {goLiveItems.map((item) => (
+                    <div key={`golive-${item.id}`} className="flex justify-between text-xs text-muted-foreground">
+                      <span>{item.label} ({item.golive_pct}%)</span>
+                      <span>{item.golive_hours}h</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {taxFactor > 0 && (
               <p className="mt-2 text-xs text-muted-foreground text-right">
                 Fator imposto: {taxFactor}% ({clientUnit?.name || "Unidade"})

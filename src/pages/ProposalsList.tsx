@@ -1784,7 +1784,7 @@ export default function ProposalsList() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">Informe a data de fechamento desta proposta:</p>
+              <p className="text-sm text-muted-foreground">Confirme a data de fechamento desta oportunidade:</p>
               <div className="space-y-1.5">
                 <Label htmlFor="win-close-date">Data de Fechamento</Label>
                 <Input

@@ -26,6 +26,7 @@ interface ServiceItem {
   is_base_scope: boolean;
   additional_pct: number;
   hourly_rate: number;
+  golive_pct: number;
   related_item_id: string | null;
   sort_order: number;
 }
@@ -41,6 +42,7 @@ const emptyForm = {
   is_base_scope: false,
   additional_pct: 0,
   hourly_rate: 250,
+  golive_pct: 0,
   related_item_id: "",
 };
 
@@ -78,6 +80,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
         rounding_factor: values.rounding_factor,
         is_base_scope: values.is_base_scope,
         hourly_rate: values.hourly_rate,
+        golive_pct: values.golive_pct,
         additional_pct: values.is_base_scope ? 0 : values.additional_pct,
         related_item_id: values.is_base_scope ? null : (values.related_item_id || null),
         sort_order: values.is_base_scope ? 0 : (items.length + 1),
@@ -142,6 +145,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
       is_base_scope: item.is_base_scope,
       additional_pct: item.additional_pct,
       hourly_rate: item.hourly_rate,
+      golive_pct: item.golive_pct,
       related_item_id: item.related_item_id || "",
     });
     setEditingId(item.id);
@@ -191,6 +195,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                   <TableHead>Nome</TableHead>
                   <TableHead className="w-28">Arredond. (h)</TableHead>
                   <TableHead className="w-28">Valor Hora</TableHead>
+                  <TableHead className="w-24">% Go Live</TableHead>
                   <TableHead className="w-28">Base Escopo</TableHead>
                   <TableHead className="w-28">% Adicional</TableHead>
                   <TableHead>Item Relacionado</TableHead>
@@ -205,6 +210,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                       <TableCell className="font-medium">{item.label}</TableCell>
                       <TableCell>{item.rounding_factor}h</TableCell>
                       <TableCell>R$ {Number(item.hourly_rate).toFixed(2)}</TableCell>
+                      <TableCell>{Number(item.golive_pct)}%</TableCell>
                       <TableCell>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${item.is_base_scope ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                           {item.is_base_scope ? "Sim" : "Não"}
@@ -250,7 +256,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
               />
             </div>
 
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
               <div>
                 <Label>Fator de Arredondamento (horas)</Label>
                 <Select value={String(form.rounding_factor)} onValueChange={(v) => setForm({ ...form, rounding_factor: Number(v) })}>
@@ -273,6 +279,18 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
                   placeholder="250"
                   value={form.hourly_rate}
                   onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
+                />
+              </div>
+
+              <div>
+                <Label>% Go Live</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0"
+                  value={form.golive_pct}
+                  onChange={(e) => setForm({ ...form, golive_pct: Number(e.target.value) })}
                 />
               </div>
 

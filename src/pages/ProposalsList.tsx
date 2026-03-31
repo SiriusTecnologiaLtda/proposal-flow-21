@@ -49,6 +49,14 @@ function roundUpFactor(val: number, factor: number): number {
 }
 
 function computeNetValue(proposal: any, units: any[], proposalTypes: any[]): number | null {
+  // Use service items if available
+  const serviceItems = proposal.proposal_service_items;
+  if (serviceItems && serviceItems.length > 0) {
+    return serviceItems.reduce((sum: number, item: any) =>
+      sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+  }
+
+  // Fallback to legacy calculation
   const scopeItems = proposal.proposal_scope_items;
   if (!scopeItems || scopeItems.length === 0) return null;
 

@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
 import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { regenerateCommissionProjections } from "@/lib/commissionProjections";
-
+import { useProposalServiceItems, type ProposalServiceItem } from "@/hooks/useProposalServiceItems";
 // Two-level scope item for proposal
 interface ScopeChild {
   id: string;
@@ -187,6 +187,10 @@ export default function ProposalCreate() {
   const [solicitarEvDialogOpen, setSolicitarEvDialogOpen] = useState(false);
   const [solicitarEvMessage, setSolicitarEvMessage] = useState("");
   const [solicitarEvSending, setSolicitarEvSending] = useState(false);
+
+  // Service item inline edit dialog
+  const [editServiceItemOpen, setEditServiceItemOpen] = useState(false);
+  const [editingServiceItem, setEditingServiceItem] = useState<ProposalServiceItem | null>(null);
 
   async function writeProposalLog(entry: {
     stage: string;
@@ -619,6 +623,17 @@ export default function ProposalCreate() {
     return roundUpFactor(rawScopeHours);
   }, [rawScopeHours, roundingFactor]);
 
+  // Service items hook - dynamic service items per proposal
+  const {
+    items: serviceItems,
+    totalServiceHours,
+    totalServiceValue,
+    goLiveItems,
+    updateItem: updateServiceItem,
+    getItemsForSave: getServiceItemsForSave,
+    hasItems: hasServiceItems,
+  } = useProposalServiceItems(proposalType, id, isEditing, rawScopeHours);
+
    // Group scope processes by template for grouped display
   const groupedScope = useMemo(() => {
     const groupsByKey = new Map<string, { templateId: string | undefined; groupId?: string; templateName: string; category: string; processes: ScopeProcess[] }>();
@@ -683,8 +698,9 @@ export default function ProposalCreate() {
     });
   }
 
-  const gpHours = roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
-  const totalValue = (totalHours + gpHours) * hourlyRate;
+  // Use service items for financial calculations when available, fallback to legacy
+  const gpHours = hasServiceItems ? 0 : roundUpFactor(Math.ceil(totalHours * (gpPercentage / 100)));
+  const totalValue = hasServiceItems ? totalServiceValue : (totalHours + gpHours) * hourlyRate;
 
   const clientUnit = useMemo(() => {
     if (!selectedClient?.unit_id) return null;
@@ -1108,6 +1124,7 @@ export default function ProposalCreate() {
       group_notes: { ...groupNotes, _manual_groups: manualGroupNames, _group_order: groupOrder },
       scopeItems: allScopeItems,
       payments: paymentRows,
+      serviceItems: [],
       ...(effectiveStatus === "em_analise_ev" ? { ev_requested: true } : {}),
     };
 
@@ -1161,6 +1178,21 @@ export default function ProposalCreate() {
         savedId = (result as any)?.id || generatedProposalId;
         await writeProposalLog({ stage: "create_success", proposalId: savedId, payload: logPayload });
         toast({ title: status === "proposta_gerada" ? "Proposta salva! Gerando documento..." : "Proposta salva!" });
+      }
+
+      // Persist service items
+      if (savedId && hasServiceItems) {
+        try {
+          const siRows = getServiceItemsForSave(savedId);
+          // Clear existing service items for this proposal
+          await supabase.from("proposal_service_items").update({ related_item_id: null }).eq("proposal_id", savedId);
+          await supabase.from("proposal_service_items").delete().eq("proposal_id", savedId);
+          if (siRows.length > 0) {
+            await supabase.from("proposal_service_items").insert(siRows as any);
+          }
+        } catch (e: any) {
+          console.error("Failed to save service items:", e);
+        }
       }
 
       // Regenerate commission projections
@@ -2148,88 +2180,87 @@ export default function ProposalCreate() {
         <div className="space-y-6 rounded-lg border border-border bg-card p-4 md:p-6">
           <h2 className="text-base font-semibold text-foreground">Informações Financeiras</h2>
 
-          {/* Parâmetros Financeiros - Collapsible */}
-          <Collapsible defaultOpen={true}>
-            <div className="rounded-md border border-border bg-muted/50">
-              <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-accent/50 transition-colors rounded-md">
-                <h3 className="text-sm font-semibold text-foreground">Parâmetros Financeiros</h3>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-4 pb-4 space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Valor Hora (R$)</Label>
-                      <Input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Hrs Projeto GP</Label>
-                      <Input type="number" value={gpPercentage} onChange={(e) => setGpPercentage(Number(e.target.value))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Acomp. Analista</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" value={accompAnalyst} onChange={(e) => setAccompAnalyst(Number(e.target.value))} className="flex-1" />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUpFactor(Math.ceil(totalHours * (accompAnalyst / 100)))}h
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">% Acomp. GP</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" value={accompGP} onChange={(e) => setAccompGP(Number(e.target.value))} className="flex-1" />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap bg-accent/50 rounded px-2 py-1.5 border border-border">
-                          = {roundUpFactor(Math.ceil(totalHours * (accompGP / 100)))}h
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-
+          {/* Resumo Financeiro — Itens de Serviço */}
           <div className="rounded-md border border-border bg-muted/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Resumo Financeiro</h3>
-            <div className="overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-2 px-3 text-left font-medium text-muted-foreground">Descritivo</th>
-                    <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">{analystLabel}</td>
-                    <td className="py-2 px-3 text-center text-foreground">{totalHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {(totalHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(totalHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 px-3 text-foreground">{gpLabel}</td>
-                    <td className="py-2 px-3 text-center text-foreground">{gpHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {(gpHours * hourlyRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-medium text-foreground">R$ {(gpHours * hourlyRate * (1 + taxFactor / 100)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-border bg-accent/30">
-                    <td className="py-2 px-3 font-semibold text-foreground">Total</td>
-                    <td className="py-2 px-3 text-center font-semibold text-foreground">{totalHours + gpHours}</td>
-                    <td className="py-2 px-3 text-right text-foreground">R$ {hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                    <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            {!hasServiceItems ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum item de serviço configurado para o tipo de oportunidade selecionado.
+                Configure os itens em Cadastros → Tipos de Oportunidade.
+              </p>
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left font-medium text-muted-foreground">Item de Serviço</th>
+                      <th className="py-2 px-3 text-center font-medium text-muted-foreground">Horas</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">R$ Unitário</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Líquido</th>
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">Valor Bruto</th>
+                      <th className="py-2 px-3 text-center font-medium text-muted-foreground w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serviceItems.map((item) => {
+                      const itemNetValue = item.calculated_hours * item.hourly_rate;
+                      const itemGrossValue = taxFactor > 0 ? itemNetValue / taxFactor : itemNetValue;
+                      return (
+                        <tr key={item.id} className="border-b border-border/50">
+                          <td className="py-2 px-3 text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.label}</span>
+                              {item.is_base_scope && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Base</span>
+                              )}
+                              {!item.is_base_scope && item.additional_pct > 0 && (
+                                <span className="text-[10px] text-muted-foreground">({item.additional_pct}%)</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-center text-foreground">{item.calculated_hours}</td>
+                          <td className="py-2 px-3 text-right text-foreground">R$ {item.hourly_rate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-right text-foreground">R$ {itemNetValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-right font-medium text-foreground">R$ {itemGrossValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-center">
+                            <button
+                              onClick={() => { setEditingServiceItem(item); setEditServiceItemOpen(true); }}
+                              className="rounded p-1 text-muted-foreground hover:text-primary transition-colors"
+                              title="Editar parâmetros"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border bg-accent/30">
+                      <td className="py-2 px-3 font-semibold text-foreground">Total</td>
+                      <td className="py-2 px-3 text-center font-semibold text-foreground">{totalServiceHours}</td>
+                      <td className="py-2 px-3 text-right text-foreground">—</td>
+                      <td className="py-2 px-3 text-right font-semibold text-foreground">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 px-3 text-right font-bold text-foreground">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+            {goLiveItems.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Acompanhamento Pós Go-Live</p>
+                <div className="space-y-1">
+                  {goLiveItems.map((item) => (
+                    <div key={`golive-${item.id}`} className="flex justify-between text-xs text-muted-foreground">
+                      <span>{item.label} ({item.golive_pct}%)</span>
+                      <span>{item.golive_hours}h</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {taxFactor > 0 && (
               <p className="mt-2 text-xs text-muted-foreground text-right">
                 Fator imposto: {taxFactor}% ({clientUnit?.name || "Unidade"})
@@ -2453,13 +2484,21 @@ export default function ProposalCreate() {
               <div className="rounded-md border border-border bg-primary/5 p-4">
                 <h3 className="mb-2 text-sm font-semibold text-foreground">Financeiro</h3>
                 <div className="grid gap-1 text-sm md:grid-cols-2">
-                  <p><span className="text-muted-foreground">Total Horas:</span> <span className="font-semibold">{totalHours + gpHours}h</span></p>
-                  <p><span className="text-muted-foreground">Valor Hora:</span> <span className="font-semibold">R$ {hourlyRate.toFixed(2)}</span></p>
+                  <p><span className="text-muted-foreground">Total Horas:</span> <span className="font-semibold">{hasServiceItems ? totalServiceHours : (totalHours + gpHours)}h</span></p>
                   <p><span className="text-muted-foreground">Valor Líquido:</span> <span className="font-semibold">R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
                   <p><span className="text-muted-foreground">Valor Bruto:</span> <span className="text-lg font-bold text-primary">R$ {totalValueGross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span></p>
                   <p><span className="text-muted-foreground">Parcelas:</span> <span className="font-semibold">{payments.length}x</span></p>
                   {taxFactor > 0 && <p><span className="text-muted-foreground">Fator Imposto:</span> <span className="font-medium">{Number(taxFactor).toFixed(4)}</span></p>}
                 </div>
+                {hasServiceItems && (
+                  <div className="mt-2 pt-2 border-t border-border space-y-0.5">
+                    {serviceItems.map((item) => (
+                      <p key={item.id} className="text-xs text-muted-foreground">
+                        {item.label}: {item.calculated_hours}h × R$ {item.hourly_rate.toFixed(2)} = R$ {(item.calculated_hours * item.hourly_rate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2539,6 +2578,87 @@ export default function ProposalCreate() {
             >
               {solicitarEvSending ? "Enviando..." : "Enviar Solicitação"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Service Item Edit Dialog */}
+      <Dialog open={editServiceItemOpen} onOpenChange={(open) => { if (!open) { setEditServiceItemOpen(false); setEditingServiceItem(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" /> Editar Parâmetros — {editingServiceItem?.label}
+            </DialogTitle>
+          </DialogHeader>
+          {editingServiceItem && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor Hora (R$)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={editingServiceItem.hourly_rate}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setEditingServiceItem({ ...editingServiceItem, hourly_rate: val });
+                    updateServiceItem(editingServiceItem.id, { hourly_rate: val });
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Fator de Arredondamento (horas)</Label>
+                <Select
+                  value={String(editingServiceItem.rounding_factor)}
+                  onValueChange={(v) => {
+                    const val = Number(v);
+                    setEditingServiceItem({ ...editingServiceItem, rounding_factor: val });
+                    updateServiceItem(editingServiceItem.id, { rounding_factor: val });
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hora</SelectItem>
+                    <SelectItem value="2">2 horas</SelectItem>
+                    <SelectItem value="4">4 horas</SelectItem>
+                    <SelectItem value="8">8 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% Go Live</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editingServiceItem.golive_pct}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setEditingServiceItem({ ...editingServiceItem, golive_pct: val });
+                    updateServiceItem(editingServiceItem.id, { golive_pct: val });
+                  }}
+                />
+              </div>
+              {!editingServiceItem.is_base_scope && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">% Adicional</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editingServiceItem.additional_pct}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setEditingServiceItem({ ...editingServiceItem, additional_pct: val });
+                      updateServiceItem(editingServiceItem.id, { additional_pct: val });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditServiceItemOpen(false); setEditingServiceItem(null); }}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

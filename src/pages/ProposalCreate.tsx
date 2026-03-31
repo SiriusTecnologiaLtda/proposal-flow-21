@@ -1323,6 +1323,14 @@ export default function ProposalCreate() {
         return;
       }
 
+      // If stayOnPage, return savedId without navigating
+      if (opts?.stayOnPage) {
+        // Refresh queries so linked project data is available
+        queryClient.invalidateQueries({ queryKey: ["proposals"] });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        return savedId;
+      }
+
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
         navigate(`/propostas?generate=${savedId}`);

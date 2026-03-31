@@ -383,6 +383,11 @@ export default function ProposalCreate() {
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       setExpectedCloseDate(lastDay.toISOString().split("T")[0]);
 
+      // Default date validity = today + 30 days
+      const validity = new Date();
+      validity.setDate(validity.getDate() + 30);
+      setDateValidity(formatDateForInput(validity));
+
       // Default first payment due date = 30 days from today
       setFirstDueDate(getDefaultFirstDueDate());
 

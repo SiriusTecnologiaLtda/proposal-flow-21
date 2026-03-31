@@ -248,12 +248,21 @@ function Top10Proposals({
       .slice(0, 10);
   }, [proposals, mode, calcValue]);
 
+  const medalColors = [
+    "from-yellow-400 to-amber-500",   // 🥇
+    "from-slate-300 to-slate-400",     // 🥈
+    "from-amber-600 to-amber-700",     // 🥉
+  ];
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-        <CardTitle className="text-sm font-semibold">
-          Top 10 — {mode === "aberto" ? "Em Aberto" : "Realizadas"}
-        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-primary" />
+          <CardTitle className="text-sm font-semibold">
+            Top 10 — {mode === "aberto" ? "Em Aberto" : "Realizadas"}
+          </CardTitle>
+        </div>
         <div className="flex gap-1">
           <button
             onClick={() => setMode("aberto")}
@@ -279,38 +288,60 @@ function Top10Proposals({
           </button>
         </div>
       </CardHeader>
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border/50">
         {top10.map((proposal: any, i: number) => {
           const status = sMap[proposal.status] || sMap.pendente;
           const clientName = proposal.clients?.name || "—";
+          const isTop3 = i < 3;
           return (
-            <Link
+            <motion.div
               key={proposal.id}
-              to={`/propostas/${proposal.id}`}
-              className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.04 }}
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{proposal.number}</p>
-                  <p className="text-xs text-muted-foreground truncate">{clientName}</p>
+              <Link
+                to={`/propostas/${proposal.id}`}
+                className={cn(
+                  "flex items-center justify-between gap-3 px-4 py-3.5 transition-all hover:bg-accent/50 group",
+                  isTop3 && "bg-accent/20"
+                )}
+              >
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  <span className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                    isTop3
+                      ? `bg-gradient-to-br ${medalColors[i]} text-white shadow-sm`
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                      {clientName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      Oportunidade {proposal.number}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-                  {formatCurrency(proposal._value)}
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${status.className}`}>
-                  {status.label}
-                </span>
-              </div>
-            </Link>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={cn(
+                    "text-sm font-bold tabular-nums whitespace-nowrap",
+                    isTop3 ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {formatCurrency(proposal._value)}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${status.className}`}>
+                    {status.label}
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
           );
         })}
         {top10.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
             Nenhuma proposta encontrada para os filtros selecionados.
           </div>
         )}

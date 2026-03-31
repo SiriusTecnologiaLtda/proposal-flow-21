@@ -120,9 +120,6 @@ export default function ProposalTypesPage() {
       analyst_label: item.analyst_label || "Analista de Implantação",
       gp_label: item.gp_label || "Coordenador de Projeto",
       rounding_factor: item.rounding_factor || 8,
-      allow_project: item.allow_project ?? true,
-      require_project: item.require_project ?? false,
-      allow_standalone_scope: item.allow_standalone_scope ?? true,
     });
     setEditingId(item.id);
     setDialogOpen(true);

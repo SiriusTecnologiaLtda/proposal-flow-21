@@ -1055,6 +1055,79 @@ export type Database = {
           },
         ]
       }
+      proposal_service_items: {
+        Row: {
+          additional_pct: number
+          calculated_hours: number
+          created_at: string
+          golive_pct: number
+          hourly_rate: number
+          id: string
+          is_base_scope: boolean
+          label: string
+          proposal_id: string
+          related_item_id: string | null
+          rounding_factor: number
+          sort_order: number
+          source_item_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_pct?: number
+          calculated_hours?: number
+          created_at?: string
+          golive_pct?: number
+          hourly_rate?: number
+          id?: string
+          is_base_scope?: boolean
+          label: string
+          proposal_id: string
+          related_item_id?: string | null
+          rounding_factor?: number
+          sort_order?: number
+          source_item_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_pct?: number
+          calculated_hours?: number
+          created_at?: string
+          golive_pct?: number
+          hourly_rate?: number
+          id?: string
+          is_base_scope?: boolean
+          label?: string
+          proposal_id?: string
+          related_item_id?: string | null
+          rounding_factor?: number
+          sort_order?: number
+          source_item_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_service_items_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_service_items_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_service_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_service_items_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_type_service_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_signatories: {
         Row: {
           contact_id: string | null

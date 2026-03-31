@@ -782,6 +782,7 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   const [previewZoom, setPreviewZoom] = useState(100);
   const [previewMaximized, setPreviewMaximized] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   function renderDocumentosPage() {
     const zoomIn = () => setPreviewZoom((z) => Math.min(z + 25, 200));
@@ -901,6 +902,10 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
                   </Button>
                 </a>
               )}
+              <Separator orientation="vertical" className="h-4 mx-1" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewOpen(false)} title="Fechar preview">
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         )}
@@ -996,30 +1001,41 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
     return (
       <div className="space-y-5">
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-5 pt-5 pb-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                <FileText className="h-3.5 w-3.5 text-primary" />
+          <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                </div>
+                Documentos do envelope
               </div>
-              Documentos do envelope
+              <p className="text-sm text-muted-foreground">
+                Confira os documentos que serão enviados. A proposta é obrigatória. Clique em um documento para selecioná-lo.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Confira os documentos que serão enviados. A proposta é obrigatória. Clique para visualizar. Arraste o divisor para redimensionar.
-            </p>
+            {activeDoc && !previewOpen && (
+              <Button variant="outline" size="sm" className="shrink-0 gap-1.5 text-xs" onClick={() => setPreviewOpen(true)}>
+                <Eye className="h-3.5 w-3.5" /> Visualizar
+              </Button>
+            )}
           </div>
 
-          <div className="border-t border-border" style={{ height: "calc(100vh - 480px)", minHeight: "420px" }}>
-            <ResizablePanelGroup direction="horizontal" className="h-full">
-              <ResizablePanel defaultSize={35} minSize={25} maxSize={55}>
-                {docListContent}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={65} minSize={35}>
-                <div className="h-full bg-muted/20">
-                  {previewContent}
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+          <div className="border-t border-border" style={{ height: previewOpen ? "calc(100vh - 480px)" : "auto", minHeight: previewOpen ? "420px" : undefined, maxHeight: previewOpen ? undefined : "calc(100vh - 480px)" }}>
+            {previewOpen ? (
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                <ResizablePanel defaultSize={35} minSize={25} maxSize={55}>
+                  {docListContent}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={65} minSize={35}>
+                  <div className="h-full bg-muted/20">
+                    {previewContent}
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              docListContent
+            )}
           </div>
         </div>
       </div>

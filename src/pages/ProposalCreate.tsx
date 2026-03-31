@@ -633,6 +633,7 @@ export default function ProposalCreate() {
     updateItem: updateServiceItem,
     getItemsForSave: getServiceItemsForSave,
     hasItems: hasServiceItems,
+    resetToTemplate: resetServiceItemsToTemplate,
   } = useProposalServiceItems(proposalType, id, isEditing, rawScopeHours);
 
    // Group scope processes by template for grouped display

@@ -322,7 +322,7 @@ function Top10Proposals({
                       {clientName}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      Oportunidade {proposal.number}
+                      {proposal.number}{esnName ? ` · ${esnName}` : ""}
                     </p>
                   </div>
                 </div>

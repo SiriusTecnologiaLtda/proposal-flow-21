@@ -188,7 +188,11 @@ export default function ProposalCreate() {
   const [solicitarEvMessage, setSolicitarEvMessage] = useState("");
   const [solicitarEvSending, setSolicitarEvSending] = useState(false);
 
-  async function writeProposalLog(entry: {
+  // Service item inline edit dialog
+  const [editServiceItemOpen, setEditServiceItemOpen] = useState(false);
+  const [editingServiceItem, setEditingServiceItem] = useState<ProposalServiceItem | null>(null);
+
+
     stage: string;
     severity?: "info" | "error" | "warn";
     action?: string;

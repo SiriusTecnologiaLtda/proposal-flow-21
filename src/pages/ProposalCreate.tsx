@@ -2773,12 +2773,8 @@ export default function ProposalCreate() {
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
                   {currentStep < 4 && (
-                    <Button onClick={() => {
-                      const next = Math.min(4, currentStep + 1);
-                      setMaxUnlockedStep((prev) => Math.max(prev, next));
-                      setCurrentStep(next);
-                    }}>
-                      Próximo<ArrowRight className="ml-2 h-4 w-4" />
+                    <Button onClick={handleNext} disabled={isSaving}>
+                      {isAutoSaving ? "Salvando..." : "Próximo"}<ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   )}
                 </>

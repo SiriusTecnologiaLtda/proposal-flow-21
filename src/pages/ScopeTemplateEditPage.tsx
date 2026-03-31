@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -10,6 +10,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +25,7 @@ interface ScopeItemForm {
   default_hours: number;
   sort_order: number;
   parent_id?: string | null;
+  notes?: string | null;
   children?: ScopeItemForm[];
 }
 
@@ -62,6 +65,30 @@ export default function ScopeTemplateEditPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Notes dialog
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesDialogValue, setNotesDialogValue] = useState("");
+  const [notesDialogTarget, setNotesDialogTarget] = useState<{ type: "parent" | "child"; parentIndex: number; childIndex?: number } | null>(null);
+  const [notesDialogLabel, setNotesDialogLabel] = useState("");
+
+  function openNotesDialog(target: typeof notesDialogTarget, currentValue: string, label: string) {
+    setNotesDialogTarget(target);
+    setNotesDialogValue(currentValue);
+    setNotesDialogLabel(label);
+    setNotesDialogOpen(true);
+  }
+
+  function saveNotesDialog() {
+    if (!notesDialogTarget) return;
+    const { type, parentIndex, childIndex } = notesDialogTarget;
+    if (type === "parent") {
+      updateParent(parentIndex, "notes", notesDialogValue || null);
+    } else if (type === "child" && childIndex !== undefined) {
+      updateChild(parentIndex, childIndex, "notes", notesDialogValue || null);
+    }
+    setNotesDialogOpen(false);
+  }
+
   // Track if content was actually modified (dirty flag)
   const loadedSnapshotRef = useRef<string>("");
   const isDirty = useMemo(() => {
@@ -96,6 +123,7 @@ export default function ScopeTemplateEditPage() {
       default_hours: p.default_hours,
       sort_order: p.sort_order,
       parent_id: null,
+      notes: p.notes || null,
       children: flatItems
         .filter((c: any) => c.parent_id === p.id)
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
@@ -105,6 +133,7 @@ export default function ScopeTemplateEditPage() {
           default_hours: c.default_hours,
           sort_order: c.sort_order,
           parent_id: p.id,
+          notes: c.notes || null,
         })),
     }));
   }
@@ -238,6 +267,7 @@ export default function ScopeTemplateEditPage() {
               default_hours: hours,
               sort_order: pi,
               parent_id: null,
+              notes: p.notes || null,
             })
             .select()
             .single();
@@ -250,6 +280,7 @@ export default function ScopeTemplateEditPage() {
               default_hours: c.default_hours,
               sort_order: ci,
               parent_id: parentData.id,
+              notes: c.notes || null,
             }));
             const { error: childError } = await supabase.from("scope_template_items").insert(childRows);
             if (childError) throw childError;
@@ -497,6 +528,13 @@ export default function ScopeTemplateEditPage() {
                     className="text-sm font-semibold flex-1 h-9"
                   />
                   <Badge variant="secondary" className="text-xs shrink-0">{parentHours(parent)}h</Badge>
+                  <button
+                    onClick={() => openNotesDialog({ type: "parent", parentIndex: pi }, parent.notes || "", "📝 Comentário do processo")}
+                    className={`shrink-0 rounded p-1.5 transition-colors ${parent.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                    title="Comentário do processo"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </button>
                   <button onClick={() => removeParent(pi)} className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -521,6 +559,13 @@ export default function ScopeTemplateEditPage() {
                           className="w-16 h-8 text-xs"
                         />
                       </div>
+                      <button
+                        onClick={() => openNotesDialog({ type: "child", parentIndex: pi, childIndex: ci }, child.notes || "", "📝 Comentário do item")}
+                        className={`shrink-0 rounded p-1.5 transition-colors ${child.notes ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                        title="Comentário do item"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </button>
                       <button onClick={() => removeChild(pi, ci)} className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -575,7 +620,25 @@ export default function ScopeTemplateEditPage() {
         </div>
       </div>
 
-      {/* Delete Confirmation */}
+      {/* Notes Dialog */}
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{notesDialogLabel}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={notesDialogValue}
+            onChange={(e) => setNotesDialogValue(e.target.value)}
+            placeholder="Digite o comentário..."
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={saveNotesDialog}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

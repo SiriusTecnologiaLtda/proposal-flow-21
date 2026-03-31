@@ -962,10 +962,6 @@ export default function ProposalCreate() {
     if (!product) missing.push("Produto");
     if (!proposalType) missing.push("Tipo de Proposta");
 
-    // Check require_project: at least one project must be linked
-    if (requireProject && addedProjectIds.size === 0) {
-      missing.push("Projeto vinculado (obrigatório para este tipo)");
-    }
 
     if (missing.length > 0) {
       toast({

@@ -1164,45 +1164,36 @@ export type Database = {
       }
       proposal_types: {
         Row: {
-          allow_project: boolean
-          allow_standalone_scope: boolean
           analyst_label: string
           created_at: string
           gp_label: string
           id: string
           mit_template_doc_id: string | null
           name: string
-          require_project: boolean
           rounding_factor: number
           slug: string
           template_doc_id: string | null
           updated_at: string
         }
         Insert: {
-          allow_project?: boolean
-          allow_standalone_scope?: boolean
           analyst_label?: string
           created_at?: string
           gp_label?: string
           id?: string
           mit_template_doc_id?: string | null
           name: string
-          require_project?: boolean
           rounding_factor?: number
           slug: string
           template_doc_id?: string | null
           updated_at?: string
         }
         Update: {
-          allow_project?: boolean
-          allow_standalone_scope?: boolean
           analyst_label?: string
           created_at?: string
           gp_label?: string
           id?: string
           mit_template_doc_id?: string | null
           name?: string
-          require_project?: boolean
           rounding_factor?: number
           slug?: string
           template_doc_id?: string | null

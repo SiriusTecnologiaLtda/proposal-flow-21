@@ -145,6 +145,7 @@ export default function ServiceItemsManager({ proposalTypeId, proposalTypeName }
       is_base_scope: item.is_base_scope,
       additional_pct: item.additional_pct,
       hourly_rate: item.hourly_rate,
+      golive_pct: item.golive_pct,
       related_item_id: item.related_item_id || "",
     });
     setEditingId(item.id);

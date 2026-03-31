@@ -1089,7 +1089,7 @@ export default function ProposalCreate() {
         variant: "destructive",
       });
       setCurrentStep(3);
-      return;
+      return undefined;
     }
 
     // When editing, never downgrade status. If not generating, keep existing status.

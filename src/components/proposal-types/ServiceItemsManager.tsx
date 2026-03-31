@@ -25,6 +25,7 @@ interface ServiceItem {
   rounding_factor: number;
   is_base_scope: boolean;
   additional_pct: number;
+  hourly_rate: number;
   related_item_id: string | null;
   sort_order: number;
 }

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -14,8 +16,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, ArrowLeft, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Plus, Pencil, Trash2, ArrowLeft, FileText, ChevronDown, ChevronRight, ExternalLink, BookOpen, Copy, Check } from "lucide-react";
 import ServiceItemsManager from "@/components/proposal-types/ServiceItemsManager";
 
 interface ProposalType {
@@ -28,6 +32,81 @@ interface ProposalType {
 
 const emptyForm = { name: "", slug: "", template_doc_id: "", mit_template_doc_id: "" };
 
+const PLACEHOLDERS = [
+  { group: "Dados Gerais", items: [
+    { placeholder: "{{NUMERO_PROPOSTA}}", desc: "Número da oportunidade" },
+    { placeholder: "{{DATA_PROPOSTA}}", desc: "Data de criação da proposta (dd/mm/aaaa)" },
+    { placeholder: "{{DATA_VALIDADE}}", desc: "Data de validade da oportunidade (dd/mm/aaaa)" },
+    { placeholder: "{{PRODUTO}}", desc: "Nome do produto da oportunidade" },
+    { placeholder: "{{TIPO_PROPOSTA}}", desc: "Nome do tipo de oportunidade" },
+    { placeholder: "{{DESCRICAO}}", desc: "Descrição/observações da oportunidade" },
+    { placeholder: "{{NEGOCIACAO}}", desc: "Informações de negociação" },
+  ]},
+  { group: "Cliente", items: [
+    { placeholder: "{{RAZAO_SOCIAL}}", desc: "Razão social do cliente" },
+    { placeholder: "{{CNPJ}}", desc: "CNPJ do cliente" },
+    { placeholder: "{{ENDERECO}}", desc: "Endereço do cliente" },
+    { placeholder: "{{CONTATO}}", desc: "Nome do contato principal" },
+    { placeholder: "{{EMAIL}}", desc: "E-mail do cliente" },
+    { placeholder: "{{TELEFONE}}", desc: "Telefone do cliente" },
+    { placeholder: "{{INSCRICAO_ESTADUAL}}", desc: "Inscrição estadual do cliente" },
+  ]},
+  { group: "Unidade / ESN", items: [
+    { placeholder: "{{UNIDADE_NOME}}", desc: "Nome da unidade vinculada ao ESN" },
+    { placeholder: "{{UNIDADE_CNPJ}}", desc: "CNPJ da unidade" },
+    { placeholder: "{{UNIDADE_ENDERECO}}", desc: "Endereço da unidade" },
+    { placeholder: "{{UNIDADE_CIDADE}}", desc: "Cidade da unidade" },
+    { placeholder: "{{ESN_NOME}}", desc: "Nome do Executivo de Soluções (ESN)" },
+    { placeholder: "{{ESN_EMAIL}}", desc: "E-mail do ESN" },
+    { placeholder: "{{ESN_TELEFONE}}", desc: "Telefone do ESN" },
+  ]},
+  { group: "Itens de Serviço (Dinâmico)", items: [
+    { placeholder: "{{TABELA_RECURSOS}}", desc: "Tabela dinâmica com todos os itens: Label, Horas, Valor/Hora, Valor Total" },
+    { placeholder: "{{TABELA_GOLIVE}}", desc: "Tabela dinâmica de acompanhamento pós Go-Live por item" },
+    { placeholder: "{{QTHR_REC1}}", desc: "Horas do 1º item de serviço (por sort_order)" },
+    { placeholder: "{{VRLIQTOT_REC1}}", desc: "Valor total do 1º item de serviço" },
+    { placeholder: "{{DESC_RECURSO1}}", desc: "Label/nome do 1º item de serviço" },
+    { placeholder: "{{QT_HR_ACOMP1}}", desc: "Horas Go-Live do 1º item" },
+    { placeholder: "{{QTHR_REC2}}", desc: "Horas do 2º item de serviço" },
+    { placeholder: "{{VRLIQTOT_REC2}}", desc: "Valor total do 2º item de serviço" },
+    { placeholder: "{{DESC_RECURSO2}}", desc: "Label/nome do 2º item de serviço" },
+    { placeholder: "{{QT_HR_ACOMP2}}", desc: "Horas Go-Live do 2º item" },
+    { placeholder: "{{QTHR_RECn}}", desc: "Horas do n-ésimo item (3, 4, 5...)" },
+    { placeholder: "{{VRLIQTOT_RECn}}", desc: "Valor total do n-ésimo item" },
+  ]},
+  { group: "Totais Financeiros", items: [
+    { placeholder: "{{QTHR_TOTAL}}", desc: "Soma total de horas de todos os itens de serviço" },
+    { placeholder: "{{VLRTOT}}", desc: "Valor total líquido da oportunidade" },
+    { placeholder: "{{NUM_EMPRESAS}}", desc: "Número de empresas" },
+  ]},
+  { group: "Condições de Pagamento", items: [
+    { placeholder: "{{TABELA_PAGAMENTO}}", desc: "Tabela dinâmica de parcelas: Nº, Vencimento, Valor" },
+    { placeholder: "{{PARCELA_1_VALOR}}", desc: "Valor da 1ª parcela" },
+    { placeholder: "{{PARCELA_1_DATA}}", desc: "Data de vencimento da 1ª parcela" },
+  ]},
+  { group: "Viagem / Deslocamento", items: [
+    { placeholder: "{{VLR_HR_VIAGEM}}", desc: "Valor hora para deslocamento" },
+    { placeholder: "{{HORAS_LOCAL}}", desc: "Horas de deslocamento local" },
+    { placeholder: "{{HORAS_VIAGEM}}", desc: "Horas de deslocamento em viagem" },
+  ]},
+  { group: "Escopo Detalhado", items: [
+    { placeholder: "{{TABELA_ESCOPO}}", desc: "Tabela completa do escopo técnico com grupos, processos e itens" },
+  ]},
+];
+
+function PlaceholderCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      title="Copiar placeholder"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
+
 export default function ProposalTypesPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,6 +117,7 @@ export default function ProposalTypesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [placeholdersOpen, setPlaceholdersOpen] = useState(false);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ["proposal_types"],
@@ -124,6 +204,11 @@ export default function ProposalTypesPage() {
     saveMutation.mutate({ ...form, id: editingId ?? undefined });
   }
 
+  function openDocUrl(docId: string | null | undefined) {
+    if (!docId) return;
+    window.open(`https://docs.google.com/document/d/${docId}/edit`, "_blank");
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -152,7 +237,6 @@ export default function ProposalTypesPage() {
             <div className="space-y-2">
               {types.map((item) => (
                 <div key={item.id} className="border rounded-lg">
-                  {/* Row header */}
                   <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
                   >
@@ -173,7 +257,6 @@ export default function ProposalTypesPage() {
                     </div>
                   </div>
 
-                  {/* Expanded: service items */}
                   {expandedId === item.id && (
                     <div className="px-4 pb-4 pt-1 border-t bg-muted/30">
                       <ServiceItemsManager proposalTypeId={item.id} proposalTypeName={item.name} />
@@ -186,54 +269,144 @@ export default function ProposalTypesPage() {
         </CardContent>
       </Card>
 
-      {/* Create / Edit Dialog */}
+      {/* Create / Edit Dialog — Enhanced UI */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Tipo" : "Novo Tipo de Oportunidade"}</DialogTitle>
-            <DialogDescription>Defina o nome, slug e IDs dos templates Google Docs.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label>Nome</Label>
-                <Input placeholder="Ex: Projeto" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div>
-                <Label>Slug (valor interno)</Label>
-                <Input placeholder="Ex: projeto" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-                <p className="text-xs text-muted-foreground mt-1">Identificador único usado internamente</p>
-              </div>
-            </div>
-            <div>
-              <Label>ID do Template de Proposta (Google Doc)</Label>
-              <Input
-                placeholder="Cole o ID do Google Doc do template de proposta"
-                value={form.template_doc_id}
-                onChange={(e) => setForm({ ...form, template_doc_id: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                O ID está na URL do Google Docs: docs.google.com/document/d/<strong>ID_AQUI</strong>/edit
-              </p>
-            </div>
-            <div>
-              <Label>ID do Template MIT-065 (Google Doc)</Label>
-              <Input
-                placeholder="Cole o ID do Google Doc do template MIT"
-                value={form.mit_template_doc_id}
-                onChange={(e) => setForm({ ...form, mit_template_doc_id: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Template usado para gerar o documento MIT-065 deste tipo de proposta
-              </p>
-            </div>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+          {/* Header with gradient */}
+          <div className="bg-gradient-to-r from-primary/90 to-primary rounded-t-lg px-6 py-5">
+            <DialogTitle className="text-lg font-semibold text-primary-foreground">
+              {editingId ? "Editar Tipo de Oportunidade" : "Novo Tipo de Oportunidade"}
+            </DialogTitle>
+            <p className="text-sm text-primary-foreground/80 mt-1">
+              Configure identificação e templates de documento
+            </p>
           </div>
-          <DialogFooter>
+
+          <div className="px-6 py-5 space-y-6">
+            {/* Section: Identificação */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Identificação</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Nome</Label>
+                  <Input placeholder="Ex: Projeto" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Slug (valor interno)</Label>
+                  <Input placeholder="Ex: projeto" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} disabled={!!editingId} className={editingId ? "bg-muted" : ""} />
+                  <p className="text-[11px] text-muted-foreground">Identificador único — não pode ser alterado após criação</p>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Section: Templates */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Templates de Documento</h3>
+              </div>
+
+              {/* Template Proposta */}
+              <div className="rounded-lg border bg-card p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">Template de Proposta (Google Doc)</Label>
+                  {form.template_doc_id && (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openDocUrl(form.template_doc_id)}>
+                      <ExternalLink className="h-3 w-3" /> Abrir Documento
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  placeholder="Cole o ID do Google Doc do template"
+                  value={form.template_doc_id}
+                  onChange={(e) => setForm({ ...form, template_doc_id: e.target.value })}
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  ID extraído da URL: docs.google.com/document/d/<strong className="text-foreground">ID_AQUI</strong>/edit
+                </p>
+              </div>
+
+              {/* Template MIT */}
+              <div className="rounded-lg border bg-card p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">Template MIT-065 (Google Doc)</Label>
+                  {form.mit_template_doc_id && (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openDocUrl(form.mit_template_doc_id)}>
+                      <ExternalLink className="h-3 w-3" /> Abrir Documento
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  placeholder="Cole o ID do Google Doc do template MIT"
+                  value={form.mit_template_doc_id}
+                  onChange={(e) => setForm({ ...form, mit_template_doc_id: e.target.value })}
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Usado para gerar o documento MIT-065 (Transição Comercial)
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Section: Placeholders Reference */}
+            <Collapsible open={placeholdersOpen} onOpenChange={setPlaceholdersOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center gap-2 w-full text-left group">
+                  <div className="h-1 w-1 rounded-full bg-primary" />
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide flex-1">
+                    Referência de Placeholders
+                  </h3>
+                  <Badge variant="outline" className="text-[10px]">
+                    {PLACEHOLDERS.reduce((acc, g) => acc + g.items.length, 0)} disponíveis
+                  </Badge>
+                  {placeholdersOpen
+                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  }
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Insira estes placeholders nos templates Google Docs. O sistema substituirá automaticamente pelos valores da oportunidade durante a geração.
+                </p>
+                {PLACEHOLDERS.map((group) => (
+                  <div key={group.group} className="rounded-lg border bg-muted/30 overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/50 border-b">
+                      <span className="text-xs font-semibold text-foreground">{group.group}</span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {group.items.map((item) => (
+                        <div key={item.placeholder} className="flex items-center gap-3 px-3 py-1.5 hover:bg-muted/40 transition-colors">
+                          <code className="text-[11px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                            {item.placeholder}
+                          </code>
+                          <PlaceholderCopyButton text={item.placeholder} />
+                          <span className="text-[11px] text-muted-foreground flex-1">{item.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t px-6 py-4 flex justify-end gap-3 bg-muted/20">
             <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

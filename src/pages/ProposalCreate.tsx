@@ -1403,9 +1403,12 @@ export default function ProposalCreate() {
           return;
         }
 
-        // Refresh data to get the linked project
-        await queryClient.refetchQueries({ queryKey: ["proposal", savedId] });
-        await queryClient.refetchQueries({ queryKey: ["projects"] });
+        // Refresh data to get the linked project and service items
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
+          queryClient.refetchQueries({ queryKey: ["projects"] }),
+          queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
+        ]);
 
         toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
       } catch (err: any) {

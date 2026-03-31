@@ -23,7 +23,7 @@ import ClientValidationAlerts, { getClientWarnings } from "@/components/proposal
 import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
 import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { regenerateCommissionProjections } from "@/lib/commissionProjections";
-
+import { useProposalServiceItems, type ProposalServiceItem } from "@/hooks/useProposalServiceItems";
 // Two-level scope item for proposal
 interface ScopeChild {
   id: string;

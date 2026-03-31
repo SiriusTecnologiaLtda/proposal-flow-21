@@ -1574,6 +1574,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Replace {{TABELA_AVULSO}} with service items hourly rates ──
+    if (calcServiceItems.length > 0) {
+      log(logs, "Tabela Avulso", "info", "Inserindo tabela dinâmica de hora avulsa/adicional...");
+      try {
+        await replaceAvulsoTablePlaceholder(accessToken, newDocId, calcServiceItems, logs);
+      } catch (e: any) {
+        log(logs, "Tabela Avulso", "info", `Placeholder {{TABELA_AVULSO}} não encontrado ou falha: ${e.message}`);
+      }
+    }
+
     // ─── Append detailed scope pages ────────────────────────────
     if (scopeItems.length > 0) {
       log(logs, "Escopo detalhado", "info", "Adicionando páginas de escopo detalhado...");

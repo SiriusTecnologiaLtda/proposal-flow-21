@@ -1162,6 +1162,60 @@ export type Database = {
           },
         ]
       }
+      proposal_type_service_items: {
+        Row: {
+          additional_pct: number
+          created_at: string
+          id: string
+          is_base_scope: boolean
+          label: string
+          proposal_type_id: string
+          related_item_id: string | null
+          rounding_factor: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          additional_pct?: number
+          created_at?: string
+          id?: string
+          is_base_scope?: boolean
+          label: string
+          proposal_type_id: string
+          related_item_id?: string | null
+          rounding_factor?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          additional_pct?: number
+          created_at?: string
+          id?: string
+          is_base_scope?: boolean
+          label?: string
+          proposal_type_id?: string
+          related_item_id?: string | null
+          rounding_factor?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_type_service_items_proposal_type_id_fkey"
+            columns: ["proposal_type_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_type_service_items_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_type_service_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_types: {
         Row: {
           analyst_label: string

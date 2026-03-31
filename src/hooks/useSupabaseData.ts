@@ -380,17 +380,15 @@ export function useCreateProposal() {
 export function useUpdateProposal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, scopeItems, payments, ...proposalData }: any) => {
+    mutationFn: async ({ id, scopeItems, payments, serviceItems, ...proposalData }: any) => {
       const { error } = await supabase.from("proposals").update(proposalData).eq("id", id);
       if (error) throw error;
 
       // Replace scope items (delete children first due to FK, then parents)
       const { data: existingItems } = await supabase.from("proposal_scope_items").select("id, parent_id").eq("proposal_id", id);
       if (existingItems && existingItems.length > 0) {
-        // Delete children first
         const childIds = existingItems.filter((i) => i.parent_id).map((i) => i.id);
         if (childIds.length > 0) await supabase.from("proposal_scope_items").delete().in("id", childIds);
-        // Then delete parents
         const parentIds = existingItems.filter((i) => !i.parent_id).map((i) => i.id);
         if (parentIds.length > 0) await supabase.from("proposal_scope_items").delete().in("id", parentIds);
       }
@@ -404,6 +402,15 @@ export function useUpdateProposal() {
         const paymentRows = normalizeProposalPayments(payments).map((p: any) => ({ ...p, proposal_id: id }));
         const { error: payError } = await supabase.from("payment_conditions").insert(paymentRows);
         if (payError) throw payError;
+      }
+
+      // Replace service items
+      // Delete existing (related_item_id FK needs nullifying first)
+      await supabase.from("proposal_service_items").update({ related_item_id: null }).eq("proposal_id", id);
+      await supabase.from("proposal_service_items").delete().eq("proposal_id", id);
+      if (serviceItems && serviceItems.length > 0) {
+        const { error: siError } = await supabase.from("proposal_service_items").insert(serviceItems);
+        if (siError) throw siError;
       }
 
       return { id };

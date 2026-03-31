@@ -1005,7 +1005,7 @@ export default function ProposalCreate() {
           }
         }
       }, 100);
-      return;
+      return undefined;
     }
 
     // Flatten scope to save: parents + children with parent_id reference

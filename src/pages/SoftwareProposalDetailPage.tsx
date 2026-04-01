@@ -699,7 +699,7 @@ export default function SoftwareProposalDetailPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="dados" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="dados">Dados da Proposta</TabsTrigger>
           <TabsTrigger value="itens">

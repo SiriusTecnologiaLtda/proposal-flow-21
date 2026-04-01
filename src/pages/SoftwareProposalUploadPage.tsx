@@ -37,6 +37,7 @@ async function computeFileHash(file: File): Promise<string> {
 
 export default function SoftwareProposalUploadPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

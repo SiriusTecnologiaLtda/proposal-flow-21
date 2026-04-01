@@ -722,6 +722,58 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Gerente de Vendas (GSN)</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.gsn_id}
+                    displayValue={linkedGsn ? `${linkedGsn.name} (${linkedGsn.code})` : undefined}
+                    onChange={(id) => updateHeaderField("gsn_id", id)}
+                    placeholder="Buscar GSN..."
+                    roleFilter={["gsn"]}
+                  />
+                  {(proposal as any)?.raw_gsn_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Executivo de Vendas (ESN)</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.esn_id}
+                    displayValue={linkedEsn ? `${linkedEsn.name} (${linkedEsn.code})` : undefined}
+                    onChange={(id) => updateHeaderField("esn_id", id)}
+                    placeholder="Buscar ESN..."
+                    roleFilter={["esn"]}
+                  />
+                  {(proposal as any)?.raw_esn_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Arquiteto de Solução</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.arquiteto_id}
+                    displayValue={linkedArquiteto ? `${linkedArquiteto.name} (${linkedArquiteto.code})` : undefined}
+                    onChange={(id) => updateHeaderField("arquiteto_id", id)}
+                    placeholder="Buscar Arquiteto..."
+                    roleFilter={["arquiteto"]}
+                  />
+                  {(proposal as any)?.raw_arquiteto_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Segmento</Label>
+                  <SearchableSegmentSelect
+                    value={headerForm.segment_id}
+                    displayValue={linkedSegment?.name}
+                    onChange={(id) => updateHeaderField("segment_id", id)}
+                  />
+                  {(proposal as any)?.raw_segment_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_segment_name}</p>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Origem</Label>

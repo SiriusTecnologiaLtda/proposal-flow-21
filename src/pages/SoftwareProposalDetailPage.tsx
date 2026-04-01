@@ -731,7 +731,7 @@ export default function SoftwareProposalDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
                   <Label>Nº da Proposta</Label>
                   <Input
                     value={headerForm.proposal_number || ""}
@@ -739,14 +739,14 @@ export default function SoftwareProposalDetailPage() {
                     placeholder="Ex: AAPDFQ"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
                   <Label>Fornecedor</Label>
                   <Input
                     value={headerForm.vendor_name || ""}
                     onChange={(e) => updateHeaderField("vendor_name", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
                   <Label>Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}

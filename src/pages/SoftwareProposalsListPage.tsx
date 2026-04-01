@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import {
   FileSearch,
   Upload,
   Filter,
   Search,
   BookOpen,
+  Sparkles,
+  Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -83,9 +87,45 @@ const ORIGIN_LABELS: Record<string, string> = {
 export default function SoftwareProposalsListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
+  const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+
+  const extractMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      setExtractingIds((prev) => new Set(prev).add(proposalId));
+      const { data, error } = await supabase.functions.invoke(
+        "extract-software-proposal",
+        { body: { software_proposal_id: proposalId } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, proposalId) => {
+      setExtractingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(proposalId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success(
+        `Extração concluída — ${data.items_extracted} itens extraídos, ${data.issues_created} pendências criadas`,
+        { duration: 5000 }
+      );
+    },
+    onError: (err: any, proposalId) => {
+      setExtractingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(proposalId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.error(err?.message || "Erro na extração");
+    },
+  });
 
   const { data: proposals, isLoading } = useQuery({
     queryKey: ["software-proposals", statusFilter, originFilter, searchTerm],
@@ -239,6 +279,7 @@ export default function SoftwareProposalsListPage() {
                     <TableHead className="text-right">Valor Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Import.</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -268,6 +309,40 @@ export default function SoftwareProposalsListPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(p.created_at)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {extractingIds.has(p.id) || p.status === "extracting" ? (
+                          <Button size="sm" variant="ghost" disabled className="gap-1.5">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span className="text-xs">Extraindo…</span>
+                          </Button>
+                        ) : p.status === "pending_extraction" || p.status === "error" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              extractMutation.mutate(p.id);
+                            }}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span className="text-xs">Extrair</span>
+                          </Button>
+                        ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5 text-muted-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              extractMutation.mutate(p.id);
+                            }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span className="text-xs">Re-extrair</span>
+                          </Button>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}

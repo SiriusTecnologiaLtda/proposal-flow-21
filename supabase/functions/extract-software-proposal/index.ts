@@ -394,6 +394,101 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
+    // --- Match Sales Team members ---
+    const salesTeam = extracted.sales_team || {};
+
+    // Helper: match a sales_team member by name and/or code
+    const matchSalesTeamMember = async (
+      rawName: string | null,
+      rawCode: string | null,
+      fieldLabel: string,
+      roleFilter?: string[],
+    ): Promise<string | null> => {
+      if (!rawName && !rawCode) return null;
+
+      const orClauses: string[] = [];
+      if (rawName) orClauses.push(`name.ilike.%${rawName}%`);
+      if (rawCode) orClauses.push(`code.ilike.%${rawCode}%`);
+
+      let query = adminClient.from("sales_team").select("id, name, code, role");
+      if (orClauses.length > 0) query = query.or(orClauses.join(","));
+      const { data: matches } = await query.limit(10);
+
+      if (!matches || matches.length === 0) {
+        issuesToInsert.push({
+          software_proposal_id,
+          field_name: fieldLabel,
+          issue_type: "missing_required",
+          extracted_value: `${rawName || ""}${rawCode ? ` (${rawCode})` : ""} — não encontrado`,
+          status: ISSUE_STATUS_OPEN,
+        });
+        return null;
+      }
+
+      // Try exact code match first
+      if (rawCode) {
+        const codeMatch = matches.find((m) => m.code.toLowerCase() === rawCode.toLowerCase());
+        if (codeMatch) return codeMatch.id;
+      }
+
+      // Try exact name match
+      if (rawName) {
+        const nameMatch = matches.find((m) => m.name.toLowerCase() === rawName.toLowerCase());
+        if (nameMatch) return nameMatch.id;
+      }
+
+      // If only one result, use it
+      if (matches.length === 1) return matches[0].id;
+
+      // Ambiguous
+      issuesToInsert.push({
+        software_proposal_id,
+        field_name: fieldLabel,
+        issue_type: "ambiguous_value",
+        extracted_value: `${rawName || ""}${rawCode ? ` (${rawCode})` : ""} — múltiplos resultados`,
+        status: ISSUE_STATUS_OPEN,
+      });
+      return null;
+    };
+
+    const rawGsnName = val(salesTeam.gsn_name);
+    const rawGsnCode = val(salesTeam.gsn_code);
+    const rawEsnName = val(salesTeam.esn_name);
+    const rawEsnCode = val(salesTeam.esn_code);
+    const rawArquitetoName = val(salesTeam.arquiteto_name);
+    const rawArquitetoCode = val(salesTeam.arquiteto_code);
+    const rawSegmentName = val(salesTeam.segment);
+
+    const matchedGsnId = await matchSalesTeamMember(rawGsnName, rawGsnCode, "gsn");
+    const matchedEsnId = await matchSalesTeamMember(rawEsnName, rawEsnCode, "esn");
+    const matchedArquitetoId = await matchSalesTeamMember(rawArquitetoName, rawArquitetoCode, "arquiteto");
+
+    // --- Match/auto-create Segment ---
+    let matchedSegmentId: string | null = null;
+    if (rawSegmentName) {
+      const normalizedSegment = rawSegmentName.trim().toUpperCase();
+      // Try to find existing segment
+      const { data: segmentMatches } = await adminClient
+        .from("software_segments")
+        .select("id, name")
+        .ilike("name", normalizedSegment)
+        .limit(1);
+
+      if (segmentMatches && segmentMatches.length > 0) {
+        matchedSegmentId = segmentMatches[0].id;
+      } else {
+        // Auto-create segment (like catalog items)
+        const { data: newSegment } = await adminClient
+          .from("software_segments")
+          .insert({ name: normalizedSegment, is_active: true })
+          .select("id")
+          .single();
+        if (newSegment) {
+          matchedSegmentId = newSegment.id;
+        }
+      }
+    }
+
     // --- Update proposal record with extracted data + master data links ---
     await userClient
       .from("software_proposals")
@@ -406,6 +501,14 @@ Return ONLY valid JSON with this exact structure:
         raw_unit_name: rawUnitName,
         client_id: matchedClientId,
         unit_id: matchedUnitId,
+        gsn_id: matchedGsnId,
+        esn_id: matchedEsnId,
+        arquiteto_id: matchedArquitetoId,
+        segment_id: matchedSegmentId,
+        raw_gsn_name: rawGsnName ? `${rawGsnName}${rawGsnCode ? ` (${rawGsnCode})` : ""}` : null,
+        raw_esn_name: rawEsnName ? `${rawEsnName}${rawEsnCode ? ` (${rawEsnCode})` : ""}` : null,
+        raw_arquiteto_name: rawArquitetoName ? `${rawArquitetoName}${rawArquitetoCode ? ` (${rawArquitetoCode})` : ""}` : null,
+        raw_segment_name: rawSegmentName,
         proposal_date: val(header.proposal_date),
         validity_date: val(header.validity_date),
         total_value: val(header.total_value) ?? 0,

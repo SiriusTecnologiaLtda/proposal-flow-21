@@ -332,7 +332,13 @@ export default function SoftwareProposalsListPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(p.total_value)}
+                        {formatCurrency(p._totalCapex)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(p._totalOpex)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm font-semibold">
+                        {formatCurrency(p._producaoTotal)}
                       </TableCell>
                       <TableCell>
                         <span

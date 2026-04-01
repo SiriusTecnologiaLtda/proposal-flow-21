@@ -358,29 +358,57 @@ Return ONLY valid JSON with this exact structure:
     let matchedUnitName: string | null = null;
 
     if (rawUnitName) {
-      const normalizedSearch = rawUnitName.trim().toLowerCase();
+      // Helper: remove accents for comparison
+      const removeAccents = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const norm = (s: string) => removeAccents(s.trim().toLowerCase());
+
+      // Parse embedded code from patterns like "TOTVS ESPIRITO SANTO (TSE341)"
+      const codeMatch = rawUnitName.match(/\(([A-Z]{2,5}\d{2,5})\)/i);
+      const embeddedCode = codeMatch ? codeMatch[1].trim() : null;
+      // Text part without the code in parentheses
+      const textPart = rawUnitName.replace(/\s*\([A-Z]{2,5}\d{2,5}\)\s*/i, "").trim();
+
+      const normalizedText = norm(textPart);
+      const normalizedFull = norm(rawUnitName);
+
+      // Build OR filter with multiple search terms
+      const searchTerms: string[] = [];
+      const addTerm = (t: string) => {
+        searchTerms.push(`name.ilike.%${t}%`);
+        searchTerms.push(`code.ilike.%${t}%`);
+        searchTerms.push(`city.ilike.%${t}%`);
+        searchTerms.push(`descricao_complementar.ilike.%${t}%`);
+      };
+      addTerm(textPart);
+      if (embeddedCode) {
+        addTerm(embeddedCode);
+      }
 
       const { data: unitMatches } = await adminClient
         .from("unit_info")
         .select("id, name, code, city, descricao_complementar")
-        .or(`name.ilike.%${rawUnitName}%,code.ilike.%${rawUnitName}%,city.ilike.%${rawUnitName}%,descricao_complementar.ilike.%${rawUnitName}%`)
+        .or(searchTerms.join(","))
         .limit(10);
 
       if (unitMatches && unitMatches.length > 0) {
-        // Priority 1: exact name match (case-insensitive, trimmed)
-        const exact = unitMatches.find(
-          (u) => u.name.trim().toLowerCase() === normalizedSearch
+        // Priority 1: exact code match (most reliable, e.g. TSE341)
+        const exactCode = embeddedCode
+          ? unitMatches.find((u) => u.code && norm(u.code) === norm(embeddedCode))
+          : null;
+        // Priority 2: exact name match (accent-insensitive)
+        const exactName = !exactCode && unitMatches.find(
+          (u) => norm(u.name) === normalizedText || norm(u.name) === normalizedFull
         );
-        // Priority 2: exact descricao_complementar match
-        const descMatch = !exact && unitMatches.find(
-          (u) => u.descricao_complementar && u.descricao_complementar.trim().toLowerCase() === normalizedSearch
+        // Priority 3: exact descricao_complementar match (accent-insensitive)
+        const descMatch = !exactCode && !exactName && unitMatches.find(
+          (u) => u.descricao_complementar && (norm(u.descricao_complementar) === normalizedText || norm(u.descricao_complementar) === normalizedFull)
         );
-        // Priority 3: exact code match
-        const codeMatch = !exact && !descMatch && unitMatches.find(
-          (u) => u.code && u.code.trim().toLowerCase() === normalizedSearch
-        );
+        // Priority 4: code contains match (partial)
+        const codePartial = !exactCode && !exactName && !descMatch && embeddedCode
+          ? unitMatches.find((u) => u.code && u.code.toLowerCase().includes(embeddedCode.toLowerCase()))
+          : null;
 
-        const bestMatch = exact || descMatch || codeMatch;
+        const bestMatch = exactCode || exactName || descMatch || codePartial;
 
         if (bestMatch) {
           matchedUnitId = bestMatch.id;

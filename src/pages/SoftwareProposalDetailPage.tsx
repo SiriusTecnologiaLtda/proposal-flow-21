@@ -890,7 +890,7 @@ export default function SoftwareProposalDetailPage() {
                 const totalOpex = items
                   .filter(i => i.cost_classification === "opex")
                   .reduce((sum, i) => sum + (i.total_price || 0), 0);
-                const totalGeral = totalCapex + totalOpex;
+                const producaoTotal = Math.round(((totalCapex / 21.82) + totalOpex) * 100) / 100;
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
@@ -902,8 +902,8 @@ export default function SoftwareProposalDetailPage() {
                       <p className="text-lg font-semibold text-foreground">{formatCurrency(totalOpex)}</p>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-muted-foreground text-xs">Valor Total</Label>
-                      <p className="text-lg font-semibold text-foreground">{formatCurrency(totalGeral)}</p>
+                      <Label className="text-muted-foreground text-xs">Produção Total</Label>
+                      <p className="text-lg font-semibold text-foreground">{formatCurrency(producaoTotal)}</p>
                     </div>
                   </div>
                 );

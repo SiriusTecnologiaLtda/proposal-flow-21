@@ -135,7 +135,7 @@ export default function SoftwareProposalsListPage() {
     queryFn: async () => {
       let query = supabase
         .from("software_proposals")
-        .select("*")
+        .select("*, software_proposal_items(total_price, cost_classification)")
         .order("created_at", { ascending: false });
 
       if (statusFilter !== "all") {
@@ -152,7 +152,19 @@ export default function SoftwareProposalsListPage() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      // Compute Capex, Opex, Produção Total per proposal
+      return (data || []).map((p: any) => {
+        const items = p.software_proposal_items || [];
+        const totalCapex = items
+          .filter((i: any) => i.cost_classification === "capex")
+          .reduce((sum: number, i: any) => sum + (i.total_price || 0), 0);
+        const totalOpex = items
+          .filter((i: any) => i.cost_classification === "opex")
+          .reduce((sum: number, i: any) => sum + (i.total_price || 0), 0);
+        const producaoTotal = Math.round(((totalCapex / 21.82) + totalOpex) * 100) / 100;
+        return { ...p, _totalCapex: totalCapex, _totalOpex: totalOpex, _producaoTotal: producaoTotal };
+      });
     },
   });
 
@@ -295,7 +307,9 @@ export default function SoftwareProposalsListPage() {
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Origem</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-right">Capex</TableHead>
+                    <TableHead className="text-right">Opex</TableHead>
+                    <TableHead className="text-right">Produção Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Import.</TableHead>
                     <TableHead className="text-center">Ações</TableHead>
@@ -318,7 +332,13 @@ export default function SoftwareProposalsListPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(p.total_value)}
+                        {formatCurrency(p._totalCapex)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(p._totalOpex)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm font-semibold">
+                        {formatCurrency(p._producaoTotal)}
                       </TableCell>
                       <TableCell>
                         <span

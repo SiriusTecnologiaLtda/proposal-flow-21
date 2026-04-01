@@ -129,6 +129,15 @@ DOCUMENT STRUCTURE GUIDANCE:
 - Legal/contractual boilerplate sections should be ignored for line item extraction.
 - The HEADER typically contains a "Unidade TOTVS" field, usually below the emission/issue date. Extract this as totvs_unit_name.
 
+SALES TEAM EXTRACTION:
+- The document typically contains a section "Conte com o apoio da nossa equipe:" or similar.
+- Extract the following sales team members with their names AND codes (e.g., "T25034"):
+  - "Gerente de Vendas" → gsn (Gerente de Vendas)
+  - "Executivo(a) de Vendas" → esn (Executivo de Vendas)
+  - "Arquiteto(a) de Solução" → arquiteto (Arquiteto de Solução)
+- Also extract the "Segmento" value (e.g., "SERVICOS", "MANUFATURA", "VAREJO").
+- The code typically appears in parentheses like "(T25034)" or after the name like "T30816".
+
 IMPORTANT RULES:
 - Extract EXACTLY what is in the document. Do not invent or assume data.
 - For each header field, assign a confidence score between 0.0 and 1.0.
@@ -185,6 +194,15 @@ Return ONLY valid JSON with this exact structure:
     "discount_duration_months": { "value": <number|null>, "confidence": <number> },
     "discount_notes": { "value": <string|null>, "confidence": <number> },
     "notes": { "value": <string|null>, "confidence": <number> }
+  },
+  "sales_team": {
+    "gsn_name": { "value": <string|null, full name>, "confidence": <number> },
+    "gsn_code": { "value": <string|null, e.g. "T25034">, "confidence": <number> },
+    "esn_name": { "value": <string|null, full name>, "confidence": <number> },
+    "esn_code": { "value": <string|null, e.g. "T29183">, "confidence": <number> },
+    "arquiteto_name": { "value": <string|null, full name>, "confidence": <number> },
+    "arquiteto_code": { "value": <string|null, e.g. "T30816">, "confidence": <number> },
+    "segment": { "value": <string|null>, "confidence": <number> }
   },
   "items": [
     {

@@ -43,6 +43,8 @@ import XaiConfigPage from "@/pages/XaiConfigPage";
 import SoftwareProposalsListPage from "@/pages/SoftwareProposalsListPage";
 import SoftwareProposalUploadPage from "@/pages/SoftwareProposalUploadPage";
 import SoftwareCatalogPage from "@/pages/SoftwareCatalogPage";
+import SoftwareProposalDetailPage from "@/pages/SoftwareProposalDetailPage";
+import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({

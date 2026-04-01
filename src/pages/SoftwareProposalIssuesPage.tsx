@@ -357,7 +357,7 @@ export default function SoftwareProposalIssuesPage() {
                             <>
                               <Button
                                 size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "resolved" })}
+                                onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}?resolve_issue=${issue.id}&field=${encodeURIComponent(issue.field_name)}`)}
                               >
                                 <CheckCircle2 className="h-3 w-3" />
                                 Resolver

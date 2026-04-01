@@ -756,7 +756,7 @@ export default function SoftwareProposalDetailPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
                   <Label>Cliente Vinculado</Label>
                   <SearchableClientSelect
                     value={headerForm.client_id}
@@ -769,7 +769,7 @@ export default function SoftwareProposalDetailPage() {
                     }}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
                   <Label>Unidade TOTVS</Label>
                   <SearchableUnitSelect
                     value={headerForm.unit_id}
@@ -781,7 +781,7 @@ export default function SoftwareProposalDetailPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
                   <Label>Gerente de Vendas (GSN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.gsn_id}
@@ -794,7 +794,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
                   <Label>Executivo de Vendas (ESN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.esn_id}
@@ -807,7 +807,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
                   <Label>Arquiteto de Solução</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.arquiteto_id}
@@ -820,7 +820,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
                   <Label>Segmento</Label>
                   <SearchableSegmentSelect
                     value={headerForm.segment_id}

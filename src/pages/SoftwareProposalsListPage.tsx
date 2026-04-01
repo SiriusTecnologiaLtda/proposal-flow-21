@@ -279,6 +279,7 @@ export default function SoftwareProposalsListPage() {
                     <TableHead className="text-right">Valor Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Import.</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

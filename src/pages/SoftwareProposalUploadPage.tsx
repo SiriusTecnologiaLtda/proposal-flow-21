@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ async function computeFileHash(file: File): Promise<string> {
 
 export default function SoftwareProposalUploadPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -135,6 +136,7 @@ export default function SoftwareProposalUploadPage() {
       setUploadProgress(100);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
       toast.success("Proposta importada com sucesso!");
       navigate("/propostas-software");
     },

@@ -109,20 +109,15 @@ export default function SoftwareProposalUploadPage() {
       if (storageError) throw new Error(`Erro ao enviar arquivo: ${storageError.message}`);
       setUploadProgress(70);
 
-      // 4. Get public URL
-      const { data: urlData } = supabase.storage
-        .from("software-proposal-pdfs")
-        .getPublicUrl(filePath);
-
-      const fileUrl = urlData?.publicUrl || filePath;
+      // 4. Store the path reference (private bucket — signed URLs generated on demand)
       setUploadProgress(85);
 
-      // 5. Create record
+      // 5. Create record — cleanup uploaded file if insert fails
       const { error: insertError } = await supabase
         .from("software_proposals")
         .insert({
           file_name: selectedFile.name,
-          file_url: fileUrl,
+          file_url: filePath,
           file_hash: fileHash,
           origin,
           notes: notes.trim() || null,
@@ -130,7 +125,13 @@ export default function SoftwareProposalUploadPage() {
           status: "pending_extraction",
         });
 
-      if (insertError) throw new Error(`Erro ao registrar proposta: ${insertError.message}`);
+      if (insertError) {
+        // Orphan cleanup: remove uploaded file since DB record failed
+        await supabase.storage
+          .from("software-proposal-pdfs")
+          .remove([filePath]);
+        throw new Error(`Erro ao registrar proposta: ${insertError.message}`);
+      }
       setUploadProgress(100);
     },
     onSuccess: () => {

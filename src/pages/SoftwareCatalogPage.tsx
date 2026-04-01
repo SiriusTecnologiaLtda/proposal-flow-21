@@ -564,8 +564,7 @@ export default function SoftwareCatalogPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deactivateMutation.mutate(deleteTarget.id)}
             >
               Remover
             </AlertDialogAction>

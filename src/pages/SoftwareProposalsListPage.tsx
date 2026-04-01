@@ -182,6 +182,14 @@ export default function SoftwareProposalsListPage() {
           <Button
             variant="outline"
             className="gap-2"
+            onClick={() => navigate("/propostas-software/pendencias")}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Pendências
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
             onClick={() => navigate("/propostas-software/catalogo")}
           >
             <BookOpen className="h-4 w-4" />

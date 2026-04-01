@@ -294,7 +294,7 @@ export default function SoftwareProposalsListPage() {
                 </TableHeader>
                 <TableBody>
                   {proposals.map((p: any) => (
-                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/propostas-software/${p.id}`)}>
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {p.file_name}
                       </TableCell>

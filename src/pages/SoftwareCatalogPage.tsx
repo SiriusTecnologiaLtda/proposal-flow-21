@@ -289,6 +289,8 @@ export default function SoftwareCatalogPage() {
       default_recurrence: item.default_recurrence,
       default_cost_classification: item.default_cost_classification,
       is_active: item.is_active,
+      part_number: item.part_number || "",
+      external_code: item.external_code || "",
     });
     setFormOpen(true);
   }

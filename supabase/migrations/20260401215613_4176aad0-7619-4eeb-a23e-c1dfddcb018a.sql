@@ -1,0 +1,1 @@
+ALTER TABLE public.unit_info ADD COLUMN IF NOT EXISTS descricao_complementar text DEFAULT NULL;

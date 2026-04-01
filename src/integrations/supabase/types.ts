@@ -2460,6 +2460,7 @@ export type Database = {
           cnpj: string | null
           code: string | null
           contact: string | null
+          descricao_complementar: string | null
           email: string | null
           id: string
           name: string
@@ -2473,6 +2474,7 @@ export type Database = {
           cnpj?: string | null
           code?: string | null
           contact?: string | null
+          descricao_complementar?: string | null
           email?: string | null
           id?: string
           name: string
@@ -2486,6 +2488,7 @@ export type Database = {
           cnpj?: string | null
           code?: string | null
           contact?: string | null
+          descricao_complementar?: string | null
           email?: string | null
           id?: string
           name?: string

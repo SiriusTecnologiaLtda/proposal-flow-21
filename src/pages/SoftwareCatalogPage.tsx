@@ -196,13 +196,16 @@ export default function SoftwareCatalogPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const deleteMutation = useMutation({
+  const deactivateMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("software_catalog_items").delete().eq("id", id);
+      const { error } = await supabase
+        .from("software_catalog_items")
+        .update({ is_active: false })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Item removido!");
+      toast.success("Item desativado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["software-catalog-items"] });
       setDeleteTarget(null);
     },

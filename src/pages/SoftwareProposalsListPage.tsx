@@ -144,7 +144,7 @@ export default function SoftwareProposalsListPage() {
       }
       if (searchTerm.trim()) {
         query = query.or(
-          `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`
+          `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%,proposal_number.ilike.%${searchTerm}%`
         );
       }
 

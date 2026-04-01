@@ -638,6 +638,27 @@ export default function SoftwareProposalDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Resolve issue banner */}
+      {resolveIssueId && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Resolução de Pendência</p>
+            <p className="text-xs text-muted-foreground">
+              Corrija o campo destacado e clique em "Salvar Alterações" — a pendência será resolvida automaticamente.
+            </p>
+          </div>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => {
+              setSearchParams({}, { replace: true });
+              setHighlightField(null);
+            }}
+          >
+            Cancelar
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">

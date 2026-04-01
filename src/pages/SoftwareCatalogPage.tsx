@@ -566,7 +566,7 @@ export default function SoftwareCatalogPage() {
             <AlertDialogAction
               onClick={() => deleteTarget && deactivateMutation.mutate(deleteTarget.id)}
             >
-              Remover
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

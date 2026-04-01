@@ -396,11 +396,10 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // Check for missing required fields
-    const requiredFields = ["vendor_name", "total_value"];
+    const requiredFields = ["vendor_name", "client_name", "total_value"];
     for (const rf of requiredFields) {
       const fd = header[rf] as any;
       if (!fd || fd.value == null || fd.value === "") {
-        // Avoid duplicate if AI already flagged it
         const alreadyFlagged = issuesToInsert.some(
           (i) => i.field_name === rf && i.issue_type === "missing_required"
         );
@@ -410,6 +409,37 @@ Return ONLY valid JSON with this exact structure:
             field_name: rf,
             issue_type: "missing_required",
             extracted_value: null,
+            status: "open",
+          });
+        }
+      }
+    }
+
+    // Flag if total_value is 0 but items exist (possible extraction issue)
+    const totalVal = val(header.total_value);
+    if (totalVal === 0 && items.length > 0) {
+      const hasNonZeroItems = items.some((i: any) => (i.total_price ?? 0) > 0);
+      if (hasNonZeroItems) {
+        issuesToInsert.push({
+          software_proposal_id,
+          field_name: "total_value",
+          issue_type: "ambiguous_value",
+          extracted_value: "0",
+          status: "open",
+        });
+      }
+    }
+
+    // Flag items with zero price that are not explicitly free/gratuito
+    for (const item of items) {
+      if ((item.total_price ?? 0) === 0 && item.recurrence !== "one_time") {
+        const desc = (item.description || "").toLowerCase();
+        if (!desc.includes("gratuito") && !desc.includes("setup") && !desc.includes("excedente")) {
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: `item: ${(item.description || "").substring(0, 80)}`,
+            issue_type: "ambiguous_value",
+            extracted_value: `total_price=0, recurrence=${item.recurrence}`,
             status: "open",
           });
         }

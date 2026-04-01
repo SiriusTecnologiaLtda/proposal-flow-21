@@ -759,6 +759,13 @@ export default function SoftwareProposalDetailPage() {
                               />
                             </TableCell>
                             <TableCell>
+                              <SearchableCatalogSelect
+                                value={itemForm.catalog_item_id || null}
+                                displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
+                                onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
+                              />
+                            </TableCell>
+                            <TableCell>
                               <Input
                                 type="number" className="text-sm w-16"
                                 value={itemForm.quantity ?? 0}

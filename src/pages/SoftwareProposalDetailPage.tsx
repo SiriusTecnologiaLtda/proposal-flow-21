@@ -130,6 +130,7 @@ export default function SoftwareProposalDetailPage() {
 
   // Validate dialog
   const [showValidateDialog, setShowValidateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch proposal
   const { data: proposal, isLoading } = useQuery({

@@ -81,6 +81,7 @@ const ORIGIN_LABELS: Record<string, string> = {
 };
 
 export default function SoftwareProposalsListPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

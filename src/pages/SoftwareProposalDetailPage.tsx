@@ -176,6 +176,38 @@ export default function SoftwareProposalDetailPage() {
     },
   });
 
+  // Fetch client name for display
+  const { data: linkedClient } = useQuery({
+    queryKey: ["client-name", proposal?.client_id],
+    enabled: !!proposal?.client_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("clients").select("id, name").eq("id", proposal!.client_id!).single();
+      return data;
+    },
+  });
+
+  // Fetch unit name for display
+  const { data: linkedUnit } = useQuery({
+    queryKey: ["unit-name", proposal?.unit_id],
+    enabled: !!proposal?.unit_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("unit_info").select("id, name").eq("id", proposal!.unit_id!).single();
+      return data;
+    },
+  });
+
+  // Fetch catalog item names for items display
+  const catalogItemIds = items.filter(i => i.catalog_item_id).map(i => i.catalog_item_id!);
+  const { data: catalogNames = [] } = useQuery({
+    queryKey: ["catalog-names", catalogItemIds.join(",")],
+    enabled: catalogItemIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase.from("software_catalog_items").select("id, name").in("id", catalogItemIds);
+      return data || [];
+    },
+  });
+  const catalogNameMap = new Map(catalogNames.map(c => [c.id, c.name]));
+
   // Init header form when proposal loads
   useEffect(() => {
     if (proposal && !headerDirty) {
@@ -183,6 +215,8 @@ export default function SoftwareProposalDetailPage() {
         proposal_number: (proposal as any).proposal_number || "",
         vendor_name: proposal.vendor_name || "",
         client_name: proposal.client_name || "",
+        client_id: (proposal as any).client_id || null,
+        unit_id: (proposal as any).unit_id || null,
         origin: proposal.origin,
         total_value: proposal.total_value || 0,
         currency: proposal.currency || "BRL",

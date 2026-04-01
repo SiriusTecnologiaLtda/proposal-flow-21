@@ -87,9 +87,45 @@ const ORIGIN_LABELS: Record<string, string> = {
 export default function SoftwareProposalsListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
+  const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+
+  const extractMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      setExtractingIds((prev) => new Set(prev).add(proposalId));
+      const { data, error } = await supabase.functions.invoke(
+        "extract-software-proposal",
+        { body: { software_proposal_id: proposalId } }
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data, proposalId) => {
+      setExtractingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(proposalId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success(
+        `Extração concluída — ${data.items_extracted} itens extraídos, ${data.issues_created} pendências criadas`,
+        { duration: 5000 }
+      );
+    },
+    onError: (err: any, proposalId) => {
+      setExtractingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(proposalId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.error(err?.message || "Erro na extração");
+    },
+  });
 
   const { data: proposals, isLoading } = useQuery({
     queryKey: ["software-proposals", statusFilter, originFilter, searchTerm],

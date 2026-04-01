@@ -555,10 +555,10 @@ export default function SoftwareCatalogPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover item do catálogo?</AlertDialogTitle>
+            <AlertDialogTitle>Desativar item do catálogo?</AlertDialogTitle>
             <AlertDialogDescription>
-              O item "{deleteTarget?.name}" será removido permanentemente, incluindo todos os
-              aliases vinculados. Esta ação não pode ser desfeita.
+              O item "{deleteTarget?.name}" será desativado e não aparecerá em novos vínculos.
+              Você poderá reativá-lo a qualquer momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

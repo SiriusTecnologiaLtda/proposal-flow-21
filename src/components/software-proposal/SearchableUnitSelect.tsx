@@ -92,6 +92,7 @@ export function SearchableUnitSelect({ value, displayValue, onChange, placeholde
             >
               <span className="font-medium">{u.name}</span>
               {u.city && <span className="text-xs text-muted-foreground ml-2">{u.city}</span>}
+              {(u as any).descricao_complementar && <span className="text-xs text-muted-foreground/70 ml-1 italic">· {(u as any).descricao_complementar}</span>}
             </button>
           ))}
         </div>

@@ -40,6 +40,7 @@ import ProjectsPage from "@/pages/ProjectsPage";
 import ProjectCreatePage from "@/pages/ProjectCreatePage";
 import UserGroupsPage from "@/pages/UserGroupsPage";
 import XaiConfigPage from "@/pages/XaiConfigPage";
+import SoftwareProposalsListPage from "@/pages/SoftwareProposalsListPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({

@@ -259,16 +259,9 @@ export default function SoftwareProposalDetailPage() {
         arquiteto_id: (proposal as any).arquiteto_id || null,
         segment_id: (proposal as any).segment_id || null,
         origin: proposal.origin,
-        total_value: proposal.total_value || 0,
         currency: proposal.currency || "BRL",
         proposal_date: proposal.proposal_date || "",
         validity_date: proposal.validity_date || "",
-        payment_type: proposal.payment_type || "",
-        installment_count: proposal.installment_count || "",
-        first_due_date: proposal.first_due_date || "",
-        discount_amount: proposal.discount_amount || 0,
-        discount_notes: proposal.discount_notes || "",
-        discount_duration_months: proposal.discount_duration_months || "",
         notes: proposal.notes || "",
       });
     }
@@ -295,16 +288,9 @@ export default function SoftwareProposalDetailPage() {
         arquiteto_id: headerForm.arquiteto_id || null,
         segment_id: headerForm.segment_id || null,
         origin: headerForm.origin,
-        total_value: Number(headerForm.total_value) || 0,
         currency: headerForm.currency,
         proposal_date: headerForm.proposal_date || null,
         validity_date: headerForm.validity_date || null,
-        payment_type: headerForm.payment_type?.trim() || null,
-        installment_count: headerForm.installment_count ? Number(headerForm.installment_count) : null,
-        first_due_date: headerForm.first_due_date || null,
-        discount_amount: Number(headerForm.discount_amount) || 0,
-        discount_notes: headerForm.discount_notes?.trim() || null,
-        discount_duration_months: headerForm.discount_duration_months ? Number(headerForm.discount_duration_months) : null,
         notes: headerForm.notes?.trim() || null,
         proposal_number: headerForm.proposal_number?.trim() || null,
       };
@@ -803,67 +789,32 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Valor Total (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={headerForm.total_value ?? 0}
-                    onChange={(e) => updateHeaderField("total_value", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Pagamento</Label>
-                  <Input
-                    value={headerForm.payment_type || ""}
-                    onChange={(e) => updateHeaderField("payment_type", e.target.value)}
-                    placeholder="Ex: Boleto"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nº Parcelas</Label>
-                  <Input
-                    type="number"
-                    value={headerForm.installment_count || ""}
-                    onChange={(e) => updateHeaderField("installment_count", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>1º Vencimento</Label>
-                  <Input
-                    type="date"
-                    value={headerForm.first_due_date || ""}
-                    onChange={(e) => updateHeaderField("first_due_date", e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Desconto (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={headerForm.discount_amount ?? 0}
-                    onChange={(e) => updateHeaderField("discount_amount", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Duração Desconto (meses)</Label>
-                  <Input
-                    type="number"
-                    value={headerForm.discount_duration_months || ""}
-                    onChange={(e) => updateHeaderField("discount_duration_months", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Observações Desconto</Label>
-                  <Input
-                    value={headerForm.discount_notes || ""}
-                    onChange={(e) => updateHeaderField("discount_notes", e.target.value)}
-                  />
-                </div>
-              </div>
+              {/* Calculated totals from items */}
+              {(() => {
+                const totalCapex = items
+                  .filter(i => i.cost_classification === "capex")
+                  .reduce((sum, i) => sum + (i.total_price || 0), 0);
+                const totalOpex = items
+                  .filter(i => i.cost_classification === "opex")
+                  .reduce((sum, i) => sum + (i.total_price || 0), 0);
+                const totalGeral = totalCapex + totalOpex;
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-xs">Total Não Recorrente (Capex)</Label>
+                      <p className="text-lg font-semibold text-foreground">{formatCurrency(totalCapex)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-xs">Total Recorrente (Opex)</Label>
+                      <p className="text-lg font-semibold text-foreground">{formatCurrency(totalOpex)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-xs">Valor Total</Label>
+                      <p className="text-lg font-semibold text-foreground">{formatCurrency(totalGeral)}</p>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="space-y-2">
                 <Label>Observações Gerais</Label>
                 <Textarea

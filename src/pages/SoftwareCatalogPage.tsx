@@ -188,6 +188,8 @@ export default function SoftwareCatalogPage() {
         default_recurrence: formData.default_recurrence,
         default_cost_classification: formData.default_cost_classification,
         is_active: formData.is_active,
+        part_number: formData.part_number.trim() || null,
+        external_code: formData.external_code.trim() || null,
       };
       if (editItem) {
         const { error } = await supabase

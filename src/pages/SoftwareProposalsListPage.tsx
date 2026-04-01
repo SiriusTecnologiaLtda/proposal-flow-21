@@ -310,6 +310,40 @@ export default function SoftwareProposalsListPage() {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(p.created_at)}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {extractingIds.has(p.id) || p.status === "extracting" ? (
+                          <Button size="sm" variant="ghost" disabled className="gap-1.5">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span className="text-xs">Extraindo…</span>
+                          </Button>
+                        ) : p.status === "pending_extraction" || p.status === "error" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              extractMutation.mutate(p.id);
+                            }}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span className="text-xs">Extrair</span>
+                          </Button>
+                        ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5 text-muted-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              extractMutation.mutate(p.id);
+                            }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span className="text-xs">Re-extrair</span>
+                          </Button>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

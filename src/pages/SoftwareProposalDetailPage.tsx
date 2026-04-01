@@ -737,6 +737,7 @@ export default function SoftwareProposalDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[200px]">Descrição</TableHead>
+                        <TableHead className="w-[120px]">Catálogo</TableHead>
                         <TableHead className="w-[70px]">Qtd</TableHead>
                         <TableHead className="w-[110px]">Vlr Unit.</TableHead>
                         <TableHead className="w-[110px]">Vlr Total</TableHead>

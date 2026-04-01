@@ -1,0 +1,1 @@
+UPDATE public.software_catalog_items SET default_recurrence = 'monthly' WHERE default_recurrence = 'usage_based';

@@ -185,6 +185,14 @@ export default function SoftwareProposalsListPage() {
             <BookOpen className="h-4 w-4" />
             Catálogo
           </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/nova")}
+          >
+            <Plus className="h-4 w-4" />
+            Nova Manual
+          </Button>
           <Button className="gap-2" onClick={() => navigate("/propostas-software/importar")}>
             <Upload className="h-4 w-4" />
             Importar PDF

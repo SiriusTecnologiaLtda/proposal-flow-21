@@ -29,6 +29,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
 import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
 import { SearchableCatalogSelect } from "@/components/software-proposal/SearchableCatalogSelect";
+import { SearchableSalesTeamSelect } from "@/components/software-proposal/SearchableSalesTeamSelect";
+import { SearchableSegmentSelect } from "@/components/software-proposal/SearchableSegmentSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   pending_extraction: "Aguardando Extração",
@@ -197,6 +199,40 @@ export default function SoftwareProposalDetailPage() {
     },
   });
 
+  // Fetch sales team names for display
+  const { data: linkedGsn } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.gsn_id],
+    enabled: !!(proposal as any)?.gsn_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).gsn_id).single();
+      return data;
+    },
+  });
+  const { data: linkedEsn } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.esn_id],
+    enabled: !!(proposal as any)?.esn_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).esn_id).single();
+      return data;
+    },
+  });
+  const { data: linkedArquiteto } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.arquiteto_id],
+    enabled: !!(proposal as any)?.arquiteto_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).arquiteto_id).single();
+      return data;
+    },
+  });
+  const { data: linkedSegment } = useQuery({
+    queryKey: ["segment-name", (proposal as any)?.segment_id],
+    enabled: !!(proposal as any)?.segment_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("software_segments").select("id, name").eq("id", (proposal as any).segment_id).single();
+      return data;
+    },
+  });
+
   // Fetch catalog item names for items display
   const catalogItemIds = items.filter(i => i.catalog_item_id).map(i => i.catalog_item_id!);
   const { data: catalogNames = [] } = useQuery({
@@ -218,6 +254,10 @@ export default function SoftwareProposalDetailPage() {
         client_name: proposal.client_name || "",
         client_id: (proposal as any).client_id || null,
         unit_id: (proposal as any).unit_id || null,
+        gsn_id: (proposal as any).gsn_id || null,
+        esn_id: (proposal as any).esn_id || null,
+        arquiteto_id: (proposal as any).arquiteto_id || null,
+        segment_id: (proposal as any).segment_id || null,
         origin: proposal.origin,
         total_value: proposal.total_value || 0,
         currency: proposal.currency || "BRL",
@@ -250,6 +290,10 @@ export default function SoftwareProposalDetailPage() {
         client_name: headerForm.client_name?.trim() || null,
         client_id: headerForm.client_id || null,
         unit_id: headerForm.unit_id || null,
+        gsn_id: headerForm.gsn_id || null,
+        esn_id: headerForm.esn_id || null,
+        arquiteto_id: headerForm.arquiteto_id || null,
+        segment_id: headerForm.segment_id || null,
         origin: headerForm.origin,
         total_value: Number(headerForm.total_value) || 0,
         currency: headerForm.currency,
@@ -676,6 +720,58 @@ export default function SoftwareProposalDetailPage() {
                       updateHeaderField("unit_id", unitId);
                     }}
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Gerente de Vendas (GSN)</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.gsn_id}
+                    displayValue={linkedGsn ? `${linkedGsn.name} (${linkedGsn.code})` : undefined}
+                    onChange={(id) => updateHeaderField("gsn_id", id)}
+                    placeholder="Buscar GSN..."
+                    roleFilter={["gsn"]}
+                  />
+                  {(proposal as any)?.raw_gsn_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Executivo de Vendas (ESN)</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.esn_id}
+                    displayValue={linkedEsn ? `${linkedEsn.name} (${linkedEsn.code})` : undefined}
+                    onChange={(id) => updateHeaderField("esn_id", id)}
+                    placeholder="Buscar ESN..."
+                    roleFilter={["esn"]}
+                  />
+                  {(proposal as any)?.raw_esn_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Arquiteto de Solução</Label>
+                  <SearchableSalesTeamSelect
+                    value={headerForm.arquiteto_id}
+                    displayValue={linkedArquiteto ? `${linkedArquiteto.name} (${linkedArquiteto.code})` : undefined}
+                    onChange={(id) => updateHeaderField("arquiteto_id", id)}
+                    placeholder="Buscar Arquiteto..."
+                    roleFilter={["arquiteto"]}
+                  />
+                  {(proposal as any)?.raw_arquiteto_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Segmento</Label>
+                  <SearchableSegmentSelect
+                    value={headerForm.segment_id}
+                    displayValue={linkedSegment?.name}
+                    onChange={(id) => updateHeaderField("segment_id", id)}
+                  />
+                  {(proposal as any)?.raw_segment_name && (
+                    <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_segment_name}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

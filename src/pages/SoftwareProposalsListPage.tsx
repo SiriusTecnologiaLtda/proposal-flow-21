@@ -273,6 +273,7 @@ export default function SoftwareProposalsListPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Arquivo</TableHead>
+                    <TableHead>Nº Proposta</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Origem</TableHead>

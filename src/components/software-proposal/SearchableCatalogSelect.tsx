@@ -24,9 +24,9 @@ export function SearchableCatalogSelect({ value, displayValue, onChange, placeho
       // Search catalog items by name, and also check aliases
       const { data: items, error } = await supabase
         .from("software_catalog_items")
-        .select("id, name, vendor_name, category")
+        .select("id, name, vendor_name, category, part_number, external_code")
         .eq("is_active", true)
-        .or(`name.ilike.%${search}%,vendor_name.ilike.%${search}%`)
+        .or(`name.ilike.%${search}%,vendor_name.ilike.%${search}%,part_number.ilike.%${search}%,external_code.ilike.%${search}%`)
         .order("name")
         .limit(30);
       if (error) throw error;

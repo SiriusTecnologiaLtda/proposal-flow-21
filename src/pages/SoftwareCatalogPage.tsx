@@ -86,6 +86,8 @@ interface CatalogItem {
   default_recurrence: string;
   default_cost_classification: string;
   is_active: boolean;
+  part_number: string | null;
+  external_code: string | null;
   created_at: string;
 }
 
@@ -104,6 +106,8 @@ type FormData = {
   default_recurrence: string;
   default_cost_classification: string;
   is_active: boolean;
+  part_number: string;
+  external_code: string;
 };
 
 const emptyForm: FormData = {
@@ -114,6 +118,8 @@ const emptyForm: FormData = {
   default_recurrence: "one_time",
   default_cost_classification: "opex",
   is_active: true,
+  part_number: "",
+  external_code: "",
 };
 
 export default function SoftwareCatalogPage() {
@@ -156,11 +162,19 @@ export default function SoftwareCatalogPage() {
     },
   });
 
-  const filteredItems = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      (i.vendor_name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = items.filter((i) => {
+    const s = search.trim().toLowerCase();
+    if (!s) return true;
+    const itemAliases = aliases.filter((a) => a.catalog_item_id === i.id);
+    return (
+      i.name.toLowerCase().includes(s) ||
+      (i.vendor_name || "").toLowerCase().includes(s) ||
+      (i.description || "").toLowerCase().includes(s) ||
+      (i.part_number || "").toLowerCase().includes(s) ||
+      (i.external_code || "").toLowerCase().includes(s) ||
+      itemAliases.some((a) => a.alias.toLowerCase().includes(s))
+    );
+  });
 
   // Mutations
   const saveMutation = useMutation({
@@ -174,6 +188,8 @@ export default function SoftwareCatalogPage() {
         default_recurrence: formData.default_recurrence,
         default_cost_classification: formData.default_cost_classification,
         is_active: formData.is_active,
+        part_number: formData.part_number.trim() || null,
+        external_code: formData.external_code.trim() || null,
       };
       if (editItem) {
         const { error } = await supabase
@@ -273,6 +289,8 @@ export default function SoftwareCatalogPage() {
       default_recurrence: item.default_recurrence,
       default_cost_classification: item.default_cost_classification,
       is_active: item.is_active,
+      part_number: item.part_number || "",
+      external_code: item.external_code || "",
     });
     setFormOpen(true);
   }
@@ -310,7 +328,7 @@ export default function SoftwareCatalogPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome ou fornecedor..."
+              placeholder="Buscar por nome, fornecedor, descrição, alias, part number ou código..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -530,6 +548,24 @@ export default function SoftwareCatalogPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Part Number</Label>
+                <Input
+                  value={formData.part_number}
+                  onChange={(e) => setFormData((p) => ({ ...p, part_number: e.target.value }))}
+                  placeholder="Ex: CLOUD-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Código Externo ERP</Label>
+                <Input
+                  value={formData.external_code}
+                  onChange={(e) => setFormData((p) => ({ ...p, external_code: e.target.value }))}
+                  placeholder="Ex: ERP-12345"
+                />
               </div>
             </div>
             <div className="flex items-center gap-2">

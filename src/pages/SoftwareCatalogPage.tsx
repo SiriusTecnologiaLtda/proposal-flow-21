@@ -70,6 +70,7 @@ const RECURRENCE_OPTIONS = [
   { value: "one_time", label: "Único" },
   { value: "monthly", label: "Mensal" },
   { value: "annual", label: "Anual" },
+  { value: "usage_based", label: "Mensal" },
 ];
 
 const COST_CLASSIFICATION_OPTIONS = [

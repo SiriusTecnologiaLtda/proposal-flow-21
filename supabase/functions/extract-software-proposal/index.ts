@@ -649,7 +649,7 @@ Return ONLY valid JSON with this exact structure:
               name: desc,
               vendor_name: val(header.vendor_name),
               category: "other",
-              default_recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
+              default_recurrence: (() => { const r = validRecurrences.includes(item.recurrence) ? item.recurrence : "other"; return r === "usage_based" ? "monthly" : r; })(),
               default_cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
               is_active: true,
               created_by: userId,

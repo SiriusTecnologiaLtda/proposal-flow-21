@@ -26,6 +26,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
+import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
+import { SearchableCatalogSelect } from "@/components/software-proposal/SearchableCatalogSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   pending_extraction: "Aguardando Extração",
@@ -173,6 +176,38 @@ export default function SoftwareProposalDetailPage() {
     },
   });
 
+  // Fetch client name for display
+  const { data: linkedClient } = useQuery({
+    queryKey: ["client-name", proposal?.client_id],
+    enabled: !!proposal?.client_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("clients").select("id, name").eq("id", proposal!.client_id!).single();
+      return data;
+    },
+  });
+
+  // Fetch unit name for display
+  const { data: linkedUnit } = useQuery({
+    queryKey: ["unit-name", proposal?.unit_id],
+    enabled: !!proposal?.unit_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("unit_info").select("id, name").eq("id", proposal!.unit_id!).single();
+      return data;
+    },
+  });
+
+  // Fetch catalog item names for items display
+  const catalogItemIds = items.filter(i => i.catalog_item_id).map(i => i.catalog_item_id!);
+  const { data: catalogNames = [] } = useQuery({
+    queryKey: ["catalog-names", catalogItemIds.join(",")],
+    enabled: catalogItemIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase.from("software_catalog_items").select("id, name").in("id", catalogItemIds);
+      return data || [];
+    },
+  });
+  const catalogNameMap = new Map(catalogNames.map(c => [c.id, c.name]));
+
   // Init header form when proposal loads
   useEffect(() => {
     if (proposal && !headerDirty) {
@@ -180,6 +215,8 @@ export default function SoftwareProposalDetailPage() {
         proposal_number: (proposal as any).proposal_number || "",
         vendor_name: proposal.vendor_name || "",
         client_name: proposal.client_name || "",
+        client_id: (proposal as any).client_id || null,
+        unit_id: (proposal as any).unit_id || null,
         origin: proposal.origin,
         total_value: proposal.total_value || 0,
         currency: proposal.currency || "BRL",
@@ -210,6 +247,8 @@ export default function SoftwareProposalDetailPage() {
       const updates: Record<string, any> = {
         vendor_name: headerForm.vendor_name?.trim() || null,
         client_name: headerForm.client_name?.trim() || null,
+        client_id: headerForm.client_id || null,
+        unit_id: headerForm.unit_id || null,
         origin: headerForm.origin,
         total_value: Number(headerForm.total_value) || 0,
         currency: headerForm.currency,
@@ -533,10 +572,36 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Cliente</Label>
+                  <Label>Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}
                     onChange={(e) => updateHeaderField("client_name", e.target.value)}
+                    placeholder="Nome extraído do PDF"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Cliente Vinculado</Label>
+                  <SearchableClientSelect
+                    value={headerForm.client_id}
+                    displayValue={linkedClient?.name}
+                    onChange={(clientId, clientName) => {
+                      updateHeaderField("client_id", clientId);
+                      if (clientName && !headerForm.client_name) {
+                        updateHeaderField("client_name", clientName);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unidade TOTVS</Label>
+                  <SearchableUnitSelect
+                    value={headerForm.unit_id}
+                    displayValue={linkedUnit?.name}
+                    onChange={(unitId) => {
+                      updateHeaderField("unit_id", unitId);
+                    }}
                   />
                 </div>
               </div>
@@ -672,6 +737,7 @@ export default function SoftwareProposalDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[200px]">Descrição</TableHead>
+                        <TableHead className="w-[120px]">Catálogo</TableHead>
                         <TableHead className="w-[70px]">Qtd</TableHead>
                         <TableHead className="w-[110px]">Vlr Unit.</TableHead>
                         <TableHead className="w-[110px]">Vlr Total</TableHead>
@@ -690,6 +756,13 @@ export default function SoftwareProposalDetailPage() {
                                 value={itemForm.description || ""}
                                 onChange={(e) => setItemForm((p: any) => ({ ...p, description: e.target.value }))}
                                 className="text-sm"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <SearchableCatalogSelect
+                                value={itemForm.catalog_item_id || null}
+                                displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
+                                onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
                               />
                             </TableCell>
                             <TableCell>
@@ -750,6 +823,9 @@ export default function SoftwareProposalDetailPage() {
                         ) : (
                           <TableRow key={item.id}>
                             <TableCell className="text-sm font-medium">{item.description}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
+                              {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
+                            </TableCell>
                             <TableCell className="text-sm text-center">{item.quantity}</TableCell>
                             <TableCell className="text-sm font-mono">{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell className="text-sm font-mono">{formatCurrency(item.total_price)}</TableCell>

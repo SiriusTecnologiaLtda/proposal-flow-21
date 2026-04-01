@@ -35,7 +35,6 @@ serve(async (req) => {
       return jsonResponse({ error: "LOVABLE_API_KEY não configurada" }, 500);
     }
 
-    // User-scoped client for auth validation
     const userClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -46,7 +45,6 @@ serve(async (req) => {
     }
     const userId = user.id;
 
-    // Service role client for storage signed URLs and admin ops
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // --- Parse request ---
@@ -55,7 +53,7 @@ serve(async (req) => {
       return jsonResponse({ error: "software_proposal_id é obrigatório" }, 400);
     }
 
-    // --- Fetch proposal record (user-scoped so RLS applies) ---
+    // --- Fetch proposal record ---
     const { data: proposal, error: fetchErr } = await userClient
       .from("software_proposals")
       .select("*")
@@ -73,10 +71,10 @@ serve(async (req) => {
       .eq("id", software_proposal_id);
 
     // --- Download PDF from private bucket via signed URL ---
-    const filePath = proposal.file_url; // stored as internal path
+    const filePath = proposal.file_url;
     const { data: signedData, error: signErr } = await adminClient.storage
       .from("software-proposal-pdfs")
-      .createSignedUrl(filePath, 300); // 5 min
+      .createSignedUrl(filePath, 300);
 
     if (signErr || !signedData?.signedUrl) {
       await userClient
@@ -87,7 +85,6 @@ serve(async (req) => {
       return jsonResponse({ error: "Erro ao acessar arquivo PDF" }, 500);
     }
 
-    // Download PDF bytes
     const pdfResponse = await fetch(signedData.signedUrl);
     if (!pdfResponse.ok) {
       await userClient
@@ -98,7 +95,6 @@ serve(async (req) => {
     }
 
     const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
-    // Chunk-based base64 encoding to avoid stack overflow on large PDFs
     let pdfBase64 = "";
     const chunkSize = 8192;
     for (let i = 0; i < pdfBytes.length; i += chunkSize) {
@@ -131,6 +127,7 @@ DOCUMENT STRUCTURE GUIDANCE:
 - There may be a DISCOUNT section ("Desconto com vigência") with explicit discount amounts and duration.
 - The last pages are often SIGNATURE PROTOCOL pages — IGNORE these entirely for data extraction.
 - Legal/contractual boilerplate sections should be ignored for line item extraction.
+- The HEADER typically contains a "Unidade TOTVS" field, usually below the emission/issue date. Extract this as totvs_unit_name.
 
 IMPORTANT RULES:
 - Extract EXACTLY what is in the document. Do not invent or assume data.
@@ -147,6 +144,7 @@ IMPORTANT RULES:
 - The vendor_name is the company issuing the proposal (e.g., "TOTVS S.A."), NOT the client.
 - The client_name appears after "Cliente:" or "CLIENTE:" in the header section.
 - proposal_number appears after "Proposta N°:" in the header.
+- totvs_unit_name appears after "Unidade TOTVS:" or similar label in the header.
 
 RECURRENCE MAPPING for items:
 - "Gratuito" or one-time payment → "one_time"
@@ -175,6 +173,7 @@ Return ONLY valid JSON with this exact structure:
   "header": {
     "vendor_name": { "value": <string|null>, "confidence": <number> },
     "client_name": { "value": <string|null>, "confidence": <number> },
+    "totvs_unit_name": { "value": <string|null>, "confidence": <number> },
     "proposal_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "validity_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "total_value": { "value": <number|null>, "confidence": <number> },
@@ -228,7 +227,7 @@ Return ONLY valid JSON with this exact structure:
               },
               {
                 type: "text",
-                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions) and ignore signature protocol pages.`,
+                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions) and ignore signature protocol pages. Also extract the TOTVS unit name from the header.`,
               },
             ],
           },
@@ -258,7 +257,6 @@ Return ONLY valid JSON with this exact structure:
     const aiResult = await aiResponse.json();
     const rawContent = aiResult.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from AI response (may be wrapped in markdown code block)
     let extracted: any;
     try {
       const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -282,35 +280,114 @@ Return ONLY valid JSON with this exact structure:
     const aiIssues = extracted.issues || [];
     const overallConfidence = extracted.extraction_confidence ?? 0;
 
-    // --- Standardized issue type vocabulary ---
-    // low_confidence    = AI reported low confidence for a field/item
-    // missing_required  = A required field was not found in the document
-    // ambiguous_value   = Value was found but may be incorrect or unclear
-    // format_error      = Value format does not match expected pattern
     const VALID_ISSUE_TYPES = ["low_confidence", "missing_required", "ambiguous_value", "format_error"];
     const normalizeIssueType = (t: string) => VALID_ISSUE_TYPES.includes(t) ? t : "ambiguous_value";
-
-    // --- Standardized issue status vocabulary ---
-    // open     = newly created, awaiting review
-    // resolved = manually reviewed and corrected/accepted
-    // ignored  = manually dismissed by reviewer
     const ISSUE_STATUS_OPEN = "open";
-
-    // --- Helper to safely get value ---
     const val = (field: any) => field?.value ?? null;
 
-    // --- Collect issues first to determine final proposal status ---
     const issuesToInsert: any[] = [];
 
-    // --- Update proposal record with extracted data ---
-    // Final status will be set after issue collection
+    // ===== MASTER DATA MATCHING =====
+
+    // --- Match client ---
+    const rawClientName = val(header.client_name);
+    let matchedClientId: string | null = null;
+    let matchedClientName: string | null = null;
+
+    if (rawClientName) {
+      const { data: clientMatches } = await adminClient
+        .from("clients")
+        .select("id, name")
+        .or(`name.ilike.%${rawClientName}%,cnpj.ilike.%${rawClientName}%`)
+        .limit(5);
+
+      if (clientMatches && clientMatches.length === 1) {
+        matchedClientId = clientMatches[0].id;
+        matchedClientName = clientMatches[0].name;
+      } else if (clientMatches && clientMatches.length > 1) {
+        // Ambiguous - try exact match first
+        const exact = clientMatches.find(
+          (c) => c.name.toLowerCase() === rawClientName.toLowerCase()
+        );
+        if (exact) {
+          matchedClientId = exact.id;
+          matchedClientName = exact.name;
+        } else {
+          // Multiple matches, create issue
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: "client_name",
+            issue_type: "ambiguous_value",
+            extracted_value: rawClientName,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
+      } else {
+        // No match found - create issue for manual review
+        issuesToInsert.push({
+          software_proposal_id,
+          field_name: "client_name",
+          issue_type: "missing_required",
+          extracted_value: `Cliente não encontrado: ${rawClientName}`,
+          status: ISSUE_STATUS_OPEN,
+        });
+      }
+    }
+
+    // --- Match TOTVS unit ---
+    const rawUnitName = val(header.totvs_unit_name);
+    let matchedUnitId: string | null = null;
+    let matchedUnitName: string | null = null;
+
+    if (rawUnitName) {
+      const { data: unitMatches } = await adminClient
+        .from("unit_info")
+        .select("id, name, code")
+        .or(`name.ilike.%${rawUnitName}%,code.ilike.%${rawUnitName}%`)
+        .limit(5);
+
+      if (unitMatches && unitMatches.length === 1) {
+        matchedUnitId = unitMatches[0].id;
+        matchedUnitName = unitMatches[0].name;
+      } else if (unitMatches && unitMatches.length > 1) {
+        const exact = unitMatches.find(
+          (u) => u.name.toLowerCase() === rawUnitName.toLowerCase()
+        );
+        if (exact) {
+          matchedUnitId = exact.id;
+          matchedUnitName = exact.name;
+        } else {
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: "totvs_unit_name",
+            issue_type: "ambiguous_value",
+            extracted_value: rawUnitName,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
+      } else {
+        issuesToInsert.push({
+          software_proposal_id,
+          field_name: "totvs_unit_name",
+          issue_type: "missing_required",
+          extracted_value: `Unidade não encontrada: ${rawUnitName}`,
+          status: ISSUE_STATUS_OPEN,
+        });
+      }
+    }
+
+    // --- Update proposal record with extracted data + master data links ---
     await userClient
       .from("software_proposals")
       .update({
-        status: "extracted", // temporary, will be updated to in_review if issues exist
+        status: "extracted",
         proposal_number: extracted.proposal_number || null,
         vendor_name: val(header.vendor_name),
         client_name: val(header.client_name),
+        raw_client_name: rawClientName,
+        raw_unit_name: rawUnitName,
+        client_id: matchedClientId,
+        unit_id: matchedUnitId,
         proposal_date: val(header.proposal_date),
         validity_date: val(header.validity_date),
         total_value: val(header.total_value) ?? 0,
@@ -332,7 +409,6 @@ Return ONLY valid JSON with this exact structure:
       .eq("id", software_proposal_id);
 
     // --- Clear previous items and issues for re-extraction ---
-    // Use admin client to bypass RLS for bulk cleanup
     await adminClient
       .from("software_proposal_items")
       .delete()
@@ -343,25 +419,107 @@ Return ONLY valid JSON with this exact structure:
       .delete()
       .eq("software_proposal_id", software_proposal_id);
 
-    // --- Insert extracted items ---
+    // --- Load catalog items + aliases for matching ---
+    const { data: catalogItems } = await adminClient
+      .from("software_catalog_items")
+      .select("id, name, vendor_name, is_active")
+      .eq("is_active", true);
+
+    const { data: catalogAliases } = await adminClient
+      .from("software_catalog_aliases")
+      .select("id, catalog_item_id, alias");
+
+    // Build lookup maps for item matching
+    const catalogLookup: Array<{ id: string; name: string; nameLower: string }> = (catalogItems || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      nameLower: c.name.toLowerCase().trim(),
+    }));
+    const aliasLookup: Map<string, string> = new Map();
+    for (const a of catalogAliases || []) {
+      aliasLookup.set(a.alias.toLowerCase().trim(), a.catalog_item_id);
+    }
+
+    // --- Insert extracted items with catalog matching ---
     const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "other"];
     const validClassifications = ["capex", "opex", "mixed"];
     const validItemTypes = ["license", "service", "support", "infrastructure", "other"];
 
     if (items.length > 0) {
-      const itemRows = items.map((item: any, idx: number) => ({
-        software_proposal_id,
-        description: item.description || "Item sem descrição",
-        quantity: item.quantity ?? 1,
-        unit_price: item.unit_price ?? 0,
-        total_price: item.total_price ?? 0,
-        recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
-        cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
-        item_type: validItemTypes.includes(item.item_type) ? item.item_type : "other",
-        confidence_score: item.confidence_score ?? 0,
-        sort_order: idx,
-        notes: item.notes || null,
-      }));
+      const itemRows = [];
+      for (let idx = 0; idx < items.length; idx++) {
+        const item = items[idx];
+        const desc = (item.description || "Item sem descrição").trim();
+        const descLower = desc.toLowerCase();
+
+        // Try to match catalog item
+        let catalogItemId: string | null = null;
+
+        // 1. Check alias exact match
+        if (aliasLookup.has(descLower)) {
+          catalogItemId = aliasLookup.get(descLower)!;
+        }
+
+        // 2. Check catalog name exact match
+        if (!catalogItemId) {
+          const exactMatch = catalogLookup.find((c) => c.nameLower === descLower);
+          if (exactMatch) {
+            catalogItemId = exactMatch.id;
+          }
+        }
+
+        // 3. Check catalog name contains / is contained
+        if (!catalogItemId) {
+          const partialMatch = catalogLookup.find(
+            (c) => descLower.includes(c.nameLower) || c.nameLower.includes(descLower)
+          );
+          if (partialMatch) {
+            catalogItemId = partialMatch.id;
+          }
+        }
+
+        // 4. If no match, auto-create catalog item and link
+        if (!catalogItemId) {
+          const { data: newCatalogItem, error: createErr } = await adminClient
+            .from("software_catalog_items")
+            .insert({
+              name: desc,
+              vendor_name: val(header.vendor_name),
+              category: "other",
+              default_recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
+              default_cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
+              is_active: true,
+              created_by: userId,
+            })
+            .select("id")
+            .single();
+
+          if (!createErr && newCatalogItem) {
+            catalogItemId = newCatalogItem.id;
+            // Also create alias for future matching
+            await adminClient.from("software_catalog_aliases").insert({
+              catalog_item_id: newCatalogItem.id,
+              alias: descLower,
+              source: "auto_extraction",
+            });
+          }
+        }
+
+        itemRows.push({
+          software_proposal_id,
+          description: desc,
+          quantity: item.quantity ?? 1,
+          unit_price: item.unit_price ?? 0,
+          total_price: item.total_price ?? 0,
+          recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
+          cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
+          item_type: validItemTypes.includes(item.item_type) ? item.item_type : "other",
+          confidence_score: item.confidence_score ?? 0,
+          sort_order: idx,
+          notes: item.notes || null,
+          catalog_item_id: catalogItemId,
+        });
+      }
 
       const { error: itemsErr } = await adminClient
         .from("software_proposal_items")
@@ -372,9 +530,7 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // --- Create extraction issues (using standardized vocabulary) ---
-    // issuesToInsert was declared earlier, before the proposal update
-
+    // --- Create extraction issues ---
     // Issues reported by AI
     for (const issue of aiIssues) {
       issuesToInsert.push({
@@ -388,6 +544,7 @@ Return ONLY valid JSON with this exact structure:
 
     // Auto-create issues for low-confidence header fields
     for (const [fieldName, fieldData] of Object.entries(header)) {
+      if (fieldName === "totvs_unit_name") continue; // handled separately above
       const fd = fieldData as any;
       if (fd?.confidence !== undefined && fd.confidence < confidenceThreshold && fd.confidence > 0) {
         issuesToInsert.push({
@@ -419,7 +576,7 @@ Return ONLY valid JSON with this exact structure:
       const fd = header[rf] as any;
       if (!fd || fd.value == null || fd.value === "") {
         const alreadyFlagged = issuesToInsert.some(
-          (i) => i.field_name === rf && i.issue_type === "missing_required"
+          (i) => i.field_name === rf && (i.issue_type === "missing_required" || i.issue_type === "ambiguous_value")
         );
         if (!alreadyFlagged) {
           issuesToInsert.push({
@@ -433,7 +590,7 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // Flag if total_value is 0 but items exist (possible extraction issue)
+    // Flag if total_value is 0 but items exist
     const totalVal = val(header.total_value);
     if (totalVal === 0 && items.length > 0) {
       const hasNonZeroItems = items.some((i: any) => (i.total_price ?? 0) > 0);
@@ -464,10 +621,21 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    if (issuesToInsert.length > 0) {
+    // Deduplicate issues by field_name + issue_type
+    const uniqueIssues: any[] = [];
+    const issueKeys = new Set<string>();
+    for (const issue of issuesToInsert) {
+      const key = `${issue.field_name}::${issue.issue_type}`;
+      if (!issueKeys.has(key)) {
+        issueKeys.add(key);
+        uniqueIssues.push(issue);
+      }
+    }
+
+    if (uniqueIssues.length > 0) {
       const { error: issuesErr } = await adminClient
         .from("extraction_issues")
-        .insert(issuesToInsert);
+        .insert(uniqueIssues);
 
       if (issuesErr) {
         console.error("Error inserting issues:", issuesErr);
@@ -475,9 +643,7 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // --- Final proposal status transition ---
-    // If issues were created → in_review (needs human attention)
-    // If no issues → stays as extracted (clean extraction)
-    const finalStatus = issuesToInsert.length > 0 ? "in_review" : "extracted";
+    const finalStatus = uniqueIssues.length > 0 ? "in_review" : "extracted";
     if (finalStatus !== "extracted") {
       await userClient
         .from("software_proposals")
@@ -490,7 +656,10 @@ Return ONLY valid JSON with this exact structure:
       status: finalStatus,
       extraction_confidence: overallConfidence,
       items_extracted: items.length,
-      issues_created: issuesToInsert.length,
+      issues_created: uniqueIssues.length,
+      client_matched: !!matchedClientId,
+      unit_matched: !!matchedUnitId,
+      catalog_items_created: items.length, // approximate
     });
   } catch (e) {
     console.error("extract-software-proposal error:", e);

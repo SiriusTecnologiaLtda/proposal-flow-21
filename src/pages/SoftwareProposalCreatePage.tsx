@@ -18,6 +18,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
+import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
 
 const ORIGIN_OPTIONS = [
   { value: "client", label: "Cliente" },
@@ -77,6 +79,8 @@ export default function SoftwareProposalCreatePage() {
     proposal_number: "",
     vendor_name: "",
     client_name: "",
+    client_id: null as string | null,
+    unit_id: null as string | null,
     origin: "other",
     total_value: 0,
     proposal_date: "",
@@ -90,6 +94,8 @@ export default function SoftwareProposalCreatePage() {
     notes: "",
   });
 
+  const [clientDisplayName, setClientDisplayName] = useState("");
+  const [unitDisplayName, setUnitDisplayName] = useState("");
   const [items, setItems] = useState<ManualItem[]>([emptyItem()]);
 
   const updateForm = (field: string, value: any) => {
@@ -110,14 +116,13 @@ export default function SoftwareProposalCreatePage() {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!form.vendor_name.trim() && !form.client_name.trim()) {
+    if (!form.vendor_name.trim() && !form.client_name.trim() && !form.client_id) {
       toast.error("Preencha pelo menos o fornecedor ou o cliente");
       return;
     }
 
     setSaving(true);
     try {
-      // Create proposal record (manual = no file)
       const { data: proposal, error: insertError } = await supabase
         .from("software_proposals")
         .insert({
@@ -129,7 +134,9 @@ export default function SoftwareProposalCreatePage() {
           uploaded_by: user.id,
           status: "extracted",
           vendor_name: form.vendor_name?.trim() || null,
-          client_name: form.client_name?.trim() || null,
+          client_name: form.client_name?.trim() || clientDisplayName || null,
+          client_id: form.client_id,
+          unit_id: form.unit_id,
           proposal_number: form.proposal_number?.trim() || null,
           total_value: Number(form.total_value) || 0,
           proposal_date: form.proposal_date || null,
@@ -148,7 +155,6 @@ export default function SoftwareProposalCreatePage() {
 
       if (insertError) throw insertError;
 
-      // Insert items
       const validItems = items.filter((i) => i.description.trim());
       if (validItems.length > 0 && proposal) {
         const itemRows = validItems.map((i, idx) => ({
@@ -220,10 +226,38 @@ export default function SoftwareProposalCreatePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Cliente</Label>
+              <Label>Cliente (texto livre)</Label>
               <Input
                 value={form.client_name}
                 onChange={(e) => updateForm("client_name", e.target.value)}
+                placeholder="Nome do cliente"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Cliente Vinculado</Label>
+              <SearchableClientSelect
+                value={form.client_id}
+                displayValue={clientDisplayName}
+                onChange={(clientId, clientName) => {
+                  updateForm("client_id", clientId);
+                  setClientDisplayName(clientName);
+                  if (clientName && !form.client_name) {
+                    updateForm("client_name", clientName);
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Unidade TOTVS</Label>
+              <SearchableUnitSelect
+                value={form.unit_id}
+                displayValue={unitDisplayName}
+                onChange={(unitId, unitName) => {
+                  updateForm("unit_id", unitId);
+                  setUnitDisplayName(unitName);
+                }}
               />
             </div>
           </div>

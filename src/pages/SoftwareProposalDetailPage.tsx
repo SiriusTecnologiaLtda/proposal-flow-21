@@ -446,6 +446,53 @@ export default function SoftwareProposalDetailPage() {
     }
   };
 
+  // Delete proposal
+  const deleteProposalMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("ID não encontrado");
+      // Delete related data first
+      await supabase.from("software_proposal_items").delete().eq("software_proposal_id", id);
+      await supabase.from("extraction_issues").delete().eq("software_proposal_id", id);
+      await supabase.from("extraction_corrections_log").delete().eq("software_proposal_id", id);
+      // Delete storage file if exists
+      if (proposal?.file_url) {
+        await supabase.storage.from("software-proposal-pdfs").remove([proposal.file_url]);
+      }
+      const { error } = await supabase.from("software_proposals").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success("Proposta excluída com sucesso");
+      navigate("/propostas-software");
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao excluir proposta"),
+  });
+
+  // Reprocess (re-extract)
+  const reprocessMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("ID não encontrado");
+      const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
+        body: { software_proposal_id: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposal", id] });
+      queryClient.invalidateQueries({ queryKey: ["software-proposal-items", id] });
+      queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success(
+        `Re-extração concluída — ${data.items_extracted} itens, ${data.issues_created} pendências`,
+        { duration: 5000 }
+      );
+    },
+    onError: (err: any) => toast.error(err.message || "Erro na re-extração"),
+  });
+
   // Download file
   const downloadFile = async () => {
     if (!proposal?.file_url) return;

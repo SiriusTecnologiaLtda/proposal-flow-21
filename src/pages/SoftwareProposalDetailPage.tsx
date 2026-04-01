@@ -989,14 +989,22 @@ export default function SoftwareProposalDetailPage() {
                               <Input
                                 type="number" step="0.01" className="text-sm w-24"
                                 value={itemForm.unit_price ?? 0}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, unit_price: e.target.value }))}
+                                onChange={(e) => {
+                                  const unitPrice = parseFloat(e.target.value) || 0;
+                                  const qty = parseFloat(itemForm.quantity) || 1;
+                                  setItemForm((p: any) => ({ ...p, unit_price: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                                }}
                               />
                             </TableCell>
                             <TableCell>
                               <Input
                                 type="number" step="0.01" className="text-sm w-24"
                                 value={itemForm.total_price ?? 0}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, total_price: e.target.value }))}
+                                onChange={(e) => {
+                                  const totalPrice = parseFloat(e.target.value) || 0;
+                                  const qty = parseFloat(itemForm.quantity) || 1;
+                                  setItemForm((p: any) => ({ ...p, total_price: e.target.value, unit_price: qty > 0 ? Math.round((totalPrice / qty) * 100) / 100 : 0 }));
+                                }}
                               />
                             </TableCell>
                             <TableCell>

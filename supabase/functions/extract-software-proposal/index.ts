@@ -373,17 +373,17 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // --- Create extraction issues ---
-    const issuesToInsert: any[] = [];
+    // --- Create extraction issues (using standardized vocabulary) ---
+    // issuesToInsert was declared earlier, before the proposal update
 
     // Issues reported by AI
     for (const issue of aiIssues) {
       issuesToInsert.push({
         software_proposal_id,
         field_name: issue.field_name,
-        issue_type: issue.issue_type || "low_confidence",
+        issue_type: normalizeIssueType(issue.issue_type || "low_confidence"),
         extracted_value: issue.extracted_value || null,
-        status: "open",
+        status: ISSUE_STATUS_OPEN,
       });
     }
 
@@ -396,7 +396,7 @@ Return ONLY valid JSON with this exact structure:
           field_name: fieldName,
           issue_type: fd.confidence < autoCreateIssuesBelow ? "low_confidence" : "ambiguous_value",
           extracted_value: fd.value != null ? String(fd.value) : null,
-          status: "open",
+          status: ISSUE_STATUS_OPEN,
         });
       }
     }
@@ -409,7 +409,7 @@ Return ONLY valid JSON with this exact structure:
           field_name: `item: ${(item.description || "").substring(0, 80)}`,
           issue_type: item.confidence_score < autoCreateIssuesBelow ? "low_confidence" : "ambiguous_value",
           extracted_value: item.description || null,
-          status: "open",
+          status: ISSUE_STATUS_OPEN,
         });
       }
     }
@@ -428,7 +428,7 @@ Return ONLY valid JSON with this exact structure:
             field_name: rf,
             issue_type: "missing_required",
             extracted_value: null,
-            status: "open",
+            status: ISSUE_STATUS_OPEN,
           });
         }
       }
@@ -444,7 +444,7 @@ Return ONLY valid JSON with this exact structure:
           field_name: "total_value",
           issue_type: "ambiguous_value",
           extracted_value: "0",
-          status: "open",
+          status: ISSUE_STATUS_OPEN,
         });
       }
     }
@@ -459,7 +459,7 @@ Return ONLY valid JSON with this exact structure:
             field_name: `item: ${(item.description || "").substring(0, 80)}`,
             issue_type: "ambiguous_value",
             extracted_value: `total_price=0, recurrence=${item.recurrence}`,
-            status: "open",
+            status: ISSUE_STATUS_OPEN,
           });
         }
       }
@@ -475,8 +475,20 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
+    // --- Final proposal status transition ---
+    // If issues were created → in_review (needs human attention)
+    // If no issues → stays as extracted (clean extraction)
+    const finalStatus = issuesToInsert.length > 0 ? "in_review" : "extracted";
+    if (finalStatus !== "extracted") {
+      await userClient
+        .from("software_proposals")
+        .update({ status: finalStatus, updated_at: new Date().toISOString() })
+        .eq("id", software_proposal_id);
+    }
+
     return jsonResponse({
       success: true,
+      status: finalStatus,
       extraction_confidence: overallConfidence,
       items_extracted: items.length,
       issues_created: issuesToInsert.length,

@@ -275,6 +275,58 @@ export default function SoftwareProposalCreatePage() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Gerente de Vendas (GSN)</Label>
+              <SearchableSalesTeamSelect
+                value={form.gsn_id}
+                displayValue={gsnDisplayName}
+                onChange={(id, name) => {
+                  updateForm("gsn_id", id);
+                  setGsnDisplayName(name);
+                }}
+                placeholder="Buscar GSN..."
+                roleFilter={["gsn"]}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Executivo de Vendas (ESN)</Label>
+              <SearchableSalesTeamSelect
+                value={form.esn_id}
+                displayValue={esnDisplayName}
+                onChange={(id, name) => {
+                  updateForm("esn_id", id);
+                  setEsnDisplayName(name);
+                }}
+                placeholder="Buscar ESN..."
+                roleFilter={["esn"]}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Arquiteto de Solução</Label>
+              <SearchableSalesTeamSelect
+                value={form.arquiteto_id}
+                displayValue={arquitetoDisplayName}
+                onChange={(id, name) => {
+                  updateForm("arquiteto_id", id);
+                  setArquitetoDisplayName(name);
+                }}
+                placeholder="Buscar Arquiteto..."
+                roleFilter={["arquiteto"]}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Segmento</Label>
+              <SearchableSegmentSelect
+                value={form.segment_id}
+                displayValue={segmentDisplayName}
+                onChange={(id, name) => {
+                  updateForm("segment_id", id);
+                  setSegmentDisplayName(name);
+                }}
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Origem</Label>

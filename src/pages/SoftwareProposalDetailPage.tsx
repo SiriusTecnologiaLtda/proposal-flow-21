@@ -278,6 +278,43 @@ export default function SoftwareProposalDetailPage() {
     }
   }, [proposal]);
 
+  // Field name to tab/element mapping for resolve flow
+  const FIELD_TAB_MAP: Record<string, string> = {
+    client_id: "dados", client_name: "dados", unit_id: "dados",
+    gsn_id: "dados", esn_id: "dados", arquiteto_id: "dados",
+    segment_id: "dados", vendor_name: "dados", proposal_number: "dados",
+    proposal_date: "dados", validity_date: "dados", origin: "dados",
+    notes: "dados",
+  };
+
+  // Handle resolve_issue query param — switch tab and highlight field
+  useEffect(() => {
+    if (!resolveIssueId || !resolveField || !proposal) return;
+
+    const targetTab = FIELD_TAB_MAP[resolveField] || "dados";
+    setActiveTab(targetTab);
+    setHighlightField(resolveField);
+
+    // Small delay to let tab switch render, then scroll to field
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-field="${resolveField}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Try to focus the input inside
+        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+        if (input) input.focus();
+      }
+    }, 300);
+
+    // Remove highlight after 5 seconds
+    const clearTimer = setTimeout(() => setHighlightField(null), 5000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(clearTimer);
+    };
+  }, [resolveIssueId, resolveField, proposal]);
+
   const updateHeaderField = (field: string, value: any) => {
     setHeaderForm((prev) => ({ ...prev, [field]: value }));
     setHeaderDirty(true);

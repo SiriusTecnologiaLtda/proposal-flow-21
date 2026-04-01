@@ -23,8 +23,8 @@ export function SearchableUnitSelect({ value, displayValue, onChange, placeholde
     queryFn: async () => {
       const { data, error } = await supabase
         .from("unit_info")
-        .select("id, name, code, city")
-        .or(`name.ilike.%${search}%,code.ilike.%${search}%,city.ilike.%${search}%`)
+        .select("id, name, code, city, descricao_complementar")
+        .or(`name.ilike.%${search}%,code.ilike.%${search}%,city.ilike.%${search}%,descricao_complementar.ilike.%${search}%`)
         .order("name")
         .limit(30);
       if (error) throw error;
@@ -92,6 +92,7 @@ export function SearchableUnitSelect({ value, displayValue, onChange, placeholde
             >
               <span className="font-medium">{u.name}</span>
               {u.city && <span className="text-xs text-muted-foreground ml-2">{u.city}</span>}
+              {(u as any).descricao_complementar && <span className="text-xs text-muted-foreground/70 ml-1 italic">· {(u as any).descricao_complementar}</span>}
             </button>
           ))}
         </div>

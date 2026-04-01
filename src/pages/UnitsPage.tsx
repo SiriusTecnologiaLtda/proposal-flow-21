@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUnitEmailTemplates, EMAIL_ACTION_TYPES, EMAIL_PLACEHOLDERS } from "@/hooks/useUnitEmailTemplates";
 
-const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
+const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0, descricao_complementar: "" };
 const emptyContact = { name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "", contact_type: "tae" };
 const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
 const CONTACT_TYPES = [
@@ -76,7 +76,7 @@ export default function UnitsPage() {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: any) => {
     setEditId(u.id);
-    setForm({ name: u.name, code: u.code || "", cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0 });
+    setForm({ name: u.name, code: u.code || "", cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0, descricao_complementar: u.descricao_complementar || "" });
     setDialogOpen(true);
   };
 
@@ -186,6 +186,7 @@ export default function UnitsPage() {
     { id: "address", label: "Endereço", type: "text" },
     { id: "city", label: "Cidade", type: "text" },
     { id: "tax_factor", label: "Fator Imposto", type: "number", step: "0.0001" },
+    { id: "descricao_complementar", label: "Descrição Complementar", type: "textarea" },
   ];
 
   const otherUnits = units.filter((u: any) => u.id !== selectedUnit?.id);
@@ -211,13 +212,23 @@ export default function UnitsPage() {
             {fields.map((f) => (
               <div key={f.id} className="grid gap-1">
                 <Label htmlFor={f.id} className="text-xs">{f.label}</Label>
-                <Input
-                  id={f.id}
-                  type={f.type}
-                  placeholder={f.label.replace(" *", "")}
-                  value={(form as any)[f.id]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
-                />
+                {f.type === "textarea" ? (
+                  <Textarea
+                    id={f.id}
+                    placeholder={f.label}
+                    value={(form as any)[f.id]}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                    rows={2}
+                  />
+                ) : (
+                  <Input
+                    id={f.id}
+                    type={f.type}
+                    placeholder={f.label.replace(" *", "")}
+                    value={(form as any)[f.id]}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
+                  />
+                )}
               </div>
             ))}
             <Button className="mt-2" onClick={handleSave} disabled={saving}>

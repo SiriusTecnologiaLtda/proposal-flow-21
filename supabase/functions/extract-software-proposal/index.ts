@@ -120,31 +120,68 @@ serve(async (req) => {
     const autoCreateIssuesBelow = config?.auto_create_issues_below ?? 0.5;
 
     // --- Call AI for extraction ---
-    const extractionPrompt = `You are a structured data extraction engine for commercial software proposals (PDFs).
+    const extractionPrompt = `You are a structured data extraction engine specialized in commercial software proposals (PDFs), commonly from vendors like TOTVS, Oracle, SAP, Microsoft, and similar enterprise software companies.
 
-Analyze this PDF document and extract ALL available information into a strict JSON structure.
+Analyze this PDF document and extract ALL available commercial information into a strict JSON structure.
+
+DOCUMENT STRUCTURE GUIDANCE:
+- These proposals typically have a HEADER section with proposal number, client, dates, and sales team info.
+- They contain one or more PAYMENT TABLES, often split into:
+  - "Adesão ou soluções de pagamento não recorrentes" (one-time items like CDU, setup fees)
+  - "Soluções de pagamento recorrentes" (recurring items like SMS, cloud subscriptions, licenses)
+- There may be a DISCOUNT section ("Desconto com vigência") with explicit discount amounts and duration.
+- The last pages are often SIGNATURE PROTOCOL pages — IGNORE these entirely for data extraction.
+- Legal/contractual boilerplate sections should be ignored for line item extraction.
 
 IMPORTANT RULES:
 - Extract EXACTLY what is in the document. Do not invent or assume data.
-- For each field, assign a confidence score between 0.0 and 1.0.
+- For each header field, assign a confidence score between 0.0 and 1.0.
 - If a field cannot be found, set its value to null and confidence to 0.0.
-- For line items, extract every distinct product/service/license line you can identify.
-- Monetary values should be numbers (not formatted strings).
-- Dates should be in ISO 8601 format (YYYY-MM-DD) when possible.
-- Currency should be the 3-letter ISO code (BRL, USD, EUR, etc.).
+- For line items, extract every distinct product/service/license line from ALL payment tables.
+- Items listed as "Gratuito" with value 0.00 should still be extracted (they represent free tier or included items).
+- Monetary values must be numbers (not formatted strings). Use Brazilian decimal format awareness: "2.640,30" means 2640.30.
+- Dates in the document are typically in DD/MM/YYYY format. Convert to ISO 8601 (YYYY-MM-DD).
+- The validity date is often found as text like "válida para assinatura até DD/MM/YYYY" near the end of the commercial content (before signature pages).
+- Currency is almost always BRL for Brazilian proposals. Look for "R$" or "Moeda" column.
+- For total_value: sum ALL recurring item totals (this represents the monthly/periodic commitment). If there are both one-time and recurring tables, report the recurring total as total_value and mention one-time totals in notes.
+- For payment_type: map "Mensal" → "monthly", "90 DIAS DDL" → "quarterly", "Gratuito" → "free", "Sob Consumo" → "usage_based".
+- The vendor_name is the company issuing the proposal (e.g., "TOTVS S.A."), NOT the client.
+- The client_name appears after "Cliente:" or "CLIENTE:" in the header section.
+- proposal_number appears after "Proposta N°:" in the header.
+
+RECURRENCE MAPPING for items:
+- "Gratuito" or one-time payment → "one_time"
+- "Mensal" → "monthly"  
+- "90 DIAS DDL" or quarterly → "quarterly"
+- "Anual" → "annual"
+- "Sob Consumo" → "usage_based"
+- If unclear → "other"
+
+COST CLASSIFICATION:
+- CDU (Cessão de Direito de Uso), Adesão, Setup → "capex"
+- SMS (Serviço de Manutenção), Cloud subscriptions, recurring licenses → "opex"
+- Mixed or unclear → "mixed"
+
+ITEM TYPE:
+- CDU, License, Licenciamento → "license"
+- Cloud, Infrastructure, hosting → "infrastructure"  
+- SMS, Manutenção, Support → "support"
+- Setup, Implantação, services → "service"
+- If unclear → "other"
 
 Return ONLY valid JSON with this exact structure:
 {
   "extraction_confidence": <number 0-1, overall confidence>,
+  "proposal_number": <string|null>,
   "header": {
     "vendor_name": { "value": <string|null>, "confidence": <number> },
     "client_name": { "value": <string|null>, "confidence": <number> },
-    "proposal_date": { "value": <string|null>, "confidence": <number> },
-    "validity_date": { "value": <string|null>, "confidence": <number> },
+    "proposal_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
+    "validity_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "total_value": { "value": <number|null>, "confidence": <number> },
     "currency": { "value": <string|null>, "confidence": <number> },
     "payment_type": { "value": <string|null>, "confidence": <number> },
-    "first_due_date": { "value": <string|null>, "confidence": <number> },
+    "first_due_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "installment_count": { "value": <number|null>, "confidence": <number> },
     "discount_amount": { "value": <number|null>, "confidence": <number> },
     "discount_duration_months": { "value": <number|null>, "confidence": <number> },
@@ -157,7 +194,7 @@ Return ONLY valid JSON with this exact structure:
       "quantity": <number>,
       "unit_price": <number>,
       "total_price": <number>,
-      "recurrence": <"one_time"|"monthly"|"annual"|"other">,
+      "recurrence": <"one_time"|"monthly"|"quarterly"|"annual"|"usage_based"|"other">,
       "cost_classification": <"capex"|"opex"|"mixed">,
       "item_type": <"license"|"service"|"support"|"infrastructure"|"other">,
       "confidence_score": <number 0-1>,
@@ -192,13 +229,13 @@ Return ONLY valid JSON with this exact structure:
               },
               {
                 type: "text",
-                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}`,
+                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions) and ignore signature protocol pages.`,
               },
             ],
           },
         ],
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens: 12000,
       }),
     });
 

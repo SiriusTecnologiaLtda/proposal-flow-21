@@ -199,6 +199,40 @@ export default function SoftwareProposalDetailPage() {
     },
   });
 
+  // Fetch sales team names for display
+  const { data: linkedGsn } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.gsn_id],
+    enabled: !!(proposal as any)?.gsn_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).gsn_id).single();
+      return data;
+    },
+  });
+  const { data: linkedEsn } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.esn_id],
+    enabled: !!(proposal as any)?.esn_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).esn_id).single();
+      return data;
+    },
+  });
+  const { data: linkedArquiteto } = useQuery({
+    queryKey: ["sales-team-name", (proposal as any)?.arquiteto_id],
+    enabled: !!(proposal as any)?.arquiteto_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales_team").select("id, name, code").eq("id", (proposal as any).arquiteto_id).single();
+      return data;
+    },
+  });
+  const { data: linkedSegment } = useQuery({
+    queryKey: ["segment-name", (proposal as any)?.segment_id],
+    enabled: !!(proposal as any)?.segment_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("software_segments").select("id, name").eq("id", (proposal as any).segment_id).single();
+      return data;
+    },
+  });
+
   // Fetch catalog item names for items display
   const catalogItemIds = items.filter(i => i.catalog_item_id).map(i => i.catalog_item_id!);
   const { data: catalogNames = [] } = useQuery({

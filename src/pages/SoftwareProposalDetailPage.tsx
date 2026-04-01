@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   ArrowLeft, Save, CheckCircle2, Plus, Trash2, AlertTriangle,
-  FileText, Download, Loader2, Eye, EyeOff, Pencil,
+  FileText, Download, Loader2, Eye, EyeOff, Pencil, RotateCcw, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +130,7 @@ export default function SoftwareProposalDetailPage() {
 
   // Validate dialog
   const [showValidateDialog, setShowValidateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch proposal
   const { data: proposal, isLoading } = useQuery({
@@ -445,6 +446,53 @@ export default function SoftwareProposalDetailPage() {
     }
   };
 
+  // Delete proposal
+  const deleteProposalMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("ID não encontrado");
+      // Delete related data first
+      await supabase.from("software_proposal_items").delete().eq("software_proposal_id", id);
+      await supabase.from("extraction_issues").delete().eq("software_proposal_id", id);
+      await supabase.from("extraction_corrections_log").delete().eq("software_proposal_id", id);
+      // Delete storage file if exists
+      if (proposal?.file_url) {
+        await supabase.storage.from("software-proposal-pdfs").remove([proposal.file_url]);
+      }
+      const { error } = await supabase.from("software_proposals").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success("Proposta excluída com sucesso");
+      navigate("/propostas-software");
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao excluir proposta"),
+  });
+
+  // Reprocess (re-extract)
+  const reprocessMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("ID não encontrado");
+      const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
+        body: { software_proposal_id: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposal", id] });
+      queryClient.invalidateQueries({ queryKey: ["software-proposal-items", id] });
+      queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success(
+        `Re-extração concluída — ${data.items_extracted} itens, ${data.issues_created} pendências`,
+        { duration: 5000 }
+      );
+    },
+    onError: (err: any) => toast.error(err.message || "Erro na re-extração"),
+  });
+
   // Download file
   const downloadFile = async () => {
     if (!proposal?.file_url) return;
@@ -508,11 +556,27 @@ export default function SoftwareProposalDetailPage() {
             <p className="text-sm text-muted-foreground">{proposal.file_name}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {proposal.file_url && (
             <Button variant="outline" size="sm" className="gap-2" onClick={downloadFile}>
               <Download className="h-4 w-4" />
               Baixar PDF
+            </Button>
+          )}
+          {proposal.file_url && proposal.status !== "extracting" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => reprocessMutation.mutate()}
+              disabled={reprocessMutation.isPending}
+            >
+              {reprocessMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              {reprocessMutation.isPending ? "Reprocessando…" : "Reprocessar"}
             </Button>
           )}
           {canValidate && (
@@ -521,6 +585,15 @@ export default function SoftwareProposalDetailPage() {
               Validar Proposta
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir
+          </Button>
         </div>
       </div>
 
@@ -1052,6 +1125,28 @@ export default function SoftwareProposalDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={validateProposal}>Confirmar Validação</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete proposal dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Proposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta proposta? Todos os itens, pendências e correções associados serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteProposalMutation.mutate()}
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? "Excluindo…" : "Excluir Proposta"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

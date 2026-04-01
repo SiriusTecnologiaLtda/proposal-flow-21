@@ -83,7 +83,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         <nav className="flex-1 space-y-1 p-2">
           {filteredNavItems.map((item) => {
-            const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
+            const isActive = item.path === "/" ? location.pathname === "/" : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"} ${collapsed ? "justify-center px-2" : ""}`}

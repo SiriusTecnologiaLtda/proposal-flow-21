@@ -334,6 +334,111 @@ export type Database = {
           },
         ]
       }
+      extraction_corrections_log: {
+        Row: {
+          corrected_at: string
+          corrected_by: string
+          corrected_value: string | null
+          field_path: string
+          id: string
+          item_id: string | null
+          original_value: string | null
+          software_proposal_id: string
+        }
+        Insert: {
+          corrected_at?: string
+          corrected_by: string
+          corrected_value?: string | null
+          field_path: string
+          id?: string
+          item_id?: string | null
+          original_value?: string | null
+          software_proposal_id: string
+        }
+        Update: {
+          corrected_at?: string
+          corrected_by?: string
+          corrected_value?: string | null
+          field_path?: string
+          id?: string
+          item_id?: string | null
+          original_value?: string | null
+          software_proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_corrections_log_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposal_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extraction_corrections_log_software_proposal_id_fkey"
+            columns: ["software_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extraction_issues: {
+        Row: {
+          corrected_value: string | null
+          created_at: string
+          extracted_value: string | null
+          field_name: string
+          id: string
+          issue_type: string
+          item_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          software_proposal_id: string
+          status: string
+        }
+        Insert: {
+          corrected_value?: string | null
+          created_at?: string
+          extracted_value?: string | null
+          field_name: string
+          id?: string
+          issue_type?: string
+          item_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          software_proposal_id: string
+          status?: string
+        }
+        Update: {
+          corrected_value?: string | null
+          created_at?: string
+          extracted_value?: string | null
+          field_name?: string
+          id?: string
+          issue_type?: string
+          item_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          software_proposal_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_issues_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposal_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extraction_issues_software_proposal_id_fkey"
+            columns: ["software_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_request_votes: {
         Row: {
           created_at: string
@@ -1706,6 +1811,290 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      software_catalog_aliases: {
+        Row: {
+          alias: string
+          catalog_item_id: string
+          created_at: string
+          id: string
+          source: string
+        }
+        Insert: {
+          alias: string
+          catalog_item_id: string
+          created_at?: string
+          id?: string
+          source?: string
+        }
+        Update: {
+          alias?: string
+          catalog_item_id?: string
+          created_at?: string
+          id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "software_catalog_aliases_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "software_catalog_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      software_catalog_items: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          default_cost_classification: string
+          default_recurrence: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          vendor_name: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          default_cost_classification?: string
+          default_recurrence?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          default_cost_classification?: string
+          default_recurrence?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
+      software_proposal_config: {
+        Row: {
+          auto_create_issues_below: number
+          auto_extract_on_upload: boolean
+          confidence_threshold: number
+          extraction_model: string
+          extraction_provider: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_create_issues_below?: number
+          auto_extract_on_upload?: boolean
+          confidence_threshold?: number
+          extraction_model?: string
+          extraction_provider?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_create_issues_below?: number
+          auto_extract_on_upload?: boolean
+          confidence_threshold?: number
+          extraction_model?: string
+          extraction_provider?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      software_proposal_items: {
+        Row: {
+          catalog_item_id: string | null
+          confidence_score: number | null
+          cost_classification: string
+          created_at: string
+          description: string
+          discount_duration_months: number | null
+          discount_pct: number
+          discount_value: number
+          id: string
+          item_type: string
+          matched_confidence: number | null
+          notes: string | null
+          quantity: number
+          recurrence: string
+          software_proposal_id: string
+          sort_order: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          catalog_item_id?: string | null
+          confidence_score?: number | null
+          cost_classification?: string
+          created_at?: string
+          description: string
+          discount_duration_months?: number | null
+          discount_pct?: number
+          discount_value?: number
+          id?: string
+          item_type?: string
+          matched_confidence?: number | null
+          notes?: string | null
+          quantity?: number
+          recurrence?: string
+          software_proposal_id: string
+          sort_order?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Update: {
+          catalog_item_id?: string | null
+          confidence_score?: number | null
+          cost_classification?: string
+          created_at?: string
+          description?: string
+          discount_duration_months?: number | null
+          discount_pct?: number
+          discount_value?: number
+          id?: string
+          item_type?: string
+          matched_confidence?: number | null
+          notes?: string | null
+          quantity?: number
+          recurrence?: string
+          software_proposal_id?: string
+          sort_order?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "software_proposal_items_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "software_catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_proposal_items_software_proposal_id_fkey"
+            columns: ["software_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      software_proposals: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          currency: string
+          discount_amount: number
+          discount_duration_months: number | null
+          discount_notes: string | null
+          extracted_at: string | null
+          extraction_confidence: number | null
+          extraction_model: string | null
+          extraction_provider: string | null
+          file_hash: string | null
+          file_name: string
+          file_url: string
+          first_due_date: string | null
+          id: string
+          installment_count: number | null
+          notes: string | null
+          origin: string
+          origin_detail: string | null
+          payment_type: string | null
+          proposal_date: string | null
+          raw_extracted_json: Json | null
+          status: string
+          total_value: number
+          updated_at: string
+          uploaded_by: string
+          validated_at: string | null
+          validated_by: string | null
+          validity_date: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          currency?: string
+          discount_amount?: number
+          discount_duration_months?: number | null
+          discount_notes?: string | null
+          extracted_at?: string | null
+          extraction_confidence?: number | null
+          extraction_model?: string | null
+          extraction_provider?: string | null
+          file_hash?: string | null
+          file_name: string
+          file_url: string
+          first_due_date?: string | null
+          id?: string
+          installment_count?: number | null
+          notes?: string | null
+          origin?: string
+          origin_detail?: string | null
+          payment_type?: string | null
+          proposal_date?: string | null
+          raw_extracted_json?: Json | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+          uploaded_by: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validity_date?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          currency?: string
+          discount_amount?: number
+          discount_duration_months?: number | null
+          discount_notes?: string | null
+          extracted_at?: string | null
+          extraction_confidence?: number | null
+          extraction_model?: string | null
+          extraction_provider?: string | null
+          file_hash?: string | null
+          file_name?: string
+          file_url?: string
+          first_due_date?: string | null
+          id?: string
+          installment_count?: number | null
+          notes?: string | null
+          origin?: string
+          origin_detail?: string | null
+          payment_type?: string | null
+          proposal_date?: string | null
+          raw_extracted_json?: Json | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+          uploaded_by?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validity_date?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: []
       }
       sync_log_events: {
         Row: {

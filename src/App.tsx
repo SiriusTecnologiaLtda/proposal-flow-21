@@ -118,6 +118,8 @@ function ProtectedRoutes() {
         <Route path="/projetos/novo" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
         <Route path="/projetos/:id" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
         <Route path="/propostas-software" element={<GuardedRoute path="/propostas-software"><SoftwareProposalsListPage /></GuardedRoute>} />
+        <Route path="/propostas-software/importar" element={<GuardedRoute path="/propostas-software"><SoftwareProposalUploadPage /></GuardedRoute>} />
+        <Route path="/propostas-software/catalogo" element={<GuardedRoute path="/propostas-software"><SoftwareCatalogPage /></GuardedRoute>} />
         <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
         <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros/clientes"><ClientsList /></GuardedRoute>} />
         <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros/unidades"><UnitsPage /></GuardedRoute>} />

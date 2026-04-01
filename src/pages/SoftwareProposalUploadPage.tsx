@@ -136,6 +136,7 @@ export default function SoftwareProposalUploadPage() {
       setUploadProgress(100);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
       toast.success("Proposta importada com sucesso!");
       navigate("/propostas-software");
     },

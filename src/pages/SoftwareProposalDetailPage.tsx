@@ -247,6 +247,8 @@ export default function SoftwareProposalDetailPage() {
       const updates: Record<string, any> = {
         vendor_name: headerForm.vendor_name?.trim() || null,
         client_name: headerForm.client_name?.trim() || null,
+        client_id: headerForm.client_id || null,
+        unit_id: headerForm.unit_id || null,
         origin: headerForm.origin,
         total_value: Number(headerForm.total_value) || 0,
         currency: headerForm.currency,

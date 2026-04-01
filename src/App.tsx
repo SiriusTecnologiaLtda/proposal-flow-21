@@ -115,6 +115,7 @@ function ProtectedRoutes() {
         <Route path="/projetos" element={<GuardedRoute path="/projetos"><ProjectsPage /></GuardedRoute>} />
         <Route path="/projetos/novo" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
         <Route path="/projetos/:id" element={<GuardedRoute path="/projetos"><ProjectCreatePage /></GuardedRoute>} />
+        <Route path="/propostas-software" element={<GuardedRoute path="/propostas-software"><SoftwareProposalsListPage /></GuardedRoute>} />
         <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
         <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros/clientes"><ClientsList /></GuardedRoute>} />
         <Route path="/cadastros/unidades" element={<GuardedRoute path="/cadastros/unidades"><UnitsPage /></GuardedRoute>} />

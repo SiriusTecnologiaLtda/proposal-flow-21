@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +8,7 @@ import {
   Upload,
   Filter,
   Search,
+  BookOpen,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -79,6 +81,7 @@ const ORIGIN_LABELS: Record<string, string> = {
 };
 
 export default function SoftwareProposalsListPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -133,10 +136,20 @@ export default function SoftwareProposalsListPage() {
             Importação e análise de propostas comerciais de software
           </p>
         </div>
-        <Button disabled className="gap-2" title="Disponível na Fase 2">
-          <Upload className="h-4 w-4" />
-          Importar PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/catalogo")}
+          >
+            <BookOpen className="h-4 w-4" />
+            Catálogo
+          </Button>
+          <Button className="gap-2" onClick={() => navigate("/propostas-software/importar")}>
+            <Upload className="h-4 w-4" />
+            Importar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

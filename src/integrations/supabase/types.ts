@@ -2005,6 +2005,7 @@ export type Database = {
       }
       software_proposals: {
         Row: {
+          arquiteto_id: string | null
           client_id: string | null
           client_name: string | null
           created_at: string
@@ -2012,6 +2013,7 @@ export type Database = {
           discount_amount: number
           discount_duration_months: number | null
           discount_notes: string | null
+          esn_id: string | null
           extracted_at: string | null
           extraction_confidence: number | null
           extraction_model: string | null
@@ -2020,6 +2022,7 @@ export type Database = {
           file_name: string
           file_url: string
           first_due_date: string | null
+          gsn_id: string | null
           id: string
           installment_count: number | null
           notes: string | null
@@ -2028,9 +2031,14 @@ export type Database = {
           payment_type: string | null
           proposal_date: string | null
           proposal_number: string | null
+          raw_arquiteto_name: string | null
           raw_client_name: string | null
+          raw_esn_name: string | null
           raw_extracted_json: Json | null
+          raw_gsn_name: string | null
+          raw_segment_name: string | null
           raw_unit_name: string | null
+          segment_id: string | null
           status: string
           total_value: number
           unit_id: string | null
@@ -2042,6 +2050,7 @@ export type Database = {
           vendor_name: string | null
         }
         Insert: {
+          arquiteto_id?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
@@ -2049,6 +2058,7 @@ export type Database = {
           discount_amount?: number
           discount_duration_months?: number | null
           discount_notes?: string | null
+          esn_id?: string | null
           extracted_at?: string | null
           extraction_confidence?: number | null
           extraction_model?: string | null
@@ -2057,6 +2067,7 @@ export type Database = {
           file_name: string
           file_url: string
           first_due_date?: string | null
+          gsn_id?: string | null
           id?: string
           installment_count?: number | null
           notes?: string | null
@@ -2065,9 +2076,14 @@ export type Database = {
           payment_type?: string | null
           proposal_date?: string | null
           proposal_number?: string | null
+          raw_arquiteto_name?: string | null
           raw_client_name?: string | null
+          raw_esn_name?: string | null
           raw_extracted_json?: Json | null
+          raw_gsn_name?: string | null
+          raw_segment_name?: string | null
           raw_unit_name?: string | null
+          segment_id?: string | null
           status?: string
           total_value?: number
           unit_id?: string | null
@@ -2079,6 +2095,7 @@ export type Database = {
           vendor_name?: string | null
         }
         Update: {
+          arquiteto_id?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
@@ -2086,6 +2103,7 @@ export type Database = {
           discount_amount?: number
           discount_duration_months?: number | null
           discount_notes?: string | null
+          esn_id?: string | null
           extracted_at?: string | null
           extraction_confidence?: number | null
           extraction_model?: string | null
@@ -2094,6 +2112,7 @@ export type Database = {
           file_name?: string
           file_url?: string
           first_due_date?: string | null
+          gsn_id?: string | null
           id?: string
           installment_count?: number | null
           notes?: string | null
@@ -2102,9 +2121,14 @@ export type Database = {
           payment_type?: string | null
           proposal_date?: string | null
           proposal_number?: string | null
+          raw_arquiteto_name?: string | null
           raw_client_name?: string | null
+          raw_esn_name?: string | null
           raw_extracted_json?: Json | null
+          raw_gsn_name?: string | null
+          raw_segment_name?: string | null
           raw_unit_name?: string | null
+          segment_id?: string | null
           status?: string
           total_value?: number
           unit_id?: string | null
@@ -2117,10 +2141,38 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "software_proposals_arquiteto_id_fkey"
+            columns: ["arquiteto_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "software_proposals_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_proposals_esn_id_fkey"
+            columns: ["esn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_proposals_gsn_id_fkey"
+            columns: ["gsn_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_proposals_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "software_segments"
             referencedColumns: ["id"]
           },
           {
@@ -2131,6 +2183,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      software_segments: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       sync_log_events: {
         Row: {

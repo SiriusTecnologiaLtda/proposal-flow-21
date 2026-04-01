@@ -364,9 +364,12 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
       return;
     }
     const id = newLocalId();
-    setSignatories((prev) => [
-      ...prev,
-      {
+    setSignatories((prev) => {
+      // Insert after logged user (if present at index 0), otherwise at top
+      const hasLoggedUser = prev.length > 0 && prev[0].isLoggedUser;
+      const insertIdx = hasLoggedUser ? 1 : 0;
+      const newArr = [...prev];
+      newArr.splice(insertIdx, 0, {
         id,
         contact_id: contact.id,
         name: contact.name,
@@ -374,16 +377,19 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         phone: contact.phone || "",
         role: contact.role || "Signatário",
         isNew: false,
-      },
-    ]);
+      });
+      return newArr;
+    });
     setPendingScrollId(id);
   }
 
   function addNewSignatory() {
     const id = newLocalId();
-    setSignatories((prev) => [
-      ...prev,
-      {
+    setSignatories((prev) => {
+      const hasLoggedUser = prev.length > 0 && prev[0].isLoggedUser;
+      const insertIdx = hasLoggedUser ? 1 : 0;
+      const newArr = [...prev];
+      newArr.splice(insertIdx, 0, {
         id,
         contact_id: null,
         name: "",
@@ -391,8 +397,9 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
         phone: "",
         role: "Signatário",
         isNew: true,
-      },
-    ]);
+      });
+      return newArr;
+    });
     setPendingScrollId(id);
   }
 

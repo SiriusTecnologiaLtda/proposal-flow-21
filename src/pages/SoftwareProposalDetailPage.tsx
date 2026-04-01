@@ -26,6 +26,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
+import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
+import { SearchableCatalogSelect } from "@/components/software-proposal/SearchableCatalogSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   pending_extraction: "Aguardando Extração",

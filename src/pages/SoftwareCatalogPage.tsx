@@ -196,13 +196,16 @@ export default function SoftwareCatalogPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const deleteMutation = useMutation({
+  const deactivateMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("software_catalog_items").delete().eq("id", id);
+      const { error } = await supabase
+        .from("software_catalog_items")
+        .update({ is_active: false })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Item removido!");
+      toast.success("Item desativado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["software-catalog-items"] });
       setDeleteTarget(null);
     },
@@ -211,9 +214,11 @@ export default function SoftwareCatalogPage() {
 
   const addAliasMutation = useMutation({
     mutationFn: async ({ catalogItemId, alias }: { catalogItemId: string; alias: string }) => {
+      const normalizedAlias = alias.trim().toLowerCase();
+      if (!normalizedAlias) throw new Error("Alias não pode ser vazio");
       const { error } = await supabase.from("software_catalog_aliases").insert({
         catalog_item_id: catalogItemId,
-        alias: alias.trim(),
+        alias: normalizedAlias,
         source: "manual",
       });
       if (error) throw error;
@@ -550,19 +555,18 @@ export default function SoftwareCatalogPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover item do catálogo?</AlertDialogTitle>
+            <AlertDialogTitle>Desativar item do catálogo?</AlertDialogTitle>
             <AlertDialogDescription>
-              O item "{deleteTarget?.name}" será removido permanentemente, incluindo todos os
-              aliases vinculados. Esta ação não pode ser desfeita.
+              O item "{deleteTarget?.name}" será desativado e não aparecerá em novos vínculos.
+              Você poderá reativá-lo a qualquer momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deactivateMutation.mutate(deleteTarget.id)}
             >
-              Remover
+              Desativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

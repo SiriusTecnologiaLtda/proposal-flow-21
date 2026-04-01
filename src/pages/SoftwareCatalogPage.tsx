@@ -214,9 +214,11 @@ export default function SoftwareCatalogPage() {
 
   const addAliasMutation = useMutation({
     mutationFn: async ({ catalogItemId, alias }: { catalogItemId: string; alias: string }) => {
+      const normalizedAlias = alias.trim().toLowerCase();
+      if (!normalizedAlias) throw new Error("Alias não pode ser vazio");
       const { error } = await supabase.from("software_catalog_aliases").insert({
         catalog_item_id: catalogItemId,
-        alias: alias.trim(),
+        alias: normalizedAlias,
         source: "manual",
       });
       if (error) throw error;

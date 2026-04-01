@@ -335,12 +335,17 @@ Deno.serve(async (req) => {
     log(logs, "Google Drive", "ok", `PDF exportado (${(pdfBlob.size / 1024).toFixed(1)} KB)`);
 
     // 7. Get TAE config
-    const { data: taeConfig, error: taeConfigErr } = await supabase
+    const { data: taeConfig, error: taeConfigErr } = await adminClient
       .from("tae_config")
       .select("*")
       .maybeSingle();
     if (taeConfigErr || !taeConfig) {
-      log(logs, "TAE Config", "error", "Configuração TAE não encontrada");
+      log(
+        logs,
+        "TAE Config",
+        "error",
+        taeConfigErr?.message || "Configuração TAE não encontrada",
+      );
       return respondWithLogs(logs, {}, 500);
     }
 
@@ -588,10 +593,20 @@ Deno.serve(async (req) => {
     if (taePublicationId) {
       updatePayload.tae_publication_id = String(taePublicationId);
     }
-    await supabase
+    const { error: signatureUpdateError } = await adminClient
       .from("proposal_signatures")
       .update(updatePayload)
       .eq("id", signatureId);
+
+    if (signatureUpdateError) {
+      log(
+        logs,
+        "Finalização",
+        "error",
+        `Falha ao persistir status da assinatura: ${signatureUpdateError.message}`,
+      );
+      return respondWithLogs(logs, {}, 500);
+    }
 
     log(logs, "Finalização", "ok", "Processo concluído! Documento publicado no TAE com sucesso.");
 

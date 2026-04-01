@@ -373,6 +373,30 @@ export default function SoftwareProposalDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
       setHeaderDirty(false);
       toast.success("Dados da proposta atualizados");
+
+      // Auto-resolve the linked issue if we came from the resolve flow
+      if (resolveIssueId) {
+        await supabase
+          .from("extraction_issues")
+          .update({
+            status: "resolved",
+            resolved_at: new Date().toISOString(),
+            resolved_by: user.id,
+            corrected_value: corrections.length > 0
+              ? corrections.map(c => `${c.field_path}: ${c.corrected_value}`).join("; ")
+              : null,
+          })
+          .eq("id", resolveIssueId);
+
+        queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
+        queryClient.invalidateQueries({ queryKey: ["software-issues-queue"] });
+        queryClient.invalidateQueries({ queryKey: ["software-issues-counters"] });
+        toast.success("Pendência resolvida automaticamente", { duration: 3000 });
+
+        // Clear query params
+        setSearchParams({}, { replace: true });
+        setHighlightField(null);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar");
     } finally {

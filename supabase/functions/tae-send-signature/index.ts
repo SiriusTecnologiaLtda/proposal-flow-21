@@ -226,16 +226,25 @@ Deno.serve(async (req) => {
     log(logs, "Documento", "ok", `Documento: ${officialDoc.file_name} (v${officialDoc.version}, oficial: ${officialDoc.is_official})`);
 
     // 5. Get Google credentials from google_integrations table
-    const { data: gIntegration } = await supabase
+    // Use service-role client to bypass RLS — google_integrations is admin-only
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    let gIntegration: any = null;
+    const { data: defaultInt } = await adminClient
       .from("google_integrations")
       .select("*")
       .eq("is_default", true)
       .limit(1)
       .maybeSingle();
 
-    if (!gIntegration) {
+    if (defaultInt) {
+      gIntegration = defaultInt;
+    } else {
       // fallback: any integration
-      const { data: anyInt } = await supabase
+      const { data: anyInt } = await adminClient
         .from("google_integrations")
         .select("*")
         .limit(1)
@@ -244,7 +253,7 @@ Deno.serve(async (req) => {
         log(logs, "Google", "error", "Nenhuma integração Google configurada");
         return respondWithLogs(logs, {}, 500);
       }
-      Object.assign(gIntegration || {}, anyInt);
+      gIntegration = anyInt;
     }
 
     let saKey: any = null;

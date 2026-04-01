@@ -111,13 +111,21 @@ interface ExtractionIssue {
 export default function SoftwareProposalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Resolve-issue flow from issues queue
+  const resolveIssueId = searchParams.get("resolve_issue");
+  const resolveField = searchParams.get("field");
 
   // Header form state
   const [headerForm, setHeaderForm] = useState<Record<string, any>>({});
   const [headerDirty, setHeaderDirty] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
+
+  // Active tab state (controlled for programmatic switching)
+  const [activeTab, setActiveTab] = useState("dados");
 
   // Items state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -133,6 +141,9 @@ export default function SoftwareProposalDetailPage() {
   // Validate dialog
   const [showValidateDialog, setShowValidateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Highlight field ref
+  const [highlightField, setHighlightField] = useState<string | null>(null);
 
   // Fetch proposal
   const { data: proposal, isLoading } = useQuery({

@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/table";
 import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
 import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
+import { SearchableSalesTeamSelect } from "@/components/software-proposal/SearchableSalesTeamSelect";
+import { SearchableSegmentSelect } from "@/components/software-proposal/SearchableSegmentSelect";
 
 const ORIGIN_OPTIONS = [
   { value: "client", label: "Cliente" },

@@ -283,14 +283,33 @@ Return ONLY valid JSON with this exact structure:
     const aiIssues = extracted.issues || [];
     const overallConfidence = extracted.extraction_confidence ?? 0;
 
+    // --- Standardized issue type vocabulary ---
+    // low_confidence    = AI reported low confidence for a field/item
+    // missing_required  = A required field was not found in the document
+    // ambiguous_value   = Value was found but may be incorrect or unclear
+    // format_error      = Value format does not match expected pattern
+    const VALID_ISSUE_TYPES = ["low_confidence", "missing_required", "ambiguous_value", "format_error"];
+    const normalizeIssueType = (t: string) => VALID_ISSUE_TYPES.includes(t) ? t : "ambiguous_value";
+
+    // --- Standardized issue status vocabulary ---
+    // open     = newly created, awaiting review
+    // resolved = manually reviewed and corrected/accepted
+    // ignored  = manually dismissed by reviewer
+    const ISSUE_STATUS_OPEN = "open";
+
     // --- Helper to safely get value ---
     const val = (field: any) => field?.value ?? null;
 
+    // --- Collect issues first to determine final proposal status ---
+    const issuesToInsert: any[] = [];
+
     // --- Update proposal record with extracted data ---
+    // Final status will be set after issue collection
     await userClient
       .from("software_proposals")
       .update({
-        status: "extracted",
+        status: "extracted", // temporary, will be updated to in_review if issues exist
+        proposal_number: extracted.proposal_number || null,
         vendor_name: val(header.vendor_name),
         client_name: val(header.client_name),
         proposal_date: val(header.proposal_date),

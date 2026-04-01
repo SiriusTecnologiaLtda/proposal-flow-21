@@ -136,10 +136,20 @@ export default function SoftwareProposalsListPage() {
             Importação e análise de propostas comerciais de software
           </p>
         </div>
-        <Button disabled className="gap-2" title="Disponível na Fase 2">
-          <Upload className="h-4 w-4" />
-          Importar PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/catalogo")}
+          >
+            <BookOpen className="h-4 w-4" />
+            Catálogo
+          </Button>
+          <Button className="gap-2" onClick={() => navigate("/propostas-software/importar")}>
+            <Upload className="h-4 w-4" />
+            Importar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

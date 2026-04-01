@@ -572,10 +572,36 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Cliente</Label>
+                  <Label>Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}
                     onChange={(e) => updateHeaderField("client_name", e.target.value)}
+                    placeholder="Nome extraído do PDF"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Cliente Vinculado</Label>
+                  <SearchableClientSelect
+                    value={headerForm.client_id}
+                    displayValue={linkedClient?.name}
+                    onChange={(clientId, clientName) => {
+                      updateHeaderField("client_id", clientId);
+                      if (clientName && !headerForm.client_name) {
+                        updateHeaderField("client_name", clientName);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unidade TOTVS</Label>
+                  <SearchableUnitSelect
+                    value={headerForm.unit_id}
+                    displayValue={linkedUnit?.name}
+                    onChange={(unitId) => {
+                      updateHeaderField("unit_id", unitId);
+                    }}
                   />
                 </div>
               </div>

@@ -162,11 +162,19 @@ export default function SoftwareCatalogPage() {
     },
   });
 
-  const filteredItems = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      (i.vendor_name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = items.filter((i) => {
+    const s = search.trim().toLowerCase();
+    if (!s) return true;
+    const itemAliases = aliases.filter((a) => a.catalog_item_id === i.id);
+    return (
+      i.name.toLowerCase().includes(s) ||
+      (i.vendor_name || "").toLowerCase().includes(s) ||
+      (i.description || "").toLowerCase().includes(s) ||
+      (i.part_number || "").toLowerCase().includes(s) ||
+      (i.external_code || "").toLowerCase().includes(s) ||
+      itemAliases.some((a) => a.alias.toLowerCase().includes(s))
+    );
+  });
 
   // Mutations
   const saveMutation = useMutation({

@@ -76,7 +76,7 @@ export default function UnitsPage() {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (u: any) => {
     setEditId(u.id);
-    setForm({ name: u.name, code: u.code || "", cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0 });
+    setForm({ name: u.name, code: u.code || "", cnpj: u.cnpj || "", contact: u.contact || "", email: u.email || "", phone: u.phone || "", address: u.address || "", city: u.city || "", tax_factor: Number(u.tax_factor) || 0, descricao_complementar: u.descricao_complementar || "" });
     setDialogOpen(true);
   };
 

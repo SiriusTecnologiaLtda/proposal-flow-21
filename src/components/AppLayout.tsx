@@ -20,6 +20,7 @@ const navItems = [
   { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/propostas", key: "propostas", label: "Minhas Oportunidades", icon: FileText },
   { path: "/projetos", key: "projetos", label: "Meus Projetos", icon: FolderKanban },
+  { path: "/propostas-software", key: "propostas-software", label: "Importação de Propostas de Software", icon: FileSearch },
   { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
   { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },

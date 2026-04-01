@@ -1,0 +1,269 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  FileSearch,
+  Upload,
+  Filter,
+  Search,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "Todos os Status" },
+  { value: "pending_extraction", label: "Aguardando Extração" },
+  { value: "extracting", label: "Extraindo" },
+  { value: "extracted", label: "Extraído" },
+  { value: "in_review", label: "Em Revisão" },
+  { value: "validated", label: "Validado" },
+  { value: "error", label: "Erro" },
+];
+
+const ORIGIN_OPTIONS = [
+  { value: "all", label: "Todas as Origens" },
+  { value: "client", label: "Cliente" },
+  { value: "vendor", label: "Fornecedor" },
+  { value: "partner", label: "Parceiro" },
+  { value: "internal", label: "Interno" },
+  { value: "historical", label: "Histórico" },
+  { value: "email_inbox", label: "E-mail" },
+  { value: "other", label: "Outro" },
+];
+
+const STATUS_BADGE_VARIANT: Record<string, string> = {
+  pending_extraction: "bg-muted text-muted-foreground",
+  extracting: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  extracted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  in_review: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  validated: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  error: "bg-destructive/10 text-destructive",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_extraction: "Aguardando Extração",
+  extracting: "Extraindo",
+  extracted: "Extraído",
+  in_review: "Em Revisão",
+  validated: "Validado",
+  error: "Erro",
+};
+
+const ORIGIN_LABELS: Record<string, string> = {
+  client: "Cliente",
+  vendor: "Fornecedor",
+  partner: "Parceiro",
+  internal: "Interno",
+  historical: "Histórico",
+  email_inbox: "E-mail",
+  other: "Outro",
+};
+
+export default function SoftwareProposalsListPage() {
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [originFilter, setOriginFilter] = useState("all");
+
+  const { data: proposals, isLoading } = useQuery({
+    queryKey: ["software-proposals", statusFilter, originFilter, searchTerm],
+    enabled: !!user,
+    queryFn: async () => {
+      let query = supabase
+        .from("software_proposals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+      if (originFilter !== "all") {
+        query = query.eq("origin", originFilter);
+      }
+      if (searchTerm.trim()) {
+        query = query.or(
+          `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`
+        );
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("pt-BR");
+  };
+
+  const formatCurrency = (value: number | null) => {
+    if (value === null || value === undefined) return "—";
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Gestão de Propostas de Software
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Importação e análise de propostas comerciais de software
+          </p>
+        </div>
+        <Button disabled className="gap-2" title="Disponível na Fase 2">
+          <Upload className="h-4 w-4" />
+          Importar PDF
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por arquivo, fornecedor ou cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={originFilter} onValueChange={setOriginFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORIGIN_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <FileSearch className="h-4 w-4 text-primary" />
+            Propostas Importadas
+            {proposals && (
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {proposals.length}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : !proposals || proposals.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <FileSearch className="h-12 w-12 text-muted-foreground/40 mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-1">
+                Nenhuma proposta importada
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                As propostas de software importadas aparecerão aqui. Use o botão
+                "Importar PDF" para começar a análise de propostas comerciais.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Fornecedor</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Origem</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data Import.</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {proposals.map((p: any) => (
+                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableCell className="font-medium max-w-[200px] truncate">
+                        {p.file_name}
+                      </TableCell>
+                      <TableCell>{p.vendor_name || "—"}</TableCell>
+                      <TableCell>{p.client_name || "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {ORIGIN_LABELS[p.origin] || p.origin}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {formatCurrency(p.total_value)}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            STATUS_BADGE_VARIANT[p.status] || "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {STATUS_LABELS[p.status] || p.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(p.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

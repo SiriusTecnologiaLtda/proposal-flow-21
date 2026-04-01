@@ -14,6 +14,7 @@ import {
   Loader2,
   RotateCcw,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,14 @@ export default function SoftwareProposalsListPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/pendencias")}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Pendências
+          </Button>
           <Button
             variant="outline"
             className="gap-2"

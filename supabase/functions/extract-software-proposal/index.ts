@@ -326,6 +326,10 @@ Return ONLY valid JSON with this exact structure:
       .eq("software_proposal_id", software_proposal_id);
 
     // --- Insert extracted items ---
+    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "other"];
+    const validClassifications = ["capex", "opex", "mixed"];
+    const validItemTypes = ["license", "service", "support", "infrastructure", "other"];
+
     if (items.length > 0) {
       const itemRows = items.map((item: any, idx: number) => ({
         software_proposal_id,
@@ -333,9 +337,9 @@ Return ONLY valid JSON with this exact structure:
         quantity: item.quantity ?? 1,
         unit_price: item.unit_price ?? 0,
         total_price: item.total_price ?? 0,
-        recurrence: item.recurrence || "one_time",
-        cost_classification: item.cost_classification || "opex",
-        item_type: item.item_type || "other",
+        recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
+        cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
+        item_type: validItemTypes.includes(item.item_type) ? item.item_type : "other",
         confidence_score: item.confidence_score ?? 0,
         sort_order: idx,
         notes: item.notes || null,

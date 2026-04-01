@@ -38,7 +38,7 @@ export function SearchableSalesTeamSelect({
         .limit(20);
 
       if (roleFilter && roleFilter.length > 0) {
-        query = query.in("role", roleFilter);
+        query = query.in("role", roleFilter as any);
       }
 
       const { data, error } = await query;

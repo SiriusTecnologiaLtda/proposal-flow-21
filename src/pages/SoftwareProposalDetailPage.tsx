@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   ArrowLeft, Save, CheckCircle2, Plus, Trash2, AlertTriangle,
-  FileText, Download, Loader2, Eye, EyeOff, Pencil,
+  FileText, Download, Loader2, Eye, EyeOff, Pencil, RotateCcw, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

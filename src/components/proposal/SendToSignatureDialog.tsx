@@ -607,8 +607,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
   // ─── Step 1: Signatários ──────────────────────────────────────────
   function renderSignatariosPage() {
     return (
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm flex flex-col overflow-hidden flex-1">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Users className="h-3.5 w-3.5 text-primary" />
@@ -619,8 +619,8 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             Defina os participantes do processo de assinatura. Ao menos um signatário é obrigatório.
           </p>
 
-          {/* Contact selection */}
-          <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4 space-y-3 mb-5">
+          {/* Contact selection - fixed */}
+          <div className="rounded-xl border border-border bg-gradient-to-r from-accent/50 to-transparent p-4 space-y-3 mb-4 shrink-0">
             <Label className="text-xs font-medium text-muted-foreground">Adicionar participantes</Label>
             <div className="flex gap-2">
               <Select onValueChange={addSignatoryFromContact}>
@@ -651,62 +651,64 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
             </Button>
           </div>
 
-          {/* Signatory list */}
+          {/* Signatory list - scrollable */}
           {signatories.length > 0 ? (
-            <div ref={scrollRef} className="space-y-3">
-              {signatories.map((sig, idx) => (
-                <div
-                  key={sig.id}
-                  data-sig-id={sig.id}
-                  className={cn(
-                    "rounded-xl border p-4 space-y-3",
-                    sig.isLoggedUser
-                      ? "border-primary/30 bg-primary/5"
-                      : "border-border bg-gradient-to-r from-accent/30 to-transparent"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {sig.isLoggedUser ? (
-                        <span className="flex items-center gap-1 text-primary">
-                          <Lock className="h-3 w-3" /> Você (visibilidade no TAE)
-                        </span>
-                      ) : (
-                        <>#{idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
-                      )}
-                    </span>
-                    {!sig.isLoggedUser && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSignatory(sig.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+            <ScrollArea className="flex-1 min-h-0">
+              <div ref={scrollRef} className="space-y-3 pr-3">
+                {signatories.map((sig, idx) => (
+                  <div
+                    key={sig.id}
+                    data-sig-id={sig.id}
+                    className={cn(
+                      "rounded-xl border p-4 space-y-3",
+                      sig.isLoggedUser
+                        ? "border-primary/30 bg-primary/5"
+                        : "border-border bg-gradient-to-r from-accent/30 to-transparent"
                     )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {sig.isLoggedUser ? (
+                          <span className="flex items-center gap-1 text-primary">
+                            <Lock className="h-3 w-3" /> Você (visibilidade no TAE)
+                          </span>
+                        ) : (
+                          <>#{idx + 1} {sig.isNew && <span className="text-primary ml-1">(novo)</span>}</>
+                        )}
+                      </span>
+                      {!sig.isLoggedUser && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSignatory(sig.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Nome *</Label>
+                        <Input value={sig.name} onChange={(e) => updateSignatory(sig.id, "name", e.target.value)} placeholder="Nome completo" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
+                        <Input value={sig.email} onChange={(e) => updateSignatory(sig.id, "email", e.target.value)} placeholder="email@empresa.com" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Celular</Label>
+                        <Input value={sig.phone} onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)} placeholder="(00) 00000-0000" readOnly={!sig.isNew} className={cn("h-9 text-sm", !sig.isNew && "bg-muted")} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Função</Label>
+                        <Select value={sig.role} onValueChange={(v) => updateSignatory(sig.id, "role", v)}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid gap-3 grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Nome *</Label>
-                      <Input value={sig.name} onChange={(e) => updateSignatory(sig.id, "name", e.target.value)} placeholder="Nome completo" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">E-mail *</Label>
-                      <Input value={sig.email} onChange={(e) => updateSignatory(sig.id, "email", e.target.value)} placeholder="email@empresa.com" readOnly={!sig.isNew || sig.isLoggedUser} className={cn("h-9 text-sm", (!sig.isNew || sig.isLoggedUser) && "bg-muted")} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Celular</Label>
-                      <Input value={sig.phone} onChange={(e) => updateSignatory(sig.id, "phone", e.target.value)} placeholder="(00) 00000-0000" readOnly={!sig.isNew} className={cn("h-9 text-sm", !sig.isNew && "bg-muted")} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Função</Label>
-                      <Select value={sig.role} onValueChange={(v) => updateSignatory(sig.id, "role", v)}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
           ) : (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
               <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />

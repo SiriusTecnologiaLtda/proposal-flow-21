@@ -307,7 +307,9 @@ export default function SoftwareProposalsListPage() {
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Origem</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead className="text-right">Capex</TableHead>
+                    <TableHead className="text-right">Opex</TableHead>
+                    <TableHead className="text-right">Produção Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Import.</TableHead>
                     <TableHead className="text-center">Ações</TableHead>

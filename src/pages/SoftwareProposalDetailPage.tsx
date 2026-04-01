@@ -823,6 +823,9 @@ export default function SoftwareProposalDetailPage() {
                         ) : (
                           <TableRow key={item.id}>
                             <TableCell className="text-sm font-medium">{item.description}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
+                              {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
+                            </TableCell>
                             <TableCell className="text-sm text-center">{item.quantity}</TableCell>
                             <TableCell className="text-sm font-mono">{formatCurrency(item.unit_price)}</TableCell>
                             <TableCell className="text-sm font-mono">{formatCurrency(item.total_price)}</TableCell>

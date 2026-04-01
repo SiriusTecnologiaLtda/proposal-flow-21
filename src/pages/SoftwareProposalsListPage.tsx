@@ -289,6 +289,9 @@ export default function SoftwareProposalsListPage() {
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {p.file_name}
                       </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {(p as any).proposal_number || "—"}
+                      </TableCell>
                       <TableCell>{p.vendor_name || "—"}</TableCell>
                       <TableCell>{p.client_name || "—"}</TableCell>
                       <TableCell>

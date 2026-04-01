@@ -1128,6 +1128,28 @@ export default function SoftwareProposalDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete proposal dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Proposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta proposta? Todos os itens, pendências e correções associados serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteProposalMutation.mutate()}
+              disabled={deleteProposalMutation.isPending}
+            >
+              {deleteProposalMutation.isPending ? "Excluindo…" : "Excluir Proposta"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

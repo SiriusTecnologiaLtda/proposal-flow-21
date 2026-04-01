@@ -780,7 +780,10 @@ Return ONLY valid JSON with this exact structure:
       issues_created: uniqueIssues.length,
       client_matched: !!matchedClientId,
       unit_matched: !!matchedUnitId,
-      catalog_items_created: items.length, // approximate
+      gsn_matched: !!matchedGsnId,
+      esn_matched: !!matchedEsnId,
+      arquiteto_matched: !!matchedArquitetoId,
+      segment_matched: !!matchedSegmentId,
     });
   } catch (e) {
     console.error("extract-software-proposal error:", e);

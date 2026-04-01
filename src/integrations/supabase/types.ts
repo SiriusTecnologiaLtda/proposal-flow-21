@@ -1852,9 +1852,11 @@ export type Database = {
           default_cost_classification: string
           default_recurrence: string
           description: string | null
+          external_code: string | null
           id: string
           is_active: boolean
           name: string
+          part_number: string | null
           updated_at: string
           vendor_name: string | null
         }
@@ -1865,9 +1867,11 @@ export type Database = {
           default_cost_classification?: string
           default_recurrence?: string
           description?: string | null
+          external_code?: string | null
           id?: string
           is_active?: boolean
           name: string
+          part_number?: string | null
           updated_at?: string
           vendor_name?: string | null
         }
@@ -1878,9 +1882,11 @@ export type Database = {
           default_cost_classification?: string
           default_recurrence?: string
           description?: string | null
+          external_code?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          part_number?: string | null
           updated_at?: string
           vendor_name?: string | null
         }
@@ -1999,6 +2005,7 @@ export type Database = {
       }
       software_proposals: {
         Row: {
+          client_id: string | null
           client_name: string | null
           created_at: string
           currency: string
@@ -2021,9 +2028,12 @@ export type Database = {
           payment_type: string | null
           proposal_date: string | null
           proposal_number: string | null
+          raw_client_name: string | null
           raw_extracted_json: Json | null
+          raw_unit_name: string | null
           status: string
           total_value: number
+          unit_id: string | null
           updated_at: string
           uploaded_by: string
           validated_at: string | null
@@ -2032,6 +2042,7 @@ export type Database = {
           vendor_name: string | null
         }
         Insert: {
+          client_id?: string | null
           client_name?: string | null
           created_at?: string
           currency?: string
@@ -2054,9 +2065,12 @@ export type Database = {
           payment_type?: string | null
           proposal_date?: string | null
           proposal_number?: string | null
+          raw_client_name?: string | null
           raw_extracted_json?: Json | null
+          raw_unit_name?: string | null
           status?: string
           total_value?: number
+          unit_id?: string | null
           updated_at?: string
           uploaded_by: string
           validated_at?: string | null
@@ -2065,6 +2079,7 @@ export type Database = {
           vendor_name?: string | null
         }
         Update: {
+          client_id?: string | null
           client_name?: string | null
           created_at?: string
           currency?: string
@@ -2087,9 +2102,12 @@ export type Database = {
           payment_type?: string | null
           proposal_date?: string | null
           proposal_number?: string | null
+          raw_client_name?: string | null
           raw_extracted_json?: Json | null
+          raw_unit_name?: string | null
           status?: string
           total_value?: number
+          unit_id?: string | null
           updated_at?: string
           uploaded_by?: string
           validated_at?: string | null
@@ -2097,7 +2115,22 @@ export type Database = {
           validity_date?: string | null
           vendor_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "software_proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_proposals_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_log_events: {
         Row: {

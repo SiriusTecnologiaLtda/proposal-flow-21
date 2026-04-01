@@ -1186,7 +1186,23 @@ export default function SoftwareProposalDetailPage() {
                               <div className="flex gap-1">
                                 <Button
                                   size="sm" variant="outline" className="h-7 text-xs"
-                                  onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "resolved" })}
+                                  onClick={() => {
+                                    // Navigate to the correct field with resolve context
+                                    const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
+                                    setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
+                                    setActiveTab(targetTab);
+                                    setHighlightField(issue.field_name);
+                                    // Scroll to field after tab renders
+                                    setTimeout(() => {
+                                      const el = document.querySelector(`[data-field="${issue.field_name}"]`);
+                                      if (el) {
+                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+                                        if (input) input.focus();
+                                      }
+                                    }, 300);
+                                    setTimeout(() => setHighlightField(null), 5000);
+                                  }}
                                 >
                                   Resolver
                                 </Button>

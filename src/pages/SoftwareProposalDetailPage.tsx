@@ -982,7 +982,11 @@ export default function SoftwareProposalDetailPage() {
                               <Input
                                 type="number" className="text-sm w-16"
                                 value={itemForm.quantity ?? 0}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, quantity: e.target.value }))}
+                                onChange={(e) => {
+                                  const qty = parseFloat(e.target.value) || 0;
+                                  const unitPrice = parseFloat(itemForm.unit_price) || 0;
+                                  setItemForm((p: any) => ({ ...p, quantity: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                                }}
                               />
                             </TableCell>
                             <TableCell>

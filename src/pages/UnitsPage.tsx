@@ -186,6 +186,7 @@ export default function UnitsPage() {
     { id: "address", label: "Endereço", type: "text" },
     { id: "city", label: "Cidade", type: "text" },
     { id: "tax_factor", label: "Fator Imposto", type: "number", step: "0.0001" },
+    { id: "descricao_complementar", label: "Descrição Complementar", type: "textarea" },
   ];
 
   const otherUnits = units.filter((u: any) => u.id !== selectedUnit?.id);

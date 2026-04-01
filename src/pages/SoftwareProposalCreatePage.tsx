@@ -102,6 +102,10 @@ export default function SoftwareProposalCreatePage() {
 
   const [clientDisplayName, setClientDisplayName] = useState("");
   const [unitDisplayName, setUnitDisplayName] = useState("");
+  const [gsnDisplayName, setGsnDisplayName] = useState("");
+  const [esnDisplayName, setEsnDisplayName] = useState("");
+  const [arquitetoDisplayName, setArquitetoDisplayName] = useState("");
+  const [segmentDisplayName, setSegmentDisplayName] = useState("");
   const [items, setItems] = useState<ManualItem[]>([emptyItem()]);
 
   const updateForm = (field: string, value: any) => {

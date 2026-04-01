@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUnitEmailTemplates, EMAIL_ACTION_TYPES, EMAIL_PLACEHOLDERS } from "@/hooks/useUnitEmailTemplates";
 
-const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0 };
+const emptyForm = { name: "", code: "", cnpj: "", contact: "", email: "", phone: "", address: "", city: "", tax_factor: 0, descricao_complementar: "" };
 const emptyContact = { name: "", email: "", phone: "", role: "Signatário", department: "", position: "", notes: "", contact_type: "tae" };
 const ROLES = ["Signatário", "Testemunha", "Aprovador", "Observador"];
 const CONTACT_TYPES = [

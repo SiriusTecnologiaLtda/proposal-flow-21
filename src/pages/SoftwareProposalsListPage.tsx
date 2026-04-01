@@ -13,6 +13,7 @@ import {
   Sparkles,
   Loader2,
   RotateCcw,
+  Plus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -185,6 +186,14 @@ export default function SoftwareProposalsListPage() {
             <BookOpen className="h-4 w-4" />
             Catálogo
           </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/nova")}
+          >
+            <Plus className="h-4 w-4" />
+            Nova Manual
+          </Button>
           <Button className="gap-2" onClick={() => navigate("/propostas-software/importar")}>
             <Upload className="h-4 w-4" />
             Importar PDF
@@ -285,7 +294,7 @@ export default function SoftwareProposalsListPage() {
                 </TableHeader>
                 <TableBody>
                   {proposals.map((p: any) => (
-                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/propostas-software/${p.id}`)}>
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {p.file_name}
                       </TableCell>

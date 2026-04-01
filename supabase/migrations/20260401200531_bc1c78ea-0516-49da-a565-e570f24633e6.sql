@@ -1,0 +1,1 @@
+ALTER TABLE public.software_proposals ADD COLUMN proposal_number text;

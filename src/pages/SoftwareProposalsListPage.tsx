@@ -144,7 +144,7 @@ export default function SoftwareProposalsListPage() {
       }
       if (searchTerm.trim()) {
         query = query.or(
-          `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%`
+          `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%,proposal_number.ilike.%${searchTerm}%`
         );
       }
 
@@ -273,6 +273,7 @@ export default function SoftwareProposalsListPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Arquivo</TableHead>
+                    <TableHead>Nº Proposta</TableHead>
                     <TableHead>Fornecedor</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Origem</TableHead>
@@ -287,6 +288,9 @@ export default function SoftwareProposalsListPage() {
                     <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50">
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {p.file_name}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {(p as any).proposal_number || "—"}
                       </TableCell>
                       <TableCell>{p.vendor_name || "—"}</TableCell>
                       <TableCell>{p.client_name || "—"}</TableCell>

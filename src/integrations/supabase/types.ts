@@ -2020,6 +2020,7 @@ export type Database = {
           origin_detail: string | null
           payment_type: string | null
           proposal_date: string | null
+          proposal_number: string | null
           raw_extracted_json: Json | null
           status: string
           total_value: number
@@ -2052,6 +2053,7 @@ export type Database = {
           origin_detail?: string | null
           payment_type?: string | null
           proposal_date?: string | null
+          proposal_number?: string | null
           raw_extracted_json?: Json | null
           status?: string
           total_value?: number
@@ -2084,6 +2086,7 @@ export type Database = {
           origin_detail?: string | null
           payment_type?: string | null
           proposal_date?: string | null
+          proposal_number?: string | null
           raw_extracted_json?: Json | null
           status?: string
           total_value?: number

@@ -550,6 +550,24 @@ export default function SoftwareCatalogPage() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Part Number</Label>
+                <Input
+                  value={formData.part_number}
+                  onChange={(e) => setFormData((p) => ({ ...p, part_number: e.target.value }))}
+                  placeholder="Ex: CLOUD-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Código Externo ERP</Label>
+                <Input
+                  value={formData.external_code}
+                  onChange={(e) => setFormData((p) => ({ ...p, external_code: e.target.value }))}
+                  placeholder="Ex: ERP-12345"
+                />
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Switch
                 checked={formData.is_active}

@@ -116,14 +116,23 @@ export default function SendToSignatureDialog({ proposal, open, onOpenChange }: 
 
   const clientName = (proposal as any)?.clients?.name || "Cliente";
 
-  // Scroll to new signatory
+  // Scroll to new signatory and focus first input
   useEffect(() => {
     if (pendingScrollId && scrollRef.current) {
-      const el = scrollRef.current.querySelector(`[data-sig-id="${pendingScrollId}"]`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        setPendingScrollId(null);
-      }
+      // Small delay to ensure DOM is updated after state change
+      const timer = setTimeout(() => {
+        const el = scrollRef.current?.querySelector(`[data-sig-id="${pendingScrollId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          // Focus the first editable input (name field)
+          const firstInput = el.querySelector('input:not([readonly])') as HTMLInputElement;
+          if (firstInput) {
+            firstInput.focus();
+          }
+          setPendingScrollId(null);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [signatories, pendingScrollId]);
 

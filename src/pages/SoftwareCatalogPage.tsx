@@ -86,6 +86,8 @@ interface CatalogItem {
   default_recurrence: string;
   default_cost_classification: string;
   is_active: boolean;
+  part_number: string | null;
+  external_code: string | null;
   created_at: string;
 }
 
@@ -104,6 +106,8 @@ type FormData = {
   default_recurrence: string;
   default_cost_classification: string;
   is_active: boolean;
+  part_number: string;
+  external_code: string;
 };
 
 const emptyForm: FormData = {
@@ -114,6 +118,8 @@ const emptyForm: FormData = {
   default_recurrence: "one_time",
   default_cost_classification: "opex",
   is_active: true,
+  part_number: "",
+  external_code: "",
 };
 
 export default function SoftwareCatalogPage() {

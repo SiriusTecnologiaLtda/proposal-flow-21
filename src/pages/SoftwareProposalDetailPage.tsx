@@ -259,16 +259,9 @@ export default function SoftwareProposalDetailPage() {
         arquiteto_id: (proposal as any).arquiteto_id || null,
         segment_id: (proposal as any).segment_id || null,
         origin: proposal.origin,
-        total_value: proposal.total_value || 0,
         currency: proposal.currency || "BRL",
         proposal_date: proposal.proposal_date || "",
         validity_date: proposal.validity_date || "",
-        payment_type: proposal.payment_type || "",
-        installment_count: proposal.installment_count || "",
-        first_due_date: proposal.first_due_date || "",
-        discount_amount: proposal.discount_amount || 0,
-        discount_notes: proposal.discount_notes || "",
-        discount_duration_months: proposal.discount_duration_months || "",
         notes: proposal.notes || "",
       });
     }

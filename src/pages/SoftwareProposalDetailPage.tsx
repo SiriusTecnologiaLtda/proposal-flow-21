@@ -556,11 +556,27 @@ export default function SoftwareProposalDetailPage() {
             <p className="text-sm text-muted-foreground">{proposal.file_name}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {proposal.file_url && (
             <Button variant="outline" size="sm" className="gap-2" onClick={downloadFile}>
               <Download className="h-4 w-4" />
               Baixar PDF
+            </Button>
+          )}
+          {proposal.file_url && proposal.status !== "extracting" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => reprocessMutation.mutate()}
+              disabled={reprocessMutation.isPending}
+            >
+              {reprocessMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              {reprocessMutation.isPending ? "Reprocessando…" : "Reprocessar"}
             </Button>
           )}
           {canValidate && (
@@ -569,6 +585,15 @@ export default function SoftwareProposalDetailPage() {
               Validar Proposta
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir
+          </Button>
         </div>
       </div>
 

@@ -29,6 +29,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchableClientSelect } from "@/components/software-proposal/SearchableClientSelect";
 import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
 import { SearchableCatalogSelect } from "@/components/software-proposal/SearchableCatalogSelect";
+import { SearchableSalesTeamSelect } from "@/components/software-proposal/SearchableSalesTeamSelect";
+import { SearchableSegmentSelect } from "@/components/software-proposal/SearchableSegmentSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   pending_extraction: "Aguardando Extração",

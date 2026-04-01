@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,13 +111,21 @@ interface ExtractionIssue {
 export default function SoftwareProposalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Resolve-issue flow from issues queue
+  const resolveIssueId = searchParams.get("resolve_issue");
+  const resolveField = searchParams.get("field");
 
   // Header form state
   const [headerForm, setHeaderForm] = useState<Record<string, any>>({});
   const [headerDirty, setHeaderDirty] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
+
+  // Active tab state (controlled for programmatic switching)
+  const [activeTab, setActiveTab] = useState("dados");
 
   // Items state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -133,6 +141,9 @@ export default function SoftwareProposalDetailPage() {
   // Validate dialog
   const [showValidateDialog, setShowValidateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Highlight field ref
+  const [highlightField, setHighlightField] = useState<string | null>(null);
 
   // Fetch proposal
   const { data: proposal, isLoading } = useQuery({
@@ -267,6 +278,43 @@ export default function SoftwareProposalDetailPage() {
     }
   }, [proposal]);
 
+  // Field name to tab/element mapping for resolve flow
+  const FIELD_TAB_MAP: Record<string, string> = {
+    client_id: "dados", client_name: "dados", unit_id: "dados",
+    gsn_id: "dados", esn_id: "dados", arquiteto_id: "dados",
+    segment_id: "dados", vendor_name: "dados", proposal_number: "dados",
+    proposal_date: "dados", validity_date: "dados", origin: "dados",
+    notes: "dados",
+  };
+
+  // Handle resolve_issue query param — switch tab and highlight field
+  useEffect(() => {
+    if (!resolveIssueId || !resolveField || !proposal) return;
+
+    const targetTab = FIELD_TAB_MAP[resolveField] || "dados";
+    setActiveTab(targetTab);
+    setHighlightField(resolveField);
+
+    // Small delay to let tab switch render, then scroll to field
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-field="${resolveField}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Try to focus the input inside
+        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+        if (input) input.focus();
+      }
+    }, 300);
+
+    // Remove highlight after 5 seconds
+    const clearTimer = setTimeout(() => setHighlightField(null), 5000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(clearTimer);
+    };
+  }, [resolveIssueId, resolveField, proposal]);
+
   const updateHeaderField = (field: string, value: any) => {
     setHeaderForm((prev) => ({ ...prev, [field]: value }));
     setHeaderDirty(true);
@@ -325,6 +373,30 @@ export default function SoftwareProposalDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
       setHeaderDirty(false);
       toast.success("Dados da proposta atualizados");
+
+      // Auto-resolve the linked issue if we came from the resolve flow
+      if (resolveIssueId) {
+        await supabase
+          .from("extraction_issues")
+          .update({
+            status: "resolved",
+            resolved_at: new Date().toISOString(),
+            resolved_by: user.id,
+            corrected_value: corrections.length > 0
+              ? corrections.map(c => `${c.field_path}: ${c.corrected_value}`).join("; ")
+              : null,
+          })
+          .eq("id", resolveIssueId);
+
+        queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
+        queryClient.invalidateQueries({ queryKey: ["software-issues-queue"] });
+        queryClient.invalidateQueries({ queryKey: ["software-issues-counters"] });
+        toast.success("Pendência resolvida automaticamente", { duration: 3000 });
+
+        // Clear query params
+        setSearchParams({}, { replace: true });
+        setHighlightField(null);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar");
     } finally {
@@ -566,6 +638,27 @@ export default function SoftwareProposalDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Resolve issue banner */}
+      {resolveIssueId && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Resolução de Pendência</p>
+            <p className="text-xs text-muted-foreground">
+              Corrija o campo destacado e clique em "Salvar Alterações" — a pendência será resolvida automaticamente.
+            </p>
+          </div>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => {
+              setSearchParams({}, { replace: true });
+              setHighlightField(null);
+            }}
+          >
+            Cancelar
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
@@ -627,7 +720,7 @@ export default function SoftwareProposalDetailPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="dados" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="dados">Dados da Proposta</TabsTrigger>
           <TabsTrigger value="itens">
@@ -659,7 +752,7 @@ export default function SoftwareProposalDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
                   <Label>Nº da Proposta</Label>
                   <Input
                     value={headerForm.proposal_number || ""}
@@ -667,14 +760,14 @@ export default function SoftwareProposalDetailPage() {
                     placeholder="Ex: AAPDFQ"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
                   <Label>Fornecedor</Label>
                   <Input
                     value={headerForm.vendor_name || ""}
                     onChange={(e) => updateHeaderField("vendor_name", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
                   <Label>Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}
@@ -684,7 +777,7 @@ export default function SoftwareProposalDetailPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
                   <Label>Cliente Vinculado</Label>
                   <SearchableClientSelect
                     value={headerForm.client_id}
@@ -697,7 +790,7 @@ export default function SoftwareProposalDetailPage() {
                     }}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
                   <Label>Unidade TOTVS</Label>
                   <SearchableUnitSelect
                     value={headerForm.unit_id}
@@ -709,7 +802,7 @@ export default function SoftwareProposalDetailPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
                   <Label>Gerente de Vendas (GSN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.gsn_id}
@@ -722,7 +815,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
                   <Label>Executivo de Vendas (ESN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.esn_id}
@@ -735,7 +828,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
                   <Label>Arquiteto de Solução</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.arquiteto_id}
@@ -748,7 +841,7 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
                   <Label>Segmento</Label>
                   <SearchableSegmentSelect
                     value={headerForm.segment_id}
@@ -1114,7 +1207,23 @@ export default function SoftwareProposalDetailPage() {
                               <div className="flex gap-1">
                                 <Button
                                   size="sm" variant="outline" className="h-7 text-xs"
-                                  onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "resolved" })}
+                                  onClick={() => {
+                                    // Navigate to the correct field with resolve context
+                                    const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
+                                    setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
+                                    setActiveTab(targetTab);
+                                    setHighlightField(issue.field_name);
+                                    // Scroll to field after tab renders
+                                    setTimeout(() => {
+                                      const el = document.querySelector(`[data-field="${issue.field_name}"]`);
+                                      if (el) {
+                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+                                        if (input) input.focus();
+                                      }
+                                    }, 300);
+                                    setTimeout(() => setHighlightField(null), 5000);
+                                  }}
                                 >
                                   Resolver
                                 </Button>

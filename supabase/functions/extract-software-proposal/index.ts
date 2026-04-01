@@ -99,7 +99,14 @@ serve(async (req) => {
     }
 
     const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    // Chunk-based base64 encoding to avoid stack overflow on large PDFs
+    let pdfBase64 = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+      const chunk = pdfBytes.subarray(i, Math.min(i + chunkSize, pdfBytes.length));
+      pdfBase64 += String.fromCharCode(...chunk);
+    }
+    pdfBase64 = btoa(pdfBase64);
 
     // --- Load extraction config ---
     const { data: config } = await adminClient

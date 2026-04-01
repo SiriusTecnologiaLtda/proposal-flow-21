@@ -358,22 +358,36 @@ Return ONLY valid JSON with this exact structure:
     let matchedUnitName: string | null = null;
 
     if (rawUnitName) {
+      const normalizedSearch = rawUnitName.trim().toLowerCase();
+
       const { data: unitMatches } = await adminClient
         .from("unit_info")
-        .select("id, name, code")
-        .or(`name.ilike.%${rawUnitName}%,code.ilike.%${rawUnitName}%`)
-        .limit(5);
+        .select("id, name, code, city, descricao_complementar")
+        .or(`name.ilike.%${rawUnitName}%,code.ilike.%${rawUnitName}%,city.ilike.%${rawUnitName}%,descricao_complementar.ilike.%${rawUnitName}%`)
+        .limit(10);
 
-      if (unitMatches && unitMatches.length === 1) {
-        matchedUnitId = unitMatches[0].id;
-        matchedUnitName = unitMatches[0].name;
-      } else if (unitMatches && unitMatches.length > 1) {
+      if (unitMatches && unitMatches.length > 0) {
+        // Priority 1: exact name match (case-insensitive, trimmed)
         const exact = unitMatches.find(
-          (u) => u.name.toLowerCase() === rawUnitName.toLowerCase()
+          (u) => u.name.trim().toLowerCase() === normalizedSearch
         );
-        if (exact) {
-          matchedUnitId = exact.id;
-          matchedUnitName = exact.name;
+        // Priority 2: exact descricao_complementar match
+        const descMatch = !exact && unitMatches.find(
+          (u) => u.descricao_complementar && u.descricao_complementar.trim().toLowerCase() === normalizedSearch
+        );
+        // Priority 3: exact code match
+        const codeMatch = !exact && !descMatch && unitMatches.find(
+          (u) => u.code && u.code.trim().toLowerCase() === normalizedSearch
+        );
+
+        const bestMatch = exact || descMatch || codeMatch;
+
+        if (bestMatch) {
+          matchedUnitId = bestMatch.id;
+          matchedUnitName = bestMatch.name;
+        } else if (unitMatches.length === 1) {
+          matchedUnitId = unitMatches[0].id;
+          matchedUnitName = unitMatches[0].name;
         } else {
           issuesToInsert.push({
             software_proposal_id,

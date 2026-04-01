@@ -212,13 +212,23 @@ export default function UnitsPage() {
             {fields.map((f) => (
               <div key={f.id} className="grid gap-1">
                 <Label htmlFor={f.id} className="text-xs">{f.label}</Label>
-                <Input
-                  id={f.id}
-                  type={f.type}
-                  placeholder={f.label.replace(" *", "")}
-                  value={(form as any)[f.id]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
-                />
+                {f.type === "textarea" ? (
+                  <Textarea
+                    id={f.id}
+                    placeholder={f.label}
+                    value={(form as any)[f.id]}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                    rows={2}
+                  />
+                ) : (
+                  <Input
+                    id={f.id}
+                    type={f.type}
+                    placeholder={f.label.replace(" *", "")}
+                    value={(form as any)[f.id]}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.id]: f.type === "number" ? Number(e.target.value) : e.target.value }))}
+                  />
+                )}
               </div>
             ))}
             <Button className="mt-2" onClick={handleSave} disabled={saving}>

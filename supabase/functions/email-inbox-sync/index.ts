@@ -59,7 +59,6 @@ async function gmailRequest(accessToken: string, path: string): Promise<any> {
 
 async function gmailGetAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<Uint8Array> {
   const data = await gmailRequest(accessToken, `messages/${messageId}/attachments/${attachmentId}`);
-  // Gmail returns base64url-encoded data
   const base64 = data.data.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -119,7 +118,7 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action || "sync"; // "test" | "sync"
 
-    // --- Load config ---
+    // --- Load email inbox config (filters, refresh token) ---
     const { data: config, error: configErr } = await adminClient
       .from("email_inbox_config")
       .select("*")
@@ -130,10 +129,23 @@ serve(async (req) => {
       return jsonResponse({ error: "Configuração de e-mail não encontrada" }, 404);
     }
 
-    // Validate Gmail credentials
-    if (!config.gmail_client_id || !config.gmail_client_secret || !config.gmail_refresh_token) {
+    // --- Load Google OAuth credentials from google_integrations (default) ---
+    const { data: gInt, error: gIntErr } = await adminClient
+      .from("google_integrations")
+      .select("oauth_client_id, oauth_client_secret")
+      .eq("is_default", true)
+      .single();
+
+    if (gIntErr || !gInt?.oauth_client_id || !gInt?.oauth_client_secret) {
       return jsonResponse({
-        error: "Credenciais Gmail OAuth não configuradas. Configure Client ID, Client Secret e autorize o acesso na tela de configuração."
+        error: "Integração Google OAuth padrão não configurada. Configure em Configurações > Google Drive / Docs primeiro."
+      }, 400);
+    }
+
+    // Validate refresh token from email config
+    if (!config.gmail_refresh_token) {
+      return jsonResponse({
+        error: "Conta Gmail não autorizada. Clique em 'Autorizar Conta Gmail' na tela de configuração."
       }, 400);
     }
 
@@ -141,8 +153,8 @@ serve(async (req) => {
     let accessToken: string;
     try {
       accessToken = await refreshAccessToken(
-        config.gmail_client_id,
-        config.gmail_client_secret,
+        gInt.oauth_client_id,
+        gInt.oauth_client_secret,
         config.gmail_refresh_token
       );
     } catch (tokenErr) {
@@ -156,10 +168,7 @@ serve(async (req) => {
     // === TEST CONNECTION ===
     if (action === "test") {
       try {
-        // Get user profile to confirm connection
         const profile = await gmailRequest(accessToken, "profile");
-
-        // List labels (folders)
         const labelsData = await gmailRequest(accessToken, "labels");
         const labels: string[] = (labelsData.labels || []).map((l: any) => l.name);
 
@@ -194,7 +203,6 @@ serve(async (req) => {
         queryParts.push(`subject:${config.subject_filter.trim()}`);
       }
 
-      // Restrict to specific label if configured
       const folder = config.monitored_folder || "INBOX";
       if (folder.toUpperCase() !== "INBOX") {
         queryParts.push(`label:${folder}`);
@@ -205,7 +213,6 @@ serve(async (req) => {
       const searchQuery = queryParts.join(" ");
       console.log("Gmail search query:", searchQuery);
 
-      // Search for messages
       const searchResult = await gmailRequest(
         accessToken,
         `messages?q=${encodeURIComponent(searchQuery)}&maxResults=50`
@@ -238,7 +245,6 @@ serve(async (req) => {
       // Process each message
       for (const msgId of messageIds) {
         try {
-          // Get full message with parts
           const msg = await gmailRequest(accessToken, `messages/${msgId}?format=full`);
 
           const sender = getHeader(msg.payload?.headers, "From");
@@ -246,11 +252,9 @@ serve(async (req) => {
           const dateStr = getHeader(msg.payload?.headers, "Date");
           const messageIdHeader = getHeader(msg.payload?.headers, "Message-ID") || msgId;
 
-          // Find PDF attachments recursively
           const pdfParts = findPdfParts(msg.payload);
 
           if (pdfParts.length === 0) {
-            // Mark as read
             await markAsRead(accessToken, msgId);
             continue;
           }
@@ -259,13 +263,9 @@ serve(async (req) => {
             try {
               if (!part.attachmentId) continue;
 
-              // Download attachment
               const pdfBuffer = await gmailGetAttachment(accessToken, msgId, part.attachmentId);
-
-              // Compute hash
               const fileHash = await hashBuffer(pdfBuffer);
 
-              // Check duplicate
               const { data: existing } = await adminClient
                 .from("software_proposals")
                 .select("id")
@@ -277,7 +277,6 @@ serve(async (req) => {
                 continue;
               }
 
-              // Upload to storage
               const storagePath = `email-imports/${fileHash}/${part.filename}`;
               const { error: uploadErr } = await adminClient.storage
                 .from("software-proposal-pdfs")
@@ -291,7 +290,6 @@ serve(async (req) => {
                 continue;
               }
 
-              // Create software_proposals record
               const { error: insertErr } = await adminClient
                 .from("software_proposals")
                 .insert({
@@ -323,7 +321,6 @@ serve(async (req) => {
             }
           }
 
-          // Mark email as read
           await markAsRead(accessToken, msgId);
         } catch (msgErr) {
           const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
@@ -331,7 +328,6 @@ serve(async (req) => {
         }
       }
 
-      // Update config with sync results
       const statusMsg = syncErrors.length > 0
         ? `Sincronização parcial: ${pdfsImported} PDFs importados, ${syncErrors.length} erro(s).`
         : `Sincronização concluída: ${pdfsImported} PDFs importados de ${emailsFound} e-mail(s).`;
@@ -406,7 +402,6 @@ function findPdfParts(payload: any): PdfPartInfo[] {
   const results: PdfPartInfo[] = [];
   if (!payload) return results;
 
-  // Check this part
   if (payload.filename && payload.filename.toLowerCase().endsWith(".pdf") && payload.body?.attachmentId) {
     results.push({
       filename: payload.filename,
@@ -414,7 +409,6 @@ function findPdfParts(payload: any): PdfPartInfo[] {
     });
   }
 
-  // Recurse into sub-parts
   if (payload.parts && Array.isArray(payload.parts)) {
     for (const part of payload.parts) {
       results.push(...findPdfParts(part));

@@ -52,7 +52,8 @@ export default function GoogleOAuthCallback() {
     if (integrationId) params.set("state", integrationId);
     if (error) params.set("error", error);
     if (flow) params.set("flow", flow);
-    window.location.href = `${openerOrigin}/configuracoes/google?${params.toString()}`;
+    const targetPath = flow === "email-inbox" ? "/configuracoes/email-inbox" : "/configuracoes/google";
+    window.location.href = `${openerOrigin}${targetPath}?${params.toString()}`;
   }, [searchParams]);
 
   return (

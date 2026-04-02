@@ -46,6 +46,7 @@ import SoftwareCatalogPage from "@/pages/SoftwareCatalogPage";
 import SoftwareProposalDetailPage from "@/pages/SoftwareProposalDetailPage";
 import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
+import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({

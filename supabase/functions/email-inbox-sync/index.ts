@@ -131,10 +131,8 @@ serve(async (req) => {
         await client.connect();
         
         // List mailboxes for info
-        const mailboxes: string[] = [];
-        for await (const mb of client.listMailboxes()) {
-          mailboxes.push(mb.path);
-        }
+        const mbList = await client.list();
+        const mailboxes: string[] = mbList.map((mb: any) => mb.path);
 
         await client.logout();
 

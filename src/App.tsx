@@ -46,6 +46,7 @@ import SoftwareCatalogPage from "@/pages/SoftwareCatalogPage";
 import SoftwareProposalDetailPage from "@/pages/SoftwareProposalDetailPage";
 import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
+import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({
@@ -150,6 +151,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/tae" element={<GuardedRoute path="/configuracoes"><TaeConfigPage /></GuardedRoute>} />
         <Route path="/configuracoes/whatsapp" element={<GuardedRoute path="/configuracoes"><WhatsAppConfigPage /></GuardedRoute>} />
         <Route path="/configuracoes/xai" element={<GuardedRoute path="/configuracoes"><XaiConfigPage /></GuardedRoute>} />
+        <Route path="/configuracoes/email-inbox" element={<GuardedRoute path="/configuracoes"><EmailInboxConfigPage /></GuardedRoute>} />
         <Route path="/configuracoes/logs-propostas" element={<GuardedRoute path="/configuracoes/logs-propostas"><ProposalLogsPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios" element={<GuardedRoute path="/configuracoes"><UserManagementPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/permissoes" element={<GuardedRoute path="/configuracoes"><RolePermissionsPage /></GuardedRoute>} />

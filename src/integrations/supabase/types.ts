@@ -334,6 +334,66 @@ export type Database = {
           },
         ]
       }
+      email_inbox_config: {
+        Row: {
+          email_address: string
+          enabled: boolean
+          id: string
+          imap_host: string
+          imap_port: number
+          last_sync_at: string | null
+          last_sync_emails_found: number | null
+          last_sync_message: string | null
+          last_sync_pdfs_imported: number | null
+          last_sync_status: string | null
+          monitored_folder: string
+          polling_interval_minutes: number
+          sender_filter: string | null
+          subject_filter: string | null
+          updated_at: string
+          updated_by: string | null
+          use_tls: boolean
+        }
+        Insert: {
+          email_address?: string
+          enabled?: boolean
+          id?: string
+          imap_host?: string
+          imap_port?: number
+          last_sync_at?: string | null
+          last_sync_emails_found?: number | null
+          last_sync_message?: string | null
+          last_sync_pdfs_imported?: number | null
+          last_sync_status?: string | null
+          monitored_folder?: string
+          polling_interval_minutes?: number
+          sender_filter?: string | null
+          subject_filter?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          use_tls?: boolean
+        }
+        Update: {
+          email_address?: string
+          enabled?: boolean
+          id?: string
+          imap_host?: string
+          imap_port?: number
+          last_sync_at?: string | null
+          last_sync_emails_found?: number | null
+          last_sync_message?: string | null
+          last_sync_pdfs_imported?: number | null
+          last_sync_status?: string | null
+          monitored_folder?: string
+          polling_interval_minutes?: number
+          sender_filter?: string | null
+          subject_filter?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          use_tls?: boolean
+        }
+        Relationships: []
+      }
       extraction_corrections_log: {
         Row: {
           corrected_at: string

@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.extract-software-proposal]
 verify_jwt = false
+
+[functions.email-inbox-sync]
+verify_jwt = false

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Settings, ChevronRight, FolderOpen, Upload, PenTool, MessageCircle, ClipboardList, Bot } from "lucide-react";
+import { Settings, ChevronRight, FolderOpen, Upload, PenTool, MessageCircle, ClipboardList, Bot, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
@@ -13,6 +13,7 @@ export default function SettingsPage() {
     { title: "Google Drive / Docs", desc: "Configurar credenciais de acesso ao Google Drive e Docs para geração de oportunidades", action: () => navigate("/configuracoes/google"), icon: FolderOpen },
     { title: "TOTVS Assinatura (TAE)", desc: "Configurar integração com TOTVS Assinatura Eletrônica para envio de oportunidades", action: () => navigate("/configuracoes/tae"), icon: PenTool },
     { title: "Importar Dados", desc: "Importar clientes e templates de escopo via planilha Excel", action: () => navigate("/configuracoes/importar"), icon: Upload },
+    { title: "Caixa de E-mail (Propostas SW)", desc: "Configurar leitura automática de e-mails para importação de propostas de software", action: () => navigate("/configuracoes/email-inbox"), icon: Mail },
     { title: "WhatsApp + IA", desc: "Configurar integração com WhatsApp para consulta e geração de propostas via chat inteligente", action: () => navigate("/configuracoes/whatsapp"), icon: MessageCircle },
     { title: "xAI — Assistente Digital", desc: "Configurar o modelo de IA e comportamento da assistente digital xAI", action: () => navigate("/configuracoes/xai"), icon: Bot },
     { title: "Logs de Oportunidades", desc: "Consultar erros e eventos detalhados do processo de criação e geração de oportunidades", action: () => navigate("/configuracoes/logs-propostas"), icon: ClipboardList },

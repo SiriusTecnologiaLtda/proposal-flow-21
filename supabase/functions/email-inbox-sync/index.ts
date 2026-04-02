@@ -21,6 +21,61 @@ async function hashBuffer(buffer: Uint8Array): Promise<string> {
     .join("");
 }
 
+// --- Gmail OAuth helpers ---
+
+async function refreshAccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
+  const resp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Falha ao renovar token OAuth: ${err}`);
+  }
+
+  const data = await resp.json();
+  return data.access_token;
+}
+
+async function gmailRequest(accessToken: string, path: string): Promise<any> {
+  const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Gmail API error (${resp.status}): ${err}`);
+  }
+
+  return resp.json();
+}
+
+async function gmailGetAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<Uint8Array> {
+  const data = await gmailRequest(accessToken, `messages/${messageId}/attachments/${attachmentId}`);
+  // Gmail returns base64url-encoded data
+  const base64 = data.data.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function getHeader(headers: any[], name: string): string {
+  const h = headers?.find((h: any) => h.name.toLowerCase() === name.toLowerCase());
+  return h?.value || "";
+}
+
+// --- Main handler ---
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,7 +84,6 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const emailInboxPassword = Deno.env.get("EMAIL_INBOX_PASSWORD") || "";
 
   try {
     // --- Auth ---
@@ -76,76 +130,49 @@ serve(async (req) => {
       return jsonResponse({ error: "Configuração de e-mail não encontrada" }, 404);
     }
 
-    if (!config.email_address || !emailInboxPassword) {
+    // Validate Gmail credentials
+    if (!config.gmail_client_id || !config.gmail_client_secret || !config.gmail_refresh_token) {
       return jsonResponse({
-        error: "Endereço de e-mail ou senha não configurados. Configure a senha via segredos do projeto (EMAIL_INBOX_PASSWORD)."
+        error: "Credenciais Gmail OAuth não configuradas. Configure Client ID, Client Secret e autorize o acesso na tela de configuração."
       }, 400);
     }
 
-    // --- IMAP Connection ---
-    // Supabase Edge Functions run on Deno Deploy which restricts raw TCP connections.
-    // IMAP requires persistent TCP/TLS sockets (Deno.connect / Deno.connectTls).
-    // This function uses the ImapFlow library via npm: specifier.
-    // If TCP is unavailable, it will fail gracefully with a clear message.
-
-    let ImapFlow: any;
+    // --- Get access token ---
+    let accessToken: string;
     try {
-      const mod = await import("npm:imapflow@1.0.164");
-      ImapFlow = mod.ImapFlow;
-    } catch (importErr) {
-      // If npm:imapflow can't be imported, provide clear feedback
-      const errMsg = `Biblioteca IMAP não disponível no ambiente atual. Erro: ${importErr instanceof Error ? importErr.message : String(importErr)}`;
-      
+      accessToken = await refreshAccessToken(
+        config.gmail_client_id,
+        config.gmail_client_secret,
+        config.gmail_refresh_token
+      );
+    } catch (tokenErr) {
+      const errMsg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
       if (action === "test") {
-        return jsonResponse({ success: false, error: errMsg });
+        return jsonResponse({ success: false, error: `Falha na autenticação: ${errMsg}` });
       }
-      
-      await adminClient
-        .from("email_inbox_config")
-        .update({
-          last_sync_status: "error",
-          last_sync_message: errMsg,
-          last_sync_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", config.id);
-
-      return jsonResponse({ error: errMsg }, 500);
+      return jsonResponse({ error: `Falha na autenticação Gmail: ${errMsg}` }, 401);
     }
-
-    const imapConfig = {
-      host: config.imap_host,
-      port: config.imap_port,
-      secure: config.use_tls,
-      auth: {
-        user: config.email_address,
-        pass: emailInboxPassword,
-      },
-      logger: false,
-    };
 
     // === TEST CONNECTION ===
     if (action === "test") {
       try {
-        const client = new ImapFlow(imapConfig);
-        await client.connect();
-        
-        // List mailboxes for info
-        const mbList = await client.list();
-        const mailboxes: string[] = mbList.map((mb: any) => mb.path);
+        // Get user profile to confirm connection
+        const profile = await gmailRequest(accessToken, "profile");
 
-        await client.logout();
+        // List labels (folders)
+        const labelsData = await gmailRequest(accessToken, "labels");
+        const labels: string[] = (labelsData.labels || []).map((l: any) => l.name);
 
         return jsonResponse({
           success: true,
-          message: `Conexão bem-sucedida com ${config.email_address}`,
-          mailboxes,
+          message: `Conexão Gmail bem-sucedida com ${profile.emailAddress}`,
+          mailboxes: labels,
         });
       } catch (connErr) {
         const errMsg = connErr instanceof Error ? connErr.message : String(connErr);
         return jsonResponse({
           success: false,
-          error: `Falha na conexão: ${errMsg}`,
+          error: `Falha na conexão Gmail: ${errMsg}`,
         });
       }
     }
@@ -154,170 +181,155 @@ serve(async (req) => {
     const syncStartedAt = new Date().toISOString();
     let emailsFound = 0;
     let pdfsImported = 0;
-    let syncErrors: string[] = [];
+    const syncErrors: string[] = [];
 
     try {
-      const client = new ImapFlow(imapConfig);
-      await client.connect();
+      // Build Gmail search query
+      const queryParts: string[] = ["has:attachment", "filename:pdf", "is:unread"];
 
-      const folder = config.monitored_folder || "INBOX";
-      const lock = await client.getMailboxLock(folder);
-
-      try {
-        // Build search criteria
-        const searchCriteria: any = { seen: false };
-        
-        // Apply sender filter if configured
-        if (config.sender_filter && config.sender_filter.trim()) {
-          searchCriteria.from = config.sender_filter.trim();
-        }
-
-        // Apply subject filter if configured
-        if (config.subject_filter && config.subject_filter.trim()) {
-          searchCriteria.subject = config.subject_filter.trim();
-        }
-
-        // Search for unread emails
-        const messages = await client.search(searchCriteria);
-        emailsFound = messages.length;
-
-        if (emailsFound === 0) {
-          await client.logout();
-          lock.release();
-
-          await adminClient
-            .from("email_inbox_config")
-            .update({
-              last_sync_at: syncStartedAt,
-              last_sync_status: "success",
-              last_sync_message: "Nenhum e-mail novo encontrado.",
-              last_sync_emails_found: 0,
-              last_sync_pdfs_imported: 0,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", config.id);
-
-          return jsonResponse({
-            success: true,
-            emails_found: 0,
-            pdfs_imported: 0,
-            message: "Nenhum e-mail novo encontrado.",
-          });
-        }
-
-        // Process each message (limit batch to 50)
-        const messageIds = messages.slice(0, 50);
-
-        for (const uid of messageIds) {
-          try {
-            const msg = await client.fetchOne(uid, {
-              envelope: true,
-              bodyStructure: true,
-              uid: true,
-            });
-
-            if (!msg?.envelope || !msg?.bodyStructure) continue;
-
-            const sender = msg.envelope.from?.[0]?.address || "unknown";
-            const subject = msg.envelope.subject || "(sem assunto)";
-            const receivedDate = msg.envelope.date?.toISOString() || new Date().toISOString();
-            const messageId = msg.envelope.messageId || `uid-${uid}`;
-
-            // Find PDF attachments in body structure
-            const pdfParts = findPdfParts(msg.bodyStructure);
-
-            if (pdfParts.length === 0) {
-              // Mark as read and skip
-              await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
-              continue;
-            }
-
-            for (const part of pdfParts) {
-              try {
-                // Download attachment
-                const { content } = await client.download(uid, part.part, { uid: true });
-                const chunks: Uint8Array[] = [];
-                for await (const chunk of content) {
-                  chunks.push(chunk);
-                }
-                const fullBuffer = concatUint8Arrays(chunks);
-
-                // Compute hash
-                const fileHash = await hashBuffer(fullBuffer);
-
-                // Check duplicate
-                const { data: existing } = await adminClient
-                  .from("software_proposals")
-                  .select("id")
-                  .eq("file_hash", fileHash)
-                  .maybeSingle();
-
-                if (existing) {
-                  syncErrors.push(`PDF "${part.filename}" ignorado — já importado (hash duplicado).`);
-                  continue;
-                }
-
-                // Upload to storage
-                const storagePath = `email-imports/${fileHash}/${part.filename}`;
-                const { error: uploadErr } = await adminClient.storage
-                  .from("software-proposal-pdfs")
-                  .upload(storagePath, fullBuffer, {
-                    contentType: "application/pdf",
-                    upsert: false,
-                  });
-
-                if (uploadErr) {
-                  syncErrors.push(`Erro ao salvar PDF "${part.filename}": ${uploadErr.message}`);
-                  continue;
-                }
-
-                // Create software_proposals record
-                const { error: insertErr } = await adminClient
-                  .from("software_proposals")
-                  .insert({
-                    file_name: part.filename,
-                    file_url: storagePath,
-                    file_hash: fileHash,
-                    status: "pending_extraction",
-                    origin: "email_inbox",
-                    origin_detail: JSON.stringify({
-                      sender,
-                      subject,
-                      received_at: receivedDate,
-                      message_id: messageId,
-                    }),
-                    uploaded_by: user.id,
-                    vendor_name: "",
-                    total_value: 0,
-                  });
-
-                if (insertErr) {
-                  syncErrors.push(`Erro ao criar registro para "${part.filename}": ${insertErr.message}`);
-                  continue;
-                }
-
-                pdfsImported++;
-              } catch (partErr) {
-                const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
-                syncErrors.push(`Erro ao processar anexo "${part.filename}": ${errMsg}`);
-              }
-            }
-
-            // Mark email as read after processing
-            await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
-          } catch (msgErr) {
-            const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
-            syncErrors.push(`Erro ao processar e-mail UID ${uid}: ${errMsg}`);
-          }
-        }
-
-        lock.release();
-      } catch (mailboxErr) {
-        lock.release();
-        throw mailboxErr;
+      if (config.sender_filter && config.sender_filter.trim()) {
+        queryParts.push(`from:${config.sender_filter.trim()}`);
+      }
+      if (config.subject_filter && config.subject_filter.trim()) {
+        queryParts.push(`subject:${config.subject_filter.trim()}`);
       }
 
-      await client.logout();
+      // Restrict to specific label if configured
+      const folder = config.monitored_folder || "INBOX";
+      if (folder.toUpperCase() !== "INBOX") {
+        queryParts.push(`label:${folder}`);
+      } else {
+        queryParts.push("in:inbox");
+      }
+
+      const searchQuery = queryParts.join(" ");
+      console.log("Gmail search query:", searchQuery);
+
+      // Search for messages
+      const searchResult = await gmailRequest(
+        accessToken,
+        `messages?q=${encodeURIComponent(searchQuery)}&maxResults=50`
+      );
+
+      const messageIds: string[] = (searchResult.messages || []).map((m: any) => m.id);
+      emailsFound = messageIds.length;
+
+      if (emailsFound === 0) {
+        await adminClient
+          .from("email_inbox_config")
+          .update({
+            last_sync_at: syncStartedAt,
+            last_sync_status: "success",
+            last_sync_message: "Nenhum e-mail novo encontrado.",
+            last_sync_emails_found: 0,
+            last_sync_pdfs_imported: 0,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", config.id);
+
+        return jsonResponse({
+          success: true,
+          emails_found: 0,
+          pdfs_imported: 0,
+          message: "Nenhum e-mail novo encontrado.",
+        });
+      }
+
+      // Process each message
+      for (const msgId of messageIds) {
+        try {
+          // Get full message with parts
+          const msg = await gmailRequest(accessToken, `messages/${msgId}?format=full`);
+
+          const sender = getHeader(msg.payload?.headers, "From");
+          const subject = getHeader(msg.payload?.headers, "Subject") || "(sem assunto)";
+          const dateStr = getHeader(msg.payload?.headers, "Date");
+          const messageIdHeader = getHeader(msg.payload?.headers, "Message-ID") || msgId;
+
+          // Find PDF attachments recursively
+          const pdfParts = findPdfParts(msg.payload);
+
+          if (pdfParts.length === 0) {
+            // Mark as read
+            await markAsRead(accessToken, msgId);
+            continue;
+          }
+
+          for (const part of pdfParts) {
+            try {
+              if (!part.attachmentId) continue;
+
+              // Download attachment
+              const pdfBuffer = await gmailGetAttachment(accessToken, msgId, part.attachmentId);
+
+              // Compute hash
+              const fileHash = await hashBuffer(pdfBuffer);
+
+              // Check duplicate
+              const { data: existing } = await adminClient
+                .from("software_proposals")
+                .select("id")
+                .eq("file_hash", fileHash)
+                .maybeSingle();
+
+              if (existing) {
+                syncErrors.push(`PDF "${part.filename}" ignorado — já importado (hash duplicado).`);
+                continue;
+              }
+
+              // Upload to storage
+              const storagePath = `email-imports/${fileHash}/${part.filename}`;
+              const { error: uploadErr } = await adminClient.storage
+                .from("software-proposal-pdfs")
+                .upload(storagePath, pdfBuffer, {
+                  contentType: "application/pdf",
+                  upsert: false,
+                });
+
+              if (uploadErr) {
+                syncErrors.push(`Erro ao salvar PDF "${part.filename}": ${uploadErr.message}`);
+                continue;
+              }
+
+              // Create software_proposals record
+              const { error: insertErr } = await adminClient
+                .from("software_proposals")
+                .insert({
+                  file_name: part.filename,
+                  file_url: storagePath,
+                  file_hash: fileHash,
+                  status: "pending_extraction",
+                  origin: "email_inbox",
+                  origin_detail: JSON.stringify({
+                    sender,
+                    subject,
+                    received_at: dateStr || new Date().toISOString(),
+                    message_id: messageIdHeader,
+                  }),
+                  uploaded_by: user.id,
+                  vendor_name: "",
+                  total_value: 0,
+                });
+
+              if (insertErr) {
+                syncErrors.push(`Erro ao criar registro para "${part.filename}": ${insertErr.message}`);
+                continue;
+              }
+
+              pdfsImported++;
+            } catch (partErr) {
+              const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
+              syncErrors.push(`Erro ao processar anexo "${part.filename}": ${errMsg}`);
+            }
+          }
+
+          // Mark email as read
+          await markAsRead(accessToken, msgId);
+        } catch (msgErr) {
+          const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
+          syncErrors.push(`Erro ao processar e-mail ${msgId}: ${errMsg}`);
+        }
+      }
 
       // Update config with sync results
       const statusMsg = syncErrors.length > 0
@@ -333,7 +345,7 @@ serve(async (req) => {
           last_sync_emails_found: emailsFound,
           last_sync_pdfs_imported: pdfsImported,
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", config.id);
 
       return jsonResponse({
@@ -345,7 +357,7 @@ serve(async (req) => {
       });
     } catch (syncErr) {
       const errMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
-      
+
       await adminClient
         .from("email_inbox_config")
         .update({
@@ -355,7 +367,7 @@ serve(async (req) => {
           last_sync_emails_found: emailsFound,
           last_sync_pdfs_imported: pdfsImported,
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", config.id);
 
       return jsonResponse({
@@ -372,51 +384,42 @@ serve(async (req) => {
   }
 });
 
-// --- Helpers ---
+// --- Gmail helpers ---
 
-interface PdfPart {
-  part: string;
-  filename: string;
+async function markAsRead(accessToken: string, messageId: string) {
+  await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
+  });
 }
 
-function findPdfParts(structure: any, prefix = ""): PdfPart[] {
-  const results: PdfPart[] = [];
+interface PdfPartInfo {
+  filename: string;
+  attachmentId: string;
+}
 
-  if (!structure) return results;
+function findPdfParts(payload: any): PdfPartInfo[] {
+  const results: PdfPartInfo[] = [];
+  if (!payload) return results;
 
-  // Check if this part itself is a PDF
-  if (
-    structure.type === "application/pdf" ||
-    (structure.type === "application" && structure.subtype === "pdf") ||
-    (structure.disposition === "attachment" &&
-      structure.parameters?.name?.toLowerCase().endsWith(".pdf"))
-  ) {
-    const filename =
-      structure.dispositionParameters?.filename ||
-      structure.parameters?.name ||
-      `attachment-${Date.now()}.pdf`;
-    const part = prefix || "1";
-    results.push({ part, filename });
-  }
-
-  // Recurse into child parts
-  if (structure.childNodes && Array.isArray(structure.childNodes)) {
-    structure.childNodes.forEach((child: any, idx: number) => {
-      const childPrefix = prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`;
-      results.push(...findPdfParts(child, childPrefix));
+  // Check this part
+  if (payload.filename && payload.filename.toLowerCase().endsWith(".pdf") && payload.body?.attachmentId) {
+    results.push({
+      filename: payload.filename,
+      attachmentId: payload.body.attachmentId,
     });
   }
 
-  return results;
-}
-
-function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
-  const totalLength = arrays.reduce((sum, a) => sum + a.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const arr of arrays) {
-    result.set(arr, offset);
-    offset += arr.length;
+  // Recurse into sub-parts
+  if (payload.parts && Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      results.push(...findPdfParts(part));
+    }
   }
-  return result;
+
+  return results;
 }

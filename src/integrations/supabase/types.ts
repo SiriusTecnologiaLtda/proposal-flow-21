@@ -338,6 +338,9 @@ export type Database = {
         Row: {
           email_address: string
           enabled: boolean
+          gmail_client_id: string | null
+          gmail_client_secret: string | null
+          gmail_refresh_token: string | null
           id: string
           imap_host: string
           imap_port: number
@@ -348,6 +351,7 @@ export type Database = {
           last_sync_status: string | null
           monitored_folder: string
           polling_interval_minutes: number
+          provider: string
           sender_filter: string | null
           subject_filter: string | null
           updated_at: string
@@ -357,6 +361,9 @@ export type Database = {
         Insert: {
           email_address?: string
           enabled?: boolean
+          gmail_client_id?: string | null
+          gmail_client_secret?: string | null
+          gmail_refresh_token?: string | null
           id?: string
           imap_host?: string
           imap_port?: number
@@ -367,6 +374,7 @@ export type Database = {
           last_sync_status?: string | null
           monitored_folder?: string
           polling_interval_minutes?: number
+          provider?: string
           sender_filter?: string | null
           subject_filter?: string | null
           updated_at?: string
@@ -376,6 +384,9 @@ export type Database = {
         Update: {
           email_address?: string
           enabled?: boolean
+          gmail_client_id?: string | null
+          gmail_client_secret?: string | null
+          gmail_refresh_token?: string | null
           id?: string
           imap_host?: string
           imap_port?: number
@@ -386,6 +397,7 @@ export type Database = {
           last_sync_status?: string | null
           monitored_folder?: string
           polling_interval_minutes?: number
+          provider?: string
           sender_filter?: string | null
           subject_filter?: string | null
           updated_at?: string

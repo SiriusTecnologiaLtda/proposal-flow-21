@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,16 +10,17 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft,
+  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, ExternalLink, ShieldCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface EmailConfig {
   id: string;
   email_address: string;
-  imap_host: string;
-  imap_port: number;
-  use_tls: boolean;
+  provider: string;
+  gmail_client_id: string | null;
+  gmail_client_secret: string | null;
+  gmail_refresh_token: string | null;
   monitored_folder: string;
   sender_filter: string;
   subject_filter: string;
@@ -41,6 +42,7 @@ export default function EmailInboxConfigPage() {
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; mailboxes?: string[] } | null>(null);
+  const [showSecret, setShowSecret] = useState(false);
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["email-inbox-config"],
@@ -57,7 +59,6 @@ export default function EmailInboxConfigPage() {
 
   const [form, setForm] = useState<Partial<EmailConfig>>({});
 
-  // Merge config into form on load
   const mergedForm = { ...config, ...form } as EmailConfig;
 
   const saveMutation = useMutation({
@@ -82,16 +83,17 @@ export default function EmailInboxConfigPage() {
   const handleSave = () => {
     const updates: any = {};
     if (form.email_address !== undefined) updates.email_address = form.email_address;
-    if (form.imap_host !== undefined) updates.imap_host = form.imap_host;
-    if (form.imap_port !== undefined) updates.imap_port = form.imap_port;
-    if (form.use_tls !== undefined) updates.use_tls = form.use_tls;
+    if (form.gmail_client_id !== undefined) updates.gmail_client_id = form.gmail_client_id;
+    if (form.gmail_client_secret !== undefined) updates.gmail_client_secret = form.gmail_client_secret;
+    if (form.gmail_refresh_token !== undefined) updates.gmail_refresh_token = form.gmail_refresh_token;
     if (form.monitored_folder !== undefined) updates.monitored_folder = form.monitored_folder;
     if (form.sender_filter !== undefined) updates.sender_filter = form.sender_filter;
     if (form.subject_filter !== undefined) updates.subject_filter = form.subject_filter;
     if (form.polling_interval_minutes !== undefined) updates.polling_interval_minutes = form.polling_interval_minutes;
     if (form.enabled !== undefined) updates.enabled = form.enabled;
+    updates.provider = "gmail";
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length <= 1) {
       toast({ title: "Nenhuma alteração para salvar" });
       return;
     }
@@ -158,6 +160,8 @@ export default function EmailInboxConfigPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const hasGmailCredentials = !!(mergedForm.gmail_client_id && mergedForm.gmail_client_secret && mergedForm.gmail_refresh_token);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -174,9 +178,9 @@ export default function EmailInboxConfigPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Caixa de E-mail — Importação Automática</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Caixa de E-mail — Importação via Gmail</h1>
           <p className="text-sm text-muted-foreground">
-            Configure a leitura automática de e-mails para importação de propostas de software via IMAP.
+            Configure a leitura de e-mails via Gmail API para importação automática de propostas de software.
           </p>
         </div>
       </div>
@@ -184,81 +188,99 @@ export default function EmailInboxConfigPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left column: Config */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Connection settings */}
+          {/* Gmail OAuth credentials */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Mail className="h-4 w-4" /> Conexão IMAP
+                <ShieldCheck className="h-4 w-4" /> Credenciais Google OAuth
               </CardTitle>
               <CardDescription>
-                Configurações de acesso à caixa de e-mail via protocolo IMAP.
+                Configure o Client ID e Client Secret do projeto Google Cloud Console, e o Refresh Token obtido na autorização.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Endereço de E-mail Gmail</Label>
+                <Input
+                  placeholder="propostas@empresa.com.br"
+                  value={mergedForm.email_address || ""}
+                  onChange={(e) => setField("email_address", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Endereço da conta Gmail que será monitorada.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Client ID</Label>
+                <Input
+                  placeholder="xxxx.apps.googleusercontent.com"
+                  value={mergedForm.gmail_client_id || ""}
+                  onChange={(e) => setField("gmail_client_id", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Client Secret</Label>
+                <div className="relative">
+                  <Input
+                    type={showSecret ? "text" : "password"}
+                    placeholder="GOCSPX-xxxx"
+                    value={mergedForm.gmail_client_secret || ""}
+                    onChange={(e) => setField("gmail_client_secret", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowSecret(!showSecret)}
+                  >
+                    {showSecret ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Refresh Token</Label>
+                <Input
+                  type="password"
+                  placeholder="1//0xxxx..."
+                  value={mergedForm.gmail_refresh_token || ""}
+                  onChange={(e) => setField("gmail_refresh_token", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Obtido no fluxo OAuth com consent screen. Veja o passo a passo na seção de instruções.
+                </p>
+              </div>
+
+              {hasGmailCredentials && (
+                <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-50 p-2 text-xs text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Credenciais configuradas. Use "Testar Conexão" para validar.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Filtros e Pasta</CardTitle>
+              <CardDescription>
+                Configure quais e-mails serão processados. O sistema buscará apenas e-mails não lidos com anexos PDF.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Endereço de E-mail</Label>
-                  <Input
-                    placeholder="propostas@empresa.com.br"
-                    value={mergedForm.email_address || ""}
-                    onChange={(e) => setField("email_address", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Senha</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      disabled
-                      value="••••••••"
-                    />
-                    <Badge variant="outline" className="whitespace-nowrap text-xs">
-                      Segredo
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    A senha é armazenada como segredo do projeto (EMAIL_INBOX_PASSWORD).
-                    Solicite a configuração ao administrador.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label>Host IMAP</Label>
-                  <Input
-                    placeholder="mail.noip.com"
-                    value={mergedForm.imap_host || ""}
-                    onChange={(e) => setField("imap_host", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Porta</Label>
-                  <Input
-                    type="number"
-                    placeholder="993"
-                    value={mergedForm.imap_port || 993}
-                    onChange={(e) => setField("imap_port", parseInt(e.target.value) || 993)}
-                  />
-                </div>
-                <div className="flex items-end gap-2 pb-1">
-                  <Switch
-                    checked={mergedForm.use_tls ?? true}
-                    onCheckedChange={(v) => setField("use_tls", v)}
-                  />
-                  <Label>SSL/TLS</Label>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Pasta Monitorada</Label>
+                  <Label>Pasta / Label</Label>
                   <Input
                     placeholder="INBOX"
                     value={mergedForm.monitored_folder || ""}
                     onChange={(e) => setField("monitored_folder", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Label do Gmail a monitorar (padrão: INBOX).
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Intervalo de Polling (min)</Label>
@@ -271,18 +293,7 @@ export default function EmailInboxConfigPage() {
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Filtros (Opcional)</CardTitle>
-              <CardDescription>
-                Restrinja quais e-mails serão processados com base no remetente ou assunto.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Filtro por Remetente</Label>
@@ -291,9 +302,6 @@ export default function EmailInboxConfigPage() {
                     value={mergedForm.sender_filter || ""}
                     onChange={(e) => setField("sender_filter", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Somente e-mails deste remetente serão processados.
-                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Filtro por Assunto</Label>
@@ -302,9 +310,6 @@ export default function EmailInboxConfigPage() {
                     value={mergedForm.subject_filter || ""}
                     onChange={(e) => setField("subject_filter", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Somente e-mails com este texto no assunto serão processados.
-                  </p>
                 </div>
               </div>
             </CardContent>
@@ -324,7 +329,7 @@ export default function EmailInboxConfigPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {mergedForm.enabled
-                      ? "O sistema tentará ler e-mails no intervalo configurado."
+                      ? "O sistema buscará e-mails via Gmail API."
                       : "Nenhum e-mail será processado automaticamente."}
                   </p>
                 </div>
@@ -349,7 +354,7 @@ export default function EmailInboxConfigPage() {
                 variant="outline"
                 className="w-full justify-start"
                 onClick={handleTest}
-                disabled={testing}
+                disabled={testing || !hasGmailCredentials}
               >
                 {testing ? (
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -363,7 +368,7 @@ export default function EmailInboxConfigPage() {
                 variant="outline"
                 className="w-full justify-start"
                 onClick={handleSync}
-                disabled={syncing}
+                disabled={syncing || !hasGmailCredentials}
               >
                 {syncing ? (
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -373,7 +378,6 @@ export default function EmailInboxConfigPage() {
                 {syncing ? "Sincronizando..." : "Executar Sincronização Agora"}
               </Button>
 
-              {/* Test result */}
               {testResult && (
                 <div
                   className={`rounded-lg border p-3 text-sm ${
@@ -392,7 +396,8 @@ export default function EmailInboxConfigPage() {
                       <p className="font-medium">{testResult.message}</p>
                       {testResult.mailboxes && (
                         <p className="mt-1 text-xs opacity-80">
-                          Pastas encontradas: {testResult.mailboxes.join(", ")}
+                          Labels: {testResult.mailboxes.slice(0, 10).join(", ")}
+                          {testResult.mailboxes.length > 10 ? ` (+${testResult.mailboxes.length - 10})` : ""}
                         </p>
                       )}
                     </div>
@@ -464,20 +469,51 @@ export default function EmailInboxConfigPage() {
             </CardContent>
           </Card>
 
-          {/* Info */}
+          {/* Instructions */}
           <Card>
-            <CardContent className="pt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-4 w-4" /> Como Configurar
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-muted-foreground space-y-3">
+              <div className="space-y-2">
+                <p className="font-medium text-foreground text-sm">Passo a passo:</p>
+                <ol className="list-decimal pl-4 space-y-1.5">
+                  <li>Acesse o <strong>Google Cloud Console</strong></li>
+                  <li>Crie ou selecione um projeto</li>
+                  <li>Ative a <strong>Gmail API</strong></li>
+                  <li>Configure a <strong>Tela de Consentimento OAuth</strong></li>
+                  <li>Crie credenciais <strong>OAuth 2.0 (Web)</strong></li>
+                  <li>Copie o <strong>Client ID</strong> e <strong>Client Secret</strong></li>
+                  <li>Gere o <strong>Refresh Token</strong> via OAuth Playground</li>
+                  <li>Cole os valores nos campos acima e salve</li>
+                </ol>
+              </div>
+
+              <div className="pt-2">
+                <a
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Abrir Google Cloud Console
+                </a>
+              </div>
+
+              <Separator />
+
               <div className="flex gap-2 rounded-lg bg-accent/50 p-3">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="text-xs text-muted-foreground space-y-1">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
                   <p>
-                    <strong>Importação automática:</strong> O agendamento periódico automático requer
-                    configuração adicional de cron job no backend. Por enquanto, utilize o botão
-                    "Executar Sincronização Agora" para importar e-mails manualmente.
+                    <strong>Importante:</strong> O Refresh Token é gerado uma única vez durante a autorização.
+                    Use o Google OAuth Playground com seu Client ID/Secret para obtê-lo.
                   </p>
                   <p>
-                    <strong>Segurança:</strong> A senha é armazenada como segredo do projeto e nunca é
-                    exposta na interface.
+                    <strong>Escopo necessário:</strong> <code className="bg-muted px-1 rounded">https://www.googleapis.com/auth/gmail.modify</code>
                   </p>
                 </div>
               </div>

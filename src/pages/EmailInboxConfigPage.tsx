@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, ExternalLink, ShieldCheck,
+  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, LogIn, Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -18,8 +18,6 @@ interface EmailConfig {
   id: string;
   email_address: string;
   provider: string;
-  gmail_client_id: string | null;
-  gmail_client_secret: string | null;
   gmail_refresh_token: string | null;
   monitored_folder: string;
   sender_filter: string;
@@ -34,6 +32,22 @@ interface EmailConfig {
   updated_at: string;
 }
 
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const OAUTH_CALLBACK_PATH = "/oauth/google/callback";
+
+const resolveOAuthBaseOrigin = () => {
+  const currentHost = window.location.hostname;
+  if (currentHost.includes("lovableproject.com") && document.referrer) {
+    try {
+      const referrerUrl = new URL(document.referrer);
+      if (referrerUrl.hostname.includes("lovable.app")) return referrerUrl.origin;
+    } catch { /* ignore */ }
+  }
+  return window.location.origin;
+};
+
+const getRedirectUri = () => `${resolveOAuthBaseOrigin()}${OAUTH_CALLBACK_PATH}`;
+
 export default function EmailInboxConfigPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -41,8 +55,22 @@ export default function EmailInboxConfigPage() {
 
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; mailboxes?: string[] } | null>(null);
-  const [showSecret, setShowSecret] = useState(false);
+
+  // Load default google integration for client_id (needed to build OAuth URL)
+  const { data: googleIntegration } = useQuery({
+    queryKey: ["google-integration-default"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("google_integrations")
+        .select("id, oauth_client_id, sender_email")
+        .eq("is_default", true)
+        .single();
+      if (error) return null;
+      return data;
+    },
+  });
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["email-inbox-config"],
@@ -58,7 +86,6 @@ export default function EmailInboxConfigPage() {
   });
 
   const [form, setForm] = useState<Partial<EmailConfig>>({});
-
   const mergedForm = { ...config, ...form } as EmailConfig;
 
   const saveMutation = useMutation({
@@ -82,10 +109,6 @@ export default function EmailInboxConfigPage() {
 
   const handleSave = () => {
     const updates: any = {};
-    if (form.email_address !== undefined) updates.email_address = form.email_address;
-    if (form.gmail_client_id !== undefined) updates.gmail_client_id = form.gmail_client_id;
-    if (form.gmail_client_secret !== undefined) updates.gmail_client_secret = form.gmail_client_secret;
-    if (form.gmail_refresh_token !== undefined) updates.gmail_refresh_token = form.gmail_refresh_token;
     if (form.monitored_folder !== undefined) updates.monitored_folder = form.monitored_folder;
     if (form.sender_filter !== undefined) updates.sender_filter = form.sender_filter;
     if (form.subject_filter !== undefined) updates.subject_filter = form.subject_filter;
@@ -99,6 +122,83 @@ export default function EmailInboxConfigPage() {
     }
     saveMutation.mutate(updates);
   };
+
+  // --- OAuth authorize flow ---
+  const handleAuthorize = () => {
+    if (!googleIntegration?.oauth_client_id) {
+      toast({
+        title: "Integração Google não configurada",
+        description: "Configure as credenciais OAuth em Configurações > Google Drive / Docs primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAuthorizing(true);
+
+    const state = btoa(JSON.stringify({
+      flow: "email-inbox",
+      openerOrigin: resolveOAuthBaseOrigin(),
+    }));
+
+    const params = new URLSearchParams({
+      client_id: googleIntegration.oauth_client_id,
+      redirect_uri: getRedirectUri(),
+      response_type: "code",
+      scope: GMAIL_SCOPE,
+      access_type: "offline",
+      prompt: "consent",
+      state,
+    });
+
+    const popup = window.open(
+      `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+      "gmail-oauth",
+      "width=600,height=700,left=200,top=100"
+    );
+
+    if (!popup) {
+      setAuthorizing(false);
+      toast({ title: "Popup bloqueado", description: "Permita popups para este site.", variant: "destructive" });
+    }
+  };
+
+  // Listen for OAuth callback
+  useEffect(() => {
+    const handler = async (event: MessageEvent) => {
+      if (event.data?.type !== "google-oauth-callback" || event.data?.flow !== "email-inbox") return;
+
+      const { code, error: oauthError } = event.data;
+
+      if (oauthError || !code) {
+        setAuthorizing(false);
+        toast({ title: "Autorização cancelada", description: oauthError || "Nenhum código recebido.", variant: "destructive" });
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke("email-inbox-oauth-exchange", {
+          body: { code, redirectUri: getRedirectUri() },
+        });
+
+        if (error) throw error;
+
+        if (data?.success) {
+          toast({ title: "Conta Gmail autorizada", description: data.message });
+          queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
+        } else {
+          toast({ title: "Erro na autorização", description: data?.error || "Erro desconhecido", variant: "destructive" });
+        }
+      } catch (err: any) {
+        toast({ title: "Erro na autorização", description: err.message, variant: "destructive" });
+      } finally {
+        setAuthorizing(false);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [toast, queryClient]);
 
   const handleTest = async () => {
     setTesting(true);
@@ -114,10 +214,7 @@ export default function EmailInboxConfigPage() {
         mailboxes: data.mailboxes,
       });
     } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err.message || "Erro ao testar conexão",
-      });
+      setTestResult({ success: false, message: err.message || "Erro ao testar conexão" });
     } finally {
       setTesting(false);
     }
@@ -130,27 +227,17 @@ export default function EmailInboxConfigPage() {
         body: { action: "sync" },
       });
       if (error) throw error;
-
       queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-
       if (data.success) {
         toast({
           title: "Sincronização concluída",
           description: `${data.pdfs_imported || 0} PDF(s) importado(s) de ${data.emails_found || 0} e-mail(s).`,
         });
       } else {
-        toast({
-          title: "Erro na sincronização",
-          description: data.error || "Erro desconhecido",
-          variant: "destructive",
-        });
+        toast({ title: "Erro na sincronização", description: data.error || "Erro desconhecido", variant: "destructive" });
       }
     } catch (err: any) {
-      toast({
-        title: "Erro na sincronização",
-        description: err.message || "Erro ao executar sincronização",
-        variant: "destructive",
-      });
+      toast({ title: "Erro na sincronização", description: err.message, variant: "destructive" });
     } finally {
       setSyncing(false);
     }
@@ -160,7 +247,8 @@ export default function EmailInboxConfigPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const hasGmailCredentials = !!(mergedForm.gmail_client_id && mergedForm.gmail_client_secret && mergedForm.gmail_refresh_token);
+  const hasGmailAuthorized = !!config?.gmail_refresh_token;
+  const hasGoogleIntegration = !!googleIntegration?.oauth_client_id;
 
   if (isLoading) {
     return (
@@ -180,7 +268,7 @@ export default function EmailInboxConfigPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Caixa de E-mail — Importação via Gmail</h1>
           <p className="text-sm text-muted-foreground">
-            Configure a leitura de e-mails via Gmail API para importação automática de propostas de software.
+            Leitura automática de e-mails via Gmail API usando as credenciais Google já configuradas.
           </p>
         </div>
       </div>
@@ -188,76 +276,73 @@ export default function EmailInboxConfigPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left column: Config */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Gmail OAuth credentials */}
+          {/* Gmail Authorization */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <ShieldCheck className="h-4 w-4" /> Credenciais Google OAuth
+                <Mail className="h-4 w-4" /> Conta Gmail
               </CardTitle>
               <CardDescription>
-                Configure o Client ID e Client Secret do projeto Google Cloud Console, e o Refresh Token obtido na autorização.
+                Autorize a conta Gmail que será monitorada. As credenciais OAuth (Client ID / Secret) são obtidas automaticamente da integração Google Drive / Docs já configurada.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Endereço de E-mail Gmail</Label>
-                <Input
-                  placeholder="propostas@empresa.com.br"
-                  value={mergedForm.email_address || ""}
-                  onChange={(e) => setField("email_address", e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Endereço da conta Gmail que será monitorada.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Client ID</Label>
-                <Input
-                  placeholder="xxxx.apps.googleusercontent.com"
-                  value={mergedForm.gmail_client_id || ""}
-                  onChange={(e) => setField("gmail_client_id", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Client Secret</Label>
-                <div className="relative">
-                  <Input
-                    type={showSecret ? "text" : "password"}
-                    placeholder="GOCSPX-xxxx"
-                    value={mergedForm.gmail_client_secret || ""}
-                    onChange={(e) => setField("gmail_client_secret", e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowSecret(!showSecret)}
-                  >
-                    {showSecret ? "Ocultar" : "Mostrar"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Refresh Token</Label>
-                <Input
-                  type="password"
-                  placeholder="1//0xxxx..."
-                  value={mergedForm.gmail_refresh_token || ""}
-                  onChange={(e) => setField("gmail_refresh_token", e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Obtido no fluxo OAuth com consent screen. Veja o passo a passo na seção de instruções.
-                </p>
-              </div>
-
-              {hasGmailCredentials && (
-                <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-50 p-2 text-xs text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Credenciais configuradas. Use "Testar Conexão" para validar.
+              {!hasGoogleIntegration && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-medium">Integração Google não configurada</p>
+                    <p className="text-xs mt-1">
+                      Configure as credenciais OAuth em{" "}
+                      <button className="underline font-medium" onClick={() => navigate("/configuracoes/google")}>
+                        Configurações &gt; Google Drive / Docs
+                      </button>{" "}
+                      antes de autorizar o acesso Gmail.
+                    </p>
+                  </div>
                 </div>
               )}
+
+              {hasGmailAuthorized ? (
+                <div className="flex items-center justify-between rounded-lg border border-green-500/30 bg-green-50 p-3 dark:bg-green-900/20">
+                  <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <div>
+                      <p className="font-medium">Conta autorizada</p>
+                      {config?.email_address && (
+                        <p className="text-xs opacity-80">{config.email_address}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAuthorize}
+                    disabled={authorizing || !hasGoogleIntegration}
+                  >
+                    {authorizing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <LogIn className="mr-2 h-3 w-3" />}
+                    Reautorizar
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleAuthorize}
+                  disabled={authorizing || !hasGoogleIntegration}
+                  className="w-full"
+                >
+                  {authorizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+                  {authorizing ? "Aguardando autorização..." : "Autorizar Conta Gmail"}
+                </Button>
+              )}
+
+              <div className="flex gap-2 rounded-lg bg-accent/50 p-3 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
+                  <p>O fluxo de autorização abrirá uma janela do Google para que você autorize o acesso à caixa de entrada da conta selecionada.</p>
+                  <p><strong>Escopo solicitado:</strong> <code className="bg-muted px-1 rounded">gmail.modify</code> (leitura de e-mails e marcar como lido)</p>
+                  <p><strong>Importante:</strong> Adicione o escopo <code className="bg-muted px-1 rounded">gmail.modify</code> na Tela de Consentimento OAuth do Google Cloud Console antes de autorizar.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -278,9 +363,7 @@ export default function EmailInboxConfigPage() {
                     value={mergedForm.monitored_folder || ""}
                     onChange={(e) => setField("monitored_folder", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Label do Gmail a monitorar (padrão: INBOX).
-                  </p>
+                  <p className="text-xs text-muted-foreground">Label do Gmail a monitorar (padrão: INBOX).</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Intervalo de Polling (min)</Label>
@@ -354,13 +437,9 @@ export default function EmailInboxConfigPage() {
                 variant="outline"
                 className="w-full justify-start"
                 onClick={handleTest}
-                disabled={testing || !hasGmailCredentials}
+                disabled={testing || !hasGmailAuthorized}
               >
-                {testing ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wifi className="mr-2 h-4 w-4" />
-                )}
+                {testing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Wifi className="mr-2 h-4 w-4" />}
                 {testing ? "Testando..." : "Testar Conexão"}
               </Button>
 
@@ -368,13 +447,9 @@ export default function EmailInboxConfigPage() {
                 variant="outline"
                 className="w-full justify-start"
                 onClick={handleSync}
-                disabled={syncing || !hasGmailCredentials}
+                disabled={syncing || !hasGmailAuthorized}
               >
-                {syncing ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="mr-2 h-4 w-4" />
-                )}
+                {syncing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                 {syncing ? "Sincronizando..." : "Executar Sincronização Agora"}
               </Button>
 
@@ -387,11 +462,7 @@ export default function EmailInboxConfigPage() {
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    {testResult.success ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    ) : (
-                      <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-                    )}
+                    {testResult.success ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />}
                     <div>
                       <p className="font-medium">{testResult.message}</p>
                       {testResult.mailboxes && (
@@ -419,28 +490,21 @@ export default function EmailInboxConfigPage() {
                 <>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Data/Hora</span>
-                    <span className="font-medium">
-                      {new Date(config.last_sync_at).toLocaleString("pt-BR")}
-                    </span>
+                    <span className="font-medium">{new Date(config.last_sync_at).toLocaleString("pt-BR")}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status</span>
                     <Badge
                       variant={
-                        config.last_sync_status === "success"
-                          ? "default"
-                          : config.last_sync_status === "partial"
-                          ? "secondary"
-                          : "destructive"
+                        config.last_sync_status === "success" ? "default"
+                        : config.last_sync_status === "partial" ? "secondary"
+                        : "destructive"
                       }
                     >
-                      {config.last_sync_status === "success"
-                        ? "Sucesso"
-                        : config.last_sync_status === "partial"
-                        ? "Parcial"
-                        : config.last_sync_status === "error"
-                        ? "Erro"
+                      {config.last_sync_status === "success" ? "Sucesso"
+                        : config.last_sync_status === "partial" ? "Parcial"
+                        : config.last_sync_status === "error" ? "Erro"
                         : config.last_sync_status || "—"}
                     </Badge>
                   </div>
@@ -473,34 +537,18 @@ export default function EmailInboxConfigPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Info className="h-4 w-4" /> Como Configurar
+                <Info className="h-4 w-4" /> Como Funciona
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground space-y-3">
               <div className="space-y-2">
-                <p className="font-medium text-foreground text-sm">Passo a passo:</p>
                 <ol className="list-decimal pl-4 space-y-1.5">
-                  <li>Acesse o <strong>Google Cloud Console</strong></li>
-                  <li>Crie ou selecione um projeto</li>
-                  <li>Ative a <strong>Gmail API</strong></li>
-                  <li>Configure a <strong>Tela de Consentimento OAuth</strong></li>
-                  <li>Crie credenciais <strong>OAuth 2.0 (Web)</strong></li>
-                  <li>Copie o <strong>Client ID</strong> e <strong>Client Secret</strong></li>
-                  <li>Gere o <strong>Refresh Token</strong> via OAuth Playground</li>
-                  <li>Cole os valores nos campos acima e salve</li>
+                  <li>As credenciais OAuth (Client ID / Secret) são reutilizadas da integração <strong>Google Drive / Docs</strong></li>
+                  <li>Clique em <strong>"Autorizar Conta Gmail"</strong> para conectar a conta de e-mail</li>
+                  <li>Configure os filtros de remetente, assunto e pasta</li>
+                  <li>Use <strong>"Testar Conexão"</strong> para validar o acesso</li>
+                  <li>Use <strong>"Executar Sincronização"</strong> para importar PDFs dos e-mails</li>
                 </ol>
-              </div>
-
-              <div className="pt-2">
-                <a
-                  href="https://console.cloud.google.com/apis/credentials"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Abrir Google Cloud Console
-                </a>
               </div>
 
               <Separator />
@@ -509,11 +557,7 @@ export default function EmailInboxConfigPage() {
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="space-y-1">
                   <p>
-                    <strong>Importante:</strong> O Refresh Token é gerado uma única vez durante a autorização.
-                    Use o Google OAuth Playground com seu Client ID/Secret para obtê-lo.
-                  </p>
-                  <p>
-                    <strong>Escopo necessário:</strong> <code className="bg-muted px-1 rounded">https://www.googleapis.com/auth/gmail.modify</code>
+                    <strong>Pré-requisito:</strong> O escopo <code className="bg-muted px-1 rounded">gmail.modify</code> deve estar configurado na Tela de Consentimento OAuth do Google Cloud Console.
                   </p>
                 </div>
               </div>

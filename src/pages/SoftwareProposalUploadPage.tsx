@@ -361,6 +361,7 @@ function EmailSyncTab() {
       if (error) return [];
       return (data || []) as unknown as EmailImportAttempt[];
     },
+    refetchInterval: emailConfig?.auto_sync_enabled ? 60_000 : false,
   });
 
   const hasGmailAuthorized = !!emailConfig?.gmail_refresh_token;

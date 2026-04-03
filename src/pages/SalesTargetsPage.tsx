@@ -20,10 +20,25 @@ import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useS
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MONTH_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+const ROLE_LABELS: Record<string, string> = {
+  dsn: "DSN",
+  gsn: "GSN",
+  esn: "ESN",
+  arquiteto: "EV",
+};
+
+const ROLE_OPTIONS = [
+  { value: "esn", label: "Executivo de Vendas (ESN)" },
+  { value: "gsn", label: "Gerente de Vendas (GSN)" },
+  { value: "dsn", label: "Diretor de Vendas (DSN)" },
+  { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
+];
+
 type GroupedRow = {
   esn_id: string;
   category_id: string | null;
   segment_id: string | null;
+  role: string;
   name: string;
   code: string;
   unit_id: string | null;

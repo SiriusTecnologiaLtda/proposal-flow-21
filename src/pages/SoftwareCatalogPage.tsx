@@ -443,122 +443,150 @@ export default function SoftwareCatalogPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={(o) => !o && closeForm()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
               {editItem ? "Editar Item do Catálogo" : "Novo Item do Catálogo"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Nome *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Ex: TOTVS Protheus"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                rows={2}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+
+          <div className="space-y-4 py-1">
+            {/* Section: Identification */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</h4>
               <div className="space-y-2">
-                <Label>Fornecedor</Label>
+                <Label className="text-xs">Nome do item *</Label>
                 <Input
-                  value={formData.vendor_name}
-                  onChange={(e) => setFormData((p) => ({ ...p, vendor_name: e.target.value }))}
+                  value={formData.name}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Ex: TOTVS Protheus"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Recorrência Padrão</Label>
-                <Select
-                  value={formData.default_recurrence}
-                  onValueChange={(v) => setFormData((p) => ({ ...p, default_recurrence: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RECURRENCE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Classificação Padrão</Label>
-                <Select
-                  value={formData.default_cost_classification}
-                  onValueChange={(v) =>
-                    setFormData((p) => ({ ...p, default_cost_classification: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COST_CLASSIFICATION_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Part Number</Label>
-                <Input
-                  value={formData.part_number}
-                  onChange={(e) => setFormData((p) => ({ ...p, part_number: e.target.value }))}
-                  placeholder="Ex: CLOUD-001"
+                <Label className="text-xs">Descrição</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                  rows={2}
+                  placeholder="Descrição opcional do item..."
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Código Externo ERP</Label>
-                <Input
-                  value={formData.external_code}
-                  onChange={(e) => setFormData((p) => ({ ...p, external_code: e.target.value }))}
-                  placeholder="Ex: ERP-12345"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Fornecedor</Label>
+                  <Input
+                    value={formData.vendor_name}
+                    onChange={(e) => setFormData((p) => ({ ...p, vendor_name: e.target.value }))}
+                    placeholder="Ex: TOTVS"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Categoria</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.is_active}
-                onCheckedChange={(c) => setFormData((p) => ({ ...p, is_active: c }))}
-              />
-              <Label>Ativo</Label>
+
+            {/* Section: Financial Defaults */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Padrões Financeiros</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Recorrência Padrão</Label>
+                  <Select
+                    value={formData.default_recurrence}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, default_recurrence: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Classificação de Custo</Label>
+                  <Select
+                    value={formData.default_cost_classification}
+                    onValueChange={(v) =>
+                      setFormData((p) => ({ ...p, default_cost_classification: v }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COST_CLASSIFICATION_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Codes & Integration */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Códigos & Integração</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Part Number</Label>
+                  <Input
+                    value={formData.part_number}
+                    onChange={(e) => setFormData((p) => ({ ...p, part_number: e.target.value }))}
+                    placeholder="Ex: CLOUD-001"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Código Externo ERP</Label>
+                  <Input
+                    value={formData.external_code}
+                    onChange={(e) => setFormData((p) => ({ ...p, external_code: e.target.value }))}
+                    placeholder="Ex: ERP-12345"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Status */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Itens inativos não aparecem em novos vínculos
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.is_active}
+                  onCheckedChange={(c) => setFormData((p) => ({ ...p, is_active: c }))}
+                />
+              </div>
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={closeForm}>
               Cancelar

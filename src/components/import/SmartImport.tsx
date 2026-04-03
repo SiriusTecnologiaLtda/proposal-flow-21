@@ -80,8 +80,8 @@ const TEMPLATE_DB_FIELDS: DbField[] = [
 ];
 
 const SALES_TARGETS_DB_FIELDS: DbField[] = [
-  { key: "esn_code", label: "Código ESN", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn"] },
-  { key: "esn_name", label: "Nome ESN", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador"] },
+  { key: "esn_code", label: "Código Dono da Meta", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn", "cod dono", "cod dono da meta", "código dono da meta", "cod dsn", "cod gsn"] },
+  { key: "esn_name", label: "Nome Dono da Meta", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador", "dono da meta", "nome dono da meta", "dono", "nome dsn", "nome gsn"] },
   { key: "role_name", label: "Nível de Meta", required: false, aliases: ["nivel", "nível", "nivel meta", "nível de meta", "funcao", "função", "role", "tipo meta"] },
   { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
   { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },
@@ -129,7 +129,7 @@ const ENTITY_CONFIGS: Record<ImportEntity, {
   },
   sales_targets: {
     label: "Metas de Vendas",
-    description: "Metas mensais por ESN com valores por mês",
+    description: "Metas mensais por membro do time (ESN, GSN, DSN) com valores por mês",
     icon: Target,
     dbFields: SALES_TARGETS_DB_FIELDS,
     queryKeys: ["sales_targets"],
@@ -156,8 +156,8 @@ const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
   ],
   templates: [],
   sales_targets: [
-    { fieldKey: "esn_code", label: "ESN (código)", listType: "esn" },
-    { fieldKey: "esn_name", label: "ESN (nome)", listType: "esn" },
+    { fieldKey: "esn_code", label: "Dono da Meta (código)", listType: "sales_team" },
+    { fieldKey: "esn_name", label: "Dono da Meta (nome)", listType: "sales_team" },
   ],
 };
 
@@ -692,14 +692,44 @@ export default function SmartImport() {
   }, [detectedEntity, mapping, allDataRows, extractValue]);
 
   // ── Save resolutions and proceed ──────────────────────────────
-  const handleSaveResolutions = useCallback(() => {
+  const handleSaveResolutions = useCallback(async () => {
     const newAliases = { ...aliasStore };
     let savedCount = 0;
+    let createdCount = 0;
 
     for (const item of unresolvedItems) {
       const selectionKey = `${item.fieldKey}:${item.valueLower}`;
       const selectedId = resolutionSelections[selectionKey];
       if (!selectedId || selectedId === "__skip__") continue;
+
+      // Handle "create new" for sales_team members
+      if (selectedId === "__create__") {
+        const isCode = item.fieldKey.includes("code");
+        const insertData: any = {
+          name: isCode ? item.value.toUpperCase() : item.value.toUpperCase(),
+          code: isCode ? item.value.toUpperCase() : `AUTO_${Date.now()}`,
+          role: "esn" as any, // default role, will be refined during import
+          commission_pct: 0,
+        };
+        const { data: created, error } = await supabase.from("sales_team").insert(insertData).select("id").single();
+        if (created && !error) {
+          const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
+          if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
+          newAliases[aliasKey][item.valueLower] = created.id;
+          // Also update lookup cache
+          const newEntry = { id: created.id, code: insertData.code.toLowerCase(), name: insertData.name.toLowerCase() };
+          setLookupListsCache(prev => ({
+            ...prev,
+            salesTeamList: [...prev.salesTeamList, newEntry],
+            esnList: [...prev.esnList, newEntry],
+          }));
+          createdCount++;
+          savedCount++;
+        } else {
+          toast({ title: "Erro ao criar membro", description: error?.message || "Erro desconhecido", variant: "destructive" });
+        }
+        continue;
+      }
 
       const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
       if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
@@ -711,14 +741,19 @@ export default function SmartImport() {
     setAliasStore(newAliases);
     setShowResolutionDialog(false);
 
+    const parts: string[] = [];
+    if (savedCount - createdCount > 0) parts.push(`${savedCount - createdCount} associação(ões) salva(s)`);
+    if (createdCount > 0) parts.push(`${createdCount} membro(s) criado(s)`);
     toast({
       title: "Mapeamentos salvos",
-      description: `${savedCount} associação(ões) salva(s). Serão reutilizadas em futuras importações.`,
+      description: parts.length > 0 ? `${parts.join(", ")}. Serão reutilizados em futuras importações.` : "Nenhuma alteração.",
     });
+
+    if (createdCount > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
 
     // Now proceed with import
     executeImport(newAliases);
-  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast]);
+  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast, qc]);
 
   // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {
@@ -1186,13 +1221,13 @@ export default function SmartImport() {
       "arquiteto": "arquiteto", "engenheiro de valor": "arquiteto", "ev": "arquiteto",
     };
 
-    const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
+    const dataRows = allDataRows.filter(r => ev(r, "esn_code") || ev(r, "esn_name"));
     updateImportStats(entity, { totalRows: dataRows.length });
 
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
     const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    addImportLog(entity, "info", `${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1205,18 +1240,20 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum ESN encontrado.");
+      addImportLog(entity, "error", "Nenhum dono de meta encontrado.");
       finishImportRun(entity, "error");
       return;
     }
 
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role");
-    const esnMap = new Map<string, string>();
+    // Map ALL roles, not just ESN — the "dono da meta" can be ESN, GSN, DSN, etc.
+    const memberMap = new Map<string, { id: string; role: string }>();
     for (const s of (salesTeam || [])) {
-      if (s.role === "esn") {
-        esnMap.set(s.code.trim().toLowerCase(), s.id);
-        esnMap.set(s.name.trim().toLowerCase(), s.id);
-      }
+      const codeLower = s.code.trim().toLowerCase();
+      const nameLower = s.name.trim().toLowerCase();
+      // Store with role info for auto-detection
+      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role });
+      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role });
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
@@ -1228,13 +1265,20 @@ export default function SmartImport() {
       const row = dataRows[i];
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
-      const esnId = esnMap.get(esnCode) || esnMap.get(esnName)
+      
+      // Lookup in all sales team members (any role)
+      const memberByCode = memberMap.get(esnCode);
+      const memberByName = memberMap.get(esnName);
+      const esnId = memberByCode?.id || memberByName?.id
         || esnCodeAliases[esnCode] || esnNameAliases[esnName];
+      
+      // Auto-detect role from the matched member if not explicitly mapped
+      const detectedMemberRole = memberByCode?.role || memberByName?.role;
 
       if (!esnId) {
         errors++;
         const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
-        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
+        addImportLog(entity, "error", `Linha ${i + 2}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
         updateImportStats(entity, { errors });
         continue;
       }
@@ -1263,13 +1307,16 @@ export default function SmartImport() {
         }
       }
 
-      // Resolve role for this row
+      // Resolve role for this row — priority: column > auto-detect from member > global default
       let rowRole = targetRole || "esn";
       if (hasRoleCol) {
         const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
         if (roleVal) {
           rowRole = roleMap[roleVal] || targetRole || "esn";
         }
+      } else if (detectedMemberRole) {
+        // If no role column mapped, use the role from the matched sales_team member
+        rowRole = detectedMemberRole;
       }
 
       for (let m = 1; m <= 12; m++) {
@@ -1994,6 +2041,11 @@ export default function SmartImport() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="__skip__">— Ignorar (não vincular) —</SelectItem>
+                                {(item.listType === "sales_team" || item.listType === "esn" || item.listType === "gsn") && (
+                                  <SelectItem value="__create__" className="text-primary font-medium">
+                                    ＋ Incluir "{item.value}" no cadastro
+                                  </SelectItem>
+                                )}
                                 {list.map(item => (
                                   <SelectItem key={item.id} value={item.id}>
                                     {item.code ? `${item.code} — ` : ""}{item.name}

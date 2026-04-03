@@ -202,6 +202,13 @@ ITEM TYPE:
 - Setup, Implantação, services → "service"
 - If unclear → "other"
 
+SIGNATORIES EXTRACTION:
+- The last pages of the PDF typically contain a signature protocol section ("Assinaturas", "Protocolo de assinatura", or similar).
+- Each signatory entry usually contains: Name, CPF/CNPJ, E-mail, Status, Date.
+- Extract ALL signatories/participants listed in the signature protocol.
+- For each person, extract: name, email, cpf_cnpj (if available), and role/status (e.g., "Assinado eletronicamente como testemunha", "Signatário").
+- This data will be used to auto-register contacts for the client.
+
 Return ONLY valid JSON with this exact structure:
 {
   "extraction_confidence": <number 0-1, overall confidence>,

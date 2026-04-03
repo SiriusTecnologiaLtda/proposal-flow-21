@@ -335,6 +335,143 @@ Return ONLY valid JSON with this exact structure:
 
     const issuesToInsert: any[] = [];
 
+    // ===== LOAD PREVIOUS CORRECTIONS FOR LEARNING =====
+    // Query extraction_corrections_log joined with software_proposals to learn from past manual corrections
+    const { data: previousCorrections } = await adminClient
+      .from("extraction_corrections_log")
+      .select("field_path, original_value, corrected_value, software_proposal_id, item_id")
+      .not("corrected_value", "is", null)
+      .order("corrected_at", { ascending: false });
+
+    // Build header-level correction map: field_path → Map<raw_value_from_proposal, corrected_uuid>
+    // For header fields (unit_id, client_id, esn_id, gsn_id, arquiteto_id, segment_id),
+    // we need to correlate the raw_* name from the proposal where the correction was made
+    const headerCorrectionFields = ["unit_id", "client_id", "esn_id", "gsn_id", "arquiteto_id", "segment_id"];
+    const headerCorrections = (previousCorrections || []).filter(
+      (c) => headerCorrectionFields.includes(c.field_path) && c.corrected_value && !c.item_id
+    );
+
+    // Fetch the raw names from the proposals that had corrections, to match by similarity
+    let correctionProposalRawData: Map<string, any> = new Map();
+    if (headerCorrections.length > 0) {
+      const correctionProposalIds = [...new Set(headerCorrections.map((c) => c.software_proposal_id))];
+      // Fetch in batches of 50
+      for (let i = 0; i < correctionProposalIds.length; i += 50) {
+        const batch = correctionProposalIds.slice(i, i + 50);
+        const { data: corrProposals } = await adminClient
+          .from("software_proposals")
+          .select("id, raw_unit_name, raw_client_name, raw_gsn_name, raw_esn_name, raw_arquiteto_name, raw_segment_name")
+          .in("id", batch);
+        for (const cp of corrProposals || []) {
+          correctionProposalRawData.set(cp.id, cp);
+        }
+      }
+    }
+
+    // Helper: normalize text for similarity comparison
+    const normText = (s: string | null) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+    // Build a lookup: for each correctable header field, map raw_name → corrected_value (UUID)
+    // The key insight: if proposal X had raw_unit_name="TOTVS ABC" and someone corrected unit_id to "uuid-123",
+    // then for a new proposal with the same raw_unit_name, we can auto-apply unit_id="uuid-123"
+    const fieldToRawColumn: Record<string, string> = {
+      unit_id: "raw_unit_name",
+      client_id: "raw_client_name",
+      gsn_id: "raw_gsn_name",
+      esn_id: "raw_esn_name",
+      arquiteto_id: "raw_arquiteto_name",
+      segment_id: "raw_segment_name",
+    };
+
+    const learnedCorrections: Map<string, Map<string, string>> = new Map();
+    for (const field of headerCorrectionFields) {
+      learnedCorrections.set(field, new Map());
+    }
+
+    for (const corr of headerCorrections) {
+      const rawCol = fieldToRawColumn[corr.field_path];
+      if (!rawCol) continue;
+      const proposalData = correctionProposalRawData.get(corr.software_proposal_id);
+      if (!proposalData) continue;
+      const rawValue = normText(proposalData[rawCol]);
+      if (rawValue && corr.corrected_value) {
+        const fieldMap = learnedCorrections.get(corr.field_path)!;
+        // First correction wins (most recent, since ordered desc)
+        if (!fieldMap.has(rawValue)) {
+          fieldMap.set(rawValue, corr.corrected_value);
+        }
+      }
+    }
+
+    // Build item-level correction map: normalized description → { field_path: corrected_value }
+    const itemCorrections = (previousCorrections || []).filter((c) => c.item_id);
+    const itemCorrectionItemIds = [...new Set(itemCorrections.map((c) => c.item_id).filter(Boolean))];
+    const itemDescriptionMap: Map<string, string> = new Map(); // item_id → description
+
+    if (itemCorrectionItemIds.length > 0) {
+      for (let i = 0; i < itemCorrectionItemIds.length; i += 50) {
+        const batch = itemCorrectionItemIds.slice(i, i + 50);
+        const { data: corrItems } = await adminClient
+          .from("software_proposal_items")
+          .select("id, description")
+          .in("id", batch);
+        for (const ci of corrItems || []) {
+          itemDescriptionMap.set(ci.id, ci.description);
+        }
+      }
+    }
+
+    // Build: normalized_description → { field: corrected_value }
+    const learnedItemCorrections: Map<string, Record<string, string>> = new Map();
+    for (const corr of itemCorrections) {
+      if (!corr.item_id || !corr.corrected_value) continue;
+      const desc = itemDescriptionMap.get(corr.item_id);
+      if (!desc) continue;
+      const normDesc = normText(desc);
+      if (!learnedItemCorrections.has(normDesc)) {
+        learnedItemCorrections.set(normDesc, {});
+      }
+      const existing = learnedItemCorrections.get(normDesc)!;
+      if (!existing[corr.field_path]) {
+        existing[corr.field_path] = corr.corrected_value;
+      }
+    }
+
+    // Helper: find learned correction for a header field
+    function findLearnedHeaderCorrection(fieldPath: string, currentRawValue: string | null): string | null {
+      if (!currentRawValue) return null;
+      const fieldMap = learnedCorrections.get(fieldPath);
+      if (!fieldMap || fieldMap.size === 0) return null;
+      const normalized = normText(currentRawValue);
+      // Exact match first
+      if (fieldMap.has(normalized)) return fieldMap.get(normalized)!;
+      // Fuzzy: check if any key contains or is contained in the current value
+      for (const [key, value] of fieldMap) {
+        if (key.length > 3 && normalized.length > 3) {
+          if (normalized.includes(key) || key.includes(normalized)) return value;
+        }
+      }
+      return null;
+    }
+
+    // Helper: find learned corrections for an item by description
+    function findLearnedItemCorrections(description: string): Record<string, string> | null {
+      const normalized = normText(description);
+      // Exact match
+      if (learnedItemCorrections.has(normalized)) return learnedItemCorrections.get(normalized)!;
+      // Fuzzy: contains match
+      for (const [key, value] of learnedItemCorrections) {
+        if (key.length > 5 && normalized.length > 5) {
+          if (normalized.includes(key) || key.includes(normalized)) return value;
+        }
+      }
+      return null;
+    }
+
+    let learnedCorrectionsApplied = 0;
+
+    console.log(`Loaded ${headerCorrections.length} header corrections and ${itemCorrections.length} item corrections for learning`);
+
     // ===== MASTER DATA MATCHING =====
 
     // --- Match client ---
@@ -381,14 +518,21 @@ Return ONLY valid JSON with this exact structure:
           matchedClientId = clientMatches[0].id;
           matchedClientName = clientMatches[0].name;
         } else {
-          // Multiple ambiguous matches
-          issuesToInsert.push({
-            software_proposal_id,
-            field_name: "client_name",
-            issue_type: "ambiguous_value",
-            extracted_value: rawClientName,
-            status: ISSUE_STATUS_OPEN,
-          });
+          // Multiple ambiguous matches — try learned correction
+          const learnedClient = findLearnedHeaderCorrection("client_id", rawClientName);
+          if (learnedClient) {
+            matchedClientId = learnedClient;
+            learnedCorrectionsApplied++;
+            console.log(`[LEARNING] Client resolved via previous correction: ${rawClientName} → ${learnedClient}`);
+          } else {
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: "client_name",
+              issue_type: "ambiguous_value",
+              extracted_value: rawClientName,
+              status: ISSUE_STATUS_OPEN,
+            });
+          }
         }
       }
       // No match found → auto-create client if we have minimum data (name + code or CNPJ)
@@ -494,33 +638,51 @@ Return ONLY valid JSON with this exact structure:
           matchedUnitId = unitMatches[0].id;
           matchedUnitName = unitMatches[0].name;
         } else {
+          // Try learned correction before creating issue
+          const learnedUnit = findLearnedHeaderCorrection("unit_id", rawUnitName);
+          if (learnedUnit) {
+            matchedUnitId = learnedUnit;
+            learnedCorrectionsApplied++;
+            console.log(`[LEARNING] Unit resolved via previous correction: ${rawUnitName} → ${learnedUnit}`);
+          } else {
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: "totvs_unit_name",
+              issue_type: "ambiguous_value",
+              extracted_value: rawUnitName,
+              status: ISSUE_STATUS_OPEN,
+            });
+          }
+        }
+      } else {
+        // No DB matches at all — try learned correction
+        const learnedUnit = findLearnedHeaderCorrection("unit_id", rawUnitName);
+        if (learnedUnit) {
+          matchedUnitId = learnedUnit;
+          learnedCorrectionsApplied++;
+          console.log(`[LEARNING] Unit resolved via previous correction (no DB match): ${rawUnitName} → ${learnedUnit}`);
+        } else {
           issuesToInsert.push({
             software_proposal_id,
             field_name: "totvs_unit_name",
-            issue_type: "ambiguous_value",
-            extracted_value: rawUnitName,
+            issue_type: "missing_required",
+            extracted_value: `Unidade não encontrada: ${rawUnitName}`,
             status: ISSUE_STATUS_OPEN,
           });
         }
-      } else {
-        issuesToInsert.push({
-          software_proposal_id,
-          field_name: "totvs_unit_name",
-          issue_type: "missing_required",
-          extracted_value: `Unidade não encontrada: ${rawUnitName}`,
-          status: ISSUE_STATUS_OPEN,
-        });
       }
     }
 
     // --- Match Sales Team members ---
     const salesTeam = extracted.sales_team || {};
 
-    // Helper: match a sales_team member by name and/or code
+    // Helper: match a sales_team member by name and/or code, with learned correction fallback
     const matchSalesTeamMember = async (
       rawName: string | null,
       rawCode: string | null,
       fieldLabel: string,
+      learnedFieldId: string,
+      rawFullName: string | null,
       roleFilter?: string[],
     ): Promise<string | null> => {
       if (!rawName && !rawCode) return null;
@@ -534,6 +696,13 @@ Return ONLY valid JSON with this exact structure:
       const { data: matches } = await query.limit(10);
 
       if (!matches || matches.length === 0) {
+        // Try learned correction before creating issue
+        const learned = findLearnedHeaderCorrection(learnedFieldId, rawFullName || rawName);
+        if (learned) {
+          learnedCorrectionsApplied++;
+          console.log(`[LEARNING] ${fieldLabel} resolved via previous correction: ${rawFullName || rawName} → ${learned}`);
+          return learned;
+        }
         issuesToInsert.push({
           software_proposal_id,
           field_name: fieldLabel,
@@ -559,7 +728,14 @@ Return ONLY valid JSON with this exact structure:
       // If only one result, use it
       if (matches.length === 1) return matches[0].id;
 
-      // Ambiguous
+      // Ambiguous — try learned correction
+      const learned = findLearnedHeaderCorrection(learnedFieldId, rawFullName || rawName);
+      if (learned) {
+        learnedCorrectionsApplied++;
+        console.log(`[LEARNING] ${fieldLabel} resolved via previous correction (ambiguous): ${rawFullName || rawName} → ${learned}`);
+        return learned;
+      }
+
       issuesToInsert.push({
         software_proposal_id,
         field_name: fieldLabel,
@@ -578,9 +754,13 @@ Return ONLY valid JSON with this exact structure:
     const rawArquitetoCode = val(salesTeam.arquiteto_code);
     const rawSegmentName = val(salesTeam.segment);
 
-    const matchedGsnId = await matchSalesTeamMember(rawGsnName, rawGsnCode, "gsn");
-    const matchedEsnId = await matchSalesTeamMember(rawEsnName, rawEsnCode, "esn");
-    const matchedArquitetoId = await matchSalesTeamMember(rawArquitetoName, rawArquitetoCode, "arquiteto");
+    const rawGsnFull = rawGsnName ? `${rawGsnName}${rawGsnCode ? ` (${rawGsnCode})` : ""}` : null;
+    const rawEsnFull = rawEsnName ? `${rawEsnName}${rawEsnCode ? ` (${rawEsnCode})` : ""}` : null;
+    const rawArquitetoFull = rawArquitetoName ? `${rawArquitetoName}${rawArquitetoCode ? ` (${rawArquitetoCode})` : ""}` : null;
+
+    const matchedGsnId = await matchSalesTeamMember(rawGsnName, rawGsnCode, "gsn", "gsn_id", rawGsnFull);
+    const matchedEsnId = await matchSalesTeamMember(rawEsnName, rawEsnCode, "esn", "esn_id", rawEsnFull);
+    const matchedArquitetoId = await matchSalesTeamMember(rawArquitetoName, rawArquitetoCode, "arquiteto", "arquiteto_id", rawArquitetoFull);
 
     // --- Match/auto-create Segment ---
     let matchedSegmentId: string | null = null;
@@ -855,6 +1035,20 @@ Return ONLY valid JSON with this exact structure:
         // Apply extraction rules to item
         applyItemRules(itemRow, desc);
 
+        // Apply learned item corrections (from previous manual edits on similar items)
+        const learnedItemCorr = findLearnedItemCorrections(desc);
+        if (learnedItemCorr) {
+          const applyableFields = ["recurrence", "cost_classification", "item_type"];
+          for (const field of applyableFields) {
+            if (learnedItemCorr[field]) {
+              const oldVal = itemRow[field as keyof typeof itemRow];
+              (itemRow as any)[field] = learnedItemCorr[field];
+              learnedCorrectionsApplied++;
+              console.log(`[LEARNING] Item "${desc.substring(0, 50)}" field ${field}: ${oldVal} → ${learnedItemCorr[field]}`);
+            }
+          }
+        }
+
         itemRows.push(itemRow);
       }
 
@@ -1005,12 +1199,15 @@ Return ONLY valid JSON with this exact structure:
         .eq("id", software_proposal_id);
     }
 
+    console.log(`Extraction complete: ${items.length} items, ${uniqueIssues.length} issues, ${learnedCorrectionsApplied} learned corrections applied`);
+
     return jsonResponse({
       success: true,
       status: finalStatus,
       extraction_confidence: overallConfidence,
       items_extracted: items.length,
       issues_created: uniqueIssues.length,
+      learned_corrections_applied: learnedCorrectionsApplied,
       client_matched: !!matchedClientId,
       client_auto_created: clientAutoCreated,
       unit_matched: !!matchedUnitId,

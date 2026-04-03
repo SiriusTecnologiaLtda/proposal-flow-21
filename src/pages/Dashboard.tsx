@@ -19,6 +19,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RechartsTooltip, Line, ComposedChart } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { UnifiedRevenueTab } from "@/components/dashboard/UnifiedRevenueTab";
 
 function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;

@@ -8,9 +8,10 @@ import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, star
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle, CheckCircle2, Search, ExternalLink,
-  EyeOff, ArrowLeft, FileText,
+  EyeOff, ArrowLeft, FileText, UserPlus,
   SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp,
 } from "lucide-react";
+import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

@@ -48,6 +48,7 @@ import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
 import SoftwareProposalPdfViewerPage from "@/pages/SoftwareProposalPdfViewerPage";
 import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
+import SegmentsPage from "@/pages/SegmentsPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
 

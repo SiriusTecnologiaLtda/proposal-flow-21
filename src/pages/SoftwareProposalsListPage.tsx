@@ -104,7 +104,7 @@ export default function SoftwareProposalsListPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
-
+  const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
       setExtractingIds((prev) => new Set(prev).add(proposalId));

@@ -35,17 +35,30 @@ serve(async (req) => {
       return jsonResponse({ error: "LOVABLE_API_KEY não configurada" }, 500);
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return jsonResponse({ error: "Não autorizado" }, 401);
-    }
-    const userId = user.id;
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Support both user JWT and service-role key for server-to-server calls (auto-extraction)
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === serviceRoleKey;
+
+    let userId: string;
+    let userClient: ReturnType<typeof createClient>;
+
+    if (isServiceRole) {
+      // Server-to-server call (e.g. from email-inbox-sync auto-extraction)
+      // Use adminClient which bypasses RLS
+      userClient = adminClient;
+      userId = "system";
+    } else {
+      userClient = createClient(supabaseUrl, supabaseAnon, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      if (userError || !user) {
+        return jsonResponse({ error: "Não autorizado" }, 401);
+      }
+      userId = user.id;
+    }
 
     // --- Parse request ---
     const { software_proposal_id } = await req.json();
@@ -62,6 +75,11 @@ serve(async (req) => {
 
     if (fetchErr || !proposal) {
       return jsonResponse({ error: "Proposta não encontrada ou sem permissão" }, 404);
+    }
+
+    // For system calls, use the proposal's uploaded_by as the acting user
+    if (isServiceRole && proposal.uploaded_by) {
+      userId = proposal.uploaded_by;
     }
 
     // --- Update status to extracting ---

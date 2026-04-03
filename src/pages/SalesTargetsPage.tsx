@@ -44,7 +44,8 @@ export default function SalesTargetsPage() {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [newDialog, setNewDialog] = useState(false);
   const [newEsnId, setNewEsnId] = useState("");
-
+  const [newCategoryId, setNewCategoryId] = useState("");
+  const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
 

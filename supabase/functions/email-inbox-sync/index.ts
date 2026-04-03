@@ -709,7 +709,7 @@ serve(async (req) => {
 
       // Process each message
       for (const msgId of messageIds) {
-        const imported = await processMessage(accessToken, adminClient, user.id, msgId, syncErrors);
+        const imported = await processMessage(accessToken, adminClient, actingUserId, msgId, syncErrors);
         pdfsImported += imported;
       }
 

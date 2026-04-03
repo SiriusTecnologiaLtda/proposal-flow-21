@@ -14,12 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { ArrowLeft, Search, Plus, Loader2, Filter, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useUnits, useSalesTeam, useCategories } from "@/hooks/useSupabaseData";
 
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 type GroupedRow = {
   esn_id: string;
+  category_id: string | null;
   name: string;
   code: string;
   unit_id: string | null;
@@ -43,7 +44,9 @@ export default function SalesTargetsPage() {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [newDialog, setNewDialog] = useState(false);
   const [newEsnId, setNewEsnId] = useState("");
-
+  const [newCategoryId, setNewCategoryId] = useState("");
+  const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
+  const { data: categories = [] } = useCategories();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
 
@@ -76,15 +79,18 @@ export default function SalesTargetsPage() {
   // Unit options for filter
   const unitOptions = useMemo(() => units.map((u: any) => ({ value: u.id, label: u.name })), [units]);
   const gsnOptions = useMemo(() => gsnList.map((g: any) => ({ value: g.id, label: `${g.name} (${g.code})` })), [gsnList]);
+  const categoryOptions = useMemo(() => categories.map((c: any) => ({ value: c.id, label: c.name })), [categories]);
 
   // Group by ESN for pivot view
   const grouped: GroupedRow[] = useMemo(() => {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
-      if (!map.has(t.esn_id)) {
+      const key = `${t.esn_id}__${t.category_id || "none"}`;
+      if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
-        map.set(t.esn_id, {
+        map.set(key, {
           esn_id: t.esn_id,
+          category_id: (t as any).category_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           unit_id: esn?.unit_id || null,
@@ -92,7 +98,7 @@ export default function SalesTargetsPage() {
           months: {},
         });
       }
-      map.get(t.esn_id)!.months[t.month] = { id: t.id, amount: t.amount };
+      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount };
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, esnMap]);
@@ -110,10 +116,13 @@ export default function SalesTargetsPage() {
     if (filterGsnIds.length > 0) {
       result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     }
+    if (filterCategoryIds.length > 0) {
+      result = result.filter(g => g.category_id && filterCategoryIds.includes(g.category_id));
+    }
     return result;
-  }, [grouped, search, filterUnitIds, filterGsnIds]);
+  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds]);
 
-  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0);
+  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0);
 
   // Available years
   const years = useMemo(() => {
@@ -145,20 +154,22 @@ export default function SalesTargetsPage() {
 
   // Add ESN row
   const addEsnMutation = useMutation({
-    mutationFn: async (esn_id: string) => {
+    mutationFn: async ({ esn_id, category_id }: { esn_id: string; category_id: string }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
         month: i + 1,
         amount: 0,
+        category_id,
       }));
-      const { error } = await supabase.from("sales_targets").insert(rows);
+      const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sales-targets"] });
       setNewDialog(false);
       setNewEsnId("");
+      setNewCategoryId("");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -286,12 +297,20 @@ export default function SalesTargetsPage() {
               searchPlaceholder="Buscar GSN..."
               className="h-9 min-w-[140px]"
             />
+            <MultiSelectCombobox
+              options={categoryOptions}
+              selected={filterCategoryIds}
+              onChange={setFilterCategoryIds}
+              placeholder="Categoria"
+              searchPlaceholder="Buscar categoria..."
+              className="h-9 min-w-[140px]"
+            />
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-9 text-xs text-muted-foreground"
-                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setSearch(""); }}
+                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setSearch(""); }}
               >
                 Limpar filtros
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{activeFilterCount}</Badge>
@@ -338,7 +357,7 @@ export default function SalesTargetsPage() {
                     const total = Object.values(row.months).reduce((s, m) => s + m.amount, 0);
                     const unitName = units.find((u: any) => u.id === row.unit_id)?.name;
                     return (
-                      <tr key={row.esn_id} className={cn("group transition-colors hover:bg-accent/30", rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20")}>
+                      <tr key={`${row.esn_id}-${row.category_id}`} className={cn("group transition-colors hover:bg-accent/30", rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20")}>
                         <td className={cn(
                           "sticky left-0 z-10 px-3 py-2 border-r border-border font-medium",
                           rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20",
@@ -353,6 +372,15 @@ export default function SalesTargetsPage() {
                                 <span className="truncate max-w-[100px]">{unitName}</span>
                               </>
                             )}
+                            {row.category_id && (() => {
+                              const catName = categories.find((c: any) => c.id === row.category_id)?.name;
+                              return catName ? (
+                                <>
+                                  <span className="text-muted-foreground/40">•</span>
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{catName}</Badge>
+                                </>
+                              ) : null;
+                            })()}
                           </span>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {
@@ -434,27 +462,42 @@ export default function SalesTargetsPage() {
             <DialogTitle>Adicionar ESN ao ano {yearFilter}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label>ESN</Label>
-            {availableEsns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Todos os ESNs já possuem metas para {yearFilter}.</p>
-            ) : (
-              <Select value={newEsnId} onValueChange={setNewEsnId}>
+            <div>
+              <Label>ESN</Label>
+              {availableEsns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Todos os ESNs já possuem metas para {yearFilter}.</p>
+              ) : (
+                <Select value={newEsnId} onValueChange={setNewEsnId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o ESN" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEsns.map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label>Categoria</Label>
+              <Select value={newCategoryId} onValueChange={setNewCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o ESN" />
+                  <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableEsns.map((e: any) => (
-                    <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                  {categories.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => newEsnId && addEsnMutation.mutate(newEsnId)}
-              disabled={!newEsnId || availableEsns.length === 0 || addEsnMutation.isPending}
+              onClick={() => newEsnId && newCategoryId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId })}
+              disabled={!newEsnId || !newCategoryId || availableEsns.length === 0 || addEsnMutation.isPending}
             >
               {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Adicionar

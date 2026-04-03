@@ -1894,6 +1894,7 @@ export type Database = {
       sales_targets: {
         Row: {
           amount: number
+          category_id: string | null
           created_at: string
           esn_id: string
           id: string
@@ -1903,6 +1904,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          category_id?: string | null
           created_at?: string
           esn_id: string
           id?: string
@@ -1912,6 +1914,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category_id?: string | null
           created_at?: string
           esn_id?: string
           id?: string
@@ -1920,6 +1923,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_targets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_targets_esn_id_fkey"
             columns: ["esn_id"]

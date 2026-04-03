@@ -461,27 +461,42 @@ export default function SalesTargetsPage() {
             <DialogTitle>Adicionar ESN ao ano {yearFilter}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label>ESN</Label>
-            {availableEsns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Todos os ESNs já possuem metas para {yearFilter}.</p>
-            ) : (
-              <Select value={newEsnId} onValueChange={setNewEsnId}>
+            <div>
+              <Label>ESN</Label>
+              {availableEsns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Todos os ESNs já possuem metas para {yearFilter}.</p>
+              ) : (
+                <Select value={newEsnId} onValueChange={setNewEsnId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o ESN" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEsns.map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label>Categoria</Label>
+              <Select value={newCategoryId} onValueChange={setNewCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o ESN" />
+                  <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableEsns.map((e: any) => (
-                    <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                  {categories.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => newEsnId && addEsnMutation.mutate(newEsnId)}
-              disabled={!newEsnId || availableEsns.length === 0 || addEsnMutation.isPending}
+              onClick={() => newEsnId && newCategoryId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId })}
+              disabled={!newEsnId || !newCategoryId || availableEsns.length === 0 || addEsnMutation.isPending}
             >
               {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Adicionar

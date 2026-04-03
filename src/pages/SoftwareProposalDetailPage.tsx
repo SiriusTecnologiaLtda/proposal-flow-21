@@ -1130,97 +1130,93 @@ export default function SoftwareProposalDetailPage() {
 
         {/* TAB: Issues */}
         <TabsContent value="pendencias" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                Pendências da Extração
-                {openIssues.length > 0 && (
-                  <Badge variant="destructive" className="text-xs">{openIssues.length} abertas</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {issues.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhuma pendência registrada</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Campo</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Valor Extraído</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[120px]">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {issues.map((issue) => (
-                        <TableRow key={issue.id}>
-                          <TableCell className="text-sm font-medium">{issue.field_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                            {issue.extracted_value || "—"}
-                          </TableCell>
-                          <TableCell>
-                            {issue.status === "open" ? (
-                              <Badge variant="destructive" className="text-xs">Aberta</Badge>
-                            ) : issue.status === "resolved" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs">Resolvida</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-xs">Ignorada</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {issue.status === "open" && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm" variant="outline" className="h-7 text-xs"
-                                  onClick={() => {
-                                    // Navigate to the correct field with resolve context
-                                    const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
-                                    setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
-                                    setActiveTab(targetTab);
-                                    setHighlightField(issue.field_name);
-                                    // Scroll to field after tab renders
-                                    setTimeout(() => {
-                                      const el = document.querySelector(`[data-field="${issue.field_name}"]`);
-                                      if (el) {
-                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                                        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
-                                        if (input) input.focus();
-                                      }
-                                    }, 300);
-                                    setTimeout(() => setHighlightField(null), 5000);
-                                  }}
-                                >
-                                  Resolver
-                                </Button>
-                                <Button
-                                  size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
-                                  onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
-                                >
-                                  Ignorar
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pendências da Extração</h3>
+              {openIssues.length > 0 && (
+                <Badge variant="destructive" className="text-xs h-5 min-w-5">{openIssues.length} abertas</Badge>
               )}
-            </CardContent>
-          </Card>
+            </div>
+
+            {issues.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <CheckCircle2 className="h-12 w-12 text-emerald-500/40 mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-1">Nenhuma pendência</h3>
+                <p className="text-sm text-muted-foreground">Todos os campos extraídos foram validados com sucesso.</p>
+              </div>
+            ) : (
+              <>
+                {/* Grid header */}
+                <div className="hidden border-b border-border px-4 py-2 md:grid md:grid-cols-[1.5fr_1fr_2fr_100px_120px] md:gap-3 md:items-center">
+                  <span className="text-xs font-medium text-muted-foreground">Campo</span>
+                  <span className="text-xs font-medium text-muted-foreground">Tipo</span>
+                  <span className="text-xs font-medium text-muted-foreground">Valor Extraído</span>
+                  <span className="text-xs font-medium text-muted-foreground">Status</span>
+                  <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {issues.map((issue) => (
+                    <div
+                      key={issue.id}
+                      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[1.5fr_1fr_2fr_100px_120px] md:gap-3 md:items-center"
+                    >
+                      <p className="text-sm font-medium text-foreground">{issue.field_name}</p>
+                      <div>
+                        <Badge variant="outline" className="text-xs">
+                          {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate min-w-0">{issue.extracted_value || "—"}</p>
+                      <div>
+                        {issue.status === "open" ? (
+                          <Badge variant="destructive" className="text-xs">Aberta</Badge>
+                        ) : issue.status === "resolved" ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs">Resolvida</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Ignorada</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        {issue.status === "open" && (
+                          <>
+                            <Button
+                              size="sm" variant="outline" className="h-7 text-xs"
+                              onClick={() => {
+                                const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
+                                setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
+                                setActiveTab(targetTab);
+                                setHighlightField(issue.field_name);
+                                setTimeout(() => {
+                                  const el = document.querySelector(`[data-field="${issue.field_name}"]`);
+                                  if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+                                    if (input) input.focus();
+                                  }
+                                }, 300);
+                                setTimeout(() => setHighlightField(null), 5000);
+                              }}
+                            >
+                              Resolver
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
+                              onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
+                            >
+                              Ignorar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

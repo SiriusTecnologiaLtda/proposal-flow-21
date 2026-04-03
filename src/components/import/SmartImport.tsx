@@ -463,6 +463,7 @@ export default function SmartImport() {
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetCategoryId, setTargetCategoryId] = useState<string>("");
   const [targetSegmentId, setTargetSegmentId] = useState<string>("");
+  const [targetRole, setTargetRole] = useState<string>("esn");
   const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
   const [segmentsList, setSegmentsList] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);

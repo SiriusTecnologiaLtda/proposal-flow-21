@@ -434,36 +434,6 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId }: UnifiedReven
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Ano:</span>
-          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-            <SelectTrigger className="h-9 w-28 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-          <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-            <SelectTrigger className="h-9 w-56 text-xs">
-              <SelectValue placeholder="Todas as unidades" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as unidades</SelectItem>
-              {units.map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       {/* Grand Summary Row */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

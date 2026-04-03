@@ -334,6 +334,72 @@ export type Database = {
           },
         ]
       }
+      email_import_attempts: {
+        Row: {
+          attachment_count: number | null
+          attachment_filename: string | null
+          created_at: string
+          error_message: string | null
+          error_type: string | null
+          gmail_message_id: string
+          id: string
+          last_attempt_at: string | null
+          message_id_header: string | null
+          received_at: string | null
+          requires_action: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          retry_count: number
+          sender: string | null
+          software_proposal_id: string | null
+          status: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachment_count?: number | null
+          attachment_filename?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          gmail_message_id: string
+          id?: string
+          last_attempt_at?: string | null
+          message_id_header?: string | null
+          received_at?: string | null
+          requires_action?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          sender?: string | null
+          software_proposal_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachment_count?: number | null
+          attachment_filename?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          gmail_message_id?: string
+          id?: string
+          last_attempt_at?: string | null
+          message_id_header?: string | null
+          received_at?: string | null
+          requires_action?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          sender?: string | null
+          software_proposal_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_inbox_config: {
         Row: {
           email_address: string

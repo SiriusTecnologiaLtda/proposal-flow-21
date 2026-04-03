@@ -487,6 +487,26 @@ export default function SmartImport() {
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
   const dbFields = entityConfig.dbFields;
 
+  // Load categories and segments for sales_targets
+  useEffect(() => {
+    if (detectedEntity === "sales_targets") {
+      supabase.from("categories").select("id, name").then(({ data }) => {
+        setCategoriesList(data || []);
+        if (data && data.length > 0 && !targetCategoryId) {
+          const scs = data.find(c => c.name.toUpperCase() === "SCS");
+          setTargetCategoryId(scs?.id || data[0].id);
+        }
+      });
+      supabase.from("software_segments").select("id, name").then(({ data }) => {
+        setSegmentsList(data || []);
+        if (data && data.length > 0 && !targetSegmentId) {
+          const servicos = data.find(s => s.name.toUpperCase() === "SERVICOS" || s.name.toUpperCase() === "SERVIÇOS");
+          setTargetSegmentId(servicos?.id || data[0].id);
+        }
+      });
+    }
+  }, [detectedEntity]);
+
   // ── Step 1: Upload & detect ───────────────────────────────────
   const handleFile = useCallback(async (f: File) => {
     setFile(f);

@@ -1,9 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   BookOpen,
   Plus,
@@ -11,17 +10,22 @@ import {
   Trash2,
   Search,
   Tag,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Package,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 const CATEGORY_OPTIONS = [
   { value: "erp", label: "ERP" },
@@ -129,12 +134,6 @@ export default function SoftwareCatalogPage() {
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<CatalogItem | null>(null);
 
-  // Filters
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("all"); // all | active | inactive
-  const [classificationFilter, setClassificationFilter] = useState<string[]>([]);
-
   // Alias state
   const [aliasDialogItem, setAliasDialogItem] = useState<CatalogItem | null>(null);
   const [newAlias, setNewAlias] = useState("");
@@ -164,36 +163,19 @@ export default function SoftwareCatalogPage() {
     },
   });
 
-  const filteredItems = useMemo(() => {
-    return items.filter((i) => {
-      // Text search
-      const s = search.trim().toLowerCase();
-      if (s) {
-        const itemAliases = aliases.filter((a) => a.catalog_item_id === i.id);
-        const matchesText =
-          i.name.toLowerCase().includes(s) ||
-          (i.vendor_name || "").toLowerCase().includes(s) ||
-          (i.description || "").toLowerCase().includes(s) ||
-          (i.part_number || "").toLowerCase().includes(s) ||
-          (i.external_code || "").toLowerCase().includes(s) ||
-          itemAliases.some((a) => a.alias.toLowerCase().includes(s));
-        if (!matchesText) return false;
-      }
-      // Category filter
-      if (categoryFilter.length > 0 && !categoryFilter.includes(i.category)) return false;
-      // Status filter
-      if (statusFilter === "active" && !i.is_active) return false;
-      if (statusFilter === "inactive" && i.is_active) return false;
-      // Classification filter
-      if (classificationFilter.length > 0 && !classificationFilter.includes(i.default_cost_classification)) return false;
-      return true;
-    });
-  }, [items, aliases, search, categoryFilter, statusFilter, classificationFilter]);
-
-  const activeFilterCount =
-    (categoryFilter.length > 0 ? 1 : 0) +
-    (statusFilter !== "all" ? 1 : 0) +
-    (classificationFilter.length > 0 ? 1 : 0);
+  const filteredItems = items.filter((i) => {
+    const s = search.trim().toLowerCase();
+    if (!s) return true;
+    const itemAliases = aliases.filter((a) => a.catalog_item_id === i.id);
+    return (
+      i.name.toLowerCase().includes(s) ||
+      (i.vendor_name || "").toLowerCase().includes(s) ||
+      (i.description || "").toLowerCase().includes(s) ||
+      (i.part_number || "").toLowerCase().includes(s) ||
+      (i.external_code || "").toLowerCase().includes(s) ||
+      itemAliases.some((a) => a.alias.toLowerCase().includes(s))
+    );
+  });
 
   // Mutations
   const saveMutation = useMutation({
@@ -323,12 +305,6 @@ export default function SoftwareCatalogPage() {
   const categoryLabel = (cat: string) =>
     CATEGORY_OPTIONS.find((c) => c.value === cat)?.label || cat;
 
-  function clearAllFilters() {
-    setCategoryFilter([]);
-    setStatusFilter("all");
-    setClassificationFilter([]);
-  }
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -336,10 +312,7 @@ export default function SoftwareCatalogPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Catálogo de Itens de Software</h1>
           <p className="text-sm text-muted-foreground">
-            {search || activeFilterCount > 0
-              ? `${filteredItems.length} de ${items.length}`
-              : items.length}{" "}
-            itens cadastrados
+            {search ? `${filteredItems.length} de ${items.length}` : items.length} itens cadastrados
           </p>
         </div>
         {isAdmin && (
@@ -361,152 +334,10 @@ export default function SoftwareCatalogPage() {
         />
       </div>
 
-      {/* Collapsible Filter Bar */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <button
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
-        >
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <SlidersHorizontal className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
-          </div>
-          {activeFilterCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-              {activeFilterCount}
-            </span>
-          )}
-          <div className="flex-1" />
-          {activeFilterCount > 0 && (
-            <span
-              role="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                clearAllFilters();
-              }}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <X className="h-3 w-3" />
-              Limpar tudo
-            </span>
-          )}
-          {filtersOpen ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
-
-        {filtersOpen && (
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
-            {/* Category */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Package className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Categoria</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORY_OPTIONS.map(({ value, label }) => {
-                  const active = categoryFilter.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      onClick={() =>
-                        setCategoryFilter((prev) =>
-                          active ? prev.filter((s) => s !== value) : [...prev, value]
-                        )
-                      }
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Status */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Tag className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Situação</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  { key: "all", label: "Todos" },
-                  { key: "active", label: "Ativos" },
-                  { key: "inactive", label: "Inativos" },
-                ] as const).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setStatusFilter(key)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                      statusFilter === key
-                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Classification */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Classificação</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {COST_CLASSIFICATION_OPTIONS.map(({ value, label }) => {
-                  const active = classificationFilter.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      onClick={() =>
-                        setClassificationFilter((prev) =>
-                          active ? prev.filter((s) => s !== value) : [...prev, value]
-                        )
-                      }
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* List — Grid-based */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Grid Header */}
-        <div
-          className={cn(
-            "hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:gap-3 md:items-center",
-            isAdmin
-              ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]"
-              : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"
-          )}
-        >
+        <div className={`hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}>
           <span className="text-xs font-medium text-muted-foreground">Nome</span>
           <span className="text-xs font-medium text-muted-foreground">Fornecedor</span>
           <span className="text-xs font-medium text-muted-foreground">Categoria</span>
@@ -514,15 +345,13 @@ export default function SoftwareCatalogPage() {
           <span className="text-xs font-medium text-muted-foreground">Classificação</span>
           <span className="text-xs font-medium text-muted-foreground">Aliases</span>
           <span className="text-xs font-medium text-muted-foreground">Ativo</span>
-          {isAdmin && (
-            <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
-          )}
+          {isAdmin && <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>}
         </div>
 
         <div className="divide-y divide-border">
           {isLoading ? (
-            <div className="space-y-0 divide-y divide-border">
-              {Array.from({ length: 8 }).map((_, i) => (
+            <div className="space-y-0">
+              {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="px-4 py-3">
                   <Skeleton className="h-8 w-full" />
                 </div>
@@ -532,13 +361,11 @@ export default function SoftwareCatalogPage() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <BookOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-1">
-                {search || activeFilterCount > 0
-                  ? "Nenhum resultado encontrado"
-                  : "Nenhum item cadastrado"}
+                {search ? "Nenhum resultado encontrado" : "Nenhum item cadastrado"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                {search || activeFilterCount > 0
-                  ? "Tente ajustar os termos de busca ou os filtros aplicados."
+                {search
+                  ? "Tente ajustar os termos de busca."
                   : "Cadastre itens no catálogo para normalizar dados extraídos das propostas de software."}
               </p>
             </div>
@@ -548,13 +375,7 @@ export default function SoftwareCatalogPage() {
               return (
                 <div
                   key={item.id}
-                  className={cn(
-                    "flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:gap-3 md:items-center",
-                    isAdmin
-                      ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]"
-                      : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]",
-                    !item.is_active && "opacity-60"
-                  )}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}
                 >
                   {/* Nome */}
                   <div className="min-w-0">
@@ -564,9 +385,7 @@ export default function SoftwareCatalogPage() {
                     )}
                   </div>
                   {/* Fornecedor */}
-                  <p className="text-sm text-muted-foreground truncate min-w-0">
-                    {item.vendor_name || "—"}
-                  </p>
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{item.vendor_name || "—"}</p>
                   {/* Categoria */}
                   <div>
                     <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
@@ -575,22 +394,10 @@ export default function SoftwareCatalogPage() {
                   </div>
                   {/* Recorrência */}
                   <p className="text-sm text-muted-foreground whitespace-nowrap">
-                    {RECURRENCE_OPTIONS.find((r) => r.value === item.default_recurrence)?.label ||
-                      item.default_recurrence}
+                    {RECURRENCE_OPTIONS.find((r) => r.value === item.default_recurrence)?.label || item.default_recurrence}
                   </p>
                   {/* Classificação */}
-                  <div>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase whitespace-nowrap",
-                        item.default_cost_classification === "capex"
-                          ? "bg-primary/15 text-primary"
-                          : "bg-warning/15 text-warning"
-                      )}
-                    >
-                      {item.default_cost_classification}
-                    </span>
-                  </div>
+                  <p className="text-sm text-foreground uppercase whitespace-nowrap">{item.default_cost_classification}</p>
                   {/* Aliases */}
                   <div>
                     <button
@@ -611,32 +418,18 @@ export default function SoftwareCatalogPage() {
                         }
                       />
                     ) : item.is_active ? (
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-success/15 text-success whitespace-nowrap">
-                        Ativo
-                      </span>
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-success/15 text-success whitespace-nowrap">Ativo</span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground whitespace-nowrap">
-                        Inativo
-                      </span>
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground whitespace-nowrap">Inativo</span>
                     )}
                   </div>
                   {/* Ações */}
                   {isAdmin && (
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(item)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(item)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(item)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

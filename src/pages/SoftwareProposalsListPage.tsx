@@ -264,98 +264,171 @@ export default function SoftwareProposalsListPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por arquivo, fornecedor ou cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={originFilter} onValueChange={setOriginFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ORIGIN_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {/* Date From */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={setDateFrom}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              {/* Date To */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={setDateTo}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              {hasDateFilter && (
-                <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
-                  Limpar datas
-                </Button>
+      {/* Collapsible Filter Bar */}
+      {(() => {
+        const activeFilterCount =
+          (statusFilter.length > 0 ? 1 : 0) +
+          (originFilter.length > 0 ? 1 : 0) +
+          (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+        return (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+              </div>
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
               )}
-            </div>
+              <div className="flex-1" />
+              {activeFilterCount > 0 && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStatusFilter([]);
+                    setOriginFilter([]);
+                    setPeriodFilter("este_ano");
+                    setCustomStart("");
+                    setCustomEnd("");
+                  }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar tudo
+                </span>
+              )}
+              {filtersOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {filtersOpen && (
+              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+                {/* Period */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { key: "este_mes", label: "Este mês" },
+                      { key: "ultimo_mes", label: "Último mês" },
+                      { key: "este_trimestre", label: "Este trimestre" },
+                      { key: "este_ano", label: "Este ano" },
+                      { key: "personalizado", label: "Personalizado" },
+                    ] as const).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                          periodFilter === key
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {periodFilter === "personalizado" && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Input
+                        type="date"
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="h-8 w-36 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">até</span>
+                      <Input
+                        type="date"
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="h-8 w-36 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                {/* Status */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                      const active = statusFilter.includes(value);
+                      const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
+                      return (
+                        <button
+                          key={value}
+                          onClick={() =>
+                            setStatusFilter((prev) =>
+                              active ? prev.filter((s) => s !== value) : [...prev, value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            active
+                              ? `${badgeClass} border-current ring-1 ring-current/30`
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                {/* Origin */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <FileSearch className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                      const active = originFilter.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          onClick={() =>
+                            setOriginFilter((prev) =>
+                              active ? prev.filter((s) => s !== value) : [...prev, value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            active
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        );
+      })()}
 
       {/* Table */}
       <Card>

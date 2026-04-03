@@ -21,6 +21,7 @@ const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Se
 type GroupedRow = {
   esn_id: string;
   category_id: string | null;
+  segment_id: string | null;
   name: string;
   code: string;
   unit_id: string | null;

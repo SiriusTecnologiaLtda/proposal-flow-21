@@ -656,6 +656,7 @@ export type Database = {
           output_folder_id: string | null
           sender_email: string | null
           service_account_key: string | null
+          software_proposals_folder_id: string | null
           updated_at: string
         }
         Insert: {
@@ -671,6 +672,7 @@ export type Database = {
           output_folder_id?: string | null
           sender_email?: string | null
           service_account_key?: string | null
+          software_proposals_folder_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -686,6 +688,7 @@ export type Database = {
           output_folder_id?: string | null
           sender_email?: string | null
           service_account_key?: string | null
+          software_proposals_folder_id?: string | null
           updated_at?: string
         }
         Relationships: []

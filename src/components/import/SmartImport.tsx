@@ -1186,13 +1186,13 @@ export default function SmartImport() {
       "arquiteto": "arquiteto", "engenheiro de valor": "arquiteto", "ev": "arquiteto",
     };
 
-    const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
+    const dataRows = allDataRows.filter(r => ev(r, "esn_code") || ev(r, "esn_name"));
     updateImportStats(entity, { totalRows: dataRows.length });
 
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
     const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    addImportLog(entity, "info", `${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1205,18 +1205,20 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum ESN encontrado.");
+      addImportLog(entity, "error", "Nenhum dono de meta encontrado.");
       finishImportRun(entity, "error");
       return;
     }
 
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role");
-    const esnMap = new Map<string, string>();
+    // Map ALL roles, not just ESN — the "dono da meta" can be ESN, GSN, DSN, etc.
+    const memberMap = new Map<string, { id: string; role: string }>();
     for (const s of (salesTeam || [])) {
-      if (s.role === "esn") {
-        esnMap.set(s.code.trim().toLowerCase(), s.id);
-        esnMap.set(s.name.trim().toLowerCase(), s.id);
-      }
+      const codeLower = s.code.trim().toLowerCase();
+      const nameLower = s.name.trim().toLowerCase();
+      // Store with role info for auto-detection
+      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role });
+      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role });
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
@@ -1228,13 +1230,20 @@ export default function SmartImport() {
       const row = dataRows[i];
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
-      const esnId = esnMap.get(esnCode) || esnMap.get(esnName)
+      
+      // Lookup in all sales team members (any role)
+      const memberByCode = memberMap.get(esnCode);
+      const memberByName = memberMap.get(esnName);
+      const esnId = memberByCode?.id || memberByName?.id
         || esnCodeAliases[esnCode] || esnNameAliases[esnName];
+      
+      // Auto-detect role from the matched member if not explicitly mapped
+      const detectedMemberRole = memberByCode?.role || memberByName?.role;
 
       if (!esnId) {
         errors++;
         const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
-        addImportLog(entity, "error", `Linha ${i + 2}: ESN "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
+        addImportLog(entity, "error", `Linha ${i + 2}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
         updateImportStats(entity, { errors });
         continue;
       }

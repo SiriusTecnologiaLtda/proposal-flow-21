@@ -1165,9 +1165,23 @@ export default function SmartImport() {
     const importRun = startImportRun(entity, file!.name, false);
     const year = Number(targetYear);
 
+    // Resolve category and segment per row or use global defaults
+    const { data: allCategories } = await supabase.from("categories").select("id, name");
+    const { data: allSegments } = await supabase.from("software_segments").select("id, name");
+    const catMap = new Map<string, string>();
+    for (const c of (allCategories || [])) { catMap.set(c.name.trim().toLowerCase(), c.id); }
+    const segMap = new Map<string, string>();
+    for (const s of (allSegments || [])) { segMap.set(s.name.trim().toLowerCase(), s.id); }
+
+    const hasCategoryCol = fieldToCol["category_name"] !== undefined;
+    const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+
     const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year}`);
+
+    const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
+    const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
+    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1194,7 +1208,6 @@ export default function SmartImport() {
       }
     }
 
-    // Also add aliases
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
 
@@ -1215,19 +1228,53 @@ export default function SmartImport() {
         continue;
       }
 
+      // Resolve category_id for this row
+      let rowCategoryId: string | null = targetCategoryId || null;
+      if (hasCategoryCol) {
+        const catVal = (ev(row, "category_name") || "").trim().toLowerCase();
+        if (catVal) {
+          rowCategoryId = catMap.get(catVal) || null;
+          if (!rowCategoryId) {
+            addImportLog(entity, "error", `Linha ${i + 2}: Categoria "${ev(row, "category_name")}" não encontrada no cadastro.`);
+          }
+        }
+      }
+
+      // Resolve segment_id for this row
+      let rowSegmentId: string | null = targetSegmentId || null;
+      if (hasSegmentCol) {
+        const segVal = (ev(row, "segment_name") || "").trim().toLowerCase();
+        if (segVal) {
+          rowSegmentId = segMap.get(segVal) || null;
+          if (!rowSegmentId) {
+            addImportLog(entity, "error", `Linha ${i + 2}: Segmento "${ev(row, "segment_name")}" não encontrado no cadastro.`);
+          }
+        }
+      }
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
 
-        const { data: existing } = await supabase.from("sales_targets").select("id")
-          .eq("esn_id", esnId).eq("year", year).eq("month", m).maybeSingle();
+        // Build query matching category and segment
+        let query = supabase.from("sales_targets").select("id")
+          .eq("esn_id", esnId).eq("year", year).eq("month", m);
+        if (rowCategoryId) query = query.eq("category_id", rowCategoryId);
+        else query = query.is("category_id", null);
+        if (rowSegmentId) query = query.eq("segment_id", rowSegmentId);
+        else query = query.is("segment_id", null);
+
+        const { data: existing } = await query.maybeSingle();
 
         if (existing) {
           const { error } = await supabase.from("sales_targets").update({ amount }).eq("id", existing.id);
           if (error) { errors++; } else { updated++; }
         } else {
-          const { error } = await supabase.from("sales_targets").insert({ esn_id: esnId, year, month: m, amount });
+          const insertData: any = { esn_id: esnId, year, month: m, amount };
+          if (rowCategoryId) insertData.category_id = rowCategoryId;
+          if (rowSegmentId) insertData.segment_id = rowSegmentId;
+          const { error } = await supabase.from("sales_targets").insert(insertData);
           if (error) { errors++; } else { imported++; }
         }
       }

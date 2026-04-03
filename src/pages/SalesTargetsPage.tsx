@@ -169,6 +169,7 @@ export default function SalesTargetsPage() {
       qc.invalidateQueries({ queryKey: ["sales-targets"] });
       setNewDialog(false);
       setNewEsnId("");
+      setNewCategoryId("");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),

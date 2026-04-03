@@ -1012,6 +1012,7 @@ Return ONLY valid JSON with this exact structure:
       items_extracted: items.length,
       issues_created: uniqueIssues.length,
       client_matched: !!matchedClientId,
+      client_auto_created: clientAutoCreated,
       unit_matched: !!matchedUnitId,
       gsn_matched: !!matchedGsnId,
       esn_matched: !!matchedEsnId,

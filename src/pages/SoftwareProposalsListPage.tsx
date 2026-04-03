@@ -222,17 +222,10 @@ export default function SoftwareProposalsListPage() {
   const visibleProposals = useMemo(() => proposals.slice(0, visibleCount), [proposals, visibleCount]);
   const hasMore = visibleCount < proposals.length;
 
-  const openPdf = async (e: React.MouseEvent, fileUrl: string) => {
+  const openPdf = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation();
-    try {
-      const { data, error } = await supabase.storage
-        .from("software-proposal-pdfs")
-        .createSignedUrl(fileUrl, 300);
-      if (error) throw error;
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
-      toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
-    }
+    const viewerUrl = `/propostas-software/${proposalId}/pdf`;
+    window.open(viewerUrl, "_blank", "noopener,noreferrer");
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -509,7 +502,7 @@ export default function SoftwareProposalsListPage() {
                     variant="ghost"
                     className="h-7 w-7"
                     title="Abrir PDF"
-                    onClick={(e) => openPdf(e, p.file_url)}
+                    onClick={(e) => openPdf(e, p.id)}
                   >
                     <FileText className="h-4 w-4 text-destructive" />
                   </Button>

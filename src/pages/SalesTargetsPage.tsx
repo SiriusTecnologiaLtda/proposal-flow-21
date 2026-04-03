@@ -156,7 +156,7 @@ export default function SalesTargetsPage() {
   }, [esnList, grouped]);
 
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id, segment_id }: { esn_id: string; category_id: string; segment_id: string }) => {
+    mutationFn: async ({ esn_id, category_id, segment_id, role }: { esn_id: string; category_id: string; segment_id: string; role: string }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
@@ -164,6 +164,7 @@ export default function SalesTargetsPage() {
         amount: 0,
         category_id,
         segment_id,
+        role,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
@@ -174,6 +175,7 @@ export default function SalesTargetsPage() {
       setNewEsnId("");
       setNewCategoryId("");
       setNewSegmentId("");
+      setNewRole("esn");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),

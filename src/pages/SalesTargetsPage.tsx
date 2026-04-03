@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
-import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Save } from "lucide-react";
+import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Save, TrendingUp, Users, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
 
@@ -45,13 +45,11 @@ export default function SalesTargetsPage() {
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
 
-  // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
   const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
 
-  // Add dialog state
   const [newDialog, setNewDialog] = useState(false);
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
@@ -175,7 +173,6 @@ export default function SalesTargetsPage() {
     [filtered]
   );
 
-  // ── Edit dialog helpers ─────────────────────────────────────────
   function openEditDialog(row: GroupedRow) {
     if (!isAdmin) return;
     setEditRow(row);
@@ -226,110 +223,160 @@ export default function SalesTargetsPage() {
     return Object.values(editMonthValues).reduce((s, v) => s + (Number(v) || 0), 0);
   }, [editMonthValues]);
 
-  // ── Category/Segment helpers ────────────────────────────────────
   const getCategoryName = (id: string | null) => id ? categories.find((c: any) => c.id === id)?.name || "—" : "—";
   const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
 
+  // KPI cards data
+  const totalEsns = filtered.length;
+  const avgPerEsn = totalEsns > 0 ? grandTotalMeta / totalEsns : 0;
+  const esnWithTargets = filtered.filter(r => Object.values(r.months).some(m => m.amount > 0)).length;
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="rounded-lg bg-gradient-to-r from-primary/90 to-primary p-4 shadow-md">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-5">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="rounded-lg bg-gradient-to-r from-primary/90 to-primary p-5 shadow-md">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/cadastros")} className="text-primary-foreground hover:bg-white/10">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/cadastros")} className="text-primary-foreground hover:bg-white/10 h-9 w-9">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-white/15 p-2">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-white/15 p-2.5">
                 <Target className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-primary-foreground">Metas de Vendas</h1>
-                <p className="text-xs text-primary-foreground/70">Metas mensais por ESN — clique na linha para editar</p>
+                <h1 className="text-lg font-semibold text-primary-foreground leading-tight">Metas de Vendas</h1>
+                <p className="text-xs text-primary-foreground/70 mt-0.5">Gestão de metas mensais por executivo de negócios</p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-white/15 text-primary-foreground border-white/20 text-xs font-mono">
-              Total: {formatCurrency(grandTotalMeta)}
-            </Badge>
             {isAdmin && (
               <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={() => { setNewDialog(true); setNewEsnId(availableEsns[0]?.id || ""); }}>
-                <Plus className="h-4 w-4 mr-1" /> Adicionar ESN
+                <Plus className="h-4 w-4 mr-1.5" /> Adicionar ESN
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── KPI Summary Cards ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2.5">
+              <TrendingUp className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Meta Total {yearFilter}</p>
+              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(grandTotalMeta)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2.5">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">ESNs com Meta</p>
+              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{esnWithTargets} <span className="text-sm font-normal text-muted-foreground">/ {totalEsns}</span></p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2.5">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Média por ESN</p>
+              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(avgPerEsn)}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Filters ────────────────────────────────────────────── */}
       <Card className="border-border/50 shadow-sm">
-        <CardContent className="p-3">
-          <div className="flex gap-2 flex-wrap items-center">
-            <div className="relative flex-1 min-w-[180px] max-w-xs">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtros</span>
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{activeFilterCount} ativo{activeFilterCount > 1 ? "s" : ""}</Badge>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setSearch(""); }}>
+                  Limpar filtros
+                </Button>
+              )}
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="relative col-span-2 sm:col-span-1">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input placeholder="Pesquisar ESN..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
             </div>
             <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="w-[100px] h-9">
+              <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
-            <MultiSelectCombobox options={unitOptions} selected={filterUnitIds} onChange={setFilterUnitIds} placeholder="Unidade" searchPlaceholder="Buscar unidade..." className="h-9 min-w-[140px]" />
-            <MultiSelectCombobox options={gsnOptions} selected={filterGsnIds} onChange={setFilterGsnIds} placeholder="GSN" searchPlaceholder="Buscar GSN..." className="h-9 min-w-[140px]" />
-            <MultiSelectCombobox options={categoryOptions} selected={filterCategoryIds} onChange={setFilterCategoryIds} placeholder="Categoria" searchPlaceholder="Buscar categoria..." className="h-9 min-w-[140px]" />
-            <MultiSelectCombobox options={segmentOptions} selected={filterSegmentIds} onChange={setFilterSegmentIds} placeholder="Segmento" searchPlaceholder="Buscar segmento..." className="h-9 min-w-[140px]" />
-            {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setSearch(""); }}>
-                Limpar filtros
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{activeFilterCount}</Badge>
-              </Button>
-            )}
-            <span className="text-xs text-muted-foreground ml-auto">
-              {filtered.length} ESN{filtered.length !== 1 ? "s" : ""}
-            </span>
+            <MultiSelectCombobox options={unitOptions} selected={filterUnitIds} onChange={setFilterUnitIds} placeholder="Unidade" searchPlaceholder="Buscar unidade..." className="h-9" />
+            <MultiSelectCombobox options={gsnOptions} selected={filterGsnIds} onChange={setFilterGsnIds} placeholder="GSN" searchPlaceholder="Buscar GSN..." className="h-9" />
+            <MultiSelectCombobox options={categoryOptions} selected={filterCategoryIds} onChange={setFilterCategoryIds} placeholder="Categoria" searchPlaceholder="Buscar categoria..." className="h-9" />
+            <MultiSelectCombobox options={segmentOptions} selected={filterSegmentIds} onChange={setFilterSegmentIds} placeholder="Segmento" searchPlaceholder="Buscar segmento..." className="h-9" />
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* ── Table ──────────────────────────────────────────────── */}
       <Card className="overflow-hidden border-border/50 shadow-sm">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Carregando metas...</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground text-sm">
-              {search || activeFilterCount > 0 ? "Nenhum ESN encontrado com os filtros aplicados." : `Nenhuma meta cadastrada para ${yearFilter}.`}
+            <div className="flex flex-col items-center justify-center py-24 gap-2">
+              <Target className="h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                {search || activeFilterCount > 0 ? "Nenhum ESN encontrado com os filtros aplicados." : `Nenhuma meta cadastrada para ${yearFilter}.`}
+              </p>
             </div>
           ) : (
-            <div className="overflow-auto max-h-[calc(100vh-320px)]">
+            <div className="overflow-auto max-h-[calc(100vh-460px)]">
               <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
-                  <tr>
-                    <th className="sticky left-0 z-30 bg-muted/95 backdrop-blur-sm text-left px-3 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider min-w-[220px] border-b border-r border-border">
-                      ESN
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-muted/80 backdrop-blur-sm">
+                    <th className="sticky left-0 z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60">
+                      Executivo de Negócios
                     </th>
                     {MONTH_NAMES.map((m, i) => (
-                      <th key={i} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider min-w-[85px] border-b border-border">
+                      <th key={i} className="text-center px-1.5 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[80px] border-b border-border/60">
                         {m}
                       </th>
                     ))}
-                    <th className="text-center px-2 py-2.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider min-w-[100px] border-b border-l border-border bg-muted/95">
-                      Total
+                    <th className="text-center px-3 py-3 font-semibold text-muted-foreground text-[11px] uppercase tracking-wider min-w-[110px] border-b border-l border-border/60 bg-muted">
+                      Total Anual
                     </th>
                     {isAdmin && (
-                      <th className="text-center px-2 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider w-[50px] border-b border-l border-border bg-muted/95" />
+                      <th className="text-center px-2 py-3 w-[44px] border-b border-l border-border/60 bg-muted" />
                     )}
                   </tr>
                 </thead>
-                <tbody>
-                  {filtered.map((row, rowIdx) => {
+                <tbody className="divide-y divide-border/40">
+                  {filtered.map((row) => {
                     const total = Object.values(row.months).reduce((s, m) => s + m.amount, 0);
                     const unitName = getUnitName(row.unit_id);
                     const catName = getCategoryName(row.category_id);
@@ -338,84 +385,77 @@ export default function SalesTargetsPage() {
                       <tr
                         key={`${row.esn_id}-${row.category_id}-${row.segment_id}`}
                         className={cn(
-                          "group transition-colors hover:bg-accent/30",
-                          rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                          "group transition-colors hover:bg-accent/40",
                           isAdmin && "cursor-pointer"
                         )}
                         onClick={() => isAdmin && openEditDialog(row)}
                       >
-                        <td className={cn(
-                          "sticky left-0 z-10 px-3 py-2 border-r border-border",
-                          rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20",
-                          "group-hover:bg-accent/30"
-                        )}>
-                          <span className="text-sm text-foreground font-medium">{row.name}</span>
-                          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <span>{row.code}</span>
-                            {unitName && (
-                              <>
-                                <span className="text-muted-foreground/40">•</span>
-                                <span className="truncate max-w-[80px]">{unitName}</span>
-                              </>
-                            )}
-                            {row.category_id && (
-                              <>
-                                <span className="text-muted-foreground/40">•</span>
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{catName}</Badge>
-                              </>
-                            )}
-                            {row.segment_id && (
-                              <>
-                                <span className="text-muted-foreground/40">•</span>
-                                <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">{segName}</Badge>
-                              </>
-                            )}
-                          </span>
+                        <td className="sticky left-0 z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm text-foreground font-medium leading-tight">{row.name}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
+                              {unitName && (
+                                <>
+                                  <span className="text-muted-foreground/30">•</span>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{unitName}</span>
+                                </>
+                              )}
+                              {row.category_id && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal">{catName}</Badge>
+                              )}
+                              {row.segment_id && (
+                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal">{segName}</Badge>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {
                           const month = i + 1;
                           const m = row.months[month];
                           return (
-                            <td key={i} className="text-center px-1 py-1.5 border-border">
+                            <td key={i} className="text-center px-1.5 py-2.5">
                               <span className={cn(
                                 "tabular-nums text-xs",
-                                m && m.amount > 0 ? "text-foreground font-medium" : "text-muted-foreground/40"
+                                m && m.amount > 0 ? "text-foreground font-medium" : "text-muted-foreground/30"
                               )}>
                                 {m && m.amount > 0 ? formatCompact(m.amount) : "—"}
                               </span>
                             </td>
                           );
                         })}
-                        <td className="text-center px-2 py-1.5 font-semibold tabular-nums text-xs border-l border-border bg-muted/30">
+                        <td className="text-center px-3 py-2.5 font-semibold tabular-nums text-xs border-l border-border/40 bg-muted/20">
                           {formatCurrency(total)}
                         </td>
                         {isAdmin && (
-                          <td className="text-center px-2 py-1.5 border-l border-border bg-muted/30">
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors mx-auto" />
+                          <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20">
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors mx-auto" />
                           </td>
                         )}
                       </tr>
                     );
                   })}
-                  {/* Totals row */}
-                  <tr className="sticky bottom-0 z-20 bg-muted/95 backdrop-blur-sm font-semibold border-t-2 border-border">
-                    <td className="sticky left-0 z-30 bg-muted/95 backdrop-blur-sm px-3 py-2.5 text-xs uppercase tracking-wider text-muted-foreground border-r border-border">
-                      Total
+                </tbody>
+                {/* Totals footer */}
+                <tfoot>
+                  <tr className="sticky bottom-0 z-20 bg-muted backdrop-blur-sm border-t-2 border-border">
+                    <td className="sticky left-0 z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60">
+                      Total Geral
                     </td>
                     {Array.from({ length: 12 }, (_, i) => {
                       const monthTotal = filtered.reduce((s, r) => s + (r.months[i + 1]?.amount || 0), 0);
                       return (
-                        <td key={i} className="text-center px-1 py-2.5 text-xs tabular-nums text-foreground font-semibold">
+                        <td key={i} className="text-center px-1.5 py-3 text-xs tabular-nums text-foreground font-bold">
                           {formatCompact(monthTotal)}
                         </td>
                       );
                     })}
-                    <td className="text-center px-2 py-2.5 text-xs tabular-nums font-bold border-l border-border text-primary">
+                    <td className="text-center px-3 py-3 text-sm tabular-nums font-bold border-l border-border/60 text-primary">
                       {formatCurrency(grandTotalMeta)}
                     </td>
-                    {isAdmin && <td className="border-l border-border bg-muted/95" />}
+                    {isAdmin && <td className="border-l border-border/60" />}
                   </tr>
-                </tbody>
+                </tfoot>
               </table>
             </div>
           )}
@@ -424,130 +464,181 @@ export default function SalesTargetsPage() {
 
       {/* ── Edit Dialog ──────────────────────────────────────────── */}
       <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving) setEditDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-primary" />
-              Editar Metas
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          {/* Dialog header with gradient */}
+          <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-white/15 p-2">
+                <Pencil className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <DialogTitle className="text-primary-foreground text-base font-semibold">Editar Metas Mensais</DialogTitle>
+                <DialogDescription className="text-primary-foreground/70 text-xs mt-0.5">
+                  Ajuste os valores mensais para o executivo selecionado
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
           {editRow && (
-            <div className="space-y-4">
-              {/* Header section */}
-              <div className="rounded-lg bg-muted/30 p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+            <div className="p-6 space-y-5">
+              {/* Context section */}
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
-                    <Label className="text-[11px] text-muted-foreground uppercase tracking-wider">ESN</Label>
-                    <p className="text-sm font-medium text-foreground">{editRow.name} <span className="text-muted-foreground">({editRow.code})</span></p>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">ESN</Label>
+                    <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
                   </div>
                   <div>
-                    <Label className="text-[11px] text-muted-foreground uppercase tracking-wider">Ano</Label>
-                    <p className="text-sm font-medium text-foreground">{yearFilter}</p>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>
+                    <p className="text-sm font-medium text-foreground mt-0.5">{yearFilter}</p>
                   </div>
                   <div>
-                    <Label className="text-[11px] text-muted-foreground uppercase tracking-wider">Categoria</Label>
-                    <p className="text-sm text-foreground">{getCategoryName(editRow.category_id)}</p>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Categoria</Label>
+                    <Badge variant="outline" className="text-xs mt-1">{getCategoryName(editRow.category_id)}</Badge>
                   </div>
                   <div>
-                    <Label className="text-[11px] text-muted-foreground uppercase tracking-wider">Segmento</Label>
-                    <p className="text-sm text-foreground">{getSegmentName(editRow.segment_id)}</p>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Segmento</Label>
+                    <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
                   </div>
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Monthly values grid */}
-              <div className="grid grid-cols-4 gap-3">
-                {Array.from({ length: 12 }, (_, i) => {
-                  const m = i + 1;
-                  return (
-                    <div key={m} className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">{MONTH_FULL[i]}</Label>
-                      <Input
-                        type="number"
-                        value={editMonthValues[m] || "0"}
-                        onChange={e => setEditMonthValues(prev => ({ ...prev, [m]: e.target.value }))}
-                        className="h-9 text-sm tabular-nums text-right"
-                        onFocus={e => e.target.select()}
-                      />
-                    </div>
-                  );
-                })}
+              {/* Monthly values section */}
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Valores Mensais</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-3">
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const m = i + 1;
+                    return (
+                      <div key={m} className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground font-medium">{MONTH_FULL[i]}</Label>
+                        <Input
+                          type="number"
+                          value={editMonthValues[m] || "0"}
+                          onChange={e => setEditMonthValues(prev => ({ ...prev, [m]: e.target.value }))}
+                          className="h-9 text-sm tabular-nums text-right font-medium"
+                          onFocus={e => e.target.select()}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Total */}
-              <div className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-2.5">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Anual</span>
-                <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(editDialogTotal)}</span>
+              {/* Total summary */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Anual</span>
+                </div>
+                <span className="text-lg font-bold text-primary tabular-nums">{formatCurrency(editDialogTotal)}</span>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditDialogOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={saveEditDialog} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-              Salvar
+
+          {/* Dialog footer */}
+          <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
+            <Button variant="ghost" onClick={() => setEditDialogOpen(false)} disabled={saving} className="h-9">
+              Cancelar
             </Button>
-          </DialogFooter>
+            <Button onClick={saveEditDialog} disabled={saving} className="h-9">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Salvar Metas
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* ── Add ESN Dialog ───────────────────────────────────────── */}
       <Dialog open={newDialog} onOpenChange={v => !v && setNewDialog(false)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Adicionar ESN ao ano {yearFilter}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label>ESN</Label>
-              {availableEsns.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Todos os ESNs já possuem metas para {yearFilter}.</p>
-              ) : (
-                <Select value={newEsnId} onValueChange={setNewEsnId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o ESN" /></SelectTrigger>
-                  <SelectContent>
-                    {availableEsns.map((e: any) => (
-                      <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <div>
-              <Label>Categoria</Label>
-              <Select value={newCategoryId} onValueChange={setNewCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
-                <SelectContent>
-                  {categories.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Segmento</Label>
-              <Select value={newSegmentId} onValueChange={setNewSegmentId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o segmento" /></SelectTrigger>
-                <SelectContent>
-                  {segments.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+          {/* Dialog header with gradient */}
+          <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-white/15 p-2">
+                <Plus className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <DialogTitle className="text-primary-foreground text-base font-semibold">Adicionar ESN</DialogTitle>
+                <DialogDescription className="text-primary-foreground/70 text-xs mt-0.5">
+                  Criar metas mensais para o ano de {yearFilter}
+                </DialogDescription>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setNewDialog(false)}>Cancelar</Button>
+
+          <div className="p-6 space-y-5">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Configuração</span>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Executivo de Negócios (ESN)</Label>
+                  {availableEsns.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Todos os ESNs já possuem metas para {yearFilter}.</p>
+                  ) : (
+                    <Select value={newEsnId} onValueChange={setNewEsnId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione o ESN" /></SelectTrigger>
+                      <SelectContent>
+                        {availableEsns.map((e: any) => (
+                          <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Categoria</Label>
+                    <Select value={newCategoryId} onValueChange={setNewCategoryId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Segmento</Label>
+                    <Select value={newSegmentId} onValueChange={setNewSegmentId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {segments.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
+            <Button variant="ghost" onClick={() => setNewDialog(false)} className="h-9">Cancelar</Button>
             <Button
               onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId })}
               disabled={!newEsnId || !newCategoryId || !newSegmentId || availableEsns.length === 0 || addEsnMutation.isPending}
+              className="h-9"
             >
-              {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              <Plus className="h-4 w-4 mr-1" />
               Adicionar
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

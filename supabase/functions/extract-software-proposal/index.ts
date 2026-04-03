@@ -1019,14 +1019,23 @@ Return ONLY valid JSON with this exact structure:
           }
         }
 
+        // Track if recurrence/classification needed fallback
+        const rawRecurrence = item.recurrence || "";
+        const rawClassification = item.cost_classification || "";
+        const isRecurrenceValid = validRecurrences.includes(rawRecurrence);
+        const isClassificationValid = validClassifications.includes(rawClassification);
+        const wasAutoCreatedCatalog = !aliasLookup.has(descLower) && 
+          !catalogLookup.find((c) => c.nameLower === descLower) &&
+          !catalogLookup.find((c) => descLower.includes(c.nameLower) || c.nameLower.includes(descLower));
+
         const itemRow = {
           software_proposal_id,
           description: desc,
           quantity: item.quantity ?? 1,
           unit_price: item.unit_price ?? 0,
           total_price: item.total_price ?? 0,
-          recurrence: validRecurrences.includes(item.recurrence) ? item.recurrence : "other",
-          cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
+          recurrence: isRecurrenceValid ? rawRecurrence : "other",
+          cost_classification: isClassificationValid ? rawClassification : "opex",
           item_type: validItemTypes.includes(item.item_type) ? item.item_type : "other",
           confidence_score: item.confidence_score ?? 0,
           sort_order: idx,
@@ -1049,6 +1058,42 @@ Return ONLY valid JSON with this exact structure:
               console.log(`[LEARNING] Item "${desc.substring(0, 50)}" field ${field}: ${oldVal} → ${learnedItemCorr[field]}`);
             }
           }
+        }
+
+        // --- Create issues for items with unresolved/invalid fields ---
+        // After rules and learning, check if the item still has issues
+
+        // Issue: Recurrence not recognized (e.g. "quarterly" from AI)
+        if (!isRecurrenceValid && (itemRow as any).recurrence === "other") {
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: `item_recurrence: ${desc.substring(0, 60)}`,
+            issue_type: "ambiguous_value",
+            extracted_value: `Recorrência "${rawRecurrence}" não reconhecida — classificado como "Outro"`,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
+
+        // Issue: Classification fell to default
+        if (!isClassificationValid && (itemRow as any).cost_classification === "opex") {
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: `item_classification: ${desc.substring(0, 60)}`,
+            issue_type: "ambiguous_value",
+            extracted_value: `Classificação "${rawClassification}" não reconhecida — padrão "Opex" aplicado`,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
+
+        // Issue: Catalog item was auto-created (no previous match)
+        if (wasAutoCreatedCatalog) {
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: `item_catalog: ${desc.substring(0, 60)}`,
+            issue_type: "low_confidence",
+            extracted_value: `Item de catálogo criado automaticamente — verificar correspondência`,
+            status: ISSUE_STATUS_OPEN,
+          });
         }
 
         itemRows.push(itemRow);

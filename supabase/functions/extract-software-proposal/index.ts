@@ -335,6 +335,143 @@ Return ONLY valid JSON with this exact structure:
 
     const issuesToInsert: any[] = [];
 
+    // ===== LOAD PREVIOUS CORRECTIONS FOR LEARNING =====
+    // Query extraction_corrections_log joined with software_proposals to learn from past manual corrections
+    const { data: previousCorrections } = await adminClient
+      .from("extraction_corrections_log")
+      .select("field_path, original_value, corrected_value, software_proposal_id, item_id")
+      .not("corrected_value", "is", null)
+      .order("corrected_at", { ascending: false });
+
+    // Build header-level correction map: field_path → Map<raw_value_from_proposal, corrected_uuid>
+    // For header fields (unit_id, client_id, esn_id, gsn_id, arquiteto_id, segment_id),
+    // we need to correlate the raw_* name from the proposal where the correction was made
+    const headerCorrectionFields = ["unit_id", "client_id", "esn_id", "gsn_id", "arquiteto_id", "segment_id"];
+    const headerCorrections = (previousCorrections || []).filter(
+      (c) => headerCorrectionFields.includes(c.field_path) && c.corrected_value && !c.item_id
+    );
+
+    // Fetch the raw names from the proposals that had corrections, to match by similarity
+    let correctionProposalRawData: Map<string, any> = new Map();
+    if (headerCorrections.length > 0) {
+      const correctionProposalIds = [...new Set(headerCorrections.map((c) => c.software_proposal_id))];
+      // Fetch in batches of 50
+      for (let i = 0; i < correctionProposalIds.length; i += 50) {
+        const batch = correctionProposalIds.slice(i, i + 50);
+        const { data: corrProposals } = await adminClient
+          .from("software_proposals")
+          .select("id, raw_unit_name, raw_client_name, raw_gsn_name, raw_esn_name, raw_arquiteto_name, raw_segment_name")
+          .in("id", batch);
+        for (const cp of corrProposals || []) {
+          correctionProposalRawData.set(cp.id, cp);
+        }
+      }
+    }
+
+    // Helper: normalize text for similarity comparison
+    const normText = (s: string | null) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+    // Build a lookup: for each correctable header field, map raw_name → corrected_value (UUID)
+    // The key insight: if proposal X had raw_unit_name="TOTVS ABC" and someone corrected unit_id to "uuid-123",
+    // then for a new proposal with the same raw_unit_name, we can auto-apply unit_id="uuid-123"
+    const fieldToRawColumn: Record<string, string> = {
+      unit_id: "raw_unit_name",
+      client_id: "raw_client_name",
+      gsn_id: "raw_gsn_name",
+      esn_id: "raw_esn_name",
+      arquiteto_id: "raw_arquiteto_name",
+      segment_id: "raw_segment_name",
+    };
+
+    const learnedCorrections: Map<string, Map<string, string>> = new Map();
+    for (const field of headerCorrectionFields) {
+      learnedCorrections.set(field, new Map());
+    }
+
+    for (const corr of headerCorrections) {
+      const rawCol = fieldToRawColumn[corr.field_path];
+      if (!rawCol) continue;
+      const proposalData = correctionProposalRawData.get(corr.software_proposal_id);
+      if (!proposalData) continue;
+      const rawValue = normText(proposalData[rawCol]);
+      if (rawValue && corr.corrected_value) {
+        const fieldMap = learnedCorrections.get(corr.field_path)!;
+        // First correction wins (most recent, since ordered desc)
+        if (!fieldMap.has(rawValue)) {
+          fieldMap.set(rawValue, corr.corrected_value);
+        }
+      }
+    }
+
+    // Build item-level correction map: normalized description → { field_path: corrected_value }
+    const itemCorrections = (previousCorrections || []).filter((c) => c.item_id);
+    const itemCorrectionItemIds = [...new Set(itemCorrections.map((c) => c.item_id).filter(Boolean))];
+    const itemDescriptionMap: Map<string, string> = new Map(); // item_id → description
+
+    if (itemCorrectionItemIds.length > 0) {
+      for (let i = 0; i < itemCorrectionItemIds.length; i += 50) {
+        const batch = itemCorrectionItemIds.slice(i, i + 50);
+        const { data: corrItems } = await adminClient
+          .from("software_proposal_items")
+          .select("id, description")
+          .in("id", batch);
+        for (const ci of corrItems || []) {
+          itemDescriptionMap.set(ci.id, ci.description);
+        }
+      }
+    }
+
+    // Build: normalized_description → { field: corrected_value }
+    const learnedItemCorrections: Map<string, Record<string, string>> = new Map();
+    for (const corr of itemCorrections) {
+      if (!corr.item_id || !corr.corrected_value) continue;
+      const desc = itemDescriptionMap.get(corr.item_id);
+      if (!desc) continue;
+      const normDesc = normText(desc);
+      if (!learnedItemCorrections.has(normDesc)) {
+        learnedItemCorrections.set(normDesc, {});
+      }
+      const existing = learnedItemCorrections.get(normDesc)!;
+      if (!existing[corr.field_path]) {
+        existing[corr.field_path] = corr.corrected_value;
+      }
+    }
+
+    // Helper: find learned correction for a header field
+    function findLearnedHeaderCorrection(fieldPath: string, currentRawValue: string | null): string | null {
+      if (!currentRawValue) return null;
+      const fieldMap = learnedCorrections.get(fieldPath);
+      if (!fieldMap || fieldMap.size === 0) return null;
+      const normalized = normText(currentRawValue);
+      // Exact match first
+      if (fieldMap.has(normalized)) return fieldMap.get(normalized)!;
+      // Fuzzy: check if any key contains or is contained in the current value
+      for (const [key, value] of fieldMap) {
+        if (key.length > 3 && normalized.length > 3) {
+          if (normalized.includes(key) || key.includes(normalized)) return value;
+        }
+      }
+      return null;
+    }
+
+    // Helper: find learned corrections for an item by description
+    function findLearnedItemCorrections(description: string): Record<string, string> | null {
+      const normalized = normText(description);
+      // Exact match
+      if (learnedItemCorrections.has(normalized)) return learnedItemCorrections.get(normalized)!;
+      // Fuzzy: contains match
+      for (const [key, value] of learnedItemCorrections) {
+        if (key.length > 5 && normalized.length > 5) {
+          if (normalized.includes(key) || key.includes(normalized)) return value;
+        }
+      }
+      return null;
+    }
+
+    let learnedCorrectionsApplied = 0;
+
+    console.log(`Loaded ${headerCorrections.length} header corrections and ${itemCorrections.length} item corrections for learning`);
+
     // ===== MASTER DATA MATCHING =====
 
     // --- Match client ---

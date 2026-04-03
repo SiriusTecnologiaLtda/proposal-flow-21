@@ -438,63 +438,21 @@ function EmailSyncTab() {
 
   return (
     <div className="space-y-6">
-      {/* Connection status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" /> Status da Conexão Gmail
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!hasGmailAuthorized ? (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-50 p-4 dark:bg-amber-900/20">
-              <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Conta Gmail não autorizada</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Configure e autorize a conta Gmail nas configurações de e-mail para habilitar a importação automática.
-                </p>
-                <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")} className="mt-1">
-                  <Settings className="mr-2 h-3.5 w-3.5" /> Ir para Configurações
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-                <CheckCircle2 className="h-4 w-4" />
-                <div>
-                  <p className="font-medium">Conta conectada</p>
-                  {config?.email_address && <p className="text-xs opacity-80">{config.email_address}</p>}
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")}>
-                <Settings className="mr-2 h-3.5 w-3.5" /> Configurações
-              </Button>
-            </div>
-          )}
-
-          {hasGmailAuthorized && config && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
-              {config.monitored_folder && (
-                <div><span className="font-medium text-foreground">Pasta:</span> {config.monitored_folder}</div>
-              )}
-              {config.sender_filter && (
-                <div><span className="font-medium text-foreground">Remetente:</span> {config.sender_filter}</div>
-              )}
-              {config.subject_filter && (
-                <div><span className="font-medium text-foreground">Assunto:</span> {config.subject_filter}</div>
-              )}
-              <div>
-                <span className="font-medium text-foreground">Status:</span>{" "}
-                <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] ml-1">
-                  {config.enabled ? "Ativo" : "Inativo"}
-                </Badge>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Gmail not authorized inline warning */}
+      {!hasGmailAuthorized && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-50 p-4 dark:bg-amber-900/20">
+          <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Conta Gmail não autorizada</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Configure e autorize a conta Gmail nas configurações de e-mail para habilitar a importação automática.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")} className="mt-1">
+              <Settings className="mr-2 h-3.5 w-3.5" /> Ir para Configurações
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Alert banner for unresolved failures */}
       {(pendingAttempts?.length ?? 0) > 0 && (
@@ -532,8 +490,8 @@ function EmailSyncTab() {
         </div>
       )}
 
-      {/* Sync action + auto-sync + last status */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Sync action + last status */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-base">Sincronizar Agora</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -544,72 +502,6 @@ function EmailSyncTab() {
               {syncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {syncing ? "Sincronizando..." : "Executar Sincronização"}
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Timer className="h-4 w-4" /> Sincronização Automática
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-sync-toggle" className="text-sm">Ativar polling automático</Label>
-              <Switch
-                id="auto-sync-toggle"
-                checked={config?.auto_sync_enabled ?? false}
-                disabled={!hasGmailAuthorized}
-                onCheckedChange={async (checked) => {
-                  const { error } = await supabase
-                    .from("email_inbox_config")
-                    .update({ auto_sync_enabled: checked, updated_at: new Date().toISOString() } as any)
-                    .eq("id", config!.id);
-                  if (error) {
-                    toast.error("Erro ao atualizar configuração");
-                  } else {
-                    toast.success(checked ? "Sincronização automática ativada" : "Sincronização automática desativada");
-                    queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Intervalo (minutos)</Label>
-              <Select
-                value={String(config?.sync_interval_minutes ?? 10)}
-                disabled={!hasGmailAuthorized}
-                onValueChange={async (val) => {
-                  const { error } = await supabase
-                    .from("email_inbox_config")
-                    .update({ sync_interval_minutes: parseInt(val), updated_at: new Date().toISOString() } as any)
-                    .eq("id", config!.id);
-                  if (error) {
-                    toast.error("Erro ao atualizar intervalo");
-                  } else {
-                    toast.success(`Intervalo atualizado para ${val} minutos`);
-                    queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 min</SelectItem>
-                  <SelectItem value="10">10 min</SelectItem>
-                  <SelectItem value="15">15 min</SelectItem>
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="60">60 min</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {config?.auto_sync_enabled && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                Verificando novos e-mails a cada {config.sync_interval_minutes} min
-              </p>
-            )}
           </CardContent>
         </Card>
 

@@ -795,6 +795,7 @@ export default function Dashboard() {
               onClick={() => {
                 handlePreset("this_year");
                 setSelectedEsnIds([]);
+                setSelectedUnitId("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />

@@ -4,9 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import {
   AlertTriangle, CheckCircle2, Filter, Search, ExternalLink,
-  EyeOff, ArrowLeft,
+  EyeOff, ArrowLeft, FileText, CalendarIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +22,10 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos" },
@@ -54,6 +61,7 @@ interface IssueRow {
   vendor_name: string | null;
   client_name: string | null;
   proposal_status: string;
+  file_url: string | null;
 }
 
 export default function SoftwareProposalIssuesPage() {
@@ -64,13 +72,13 @@ export default function SoftwareProposalIssuesPage() {
   const [statusFilter, setStatusFilter] = useState("open");
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
 
-  // Fetch issues with proposal context
   const { data: issues = [], isLoading } = useQuery({
-    queryKey: ["software-issues-queue", statusFilter, typeFilter, searchTerm],
+    queryKey: ["software-issues-queue", statusFilter, typeFilter, searchTerm, dateFrom?.toISOString(), dateTo?.toISOString()],
     enabled: !!user,
     queryFn: async () => {
-      // Fetch issues
       let issueQuery = supabase
         .from("extraction_issues")
         .select("id, field_name, issue_type, extracted_value, status, created_at, software_proposal_id")
@@ -82,17 +90,24 @@ export default function SoftwareProposalIssuesPage() {
       if (typeFilter !== "all") {
         issueQuery = issueQuery.eq("issue_type", typeFilter);
       }
+      if (dateFrom) {
+        issueQuery = issueQuery.gte("created_at", dateFrom.toISOString());
+      }
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        issueQuery = issueQuery.lte("created_at", endOfDay.toISOString());
+      }
 
       const { data: issueData, error: issueError } = await issueQuery;
       if (issueError) throw issueError;
       if (!issueData || issueData.length === 0) return [];
 
-      // Get unique proposal IDs
       const proposalIds = [...new Set(issueData.map((i) => i.software_proposal_id))];
 
       const { data: proposals, error: propError } = await supabase
         .from("software_proposals")
-        .select("id, proposal_number, vendor_name, client_name, status")
+        .select("id, proposal_number, vendor_name, client_name, status, file_url")
         .in("id", proposalIds);
       if (propError) throw propError;
 
@@ -106,10 +121,10 @@ export default function SoftwareProposalIssuesPage() {
           vendor_name: prop?.vendor_name || null,
           client_name: prop?.client_name || null,
           proposal_status: prop?.status || "unknown",
+          file_url: prop?.file_url || null,
         };
       });
 
-      // Client-side search filter
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         results = results.filter(
@@ -126,7 +141,6 @@ export default function SoftwareProposalIssuesPage() {
     },
   });
 
-  // Counters query (always unfiltered)
   const { data: counters } = useQuery({
     queryKey: ["software-issues-counters"],
     enabled: !!user,
@@ -155,7 +169,6 @@ export default function SoftwareProposalIssuesPage() {
     },
   });
 
-  // Resolve/ignore mutation
   const updateIssueMutation = useMutation({
     mutationFn: async ({ issueId, status }: { issueId: string; status: string }) => {
       const { error } = await supabase
@@ -176,8 +189,27 @@ export default function SoftwareProposalIssuesPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const formatDate = (dateStr: string) =>
+  const openPdf = async (e: React.MouseEvent, fileUrl: string | null) => {
+    e.stopPropagation();
+    if (!fileUrl) {
+      toast.error("PDF não disponível para esta proposta");
+      return;
+    }
+    try {
+      const { data, error } = await supabase.storage
+        .from("software-proposal-pdfs")
+        .createSignedUrl(fileUrl, 300);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank");
+    } catch (err: any) {
+      toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
+    }
+  };
+
+  const formatDateStr = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("pt-BR");
+
+  const hasDateFilter = dateFrom || dateTo;
 
   return (
     <div className="space-y-6">
@@ -237,7 +269,7 @@ export default function SoftwareProposalIssuesPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[150px]">
                   <Filter className="mr-2 h-4 w-4" />
@@ -259,6 +291,55 @@ export default function SoftwareProposalIssuesPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Date From */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              {/* Date To */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              {hasDateFilter && (
+                <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+                  Limpar datas
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -299,6 +380,7 @@ export default function SoftwareProposalIssuesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
                     <TableHead>Proposta</TableHead>
                     <TableHead>Fornecedor / Cliente</TableHead>
                     <TableHead>Campo</TableHead>
@@ -312,6 +394,17 @@ export default function SoftwareProposalIssuesPage() {
                 <TableBody>
                   {issues.map((issue) => (
                     <TableRow key={issue.id}>
+                      <TableCell className="px-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title="Abrir PDF"
+                          onClick={(e) => openPdf(e, issue.file_url)}
+                        >
+                          <FileText className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-sm font-mono">
                         {issue.proposal_number || "—"}
                       </TableCell>
@@ -342,7 +435,7 @@ export default function SoftwareProposalIssuesPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(issue.created_at)}
+                        {formatDateStr(issue.created_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">

@@ -59,6 +59,7 @@ export default function SalesTargetsPage() {
   const [filterGsnIds, setFilterGsnIds] = useState<string[]>([]);
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
+  const [filterRoles, setFilterRoles] = useState<string[]>([]);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
@@ -69,6 +70,7 @@ export default function SalesTargetsPage() {
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");
+  const [newRole, setNewRole] = useState("esn");
 
   const { data: categories = [] } = useCategories();
   const { data: segments = [] } = useSegments();

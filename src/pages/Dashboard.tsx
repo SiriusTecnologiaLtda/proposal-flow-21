@@ -982,7 +982,38 @@ export default function Dashboard() {
                     allowDecimals={false}
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                   />
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartTooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0]?.payload;
+                      return (
+                        <div className="rounded-lg border border-border bg-background p-3 shadow-md">
+                          <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
+                          {data?.ganhas > 0 && (
+                            <div className="flex items-center justify-between gap-4 text-sm">
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "hsl(var(--success))" }} />
+                                Ganhas ({data.ganhas})
+                              </span>
+                              <span className="font-medium">{data.ganhasValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                            </div>
+                          )}
+                          {data?.perdidas > 0 && (
+                            <div className="flex items-center justify-between gap-4 text-sm">
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "hsl(var(--destructive))" }} />
+                                Perdidas ({data.perdidas})
+                              </span>
+                              <span className="font-medium">{data.perdidasValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                            </div>
+                          )}
+                          {(!data?.ganhas && !data?.perdidas) && (
+                            <p className="text-xs text-muted-foreground">Sem dados</p>
+                          )}
+                        </div>
+                      );
+                    }}
+                  />
                   <Legend />
                   <Bar dataKey="ganhas" name="Ganhas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="perdidas" name="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />

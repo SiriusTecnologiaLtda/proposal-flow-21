@@ -490,8 +490,8 @@ function EmailSyncTab() {
         </div>
       )}
 
-      {/* Sync action + auto-sync + last status */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Sync action + last status */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-base">Sincronizar Agora</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -502,72 +502,6 @@ function EmailSyncTab() {
               {syncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {syncing ? "Sincronizando..." : "Executar Sincronização"}
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Timer className="h-4 w-4" /> Sincronização Automática
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-sync-toggle" className="text-sm">Ativar polling automático</Label>
-              <Switch
-                id="auto-sync-toggle"
-                checked={config?.auto_sync_enabled ?? false}
-                disabled={!hasGmailAuthorized}
-                onCheckedChange={async (checked) => {
-                  const { error } = await supabase
-                    .from("email_inbox_config")
-                    .update({ auto_sync_enabled: checked, updated_at: new Date().toISOString() } as any)
-                    .eq("id", config!.id);
-                  if (error) {
-                    toast.error("Erro ao atualizar configuração");
-                  } else {
-                    toast.success(checked ? "Sincronização automática ativada" : "Sincronização automática desativada");
-                    queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Intervalo (minutos)</Label>
-              <Select
-                value={String(config?.sync_interval_minutes ?? 10)}
-                disabled={!hasGmailAuthorized}
-                onValueChange={async (val) => {
-                  const { error } = await supabase
-                    .from("email_inbox_config")
-                    .update({ sync_interval_minutes: parseInt(val), updated_at: new Date().toISOString() } as any)
-                    .eq("id", config!.id);
-                  if (error) {
-                    toast.error("Erro ao atualizar intervalo");
-                  } else {
-                    toast.success(`Intervalo atualizado para ${val} minutos`);
-                    queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 min</SelectItem>
-                  <SelectItem value="10">10 min</SelectItem>
-                  <SelectItem value="15">15 min</SelectItem>
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="60">60 min</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {config?.auto_sync_enabled && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                Verificando novos e-mails a cada {config.sync_interval_minutes} min
-              </p>
-            )}
           </CardContent>
         </Card>
 

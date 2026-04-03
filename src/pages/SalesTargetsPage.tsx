@@ -90,12 +90,13 @@ export default function SalesTargetsPage() {
   const grouped: GroupedRow[] = useMemo(() => {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
-      const key = `${t.esn_id}__${t.category_id || "none"}`;
+      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}`;
       if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
           category_id: (t as any).category_id || null,
+          segment_id: (t as any).segment_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           unit_id: esn?.unit_id || null,

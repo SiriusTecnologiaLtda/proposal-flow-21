@@ -1094,6 +1094,9 @@ Return ONLY valid JSON with this exact structure:
 
         // 4. If no match, auto-create catalog item and link
         if (!catalogItemId) {
+          // Infer product_id and category_id from similar existing catalog items
+          const inferred = inferCatalogClassification(desc, val(header.vendor_name));
+
           const { data: newCatalogItem, error: createErr } = await adminClient
             .from("software_catalog_items")
             .insert({
@@ -1104,12 +1107,17 @@ Return ONLY valid JSON with this exact structure:
               default_cost_classification: validClassifications.includes(item.cost_classification) ? item.cost_classification : "opex",
               is_active: true,
               created_by: userId,
+              product_id: inferred.product_id,
+              category_id: inferred.category_id,
             })
             .select("id")
             .single();
 
           if (!createErr && newCatalogItem) {
             catalogItemId = newCatalogItem.id;
+            if (inferred.product_id || inferred.category_id) {
+              console.log(`[CATALOG] Auto-created item "${desc}" with inferred product_id=${inferred.product_id}, category_id=${inferred.category_id}`);
+            }
             // Also create alias for future matching
             await adminClient.from("software_catalog_aliases").insert({
               catalog_item_id: newCatalogItem.id,

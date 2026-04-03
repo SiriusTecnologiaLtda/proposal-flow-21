@@ -608,6 +608,21 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
+    // --- Update auto-created client with matched unit/esn/gsn ---
+    if (clientAutoCreated && matchedClientId) {
+      const clientUpdate: Record<string, any> = {};
+      if (matchedUnitId) clientUpdate.unit_id = matchedUnitId;
+      if (matchedEsnId) clientUpdate.esn_id = matchedEsnId;
+      if (matchedGsnId) clientUpdate.gsn_id = matchedGsnId;
+      if (Object.keys(clientUpdate).length > 0) {
+        await adminClient
+          .from("clients")
+          .update(clientUpdate)
+          .eq("id", matchedClientId);
+        console.log(`Auto-created client ${matchedClientId} updated with:`, clientUpdate);
+      }
+    }
+
     // --- Update proposal record with extracted data + master data links ---
     await userClient
       .from("software_proposals")

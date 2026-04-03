@@ -4,6 +4,9 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import {
   FileSearch,
   Upload,
@@ -15,6 +18,8 @@ import {
   RotateCcw,
   Plus,
   AlertTriangle,
+  FileText,
+  CalendarIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,6 +41,12 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos os Status" },
@@ -94,6 +105,8 @@ export default function SoftwareProposalsListPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -130,7 +143,7 @@ export default function SoftwareProposalsListPage() {
   });
 
   const { data: proposals, isLoading } = useQuery({
-    queryKey: ["software-proposals", statusFilter, originFilter, searchTerm],
+    queryKey: ["software-proposals", statusFilter, originFilter, searchTerm, dateFrom?.toISOString(), dateTo?.toISOString()],
     enabled: !!user,
     queryFn: async () => {
       let query = supabase
@@ -149,11 +162,18 @@ export default function SoftwareProposalsListPage() {
           `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%,proposal_number.ilike.%${searchTerm}%`
         );
       }
+      if (dateFrom) {
+        query = query.gte("created_at", dateFrom.toISOString());
+      }
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        query = query.lte("created_at", endOfDay.toISOString());
+      }
 
       const { data, error } = await query;
       if (error) throw error;
 
-      // Compute Capex, Opex, Produção Total per proposal
       return (data || []).map((p: any) => {
         const items = p.software_proposal_items || [];
         const totalCapex = items
@@ -168,6 +188,20 @@ export default function SoftwareProposalsListPage() {
     },
   });
 
+  const openPdf = async (e: React.MouseEvent, fileUrl: string) => {
+    e.stopPropagation();
+    try {
+      // fileUrl format: user_id/filename.pdf — get signed URL
+      const { data, error } = await supabase.storage
+        .from("software-proposal-pdfs")
+        .createSignedUrl(fileUrl, 300);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank");
+    } catch (err: any) {
+      toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
+    }
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("pt-BR");
@@ -177,6 +211,8 @@ export default function SoftwareProposalsListPage() {
     if (value === null || value === undefined) return "—";
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
+
+  const hasDateFilter = dateFrom || dateTo;
 
   return (
     <div className="space-y-6">
@@ -235,7 +271,7 @@ export default function SoftwareProposalsListPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
                   <Filter className="mr-2 h-4 w-4" />
@@ -261,6 +297,55 @@ export default function SoftwareProposalsListPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Date From */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              {/* Date To */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              {hasDateFilter && (
+                <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+                  Limpar datas
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -302,6 +387,7 @@ export default function SoftwareProposalsListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
                     <TableHead>Arquivo</TableHead>
                     <TableHead>Nº Proposta</TableHead>
                     <TableHead>Fornecedor</TableHead>
@@ -318,6 +404,17 @@ export default function SoftwareProposalsListPage() {
                 <TableBody>
                   {proposals.map((p: any) => (
                     <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/propostas-software/${p.id}`)}>
+                      <TableCell className="px-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title="Abrir PDF"
+                          onClick={(e) => openPdf(e, p.file_url)}
+                        >
+                          <FileText className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {p.file_name}
                       </TableCell>

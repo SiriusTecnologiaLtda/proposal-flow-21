@@ -308,10 +308,30 @@ function ManualUploadTab() {
 
 // ───── Email Sync Tab ─────
 
+interface EmailImportAttempt {
+  id: string;
+  gmail_message_id: string;
+  subject: string | null;
+  sender: string | null;
+  received_at: string | null;
+  status: string;
+  error_type: string | null;
+  error_message: string | null;
+  requires_action: string | null;
+  retry_count: number;
+  last_attempt_at: string | null;
+  resolved_at: string | null;
+  attachment_filename: string | null;
+  attachment_count: number;
+  software_proposal_id: string | null;
+  created_at: string;
+}
+
 function EmailSyncTab() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
 
   const { data: emailConfig, isLoading } = useQuery({
     queryKey: ["email-inbox-config"],
@@ -322,16 +342,35 @@ function EmailSyncTab() {
     },
   });
 
+  const { data: pendingAttempts } = useQuery({
+    queryKey: ["email-import-attempts-pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_import_attempts" as any)
+        .select("*")
+        .in("status", ["failed", "pending"])
+        .order("last_attempt_at", { ascending: false });
+      if (error) return [];
+      return (data || []) as unknown as EmailImportAttempt[];
+    },
+  });
+
   const hasGmailAuthorized = !!emailConfig?.gmail_refresh_token;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
+    queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+    queryClient.invalidateQueries({ queryKey: ["email-import-history"] });
+    queryClient.invalidateQueries({ queryKey: ["email-import-attempts-pending"] });
+    queryClient.invalidateQueries({ queryKey: ["email-import-attempts-all"] });
+  };
 
   const handleSync = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("email-inbox-sync", { body: { action: "sync" } });
       if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ["email-inbox-config"] });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      queryClient.invalidateQueries({ queryKey: ["email-import-history"] });
+      invalidateAll();
       if (data.success) {
         toast.success(`${data.pdfs_imported || 0} PDF(s) importado(s) de ${data.emails_found || 0} e-mail(s).`);
       } else {
@@ -344,13 +383,49 @@ function EmailSyncTab() {
     }
   };
 
+  const handleRetry = async (attemptId: string) => {
+    setRetrying(attemptId);
+    try {
+      const { data, error } = await supabase.functions.invoke("email-inbox-sync", {
+        body: { action: "retry", attempt_ids: [attemptId] },
+      });
+      if (error) throw error;
+      invalidateAll();
+      if (data.pdfs_imported > 0) {
+        toast.success(`${data.pdfs_imported} PDF(s) importado(s) com sucesso!`);
+      } else {
+        toast.warning(data.message || "Reprocessamento concluído sem novos PDFs.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro no reprocessamento");
+    } finally {
+      setRetrying(null);
+    }
+  };
+
+  const handleRetryAll = async () => {
+    if (!pendingAttempts || pendingAttempts.length === 0) return;
+    setSyncing(true);
+    try {
+      const ids = pendingAttempts.map(a => a.id);
+      const { data, error } = await supabase.functions.invoke("email-inbox-sync", {
+        body: { action: "retry", attempt_ids: ids },
+      });
+      if (error) throw error;
+      invalidateAll();
+      toast.success(data.message || "Reprocessamento concluído.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro no reprocessamento");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
 
   const config = emailConfig;
-  const syncErrors = (config?.last_sync_errors || []) as SyncErrorDetail[];
-  const unresolvedErrors = syncErrors.filter(e => !e.auto_resolved);
 
   return (
     <div className="space-y-6">
@@ -384,11 +459,9 @@ function EmailSyncTab() {
                   {config?.email_address && <p className="text-xs opacity-80">{config.email_address}</p>}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")}>
-                  <Settings className="mr-2 h-3.5 w-3.5" /> Configurações
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")}>
+                <Settings className="mr-2 h-3.5 w-3.5" /> Configurações
+              </Button>
             </div>
           )}
 
@@ -472,46 +545,87 @@ function EmailSyncTab() {
         </Card>
       </div>
 
-      {/* Sync Errors */}
-      {syncErrors.length > 0 && (
+      {/* Pending / Failed Attempts */}
+      {pendingAttempts && pendingAttempts.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileWarning className="h-4 w-4 text-destructive" />
-              Erros da Última Sincronização
-              <Badge variant="destructive" className="ml-auto">{unresolvedErrors.length} pendente(s)</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {syncErrors.map((err, idx) => (
-              <div key={idx} className={`rounded-md border p-3 text-xs space-y-1.5 ${
-                err.auto_resolved ? "border-muted bg-muted/30" : "border-destructive/30 bg-destructive/5"
-              }`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {err.auto_resolved ? <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" /> : <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
-                    <span className="truncate max-w-[250px]" title={err.filename}>{err.filename}</span>
-                  </div>
-                  <Badge variant={err.auto_resolved ? "outline" : "destructive"} className="text-[10px] shrink-0">
-                    {err.error_type === "duplicate" ? "Duplicado" : err.error_type === "download_failed" ? "Download" : err.error_type === "upload_failed" ? "Upload" : err.error_type === "insert_failed" ? "Registro" : "Outro"}
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground">{err.error_message}</p>
-                {err.subject && <p className="text-muted-foreground"><strong>Assunto:</strong> {err.subject}</p>}
-                {err.requires_action && !err.auto_resolved && (
-                  <div className="flex items-start gap-1.5 rounded bg-accent/50 p-2 mt-1">
-                    <RotateCcw className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>{err.requires_action}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {unresolvedErrors.length > 0 && (
-              <Button variant="outline" size="sm" className="w-full" onClick={handleSync} disabled={syncing}>
-                <RotateCcw className="mr-2 h-3.5 w-3.5" /> Tentar Sincronizar Novamente
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MailWarning className="h-4 w-4 text-destructive" />
+                Pendências de Importação
+                <Badge variant="destructive" className="ml-2">{pendingAttempts.length}</Badge>
+              </CardTitle>
+              <Button variant="outline" size="sm" onClick={handleRetryAll} disabled={syncing}>
+                <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reprocessar Todos
               </Button>
-            )}
+            </div>
+            <CardDescription>E-mails que não foram importados com sucesso. Reprocesse individualmente ou todos de uma vez.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Assunto do E-mail</TableHead>
+                    <TableHead>Remetente</TableHead>
+                    <TableHead>Erro</TableHead>
+                    <TableHead className="text-center">Tentativas</TableHead>
+                    <TableHead>Última Tentativa</TableHead>
+                    <TableHead className="w-20"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingAttempts.map((attempt) => (
+                    <TableRow key={attempt.id}>
+                      <TableCell className="text-sm font-medium max-w-[150px] truncate" title={attempt.attachment_filename || ""}>
+                        {attempt.attachment_filename || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[180px] truncate" title={attempt.subject || ""}>
+                        {attempt.subject || "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate" title={attempt.sender || ""}>
+                        {attempt.sender || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant="destructive" className="text-[10px]">
+                            {attempt.error_type === "download_failed" ? "Download" : attempt.error_type === "upload_failed" ? "Upload" : attempt.error_type === "insert_failed" ? "Registro" : "Outro"}
+                          </Badge>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{attempt.error_message}</p>
+                          {attempt.requires_action && (
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <Info className="h-3 w-3 shrink-0" />
+                              {attempt.requires_action}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center text-sm">{attempt.retry_count + 1}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {attempt.last_attempt_at ? new Date(attempt.last_attempt_at).toLocaleString("pt-BR") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          disabled={retrying === attempt.id || syncing}
+                          onClick={() => handleRetry(attempt.id)}
+                        >
+                          {retrying === attempt.id ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          )}
+                          Tentar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -522,36 +636,29 @@ function EmailSyncTab() {
 // ───── Email History Tab ─────
 
 function EmailHistoryTab() {
-  const { data: proposals, isLoading } = useQuery({
-    queryKey: ["email-import-history"],
+  const { data: allAttempts, isLoading } = useQuery({
+    queryKey: ["email-import-attempts-all"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("software_proposals")
-        .select("id, file_name, origin, origin_detail, status, created_at, proposal_number, total_value, file_url")
-        .eq("origin", "email_inbox")
+        .from("email_import_attempts" as any)
+        .select("*")
         .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data || [];
+        .limit(200);
+      if (error) return [];
+      return (data || []) as unknown as EmailImportAttempt[];
     },
   });
 
   const navigate = useNavigate();
 
-  const handleOpenPdf = async (fileUrl: string) => {
-    try {
-      const { data } = await supabase.storage.from("software-proposal-pdfs").createSignedUrl(fileUrl, 300);
-      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-    } catch { toast.error("Erro ao abrir PDF"); }
-  };
-
   const statusLabel = (status: string) => {
     switch (status) {
-      case "pending_extraction": return <Badge variant="secondary">Aguardando extração</Badge>;
-      case "extracted": return <Badge variant="outline">Extraído</Badge>;
-      case "validated": return <Badge className="bg-emerald-600">Validado</Badge>;
-      case "error": return <Badge variant="destructive">Erro</Badge>;
-      default: return <Badge variant="outline">{status}</Badge>;
+      case "success": return <Badge className="bg-emerald-600 text-[10px]">Importado</Badge>;
+      case "failed": return <Badge variant="destructive" className="text-[10px]">Falha</Badge>;
+      case "duplicate": return <Badge variant="outline" className="text-[10px]">Duplicado</Badge>;
+      case "skipped": return <Badge variant="secondary" className="text-[10px]">Sem PDF</Badge>;
+      case "pending": return <Badge variant="secondary" className="text-[10px]">Pendente</Badge>;
+      default: return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
     }
   };
 
@@ -559,63 +666,97 @@ function EmailHistoryTab() {
     return <div className="flex items-center justify-center p-8"><RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (!proposals || proposals.length === 0) {
+  if (!allAttempts || allAttempts.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <Inbox className="h-10 w-10 mb-3 opacity-40" />
-          <p className="text-sm font-medium">Nenhuma proposta importada por e-mail</p>
-          <p className="text-xs mt-1">Propostas importadas via sincronização do Gmail aparecerão aqui.</p>
+          <p className="text-sm font-medium">Nenhuma tentativa de importação registrada</p>
+          <p className="text-xs mt-1">As tentativas de importação de e-mails aparecerão aqui após a sincronização.</p>
         </CardContent>
       </Card>
     );
   }
 
+  const successCount = allAttempts.filter(a => a.status === "success").length;
+  const failedCount = allAttempts.filter(a => a.status === "failed" || a.status === "pending").length;
+  const dupCount = allAttempts.filter(a => a.status === "duplicate").length;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Inbox className="h-4 w-4" /> E-mails Importados
-          <Badge variant="secondary" className="ml-auto">{proposals.length}</Badge>
-        </CardTitle>
-        <CardDescription>Lista de propostas importadas via leitura de e-mail do Gmail.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10"></TableHead>
-                <TableHead>Arquivo</TableHead>
-                <TableHead>Nº Proposta</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Data Importação</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proposals.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/propostas-software/${p.id}`)}>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7"
-                      onClick={(e) => { e.stopPropagation(); handleOpenPdf(p.file_url); }}>
-                      <FileText className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="font-medium text-sm max-w-[200px] truncate" title={p.file_name}>{p.file_name}</TableCell>
-                  <TableCell className="text-sm">{p.proposal_number || "—"}</TableCell>
-                  <TableCell>{statusLabel(p.status)}</TableCell>
-                  <TableCell className="text-sm">{new Date(p.created_at).toLocaleString("pt-BR")}</TableCell>
-                  <TableCell className="text-right text-sm font-medium">
-                    {p.total_value ? `R$ ${Number(p.total_value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
-                  </TableCell>
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="text-lg font-bold">{allAttempts.length}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-emerald-600">Importados</div>
+          <div className="text-lg font-bold text-emerald-600">{successCount}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-destructive">Falhas</div>
+          <div className="text-lg font-bold text-destructive">{failedCount}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Duplicados</div>
+          <div className="text-lg font-bold">{dupCount}</div>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Inbox className="h-4 w-4" /> Histórico de Importação por E-mail
+          </CardTitle>
+          <CardDescription>Todas as tentativas de importação, com rastreabilidade completa.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead>Assunto</TableHead>
+                  <TableHead>Remetente</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Tentativas</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Detalhe</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {allAttempts.map((attempt) => (
+                  <TableRow
+                    key={attempt.id}
+                    className={attempt.software_proposal_id ? "cursor-pointer hover:bg-muted/50" : ""}
+                    onClick={() => attempt.software_proposal_id && navigate(`/propostas-software/${attempt.software_proposal_id}`)}
+                  >
+                    <TableCell className="text-sm font-medium max-w-[150px] truncate" title={attempt.attachment_filename || ""}>
+                      {attempt.attachment_filename || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[180px] truncate" title={attempt.subject || ""}>
+                      {attempt.subject || "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[130px] truncate" title={attempt.sender || ""}>
+                      {attempt.sender || "—"}
+                    </TableCell>
+                    <TableCell>{statusLabel(attempt.status)}</TableCell>
+                    <TableCell className="text-center text-sm">{attempt.retry_count + 1}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(attempt.created_at).toLocaleString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate" title={attempt.error_message || ""}>
+                      {attempt.error_message || (attempt.status === "success" ? "OK" : "—")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

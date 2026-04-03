@@ -507,27 +507,37 @@ serve(async (req) => {
       return jsonResponse({ error: "Não autorizado" }, 401);
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return jsonResponse({ error: "Não autorizado" }, 401);
-    }
-
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === serviceRoleKey;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check admin role
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
+    let actingUserId: string;
 
-    if (!roleData) {
-      return jsonResponse({ error: "Acesso restrito a administradores" }, 403);
+    if (isServiceRole) {
+      // Automated call from pg_cron — no user context needed
+      actingUserId = "system";
+    } else {
+      const userClient = createClient(supabaseUrl, supabaseAnon, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      if (userError || !user) {
+        return jsonResponse({ error: "Não autorizado" }, 401);
+      }
+
+      // Check admin role
+      const { data: roleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!roleData) {
+        return jsonResponse({ error: "Acesso restrito a administradores" }, 403);
+      }
+      actingUserId = user.id;
     }
 
     // --- Parse request ---

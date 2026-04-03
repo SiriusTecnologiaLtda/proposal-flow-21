@@ -82,6 +82,8 @@ const TEMPLATE_DB_FIELDS: DbField[] = [
 const SALES_TARGETS_DB_FIELDS: DbField[] = [
   { key: "esn_code", label: "Código ESN", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn"] },
   { key: "esn_name", label: "Nome ESN", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador"] },
+  { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
+  { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },
   { key: "month_1", label: "Janeiro", required: false, aliases: ["janeiro", "jan", "01", "1"] },
   { key: "month_2", label: "Fevereiro", required: false, aliases: ["fevereiro", "fev", "02", "2"] },
   { key: "month_3", label: "Março", required: false, aliases: ["março", "mar", "03", "3"] },

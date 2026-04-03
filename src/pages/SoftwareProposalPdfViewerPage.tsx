@@ -56,8 +56,14 @@ const SoftwareProposalPdfViewerPage = () => {
           .download(proposal.file_url);
 
         if (error) throw error;
+        if (!data || data.size === 0) throw new Error("Arquivo PDF retornado está vazio.");
 
-        objectUrl = URL.createObjectURL(data);
+        // Force correct MIME type for PDF rendering
+        const pdfBlob = data.type === "application/pdf"
+          ? data
+          : new Blob([data], { type: "application/pdf" });
+
+        objectUrl = URL.createObjectURL(pdfBlob);
 
         if (!cancelled) {
           setPdfUrl(objectUrl);

@@ -82,6 +82,8 @@ const TEMPLATE_DB_FIELDS: DbField[] = [
 const SALES_TARGETS_DB_FIELDS: DbField[] = [
   { key: "esn_code", label: "Código ESN", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn"] },
   { key: "esn_name", label: "Nome ESN", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador"] },
+  { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
+  { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },
   { key: "month_1", label: "Janeiro", required: false, aliases: ["janeiro", "jan", "01", "1"] },
   { key: "month_2", label: "Fevereiro", required: false, aliases: ["fevereiro", "fev", "02", "2"] },
   { key: "month_3", label: "Março", required: false, aliases: ["março", "mar", "03", "3"] },
@@ -458,6 +460,10 @@ export default function SmartImport() {
   const [filterLoading, setFilterLoading] = useState(false);
   const [savedPresets, setSavedPresets] = useState<SavedFilterPreset[]>([]);
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
+  const [targetCategoryId, setTargetCategoryId] = useState<string>("");
+  const [targetSegmentId, setTargetSegmentId] = useState<string>("");
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
+  const [segmentsList, setSegmentsList] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -480,6 +486,26 @@ export default function SmartImport() {
 
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
   const dbFields = entityConfig.dbFields;
+
+  // Load categories and segments for sales_targets
+  useEffect(() => {
+    if (detectedEntity === "sales_targets") {
+      supabase.from("categories").select("id, name").then(({ data }) => {
+        setCategoriesList(data || []);
+        if (data && data.length > 0 && !targetCategoryId) {
+          const scs = data.find(c => c.name.toUpperCase() === "SCS");
+          setTargetCategoryId(scs?.id || data[0].id);
+        }
+      });
+      supabase.from("software_segments").select("id, name").then(({ data }) => {
+        setSegmentsList(data || []);
+        if (data && data.length > 0 && !targetSegmentId) {
+          const servicos = data.find(s => s.name.toUpperCase() === "SERVICOS" || s.name.toUpperCase() === "SERVIÇOS");
+          setTargetSegmentId(servicos?.id || data[0].id);
+        }
+      });
+    }
+  }, [detectedEntity]);
 
   // ── Step 1: Upload & detect ───────────────────────────────────
   const handleFile = useCallback(async (f: File) => {
@@ -1139,9 +1165,23 @@ export default function SmartImport() {
     const importRun = startImportRun(entity, file!.name, false);
     const year = Number(targetYear);
 
+    // Resolve category and segment per row or use global defaults
+    const { data: allCategories } = await supabase.from("categories").select("id, name");
+    const { data: allSegments } = await supabase.from("software_segments").select("id, name");
+    const catMap = new Map<string, string>();
+    for (const c of (allCategories || [])) { catMap.set(c.name.trim().toLowerCase(), c.id); }
+    const segMap = new Map<string, string>();
+    for (const s of (allSegments || [])) { segMap.set(s.name.trim().toLowerCase(), s.id); }
+
+    const hasCategoryCol = fieldToCol["category_name"] !== undefined;
+    const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+
     const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year}`);
+
+    const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
+    const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
+    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1168,7 +1208,6 @@ export default function SmartImport() {
       }
     }
 
-    // Also add aliases
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
 
@@ -1189,19 +1228,53 @@ export default function SmartImport() {
         continue;
       }
 
+      // Resolve category_id for this row
+      let rowCategoryId: string | null = targetCategoryId || null;
+      if (hasCategoryCol) {
+        const catVal = (ev(row, "category_name") || "").trim().toLowerCase();
+        if (catVal) {
+          rowCategoryId = catMap.get(catVal) || null;
+          if (!rowCategoryId) {
+            addImportLog(entity, "error", `Linha ${i + 2}: Categoria "${ev(row, "category_name")}" não encontrada no cadastro.`);
+          }
+        }
+      }
+
+      // Resolve segment_id for this row
+      let rowSegmentId: string | null = targetSegmentId || null;
+      if (hasSegmentCol) {
+        const segVal = (ev(row, "segment_name") || "").trim().toLowerCase();
+        if (segVal) {
+          rowSegmentId = segMap.get(segVal) || null;
+          if (!rowSegmentId) {
+            addImportLog(entity, "error", `Linha ${i + 2}: Segmento "${ev(row, "segment_name")}" não encontrado no cadastro.`);
+          }
+        }
+      }
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
 
-        const { data: existing } = await supabase.from("sales_targets").select("id")
-          .eq("esn_id", esnId).eq("year", year).eq("month", m).maybeSingle();
+        // Build query matching category and segment
+        let query = supabase.from("sales_targets").select("id")
+          .eq("esn_id", esnId).eq("year", year).eq("month", m);
+        if (rowCategoryId) query = query.eq("category_id", rowCategoryId);
+        else query = query.is("category_id", null);
+        if (rowSegmentId) query = query.eq("segment_id", rowSegmentId);
+        else query = query.is("segment_id", null);
+
+        const { data: existing } = await query.maybeSingle();
 
         if (existing) {
           const { error } = await supabase.from("sales_targets").update({ amount }).eq("id", existing.id);
           if (error) { errors++; } else { updated++; }
         } else {
-          const { error } = await supabase.from("sales_targets").insert({ esn_id: esnId, year, month: m, amount });
+          const insertData: any = { esn_id: esnId, year, month: m, amount };
+          if (rowCategoryId) insertData.category_id = rowCategoryId;
+          if (rowSegmentId) insertData.segment_id = rowSegmentId;
+          const { error } = await supabase.from("sales_targets").insert(insertData);
           if (error) { errors++; } else { imported++; }
         }
       }
@@ -1623,26 +1696,71 @@ export default function SmartImport() {
                 </div>
               )}
 
-              {/* Year selector for sales_targets */}
+              {/* Year / Category / Segment selector for sales_targets */}
               {detectedEntity === "sales_targets" && (
                 <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium">Configuração de Metas</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano da meta:</Label>
-                    <Select value={targetYear} onValueChange={setTargetYear}>
-                      <SelectTrigger className="w-[100px] h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
-                          <SelectItem key={y} value={y}>{y}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano:</Label>
+                      <Select value={targetYear} onValueChange={setTargetYear}>
+                        <SelectTrigger className="w-[100px] h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Category — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("category_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Categoria:</Label>
+                        <Select value={targetCategoryId} onValueChange={setTargetCategoryId}>
+                          <SelectTrigger className="w-[160px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categoriesList.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("category_name") && (
+                      <Badge variant="outline" className="text-xs">Categoria: via coluna mapeada</Badge>
+                    )}
+
+                    {/* Segment — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("segment_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Segmento:</Label>
+                        <Select value={targetSegmentId} onValueChange={setTargetSegmentId}>
+                          <SelectTrigger className="w-[160px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {segmentsList.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("segment_name") && (
+                      <Badge variant="outline" className="text-xs">Segmento: via coluna mapeada</Badge>
+                    )}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Se a planilha possuir colunas de Categoria/Segmento mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                  </p>
                 </div>
               )}
 

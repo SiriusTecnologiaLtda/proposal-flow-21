@@ -183,9 +183,12 @@ function UnitBreakdownRow({
 interface UnifiedRevenueTabProps {
   selectedYear: number;
   selectedUnitId: string;
+  dateFrom: string;
+  dateTo: string;
+  selectedEsnIds: string[];
 }
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedEsnIds }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

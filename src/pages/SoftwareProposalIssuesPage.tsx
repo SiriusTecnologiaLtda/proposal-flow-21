@@ -71,6 +71,12 @@ export default function SoftwareProposalIssuesPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Quick-create client dialog state
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [createClientInitialName, setCreateClientInitialName] = useState("");
+  const [createClientIssueId, setCreateClientIssueId] = useState<string | null>(null);
+  const [createClientProposalId, setCreateClientProposalId] = useState<string | null>(null);
+
   const { data: allIssues = [], isLoading } = useQuery({
     queryKey: ["software-issues-queue", searchTerm],
     enabled: !!user,

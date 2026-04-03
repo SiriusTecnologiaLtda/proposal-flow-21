@@ -587,6 +587,12 @@ export default function SoftwareProposalIssuesPage() {
         onClientCreated={handleClientCreated}
         initialSearch={createClientInitialName}
       />
+
+      <PdfPreviewDialog
+        open={!!pdfPreviewId}
+        onOpenChange={(open) => { if (!open) setPdfPreviewId(null); }}
+        proposalId={pdfPreviewId}
+      />
     </div>
   );
 }

@@ -179,12 +179,14 @@ RECURRENCE MAPPING for items:
 - "90 DIAS DDL" or quarterly → "quarterly"
 - "Anual" → "annual"
 - "Sob Consumo" → "usage_based"
+- "Medição", "Por medição", measurement-based → "measurement"
 - If unclear → "other"
 
 COST CLASSIFICATION:
 - CDU (Cessão de Direito de Uso), Adesão, Setup → "capex"
 - SMS (Serviço de Manutenção), Cloud subscriptions, recurring licenses → "opex"
 - Mixed or unclear → "mixed"
+- Other / not classifiable → "other"
 
 ITEM TYPE:
 - CDU, License, Licenciamento → "license"

@@ -24,6 +24,7 @@ import {
   addImportLog,
   updateImportStats,
   finishImportRun,
+  forceFinishAllRunning,
 } from "@/hooks/useImportStore";
 import { useAuth } from "@/contexts/AuthContext";
 

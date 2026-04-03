@@ -77,6 +77,11 @@ serve(async (req) => {
       return jsonResponse({ error: "Proposta não encontrada ou sem permissão" }, 404);
     }
 
+    // For system calls, use the proposal's uploaded_by as the acting user
+    if (isServiceRole && proposal.uploaded_by) {
+      userId = proposal.uploaded_by;
+    }
+
     // --- Update status to extracting ---
     await userClient
       .from("software_proposals")

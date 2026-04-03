@@ -699,8 +699,8 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // --- Insert extracted items with catalog matching ---
-    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "other"];
-    const validClassifications = ["capex", "opex", "mixed"];
+    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "measurement", "other"];
+    const validClassifications = ["capex", "opex", "mixed", "other"];
     const validItemTypes = ["license", "service", "support", "infrastructure", "other"];
 
     if (items.length > 0) {

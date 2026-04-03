@@ -71,11 +71,13 @@ const RECURRENCE_OPTIONS = [
   { value: "monthly", label: "Mensal" },
   { value: "annual", label: "Anual" },
   { value: "usage_based", label: "Mensal" },
+  { value: "measurement", label: "Medição" },
 ];
 
 const COST_CLASSIFICATION_OPTIONS = [
   { value: "opex", label: "Opex" },
   { value: "capex", label: "Capex" },
+  { value: "other", label: "Outros" },
 ];
 
 interface CatalogItem {

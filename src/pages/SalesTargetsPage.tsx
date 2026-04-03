@@ -227,6 +227,7 @@ export default function SalesTargetsPage() {
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;
+          if (editRow.role) insertData.role = editRow.role;
           const { error } = await supabase.from("sales_targets").insert(insertData);
           if (error) throw error;
         }

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
-  BarChart3, Percent, UserCheck, Trophy, DollarSign,
+  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -380,6 +380,17 @@ export default function Dashboard() {
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
   const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+
+  // Fetch units for filter
+  const { data: units = [] } = useQuery({
+    queryKey: ["units-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unit_info").select("id, name").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch sales targets for the selected year
   const targetYear = useMemo(() => {
@@ -739,7 +750,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -784,6 +795,7 @@ export default function Dashboard() {
               onClick={() => {
                 handlePreset("this_year");
                 setSelectedEsnIds([]);
+                setSelectedUnitId("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />
@@ -898,6 +910,65 @@ export default function Dashboard() {
                 </AnimatePresence>
               </div>
             )}
+
+            {/* Divider before Unit */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Unit Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Unidade</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal",
+                      selectedUnitId !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    {selectedUnitId === "all"
+                      ? "Todas as unidades"
+                      : units.find((u) => u.id === selectedUnitId)?.name || "Unidade"}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <div className="max-h-64 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedUnitId("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedUnitId === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedUnitId === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todas as unidades</span>
+                    </button>
+                    {units.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUnitId(u.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedUnitId === u.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedUnitId === u.id && <Check className="h-3.5 w-3.5" />}
+                        <span className="font-medium">{u.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -913,7 +984,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

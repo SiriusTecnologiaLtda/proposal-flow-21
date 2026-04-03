@@ -9,6 +9,8 @@ import {
   Mail, RefreshCw, Play, Clock, Info, Settings, Inbox, MailWarning,
   FileWarning, RotateCcw, CheckCheck, ChevronDown, ExternalLink, Timer,
 } from "lucide-react";
+import { Search, SlidersHorizontal, CalendarRange, ChevronUp } from "lucide-react";
+import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,6 +26,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ───── Types ─────
 
@@ -648,20 +652,72 @@ function EmailSyncTab() {
 // ───── Email History Tab ─────
 
 function EmailHistoryTab() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const { data: allAttempts, isLoading } = useQuery({
     queryKey: ["email-import-attempts-all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("email_import_attempts" as any)
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
+        .order("created_at", { ascending: false });
       if (error) return [];
       return (data || []) as unknown as EmailImportAttempt[];
     },
   });
 
   const navigate = useNavigate();
+
+  const HISTORY_STATUS_OPTIONS = [
+    { value: "success", label: "Importados" },
+    { value: "failed", label: "Falhas" },
+    { value: "duplicate", label: "Duplicados" },
+    { value: "skipped", label: "Sem PDF" },
+    { value: "pending", label: "Pendentes" },
+  ];
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
+  const filteredAttempts = useMemo(() => {
+    if (!allAttempts) return [];
+    return allAttempts.filter((a) => {
+      if (statusFilter.length > 0 && !statusFilter.includes(a.status)) return false;
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const matches =
+          (a.attachment_filename || "").toLowerCase().includes(term) ||
+          (a.subject || "").toLowerCase().includes(term) ||
+          (a.sender || "").toLowerCase().includes(term) ||
+          (a.error_message || "").toLowerCase().includes(term);
+        if (!matches) return false;
+      }
+      if (periodRange) {
+        try {
+          const d = parseISO(a.created_at);
+          if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [allAttempts, statusFilter, searchTerm, periodRange]);
 
   const statusLabel = (status: string) => {
     switch (status) {
@@ -675,56 +731,188 @@ function EmailHistoryTab() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center p-8"><RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+    return (
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+        ))}
+      </div>
+    );
   }
 
   if (!allAttempts || allAttempts.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-          <Inbox className="h-10 w-10 mb-3 opacity-40" />
-          <p className="text-sm font-medium">Nenhuma tentativa de importação registrada</p>
-          <p className="text-xs mt-1">As tentativas de importação de e-mails aparecerão aqui após a sincronização.</p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <Inbox className="h-10 w-10 mb-3 opacity-40" />
+        <p className="text-sm font-medium">Nenhuma tentativa de importação registrada</p>
+        <p className="text-xs mt-1">As tentativas de importação de e-mails aparecerão aqui após a sincronização.</p>
+      </div>
     );
   }
 
-  const successCount = allAttempts.filter(a => a.status === "success").length;
-  const failedCount = allAttempts.filter(a => a.status === "failed" || a.status === "pending").length;
-  const dupCount = allAttempts.filter(a => a.status === "duplicate").length;
+  const successCount = filteredAttempts.filter(a => a.status === "success").length;
+  const failedCount = filteredAttempts.filter(a => a.status === "failed" || a.status === "pending").length;
+  const dupCount = filteredAttempts.filter(a => a.status === "duplicate").length;
+
+  const activeFilterCount =
+    (statusFilter.length > 0 ? 1 : 0) +
+    (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
 
   return (
     <div className="space-y-4">
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-lg font-bold">{allAttempts.length}</div>
-        </Card>
-        <Card className="p-3">
-          <div className="text-xs text-emerald-600">Importados</div>
-          <div className="text-lg font-bold text-emerald-600">{successCount}</div>
-        </Card>
-        <Card className="p-3">
-          <div className="text-xs text-destructive">Falhas</div>
-          <div className="text-lg font-bold text-destructive">{failedCount}</div>
-        </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Duplicados</div>
-          <div className="text-lg font-bold">{dupCount}</div>
-        </Card>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Total</p>
+          <p className="text-2xl font-bold">{filteredAttempts.length}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Importados</p>
+          <p className="text-2xl font-bold text-success">{successCount}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Falhas</p>
+          <p className="text-2xl font-bold text-destructive">{failedCount}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Duplicados</p>
+          <p className="text-2xl font-bold text-muted-foreground">{dupCount}</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Inbox className="h-4 w-4" /> Histórico de Importação por E-mail
-          </CardTitle>
-          <CardDescription>Todas as tentativas de importação, com rastreabilidade completa.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por arquivo, assunto, remetente ou erro..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Collapsible Filter Bar */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+          </div>
+          {activeFilterCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+          <div className="flex-1" />
+          {activeFilterCount > 0 && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setStatusFilter([]);
+                setPeriodFilter("este_ano");
+                setCustomStart("");
+                setCustomEnd("");
+              }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Limpar tudo
+            </span>
+          )}
+          {filtersOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {filtersOpen && (
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+            {/* Period */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: "este_mes", label: "Este mês" },
+                  { key: "ultimo_mes", label: "Último mês" },
+                  { key: "este_trimestre", label: "Este trimestre" },
+                  { key: "este_ano", label: "Este ano" },
+                  { key: "personalizado", label: "Personalizado" },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      periodFilter === key
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {periodFilter === "personalizado" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
+                </div>
+              )}
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Status */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {HISTORY_STATUS_OPTIONS.map(({ value, label }) => {
+                  const active = statusFilter.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        setStatusFilter((prev) =>
+                          active ? prev.filter((s) => s !== value) : [...prev, value]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
+      {filteredAttempts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <Search className="h-8 w-8 mb-3 opacity-40" />
+          <p className="text-sm font-medium">Nenhuma tentativa corresponde aos filtros</p>
+          <p className="text-xs mt-1">Ajuste os filtros ou limpe a busca para ver mais resultados.</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -738,7 +926,7 @@ function EmailHistoryTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allAttempts.map((attempt) => (
+                {filteredAttempts.map((attempt) => (
                   <TableRow
                     key={attempt.id}
                     className={attempt.software_proposal_id ? "cursor-pointer hover:bg-muted/50" : ""}
@@ -766,8 +954,8 @@ function EmailHistoryTab() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -807,32 +995,32 @@ export default function SoftwareProposalUploadPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="manual" className="w-full">
+      <Tabs defaultValue="history" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="manual" className="gap-2">
-            <Upload className="h-4 w-4" /> Upload Manual
+          <TabsTrigger value="history" className="gap-2">
+            <Inbox className="h-4 w-4" /> Histórico de E-mails
           </TabsTrigger>
           <TabsTrigger value="email" className="gap-2 relative">
-            <Mail className="h-4 w-4" /> Importação por E-mail
+            <Mail className="h-4 w-4" /> Importar por E-mail
             {(pendingCount ?? 0) > 0 && (
               <span className="ml-1 inline-flex items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
                 {pendingCount}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2">
-            <Inbox className="h-4 w-4" /> Histórico de E-mails
+          <TabsTrigger value="manual" className="gap-2">
+            <Upload className="h-4 w-4" /> Upload Manual
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="manual" className="mt-6">
-          <ManualUploadTab />
+        <TabsContent value="history" className="mt-6">
+          <EmailHistoryTab />
         </TabsContent>
         <TabsContent value="email" className="mt-6">
           <EmailSyncTab />
         </TabsContent>
-        <TabsContent value="history" className="mt-6">
-          <EmailHistoryTab />
+        <TabsContent value="manual" className="mt-6">
+          <ManualUploadTab />
         </TabsContent>
       </Tabs>
     </div>

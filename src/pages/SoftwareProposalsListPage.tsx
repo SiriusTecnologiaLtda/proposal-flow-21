@@ -549,7 +549,7 @@ export default function SoftwareProposalsListPage() {
                 {/* Data Import */}
                 <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</p>
                 {/* Ações */}
-                <div className="text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                   {extractingIds.has(p.id) || p.status === "extracting" ? (
                     <Button size="sm" variant="ghost" disabled className="gap-1.5">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -576,6 +576,36 @@ export default function SoftwareProposalsListPage() {
                       <span className="text-xs">Re-extrair</span>
                     </Button>
                   ) : null}
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir proposta</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja excluir "{p.file_name}"? Esta ação não pode ser desfeita e removerá todos os itens e pendências associados.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => deleteMutation.mutate(p.id)}
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             ))

@@ -513,11 +513,15 @@ export default function SalesTargetsPage() {
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">ESN</Label>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
                     <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Nível</Label>
+                    <Badge className="text-xs mt-1 bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[editRow.role] || editRow.role.toUpperCase()}</Badge>
                   </div>
                   <div>
                     <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>

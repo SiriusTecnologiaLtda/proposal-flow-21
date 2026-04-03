@@ -371,6 +371,15 @@ export default function SalesTargetsPage() {
                                 <span className="truncate max-w-[100px]">{unitName}</span>
                               </>
                             )}
+                            {row.category_id && (() => {
+                              const catName = categories.find((c: any) => c.id === row.category_id)?.name;
+                              return catName ? (
+                                <>
+                                  <span className="text-muted-foreground/40">•</span>
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{catName}</Badge>
+                                </>
+                              ) : null;
+                            })()}
                           </span>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {

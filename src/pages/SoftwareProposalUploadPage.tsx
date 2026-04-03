@@ -876,6 +876,19 @@ function EmailHistoryTab() {
 export default function SoftwareProposalUploadPage() {
   const navigate = useNavigate();
 
+  const { data: pendingCount } = useQuery({
+    queryKey: ["email-import-pending-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("email_import_attempts" as any)
+        .select("id", { count: "exact", head: true })
+        .in("status", ["failed", "pending"]);
+      if (error) return 0;
+      return count ?? 0;
+    },
+    refetchInterval: 60_000,
+  });
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -898,8 +911,13 @@ export default function SoftwareProposalUploadPage() {
           <TabsTrigger value="manual" className="gap-2">
             <Upload className="h-4 w-4" /> Upload Manual
           </TabsTrigger>
-          <TabsTrigger value="email" className="gap-2">
+          <TabsTrigger value="email" className="gap-2 relative">
             <Mail className="h-4 w-4" /> Importação por E-mail
+            {(pendingCount ?? 0) > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
+                {pendingCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2">
             <Inbox className="h-4 w-4" /> Histórico de E-mails

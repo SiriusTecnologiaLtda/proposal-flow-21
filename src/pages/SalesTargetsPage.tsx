@@ -496,32 +496,83 @@ export default function SalesTargetsPage() {
         </CardContent>
       </Card>
 
-      {/* ── Edit Dialog ──────────────────────────────────────────── */}
-      <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving) setEditDialogOpen(false); }}>
+      {/* ── Edit / Create Dialog ──────────────────────────────────── */}
+      <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving && !addEsnMutation.isPending) { setEditDialogOpen(false); setIsCreateMode(false); } }}>
         <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-          {/* Dialog header with gradient */}
           <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-white/15 p-2">
-                <Pencil className="h-4 w-4 text-primary-foreground" />
+                {isCreateMode ? <Plus className="h-4 w-4 text-primary-foreground" /> : <Pencil className="h-4 w-4 text-primary-foreground" />}
               </div>
               <div>
-                <DialogTitle className="text-primary-foreground text-base font-semibold">Editar Metas Mensais</DialogTitle>
+                <DialogTitle className="text-primary-foreground text-base font-semibold">
+                  {isCreateMode ? "Adicionar Meta" : "Editar Metas Mensais"}
+                </DialogTitle>
                 <DialogDescription className="text-primary-foreground/70 text-xs mt-0.5">
-                  Ajuste os valores mensais para o executivo selecionado
+                  {isCreateMode ? `Criar nova meta para o ano de ${yearFilter}` : "Ajuste os valores mensais para o executivo selecionado"}
                 </DialogDescription>
               </div>
             </div>
           </div>
 
-          {editRow && (
-            <div className="p-6 space-y-5">
-              {/* Context section */}
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
+          <div className="p-6 space-y-5">
+            {/* Context section */}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
+              </div>
+
+              {isCreateMode ? (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Membro da Equipe</Label>
+                    <Select value={newEsnId} onValueChange={setNewEsnId}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
+                      <SelectContent>
+                        {allEsns.map((e: any) => (
+                          <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Nível de Meta</Label>
+                      <Select value={newRole} onValueChange={setNewRole}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {ROLE_OPTIONS.map(r => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Categoria</Label>
+                      <Select value={newCategoryId} onValueChange={setNewCategoryId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Segmento</Label>
+                      <Select value={newSegmentId} onValueChange={setNewSegmentId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {segments.map((s: any) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
+              ) : editRow ? (
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div>
                     <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
@@ -545,54 +596,65 @@ export default function SalesTargetsPage() {
                     <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
                   </div>
                 </div>
-              </div>
+              ) : null}
+            </div>
 
-              {/* Monthly values section */}
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Valores Mensais</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-3">
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const m = i + 1;
-                    return (
-                      <div key={m} className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground font-medium">{MONTH_FULL[i]}</Label>
-                        <Input
-                          type="number"
-                          value={editMonthValues[m] || "0"}
-                          onChange={e => setEditMonthValues(prev => ({ ...prev, [m]: e.target.value }))}
-                          className="h-9 text-sm tabular-nums text-right font-medium"
-                          onFocus={e => e.target.select()}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Monthly values section */}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Valores Mensais</span>
+                <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
               </div>
-
-              {/* Total summary */}
-              <div className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-3.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Anual</span>
-                </div>
-                <span className="text-lg font-bold text-primary tabular-nums">{formatCurrency(editDialogTotal)}</span>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-3">
+                {Array.from({ length: 12 }, (_, i) => {
+                  const m = i + 1;
+                  return (
+                    <div key={m} className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground font-medium">{MONTH_FULL[i]}</Label>
+                      <Input
+                        type="number"
+                        value={editMonthValues[m] || "0"}
+                        onChange={e => setEditMonthValues(prev => ({ ...prev, [m]: e.target.value }))}
+                        className="h-9 text-sm tabular-nums text-right font-medium"
+                        onFocus={e => e.target.select()}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          )}
+
+            {/* Total summary */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Anual</span>
+              </div>
+              <span className="text-lg font-bold text-primary tabular-nums">{formatCurrency(editDialogTotal)}</span>
+            </div>
+          </div>
 
           {/* Dialog footer */}
           <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
-            <Button variant="ghost" onClick={() => setEditDialogOpen(false)} disabled={saving} className="h-9">
+            <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setIsCreateMode(false); }} disabled={saving || addEsnMutation.isPending} className="h-9">
               Cancelar
             </Button>
-            <Button onClick={saveEditDialog} disabled={saving} className="h-9">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
-              Salvar Metas
-            </Button>
+            {isCreateMode ? (
+              <Button
+                onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues })}
+                disabled={!newEsnId || !newCategoryId || !newSegmentId || addEsnMutation.isPending}
+                className="h-9"
+              >
+                {addEsnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
+                Adicionar Meta
+              </Button>
+            ) : (
+              <Button onClick={saveEditDialog} disabled={saving} className="h-9">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                Salvar Metas
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

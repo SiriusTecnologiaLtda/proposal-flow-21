@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SyncErrorDetail {
   email_id: string;
@@ -24,6 +25,7 @@ interface SyncErrorDetail {
   sender: string;
   filename: string;
   error_type: string;
+  error_class?: "temporary" | "structural" | "resolved" | string;
   error_message: string;
   auto_resolved: boolean;
   requires_action: string | null;
@@ -69,6 +71,7 @@ export default function EmailInboxConfigPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -110,7 +113,11 @@ export default function EmailInboxConfigPage() {
       if (!config?.id) throw new Error("Config não encontrada");
       const { error } = await supabase
         .from("email_inbox_config" as any)
-        .update({ ...updates, updated_at: new Date().toISOString() } as any)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+          ...(user?.id ? { updated_by: user.id } : {}),
+        } as any)
         .eq("id", config.id);
       if (error) throw error;
     },
@@ -577,11 +584,17 @@ export default function EmailInboxConfigPage() {
                                   {err.error_type === "duplicate" ? "Duplicado"
                                     : err.error_type === "download_failed" ? "Download"
                                     : err.error_type === "upload_failed" ? "Upload"
+                                    : err.error_type === "config_failed" ? "Configuração"
                                     : err.error_type === "insert_failed" ? "Registro"
                                     : "Outro"}
                                 </Badge>
                               </div>
                               <p className="text-muted-foreground leading-relaxed">{err.error_message}</p>
+                              {!err.auto_resolved && (
+                                <p className="text-[11px] font-medium text-muted-foreground">
+                                  {err.error_class === "structural" ? "Falha estrutural" : "Falha temporária"}
+                                </p>
+                              )}
                               {err.subject && (
                                 <p className="text-muted-foreground"><strong>Assunto:</strong> {err.subject}</p>
                               )}

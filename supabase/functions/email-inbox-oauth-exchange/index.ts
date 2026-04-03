@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
       .update({
         gmail_refresh_token: refreshToken,
         email_address: email || undefined,
+        updated_by: user.id,
         updated_at: new Date().toISOString(),
       } as any)
       .eq("id", config.id);

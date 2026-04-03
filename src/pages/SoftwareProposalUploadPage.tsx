@@ -33,6 +33,7 @@ interface SyncErrorDetail {
   sender: string;
   filename: string;
   error_type: string;
+  error_class?: "temporary" | "structural" | "resolved" | string;
   error_message: string;
   auto_resolved: boolean;
   requires_action: string | null;
@@ -593,7 +594,15 @@ function EmailSyncTab() {
                       <TableCell>
                         <div className="space-y-1">
                           <Badge variant="destructive" className="text-[10px]">
-                            {attempt.error_type === "download_failed" ? "Download" : attempt.error_type === "upload_failed" ? "Upload" : attempt.error_type === "insert_failed" ? "Registro" : "Outro"}
+                            {attempt.error_type === "download_failed"
+                              ? "Download"
+                              : attempt.error_type === "upload_failed"
+                                ? "Upload"
+                                : attempt.error_type === "config_failed"
+                                  ? "Configuração"
+                                  : attempt.error_type === "insert_failed"
+                                    ? "Registro"
+                                    : "Outro"}
                           </Badge>
                           <p className="text-[11px] text-muted-foreground line-clamp-2">{attempt.error_message}</p>
                           {attempt.requires_action && (

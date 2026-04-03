@@ -73,22 +73,16 @@ function getHeader(headers: any[], name: string): string {
   return h?.value || "";
 }
 
-// --- Retry helper ---
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 1000): Promise<T> {
-  let lastErr: Error | null = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err instanceof Error ? err : new Error(String(err));
-      if (attempt < maxRetries) {
-        console.log(`Retry ${attempt + 1}/${maxRetries} after error: ${lastErr.message}`);
-        await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
-      }
-    }
-  }
-  throw lastErr!;
-}
+type SyncErrorType =
+  | "download_failed"
+  | "upload_failed"
+  | "insert_failed"
+  | "configuration_failed"
+  | "duplicate"
+  | "no_attachment"
+  | "unknown";
+
+type SyncErrorClass = "temporary" | "structural" | "resolved";
 
 // --- Error classification ---
 interface SyncErrorDetail {
@@ -96,28 +90,193 @@ interface SyncErrorDetail {
   subject: string;
   sender: string;
   filename: string;
-  error_type: "download_failed" | "upload_failed" | "insert_failed" | "duplicate" | "no_attachment" | "unknown";
+  error_type: SyncErrorType;
+  error_class: SyncErrorClass;
   error_message: string;
   auto_resolved: boolean;
   requires_action: string | null;
   timestamp: string;
 }
 
-function classifyError(errMsg: string): { type: SyncErrorDetail["error_type"]; requires_action: string | null } {
+class SyncProcessError extends Error {
+  type: SyncErrorType;
+  errorClass: SyncErrorClass;
+  requiresAction: string | null;
+  retryable: boolean;
+
+  constructor(
+    message: string,
+    options: {
+      type: SyncErrorType;
+      errorClass: SyncErrorClass;
+      requiresAction: string | null;
+      retryable: boolean;
+    }
+  ) {
+    super(message);
+    this.name = "SyncProcessError";
+    this.type = options.type;
+    this.errorClass = options.errorClass;
+    this.requiresAction = options.requiresAction;
+    this.retryable = options.retryable;
+  }
+}
+
+function isValidUuid(value: string | null | undefined): value is string {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function classifyError(errMsg: string): {
+  type: SyncErrorType;
+  errorClass: SyncErrorClass;
+  requires_action: string | null;
+  retryable: boolean;
+} {
   const lower = errMsg.toLowerCase();
+
   if (lower.includes("duplicate") || lower.includes("já importado") || lower.includes("hash")) {
-    return { type: "duplicate", requires_action: null };
+    return {
+      type: "duplicate",
+      errorClass: "resolved",
+      requires_action: null,
+      retryable: false,
+    };
   }
-  if (lower.includes("gmail api") || lower.includes("attachment")) {
-    return { type: "download_failed", requires_action: "Verifique se o e-mail ainda existe na caixa de entrada e tente sincronizar novamente." };
+
+  if (
+    lower.includes("owner_missing") ||
+    lower.includes("responsável válido foi vinculado") ||
+    lower.includes("invalid input syntax for type uuid") ||
+    lower.includes("uploaded_by")
+  ) {
+    return {
+      type: "configuration_failed",
+      errorClass: "structural",
+      requires_action:
+        "Erro estrutural. Salve ou reautorize a caixa de e-mail com um usuário autenticado para vincular o responsável da automação antes de executar novamente.",
+      retryable: false,
+    };
   }
-  if (lower.includes("storage") || lower.includes("upload") || lower.includes("salvar")) {
-    return { type: "upload_failed", requires_action: "Erro temporário de armazenamento. Tente sincronizar novamente." };
+
+  if (
+    lower.includes("not null") ||
+    lower.includes("foreign key") ||
+    lower.includes("constraint") ||
+    lower.includes("violates") ||
+    lower.includes("row-level security")
+  ) {
+    return {
+      type: "insert_failed",
+      errorClass: "structural",
+      requires_action:
+        "Erro estrutural ao gravar a proposta. Revise a configuração do fluxo automático antes de tentar novamente.",
+      retryable: false,
+    };
   }
+
+  if (
+    lower.includes("gmail api") ||
+    lower.includes("attachment") ||
+    lower.includes("timeout") ||
+    lower.includes("temporar") ||
+    lower.includes("network") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("econn")
+  ) {
+    return {
+      type: "download_failed",
+      errorClass: "temporary",
+      requires_action:
+        "Erro temporário ao baixar o anexo do Gmail. Tente sincronizar novamente.",
+      retryable: true,
+    };
+  }
+
+  if (
+    lower.includes("storage") ||
+    lower.includes("upload") ||
+    lower.includes("salvar pdf") ||
+    lower.includes("bucket")
+  ) {
+    return {
+      type: "upload_failed",
+      errorClass: "temporary",
+      requires_action:
+        "Erro temporário ao salvar o PDF no armazenamento. Tente sincronizar novamente.",
+      retryable: true,
+    };
+  }
+
   if (lower.includes("insert") || lower.includes("registro")) {
-    return { type: "insert_failed", requires_action: "Erro ao criar registro. Tente sincronizar novamente." };
+    return {
+      type: "insert_failed",
+      errorClass: "temporary",
+      requires_action:
+        "Erro temporário ao criar o registro da proposta. Tente sincronizar novamente.",
+      retryable: true,
+    };
   }
-  return { type: "unknown", requires_action: "Erro inesperado. Se persistir, verifique os logs ou entre em contato com o suporte." };
+
+  return {
+    type: "unknown",
+    errorClass: "temporary",
+    requires_action:
+      "Erro temporário não classificado. Se persistir, revise os logs detalhados da sincronização.",
+    retryable: true,
+  };
+}
+
+function normalizeSyncError(error: unknown): SyncProcessError {
+  if (error instanceof SyncProcessError) return error;
+
+  const message = error instanceof Error ? error.message : String(error);
+  const classified = classifyError(message);
+
+  return new SyncProcessError(message, {
+    type: classified.type,
+    errorClass: classified.errorClass,
+    requiresAction: classified.requires_action,
+    retryable: classified.retryable,
+  });
+}
+
+function buildSystemSyncErrorDetail(error: SyncProcessError): SyncErrorDetail {
+  return {
+    email_id: "(system)",
+    subject: "Importação automática por e-mail",
+    sender: "",
+    filename: "(configuração da caixa de e-mail)",
+    error_type: error.type,
+    error_class: error.errorClass,
+    error_message: error.message,
+    auto_resolved: false,
+    requires_action: error.requiresAction,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// --- Retry helper ---
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 1000): Promise<T> {
+  let lastErr: SyncProcessError | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = normalizeSyncError(err);
+
+      if (!lastErr.retryable || attempt >= maxRetries) {
+        break;
+      }
+
+      console.log(
+        `Retry ${attempt + 1}/${maxRetries} after temporary error [${lastErr.type}]: ${lastErr.message}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+    }
+  }
+
+  throw lastErr!;
 }
 
 // --- Gmail helpers ---
@@ -247,6 +406,71 @@ async function upsertAttempt(
   }
 }
 
+async function persistInboxOwner(adminClient: any, configId: string, ownerId: string) {
+  const { error } = await adminClient
+    .from("email_inbox_config")
+    .update({ updated_by: ownerId, updated_at: new Date().toISOString() } as any)
+    .eq("id", configId);
+
+  if (error) {
+    console.error(`[email-sync] Failed to persist inbox owner ${ownerId}: ${error.message}`);
+  }
+}
+
+async function resolveEffectiveUserId(adminClient: any, config: any, actingUserId: string): Promise<string> {
+  if (isValidUuid(actingUserId)) {
+    if (config?.id && config.updated_by !== actingUserId) {
+      await persistInboxOwner(adminClient, config.id, actingUserId);
+    }
+    return actingUserId;
+  }
+
+  const candidateIds: string[] = [];
+
+  if (isValidUuid(config?.updated_by)) {
+    candidateIds.push(config.updated_by);
+  }
+
+  const { data: latestImportedProposal } = await adminClient
+    .from("software_proposals")
+    .select("uploaded_by")
+    .eq("origin", "email_inbox")
+    .not("uploaded_by", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (isValidUuid(latestImportedProposal?.uploaded_by)) {
+    candidateIds.push(latestImportedProposal.uploaded_by);
+  }
+
+  if (config?.email_address?.trim()) {
+    const { data: matchingProfile } = await adminClient
+      .from("profiles")
+      .select("user_id")
+      .ilike("email", config.email_address.trim())
+      .maybeSingle();
+
+    if (isValidUuid(matchingProfile?.user_id)) {
+      candidateIds.push(matchingProfile.user_id);
+    }
+  }
+
+  const resolvedOwnerId = candidateIds.find((candidate, index) => isValidUuid(candidate) && candidateIds.indexOf(candidate) === index);
+
+  if (!resolvedOwnerId) {
+    throw normalizeSyncError(
+      "owner_missing: Nenhum usuário responsável válido foi vinculado à caixa de e-mail para registrar as propostas importadas automaticamente."
+    );
+  }
+
+  if (config?.id && config.updated_by !== resolvedOwnerId) {
+    await persistInboxOwner(adminClient, config.id, resolvedOwnerId);
+  }
+
+  return resolvedOwnerId;
+}
+
 // --- Process a single message ---
 async function processMessage(
   accessToken: string,
@@ -312,6 +536,7 @@ async function processMessage(
             sender: msgSender,
             filename: part.filename,
             error_type: "duplicate",
+            error_class: "resolved",
             error_message: `PDF "${part.filename}" já importado anteriormente (hash duplicado).`,
             auto_resolved: true,
             requires_action: null,
@@ -346,7 +571,7 @@ async function processMessage(
             });
 
           if (uploadErr && !uploadErr.message.includes("already exists")) {
-            throw new Error(`Erro ao salvar PDF: ${uploadErr.message}`);
+            throw normalizeSyncError(`Erro ao salvar PDF: ${uploadErr.message}`);
           }
         });
 
@@ -379,7 +604,7 @@ async function processMessage(
               console.log(`Duplicate hash detected for ${part.filename}, skipping.`);
               return;
             }
-            throw new Error(`Erro ao criar registro: ${insertErr.message}`);
+            throw normalizeSyncError(`Erro ao criar registro: ${insertErr.message}`);
           }
           if (inserted) insertedId = inserted.id;
         });
@@ -424,17 +649,17 @@ async function processMessage(
         }
       } catch (partErr) {
         allPartsSucceeded = false;
-        const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
-        const classified = classifyError(errMsg);
+        const normalizedErr = normalizeSyncError(partErr);
         syncErrors.push({
           email_id: msgId,
           subject: msgSubject,
           sender: msgSender,
           filename: part.filename,
-          error_type: classified.type,
-          error_message: errMsg,
+          error_type: normalizedErr.type,
+          error_class: normalizedErr.errorClass,
+          error_message: normalizedErr.message,
           auto_resolved: false,
-          requires_action: classified.requires_action,
+          requires_action: normalizedErr.requiresAction,
           timestamp: new Date().toISOString(),
         });
 
@@ -446,9 +671,9 @@ async function processMessage(
           received_at: dateStr,
           message_id_header: messageIdHeader,
           status: "failed",
-          error_type: classified.type,
-          error_message: errMsg,
-          requires_action: classified.requires_action,
+          error_type: normalizedErr.type,
+          error_message: normalizedErr.message,
+          requires_action: normalizedErr.requiresAction,
           attachment_filename: part.filename,
           attachment_count: pdfParts.length,
         });
@@ -460,17 +685,17 @@ async function processMessage(
       await markAsRead(accessToken, msgId);
     }
   } catch (msgErr) {
-    const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
-    const classified = classifyError(errMsg);
+    const normalizedErr = normalizeSyncError(msgErr);
     syncErrors.push({
       email_id: msgId,
       subject: msgSubject,
       sender: msgSender,
       filename: "(mensagem inteira)",
-      error_type: classified.type,
-      error_message: errMsg,
+      error_type: normalizedErr.type,
+      error_class: normalizedErr.errorClass,
+      error_message: normalizedErr.message,
       auto_resolved: false,
-      requires_action: classified.requires_action,
+      requires_action: normalizedErr.requiresAction,
       timestamp: new Date().toISOString(),
     });
 
@@ -479,9 +704,9 @@ async function processMessage(
       subject: msgSubject,
       sender: msgSender,
       status: "failed",
-      error_type: classified.type,
-      error_message: errMsg,
-      requires_action: classified.requires_action,
+      error_type: normalizedErr.type,
+      error_message: normalizedErr.message,
+      requires_action: normalizedErr.requiresAction,
       attachment_filename: "(mensagem inteira)",
     });
   }
@@ -589,6 +814,42 @@ serve(async (req) => {
       }, 400);
     }
 
+    let effectiveUserId = actingUserId;
+
+    if (action !== "test") {
+      try {
+        effectiveUserId = await resolveEffectiveUserId(adminClient, config, actingUserId);
+      } catch (ownerErr) {
+        const normalizedErr = normalizeSyncError(ownerErr);
+        const configError = buildSystemSyncErrorDetail(normalizedErr);
+
+        if (action === "sync") {
+          await adminClient
+            .from("email_inbox_config")
+            .update({
+              last_sync_at: new Date().toISOString(),
+              last_sync_status: "error",
+              last_sync_message: normalizedErr.message,
+              last_sync_emails_found: 0,
+              last_sync_pdfs_imported: 0,
+              last_sync_errors: [configError],
+              updated_at: new Date().toISOString(),
+            } as any)
+            .eq("id", config.id);
+        }
+
+        return jsonResponse({
+          success: false,
+          emails_found: 0,
+          pdfs_imported: 0,
+          retried: 0,
+          errors: [configError],
+          error: normalizedErr.message,
+          message: normalizedErr.requiresAction || normalizedErr.message,
+        });
+      }
+    }
+
     if (!config.gmail_refresh_token) {
       return jsonResponse({
         error: "Conta Gmail não autorizada. Clique em 'Autorizar Conta Gmail' na tela de configuração."
@@ -653,7 +914,7 @@ serve(async (req) => {
 
       for (const gmailMsgId of uniqueMessageIds) {
         try {
-          const imported = await processMessage(accessToken, adminClient, actingUserId, gmailMsgId, syncErrors);
+          const imported = await processMessage(accessToken, adminClient, effectiveUserId, gmailMsgId, syncErrors);
           pdfsImported += imported;
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
@@ -730,17 +991,24 @@ serve(async (req) => {
 
       // Process each message
       for (const msgId of messageIds) {
-        const imported = await processMessage(accessToken, adminClient, actingUserId, msgId, syncErrors);
+        const imported = await processMessage(accessToken, adminClient, effectiveUserId, msgId, syncErrors);
         pdfsImported += imported;
       }
 
       // Filter out auto-resolved (duplicates) from error count
       const realErrors = syncErrors.filter(e => !e.auto_resolved);
       const duplicates = syncErrors.filter(e => e.auto_resolved);
+      const structuralErrors = realErrors.filter((e) => e.error_class === "structural").length;
+      const temporaryErrors = realErrors.filter((e) => e.error_class === "temporary").length;
 
       let statusMsg: string;
       if (realErrors.length > 0) {
-        statusMsg = `Sincronização parcial: ${pdfsImported} PDF(s) importado(s), ${realErrors.length} erro(s)${duplicates.length > 0 ? `, ${duplicates.length} duplicado(s) ignorado(s)` : ""}.`;
+        const errorBreakdown = [
+          structuralErrors > 0 ? `${structuralErrors} estrutural(is)` : null,
+          temporaryErrors > 0 ? `${temporaryErrors} temporário(s)` : null,
+        ].filter(Boolean).join(", ");
+
+        statusMsg = `Sincronização parcial: ${pdfsImported} PDF(s) importado(s), ${realErrors.length} erro(s)${errorBreakdown ? ` (${errorBreakdown})` : ""}${duplicates.length > 0 ? `, ${duplicates.length} duplicado(s) ignorado(s)` : ""}.`;
       } else if (duplicates.length > 0) {
         statusMsg = `Sincronização concluída: ${pdfsImported} PDF(s) importado(s), ${duplicates.length} duplicado(s) ignorado(s).`;
       } else {

@@ -47,6 +47,7 @@ import SoftwareProposalDetailPage from "@/pages/SoftwareProposalDetailPage";
 import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
 import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
+import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient({

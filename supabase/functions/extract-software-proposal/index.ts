@@ -143,7 +143,7 @@ DOCUMENT STRUCTURE GUIDANCE:
   - "Adesão ou soluções de pagamento não recorrentes" (one-time items like CDU, setup fees)
   - "Soluções de pagamento recorrentes" (recurring items like SMS, cloud subscriptions, licenses)
 - There may be a DISCOUNT section ("Desconto com vigência") with explicit discount amounts and duration.
-- The last pages are often SIGNATURE PROTOCOL pages — IGNORE these entirely for data extraction.
+- The last pages are often SIGNATURE PROTOCOL pages — DO NOT use them for commercial data extraction, BUT extract the list of signatories/participants from these pages (see SIGNATORIES EXTRACTION below).
 - Legal/contractual boilerplate sections should be ignored for line item extraction.
 - The HEADER typically contains a "Unidade TOTVS" field, usually below the emission/issue date. Extract this as totvs_unit_name.
 
@@ -202,6 +202,13 @@ ITEM TYPE:
 - Setup, Implantação, services → "service"
 - If unclear → "other"
 
+SIGNATORIES EXTRACTION:
+- The last pages of the PDF typically contain a signature protocol section ("Assinaturas", "Protocolo de assinatura", or similar).
+- Each signatory entry usually contains: Name, CPF/CNPJ, E-mail, Status, Date.
+- Extract ALL signatories/participants listed in the signature protocol.
+- For each person, extract: name, email, cpf_cnpj (if available), and role/status (e.g., "Assinado eletronicamente como testemunha", "Signatário").
+- This data will be used to auto-register contacts for the client.
+
 Return ONLY valid JSON with this exact structure:
 {
   "extraction_confidence": <number 0-1, overall confidence>,
@@ -253,6 +260,14 @@ Return ONLY valid JSON with this exact structure:
       "issue_type": <"low_confidence"|"missing_required"|"ambiguous_value"|"format_error">,
       "extracted_value": <string|null>
     }
+  ],
+  "signatories": [
+    {
+      "name": <string>,
+      "email": <string|null>,
+      "cpf_cnpj": <string|null>,
+      "role": <string|null, e.g. "Signatário", "Testemunha">
+    }
   ]
 }`;
 
@@ -275,7 +290,7 @@ Return ONLY valid JSON with this exact structure:
               },
               {
                 type: "text",
-                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions) and ignore signature protocol pages. Also extract the TOTVS unit name from the header.`,
+                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions). Also extract the TOTVS unit name from the header. IMPORTANT: Also extract ALL signatories/participants from the signature protocol pages at the end of the PDF — include their name, email, CPF/CNPJ, and role.`,
               },
             ],
           },
@@ -803,7 +818,50 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // --- Update proposal record with extracted data + master data links ---
+    // --- Auto-create client contacts from PDF signatories ---
+    const extractedSignatories = extracted.signatories || [];
+    if (clientAutoCreated && matchedClientId && extractedSignatories.length > 0) {
+      // Filter out @totvs.com.br emails (internal vendor contacts)
+      const clientSignatories = extractedSignatories.filter((s: any) => {
+        const email = (s.email || "").toLowerCase().trim();
+        return email && !email.endsWith("@totvs.com.br");
+      });
+
+      if (clientSignatories.length > 0) {
+        // Check existing contacts for this client to avoid duplicates
+        const { data: existingContacts } = await adminClient
+          .from("client_contacts")
+          .select("email")
+          .eq("client_id", matchedClientId);
+
+        const existingEmails = new Set(
+          (existingContacts || []).map((c: any) => c.email.toLowerCase().trim())
+        );
+
+        const contactsToInsert = clientSignatories
+          .filter((s: any) => !existingEmails.has(s.email.toLowerCase().trim()))
+          .map((s: any) => ({
+            client_id: matchedClientId,
+            name: s.name || "Contato extraído",
+            email: s.email.trim(),
+            role: s.role || "Signatário",
+            notes: `Contato extraído automaticamente do PDF da proposta ${extracted.proposal_number || software_proposal_id}`,
+          }));
+
+        if (contactsToInsert.length > 0) {
+          const { error: contactsErr } = await adminClient
+            .from("client_contacts")
+            .insert(contactsToInsert);
+
+          if (contactsErr) {
+            console.error("Error inserting client contacts from signatories:", contactsErr);
+          } else {
+            console.log(`Auto-created ${contactsToInsert.length} client contacts from PDF signatories`);
+          }
+        }
+      }
+    }
+
     await userClient
       .from("software_proposals")
       .update({
@@ -1262,6 +1320,11 @@ Return ONLY valid JSON with this exact structure:
       esn_matched: !!matchedEsnId,
       arquiteto_matched: !!matchedArquitetoId,
       segment_matched: !!matchedSegmentId,
+      signatories_found: extractedSignatories.length,
+      contacts_created: clientAutoCreated ? extractedSignatories.filter((s: any) => {
+        const email = (s.email || "").toLowerCase().trim();
+        return email && !email.endsWith("@totvs.com.br");
+      }).length : 0,
     });
   } catch (e) {
     console.error("extract-software-proposal error:", e);

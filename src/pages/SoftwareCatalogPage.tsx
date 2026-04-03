@@ -68,11 +68,6 @@ const CATEGORY_OPTIONS = [
 
 import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
 
-const COST_CLASSIFICATION_OPTIONS = [
-  { value: "opex", label: "Opex" },
-  { value: "capex", label: "Capex" },
-  { value: "other", label: "Outros" },
-];
 
 interface CatalogItem {
   id: string;

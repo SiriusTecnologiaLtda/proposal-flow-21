@@ -69,11 +69,6 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
 
 import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
 
-const COST_OPTIONS = [
-  { value: "opex", label: "Opex" },
-  { value: "capex", label: "Capex" },
-  { value: "other", label: "Outros" },
-];
 
 interface ProposalItem {
   id: string;

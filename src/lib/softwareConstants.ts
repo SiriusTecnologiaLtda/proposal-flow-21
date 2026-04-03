@@ -14,7 +14,7 @@ export const RECURRENCE_OPTIONS = [
 export const COST_CLASSIFICATION_OPTIONS = [
   { value: "opex", label: "Opex" },
   { value: "capex", label: "Capex" },
-  { value: "outros", label: "Outros" },
+  { value: "other", label: "Outros" },
 ] as const;
 
 export const getRecurrenceLabel = (value: string): string =>

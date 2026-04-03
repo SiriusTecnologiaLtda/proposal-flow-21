@@ -84,6 +84,7 @@ export default function SalesTargetsPage() {
   const unitOptions = useMemo(() => units.map((u: any) => ({ value: u.id, label: u.name })), [units]);
   const gsnOptions = useMemo(() => gsnList.map((g: any) => ({ value: g.id, label: `${g.name} (${g.code})` })), [gsnList]);
   const categoryOptions = useMemo(() => categories.map((c: any) => ({ value: c.id, label: c.name })), [categories]);
+  const segmentOptions = useMemo(() => segments.map((s: any) => ({ value: s.id, label: s.name })), [segments]);
 
   // Group by ESN for pivot view
   const grouped: GroupedRow[] = useMemo(() => {

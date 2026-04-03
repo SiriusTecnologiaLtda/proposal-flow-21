@@ -180,6 +180,7 @@ export default function SalesTargetsPage() {
       setNewDialog(false);
       setNewEsnId("");
       setNewCategoryId("");
+      setNewSegmentId("");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),

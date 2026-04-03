@@ -2041,6 +2041,11 @@ export default function SmartImport() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="__skip__">— Ignorar (não vincular) —</SelectItem>
+                                {(item.listType === "sales_team" || item.listType === "esn" || item.listType === "gsn") && (
+                                  <SelectItem value="__create__" className="text-primary font-medium">
+                                    ＋ Incluir "{item.value}" no cadastro
+                                  </SelectItem>
+                                )}
                                 {list.map(item => (
                                   <SelectItem key={item.id} value={item.id}>
                                     {item.code ? `${item.code} — ` : ""}{item.name}

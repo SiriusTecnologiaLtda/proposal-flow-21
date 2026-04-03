@@ -456,45 +456,6 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
   return (
     <div className="space-y-6">
 
-      {/* Grand Summary Row */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
-          <Card className="border-l-4 border-l-primary">
-            <CardContent className="py-4 px-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Meta Total</p>
-              <p className="text-xl font-bold text-primary mt-0.5 tabular-nums">{formatCurrencyFull(grandTotalMeta)}</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <Card className="border-l-4 border-l-success">
-            <CardContent className="py-4 px-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Realizado</p>
-              <p className="text-xl font-bold text-success mt-0.5 tabular-nums">{formatCurrencyFull(grandTotalReal)}</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card className={cn("border-l-4", grandPct >= 100 ? "border-l-success" : "border-l-warning")}>
-            <CardContent className="py-4 px-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Atingimento</p>
-              <p className={cn("text-xl font-bold mt-0.5 tabular-nums", grandPct >= 100 ? "text-success" : "text-warning")}>
-                {formatPercent(grandPct)}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <Card className={cn("border-l-4", grandGap <= 0 ? "border-l-success" : "border-l-destructive")}>
-            <CardContent className="py-4 px-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">GAP</p>
-              <p className={cn("text-xl font-bold mt-0.5 tabular-nums", grandGap <= 0 ? "text-success" : "text-destructive")}>
-                {grandGap > 0 ? "-" : "+"}{formatCurrencyFull(Math.abs(grandGap))}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
 
       {/* Revenue Line KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">

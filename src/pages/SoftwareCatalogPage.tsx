@@ -66,13 +66,7 @@ const CATEGORY_OPTIONS = [
   { value: "other", label: "Outro" },
 ];
 
-const RECURRENCE_OPTIONS = [
-  { value: "one_time", label: "Único" },
-  { value: "monthly", label: "Mensal" },
-  { value: "annual", label: "Anual" },
-  { value: "usage_based", label: "Mensal" },
-  { value: "measurement", label: "Medição" },
-];
+import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
 
 const COST_CLASSIFICATION_OPTIONS = [
   { value: "opex", label: "Opex" },

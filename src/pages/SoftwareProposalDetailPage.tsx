@@ -67,13 +67,7 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   format_error: "Erro de Formato",
 };
 
-const RECURRENCE_OPTIONS = [
-  { value: "one_time", label: "Único" },
-  { value: "monthly", label: "Mensal" },
-  { value: "annual", label: "Anual" },
-  { value: "usage_based", label: "Sob demanda" },
-  { value: "measurement", label: "Medição" },
-];
+import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
 
 const COST_OPTIONS = [
   { value: "opex", label: "Opex" },

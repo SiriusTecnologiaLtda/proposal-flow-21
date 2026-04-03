@@ -62,37 +62,22 @@ export default function SoftwareProposalIssuesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState("open");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>(["open"]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { data: issues = [], isLoading } = useQuery({
-    queryKey: ["software-issues-queue", statusFilter, typeFilter, searchTerm, dateFrom?.toISOString(), dateTo?.toISOString()],
+  const { data: allIssues = [], isLoading } = useQuery({
+    queryKey: ["software-issues-queue", searchTerm],
     enabled: !!user,
     queryFn: async () => {
-      let issueQuery = supabase
+      const { data: issueData, error: issueError } = await supabase
         .from("extraction_issues")
         .select("id, field_name, issue_type, extracted_value, status, created_at, software_proposal_id")
         .order("created_at", { ascending: false });
-
-      if (statusFilter !== "all") {
-        issueQuery = issueQuery.eq("status", statusFilter);
-      }
-      if (typeFilter !== "all") {
-        issueQuery = issueQuery.eq("issue_type", typeFilter);
-      }
-      if (dateFrom) {
-        issueQuery = issueQuery.gte("created_at", dateFrom.toISOString());
-      }
-      if (dateTo) {
-        const endOfDay = new Date(dateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        issueQuery = issueQuery.lte("created_at", endOfDay.toISOString());
-      }
-
-      const { data: issueData, error: issueError } = await issueQuery;
       if (issueError) throw issueError;
       if (!issueData || issueData.length === 0) return [];
 
@@ -133,6 +118,35 @@ export default function SoftwareProposalIssuesPage() {
       return results;
     },
   });
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
+  const issues = useMemo(() => {
+    return allIssues.filter((r) => {
+      if (statusFilter.length > 0 && !statusFilter.includes(r.status)) return false;
+      if (typeFilter.length > 0 && !typeFilter.includes(r.issue_type)) return false;
+      if (periodRange) {
+        try {
+          const d = parseISO(r.created_at);
+          if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [allIssues, statusFilter, typeFilter, periodRange]);
 
   const { data: counters } = useQuery({
     queryKey: ["software-issues-counters"],
@@ -201,8 +215,6 @@ export default function SoftwareProposalIssuesPage() {
 
   const formatDateStr = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("pt-BR");
-
-  const hasDateFilter = dateFrom || dateTo;
 
   return (
     <div className="space-y-6">

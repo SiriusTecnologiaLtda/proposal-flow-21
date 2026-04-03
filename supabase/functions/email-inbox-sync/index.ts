@@ -632,7 +632,7 @@ serve(async (req) => {
 
       for (const gmailMsgId of uniqueMessageIds) {
         try {
-          const imported = await processMessage(accessToken, adminClient, user.id, gmailMsgId, syncErrors);
+          const imported = await processMessage(accessToken, adminClient, actingUserId, gmailMsgId, syncErrors);
           pdfsImported += imported;
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);

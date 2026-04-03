@@ -333,8 +333,10 @@ async function processMessage(
           continue;
         }
 
-        // Upload to storage
-        const storagePath = `email-imports/${fileHash}/${part.filename}`;
+        // Upload to storage — sanitize filename to avoid invalid storage keys
+        const safeFilename = sanitizeFilename(part.filename);
+        const storagePath = `email-imports/${fileHash}/${safeFilename}`;
+        console.log(`[email-sync] Original filename: "${part.filename}" → sanitized: "${safeFilename}" → path: "${storagePath}"`);
         await withRetry(async () => {
           const { error: uploadErr } = await adminClient.storage
             .from("software-proposal-pdfs")

@@ -469,11 +469,91 @@ export default function SoftwareProposalDetailPage() {
         await supabase.from("extraction_corrections_log").insert(corrections);
       }
 
+      // Auto-resolve open issues related to this item
+      await revalidateItemIssues(editingItemId, updates);
+
       queryClient.invalidateQueries({ queryKey: ["software-proposal-items", id] });
+      queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
+      queryClient.invalidateQueries({ queryKey: ["software-issues-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["software-issues-counters"] });
       setEditingItemId(null);
+
+      // Clear resolve params if we were resolving
+      if (resolveIssueId) {
+        setSearchParams({}, { replace: true });
+        setHighlightField(null);
+      }
+
       toast.success("Item atualizado");
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar item");
+    }
+  };
+
+  // Revalidate and auto-resolve item-level issues after edit
+  const revalidateItemIssues = async (itemId: string, updates: Record<string, any>) => {
+    if (!id || !user) return;
+
+    const validRecurrences = ["one_time", "monthly", "annual", "usage_based", "measurement"];
+    const validClassifications = ["opex", "capex", "other"];
+
+    // Fetch open issues for this item
+    const { data: openIssues } = await supabase
+      .from("extraction_issues")
+      .select("*")
+      .eq("software_proposal_id", id)
+      .eq("status", "open");
+
+    if (!openIssues || openIssues.length === 0) return;
+
+    const issueIdsToResolve: string[] = [];
+
+    for (const issue of openIssues) {
+      // Match item-level issues by item_id or by field_name containing item description
+      const isForThisItem = issue.item_id === itemId ||
+        (issue.field_name.startsWith("item_recurrence") && issue.field_name.includes(updates.description?.substring(0, 30))) ||
+        (issue.field_name.startsWith("item_classification") && issue.field_name.includes(updates.description?.substring(0, 30)));
+
+      if (!isForThisItem) continue;
+
+      // Check if the issue is now resolved based on the updated values
+      if (issue.field_name.startsWith("item_recurrence") && validRecurrences.includes(updates.recurrence)) {
+        issueIdsToResolve.push(issue.id);
+      } else if (issue.field_name.startsWith("item_classification") && validClassifications.includes(updates.cost_classification)) {
+        issueIdsToResolve.push(issue.id);
+      } else if (issue.issue_type === "low_confidence" || issue.issue_type === "ambiguous_value") {
+        // If user manually edited the item, consider it resolved
+        issueIdsToResolve.push(issue.id);
+      }
+    }
+
+    if (issueIdsToResolve.length > 0) {
+      await supabase
+        .from("extraction_issues")
+        .update({
+          status: "resolved",
+          resolved_at: new Date().toISOString(),
+          resolved_by: user.id,
+          corrected_value: `recurrence: ${updates.recurrence}, classification: ${updates.cost_classification}`,
+        })
+        .in("id", issueIdsToResolve);
+
+      // Check if all issues are now resolved — update proposal status
+      const { data: remainingOpen } = await supabase
+        .from("extraction_issues")
+        .select("id")
+        .eq("software_proposal_id", id)
+        .eq("status", "open");
+
+      if (!remainingOpen || remainingOpen.length === 0) {
+        await supabase
+          .from("software_proposals")
+          .update({ status: "extracted" })
+          .eq("id", id)
+          .eq("status", "in_review");
+        queryClient.invalidateQueries({ queryKey: ["software-proposal", id] });
+        toast.success("Todas as pendências foram resolvidas — status atualizado para Extraído");
+      }
     }
   };
 

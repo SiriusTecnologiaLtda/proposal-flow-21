@@ -304,6 +304,12 @@ export default function SoftwareProposalDetailPage() {
     notes: "dados",
   };
 
+  // Helper: detect if a field_name belongs to item-level issues
+  const getTabForField = (fieldName: string): string => {
+    if (fieldName.startsWith("item_")) return "itens";
+    return FIELD_TAB_MAP[fieldName] || "dados";
+  };
+
   // Handle resolve_issue query param — switch tab and highlight field
   useEffect(() => {
     if (!resolveIssueId || !resolveField || !proposal) return;

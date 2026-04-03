@@ -256,6 +256,20 @@ export default function SoftwareProposalDetailPage() {
   });
   const catalogNameMap = new Map(catalogNames.map(c => [c.id, c.name]));
 
+  // Fetch rule applications for this proposal
+  const { data: ruleApplications = [] } = useQuery({
+    queryKey: ["rule-applications", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("extraction_rule_applications")
+        .select("*, extraction_rules(name, description, scope)")
+        .eq("software_proposal_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Init header form when proposal loads
   useEffect(() => {
     if (proposal && !headerDirty) {
@@ -742,6 +756,14 @@ export default function SoftwareProposalDetailPage() {
               </Badge>
             )}
           </TabsTrigger>
+          {ruleApplications.length > 0 && (
+            <TabsTrigger value="regras">
+              Regras Aplicadas
+              <Badge variant="secondary" className="ml-2 h-5 min-w-5 text-xs">
+                {ruleApplications.length}
+              </Badge>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* TAB: Header data */}
@@ -1218,6 +1240,56 @@ export default function SoftwareProposalDetailPage() {
             )}
           </div>
         </TabsContent>
+
+        {/* TAB: Rule Applications */}
+        {ruleApplications.length > 0 && (
+          <TabsContent value="regras" className="space-y-4">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="bg-accent/30 px-4 py-3 border-b border-border">
+                <h3 className="font-medium text-foreground flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Regras de Extração Aplicadas ({ruleApplications.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Regras configuradas que influenciaram a extração desta proposta
+                </p>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Regra</TableHead>
+                    <TableHead>Campo</TableHead>
+                    <TableHead>Valor Original</TableHead>
+                    <TableHead>Valor Aplicado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ruleApplications.map((app: any) => (
+                    <TableRow key={app.id}>
+                      <TableCell>
+                        <div className="font-medium text-foreground text-sm">
+                          {app.extraction_rules?.name || "Regra removida"}
+                        </div>
+                        {app.extraction_rules?.description && (
+                          <div className="text-xs text-muted-foreground line-clamp-1">{app.extraction_rules.description}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{app.field_name}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{app.original_value || "—"}</code>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">{app.applied_value}</code>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Delete item dialog */}

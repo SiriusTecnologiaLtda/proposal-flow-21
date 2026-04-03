@@ -268,7 +268,7 @@ export default function SoftwareProposalsListPage() {
             {searchTerm ? `${proposals.length} de ${allProposals?.length || 0}` : allProposals?.length || 0} propostas importadas
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             className="gap-2"
@@ -284,6 +284,14 @@ export default function SoftwareProposalsListPage() {
           >
             <BookOpen className="h-4 w-4" />
             Catálogo
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate("/propostas-software/regras")}
+          >
+            <Sparkles className="h-4 w-4" />
+            Regras
           </Button>
           <Button
             variant="outline"

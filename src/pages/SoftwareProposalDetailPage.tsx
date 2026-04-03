@@ -746,37 +746,40 @@ export default function SoftwareProposalDetailPage() {
 
         {/* TAB: Header data */}
         <TabsContent value="dados" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">Informações Comerciais</CardTitle>
-                {headerDirty && (
-                  <Button size="sm" className="gap-2" onClick={saveHeader} disabled={savingHeader}>
-                    {savingHeader ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Salvar Alterações
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          {/* Save bar */}
+          {headerDirty && (
+            <div className="flex justify-end">
+              <Button size="sm" className="gap-2" onClick={saveHeader} disabled={savingHeader}>
+                {savingHeader ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar Alterações
+              </Button>
+            </div>
+          )}
+
+          {/* Section: Identificação da Proposta */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação da Proposta</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
-                  <Label>Nº da Proposta</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
+                  <Label className="text-xs">Nº da Proposta</Label>
                   <Input
                     value={headerForm.proposal_number || ""}
                     onChange={(e) => updateHeaderField("proposal_number", e.target.value)}
                     placeholder="Ex: AAPDFQ"
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
-                  <Label>Fornecedor</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
+                  <Label className="text-xs">Fornecedor</Label>
                   <Input
                     value={headerForm.vendor_name || ""}
                     onChange={(e) => updateHeaderField("vendor_name", e.target.value)}
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
-                  <Label>Cliente (texto extraído)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
+                  <Label className="text-xs">Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}
                     onChange={(e) => updateHeaderField("client_name", e.target.value)}
@@ -784,9 +787,18 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Vínculos Cadastrais */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vínculos Cadastrais</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
-                  <Label>Cliente Vinculado</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
+                  <Label className="text-xs">Cliente Vinculado</Label>
                   <SearchableClientSelect
                     value={headerForm.client_id}
                     displayValue={linkedClient?.name}
@@ -798,8 +810,8 @@ export default function SoftwareProposalDetailPage() {
                     }}
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
-                  <Label>Unidade TOTVS</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
+                  <Label className="text-xs">Unidade TOTVS</Label>
                   <SearchableUnitSelect
                     value={headerForm.unit_id}
                     displayValue={linkedUnit?.name}
@@ -809,9 +821,18 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Time Comercial */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time Comercial</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
-                  <Label>Gerente de Vendas (GSN)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
+                  <Label className="text-xs">Gerente de Vendas (GSN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.gsn_id}
                     displayValue={linkedGsn ? `${linkedGsn.name} (${linkedGsn.code})` : undefined}
@@ -823,8 +844,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
-                  <Label>Executivo de Vendas (ESN)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
+                  <Label className="text-xs">Executivo de Vendas (ESN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.esn_id}
                     displayValue={linkedEsn ? `${linkedEsn.name} (${linkedEsn.code})` : undefined}
@@ -836,8 +857,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
-                  <Label>Arquiteto de Solução</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
+                  <Label className="text-xs">Arquiteto de Solução</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.arquiteto_id}
                     displayValue={linkedArquiteto ? `${linkedArquiteto.name} (${linkedArquiteto.code})` : undefined}
@@ -849,8 +870,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
-                  <Label>Segmento</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
+                  <Label className="text-xs">Segmento</Label>
                   <SearchableSegmentSelect
                     value={headerForm.segment_id}
                     displayValue={linkedSegment?.name}
@@ -861,9 +882,18 @@ export default function SoftwareProposalDetailPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Datas e Origem */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas & Origem</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Origem</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Origem</Label>
                   <Select value={headerForm.origin || "other"} onValueChange={(v) => updateHeaderField("origin", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -873,16 +903,16 @@ export default function SoftwareProposalDetailPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Data da Proposta</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Data da Proposta</Label>
                   <Input
                     type="date"
                     value={headerForm.proposal_date || ""}
                     onChange={(e) => updateHeaderField("proposal_date", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Validade</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Validade</Label>
                   <Input
                     type="date"
                     value={headerForm.validity_date || ""}
@@ -890,13 +920,21 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
-              {/* Calculated totals from items */}
+            </div>
+          </div>
+
+          {/* Section: Resumo Financeiro */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo Financeiro</h3>
+            </div>
+            <div className="p-4 space-y-4">
               {(() => {
                 const totalCapex = items
-                  .filter(i => i.cost_classification === "capex")
+                  .filter((i) => i.cost_classification === "capex")
                   .reduce((sum, i) => sum + (i.total_price || 0), 0);
                 const totalOpex = items
-                  .filter(i => i.cost_classification === "opex")
+                  .filter((i) => i.cost_classification === "opex")
                   .reduce((sum, i) => sum + (i.total_price || 0), 0);
                 const producaoTotal = Math.round(((totalCapex / 21.82) + totalOpex) * 100) / 100;
                 return (
@@ -916,16 +954,23 @@ export default function SoftwareProposalDetailPage() {
                   </div>
                 );
               })()}
-              <div className="space-y-2">
-                <Label>Observações Gerais</Label>
-                <Textarea
-                  value={headerForm.notes || ""}
-                  onChange={(e) => updateHeaderField("notes", e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Section: Observações */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</h3>
+            </div>
+            <div className="p-4">
+              <Textarea
+                value={headerForm.notes || ""}
+                onChange={(e) => updateHeaderField("notes", e.target.value)}
+                rows={3}
+                placeholder="Observações gerais sobre a proposta..."
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* TAB: Items */}

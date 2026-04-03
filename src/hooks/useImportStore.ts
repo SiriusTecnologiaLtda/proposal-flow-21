@@ -111,6 +111,21 @@ export function finishImportRun(entity: ImportEntity, status: "success" | "error
   }
 }
 
+export function forceFinishAllRunning() {
+  for (const [entity, run] of activeImports.entries()) {
+    if (run.status === "running") {
+      const ctrl = cancelSignals.get(entity);
+      if (ctrl && !ctrl.signal.aborted) ctrl.abort();
+      run.status = "interrupted";
+      run.finishedAt = Date.now();
+      run.durationMs = run.finishedAt - run.startedAt;
+      run.logs.push({ status: "info", message: "⛔ Importação forçadamente interrompida.", timestamp: Date.now() });
+      cancelSignals.delete(entity);
+    }
+  }
+  notify();
+}
+
 // ─── React hook ─────────────────────────────────────────────────
 export function useImportStore() {
   const [, setTick] = useState(0);

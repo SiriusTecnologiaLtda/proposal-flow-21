@@ -24,6 +24,7 @@ import {
   addImportLog,
   updateImportStats,
   finishImportRun,
+  forceFinishAllRunning,
 } from "@/hooks/useImportStore";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -950,9 +951,31 @@ function ImportHistory() {
                       <span className="font-medium text-sm">{entityLabel[log.entity] || log.entity}</span>
                       <span className="text-xs text-muted-foreground">— {log.file_name}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString("pt-BR")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {log.status === "running" && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-6 text-[11px] px-2"
+                          onClick={async () => {
+                            // Force stop in-memory running imports
+                            forceFinishAllRunning();
+                            // Also mark this DB log as interrupted
+                            await supabase.from("import_logs").update({
+                              status: "interrupted",
+                              finished_at: new Date().toISOString(),
+                              summary: "Importação interrompida manualmente pelo usuário",
+                            } as any).eq("id", log.id);
+                            loadHistory();
+                          }}
+                        >
+                          <XCircle className="mr-1 h-3 w-3" /> Interromper
+                        </Button>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
                   </div>
                   {log.summary && <p className="text-xs text-muted-foreground">{log.summary}</p>}
                   <div className="grid grid-cols-4 gap-2 text-xs">
@@ -987,6 +1010,7 @@ export default function ImportDataPage() {
   // On mount, reconcile stale "running" logs from crashed/closed sessions
   useEffect(() => {
     reconcileStaleLogs();
+    forceFinishAllRunning();
   }, []);
 
   return (

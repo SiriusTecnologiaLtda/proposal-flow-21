@@ -158,6 +158,33 @@ function findPdfParts(payload: any): PdfPartInfo[] {
   return results;
 }
 
+function sanitizeFilename(name: string): string {
+  // Remove path separators and problematic characters
+  let safe = name
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[\/\\:*?"<>|#%&{}$!'@`+^~\[\]]/g, "_") // replace invalid chars
+    .replace(/\s+/g, "_") // spaces to underscores
+    .replace(/_+/g, "_") // collapse multiple underscores
+    .replace(/^_|_$/g, ""); // trim leading/trailing underscores
+  
+  // Ensure it ends with .pdf
+  if (!safe.toLowerCase().endsWith(".pdf")) {
+    safe += ".pdf";
+  }
+  
+  // Fallback if empty
+  if (safe === ".pdf" || safe.length < 5) {
+    safe = `attachment_${Date.now()}.pdf`;
+  }
+  
+  // Limit length
+  if (safe.length > 200) {
+    safe = safe.substring(0, 196) + ".pdf";
+  }
+  
+  return safe;
+}
+
 // --- Upsert attempt record ---
 async function upsertAttempt(
   adminClient: any,

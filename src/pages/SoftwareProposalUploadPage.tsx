@@ -343,6 +343,11 @@ function EmailSyncTab() {
       if (error) return null;
       return data as unknown as EmailConfig;
     },
+    // Auto-refresh every 60s when auto-sync is enabled to show latest status
+    refetchInterval: (query) => {
+      const cfg = query.state.data as EmailConfig | null;
+      return cfg?.auto_sync_enabled ? 60_000 : false;
+    },
   });
 
   const { data: pendingAttempts } = useQuery({

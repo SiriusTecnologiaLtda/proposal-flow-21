@@ -510,12 +510,25 @@ export default function SalesTargetsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Segmento</Label>
+              <Select value={newSegmentId} onValueChange={setNewSegmentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o segmento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {segments.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => newEsnId && newCategoryId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId })}
-              disabled={!newEsnId || !newCategoryId || availableEsns.length === 0 || addEsnMutation.isPending}
+              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId })}
+              disabled={!newEsnId || !newCategoryId || !newSegmentId || availableEsns.length === 0 || addEsnMutation.isPending}
             >
               {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Adicionar

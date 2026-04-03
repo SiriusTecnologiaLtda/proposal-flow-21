@@ -462,7 +462,7 @@ export default function SoftwareProposalIssuesPage() {
                 Nenhuma pendência encontrada
               </h3>
               <p className="text-sm text-muted-foreground">
-                {statusFilter === "open"
+                {statusFilter.length === 1 && statusFilter[0] === "open"
                   ? "Todas as pendências abertas foram resolvidas."
                   : "Nenhum resultado para os filtros selecionados."}
               </p>

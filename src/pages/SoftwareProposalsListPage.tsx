@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import PdfPreviewDialog from "@/components/software-proposal/PdfPreviewDialog";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,7 +104,7 @@ export default function SoftwareProposalsListPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
-
+  const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
       setExtractingIds((prev) => new Set(prev).add(proposalId));
@@ -224,8 +225,7 @@ export default function SoftwareProposalsListPage() {
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation();
-    const viewerUrl = `/propostas-software/${proposalId}/pdf`;
-    window.open(viewerUrl, "_blank", "noopener,noreferrer");
+    setPdfPreviewId(proposalId);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -613,6 +613,12 @@ export default function SoftwareProposalsListPage() {
           </Button>
         </div>
       )}
+
+      <PdfPreviewDialog
+        open={!!pdfPreviewId}
+        onOpenChange={(open) => { if (!open) setPdfPreviewId(null); }}
+        proposalId={pdfPreviewId}
+      />
     </div>
   );
 }

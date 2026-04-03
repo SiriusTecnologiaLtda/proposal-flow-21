@@ -501,48 +501,69 @@ serve(async (req) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   try {
-    // --- Auth ---
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ error: "Não autorizado" }, 401);
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === serviceRoleKey;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // --- Parse request body ---
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+    const action = body.action || "sync"; // "test" | "sync" | "retry"
+    const triggerType = body.trigger_type || "manual";
+    const isCronTrigger = triggerType === "cron";
+
+    // --- Auth ---
     let actingUserId: string;
 
-    if (isServiceRole) {
-      // Automated call from pg_cron — no user context needed
+    if (isCronTrigger) {
+      // Automated call from pg_cron — validate that auto_sync is enabled
+      const { data: cronConfig } = await adminClient
+        .from("email_inbox_config")
+        .select("auto_sync_enabled")
+        .limit(1)
+        .single();
+
+      if (!cronConfig?.auto_sync_enabled) {
+        return jsonResponse({ skipped: true, message: "Auto-sync desabilitado." });
+      }
       actingUserId = "system";
     } else {
-      const userClient = createClient(supabaseUrl, supabaseAnon, {
-        global: { headers: { Authorization: authHeader } },
-      });
-
-      const { data: { user }, error: userError } = await userClient.auth.getUser();
-      if (userError || !user) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
         return jsonResponse({ error: "Não autorizado" }, 401);
       }
 
-      // Check admin role
-      const { data: roleData } = await adminClient
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+      const token = authHeader.replace("Bearer ", "");
+      const isServiceRole = token === serviceRoleKey;
 
-      if (!roleData) {
-        return jsonResponse({ error: "Acesso restrito a administradores" }, 403);
+      if (isServiceRole) {
+        actingUserId = "system";
+      } else {
+        const userClient = createClient(supabaseUrl, supabaseAnon, {
+          global: { headers: { Authorization: authHeader } },
+        });
+
+        const { data: { user }, error: userError } = await userClient.auth.getUser();
+        if (userError || !user) {
+          return jsonResponse({ error: "Não autorizado" }, 401);
+        }
+
+        // Check admin role
+        const { data: roleData } = await adminClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+
+        if (!roleData) {
+          return jsonResponse({ error: "Acesso restrito a administradores" }, 403);
+        }
+        actingUserId = user.id;
       }
-      actingUserId = user.id;
     }
-
-    // --- Parse request ---
-    const body = await req.json();
-    const action = body.action || "sync"; // "test" | "sync" | "retry"
 
     // --- Load email inbox config ---
     const { data: config, error: configErr } = await adminClient

@@ -46,6 +46,7 @@ export default function SalesTargetsPage() {
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
+  const { data: categories = [] } = useCategories();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
 

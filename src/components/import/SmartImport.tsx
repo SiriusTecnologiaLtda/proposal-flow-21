@@ -129,7 +129,7 @@ const ENTITY_CONFIGS: Record<ImportEntity, {
   },
   sales_targets: {
     label: "Metas de Vendas",
-    description: "Metas mensais por ESN com valores por mês",
+    description: "Metas mensais por membro do time (ESN, GSN, DSN) com valores por mês",
     icon: Target,
     dbFields: SALES_TARGETS_DB_FIELDS,
     queryKeys: ["sales_targets"],

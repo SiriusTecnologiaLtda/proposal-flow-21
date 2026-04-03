@@ -793,6 +793,23 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
+    // --- Log rule applications ---
+    if (ruleApplications.length > 0) {
+      // Clear previous rule applications for re-extraction
+      await adminClient
+        .from("extraction_rule_applications")
+        .delete()
+        .eq("software_proposal_id", software_proposal_id);
+
+      const { error: ruleAppErr } = await adminClient
+        .from("extraction_rule_applications")
+        .insert(ruleApplications);
+
+      if (ruleAppErr) {
+        console.error("Error inserting rule applications:", ruleAppErr);
+      }
+    }
+
     // --- Create extraction issues ---
     // Issues reported by AI
     for (const issue of aiIssues) {

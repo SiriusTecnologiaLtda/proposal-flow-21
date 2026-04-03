@@ -405,7 +405,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       }
 
       // Realizado from software proposals
-      for (const sp of softwareProposals as any[]) {
+      for (const sp of filteredSwProposals) {
         const pd = sp.proposal_date || "";
         const pMonth = Number(pd.substring(5, 7));
         if (pMonth !== month) continue;
@@ -422,21 +422,21 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       }
 
       // Realizado from service proposals
-      for (const sp of serviceProposals as any[]) {
-        const dateStr = (sp as any).expected_close_date || "";
+      for (const sp of filteredSvcProposals) {
+        const dateStr = sp.expected_close_date || "";
         const pMonth = Number(dateStr.substring(5, 7));
         if (pMonth !== month) continue;
-        const unitId = (sp as any).clients?.unit_id || ((sp as any).client_id && clientUnitMap.get((sp as any).client_id));
+        const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
         if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-        const serviceItems = (sp as any).proposal_service_items || [];
+        const serviceItems = sp.proposal_service_items || [];
         realizado += serviceItems.reduce((sum: number, item: any) =>
           sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
       }
 
       return { label, meta, realizado };
     });
-  }, [revenueTargets, softwareProposals, serviceProposals, selectedUnitId, clientUnitMap]);
+  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap]);
 
   // Totals for summary
   const grandTotalMeta = Object.values(consolidated).reduce((s, l) => s + l.meta, 0);

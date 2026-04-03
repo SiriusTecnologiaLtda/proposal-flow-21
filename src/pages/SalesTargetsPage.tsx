@@ -50,6 +50,7 @@ export default function SalesTargetsPage() {
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
   const { data: categories = [] } = useCategories();
+  const { data: segments = [] } = useSegments();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
 

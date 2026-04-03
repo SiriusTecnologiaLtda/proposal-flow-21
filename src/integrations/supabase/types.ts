@@ -2109,6 +2109,7 @@ export type Database = {
       software_catalog_items: {
         Row: {
           category: string
+          category_id: string | null
           created_at: string
           created_by: string | null
           default_cost_classification: string
@@ -2119,11 +2120,13 @@ export type Database = {
           is_active: boolean
           name: string
           part_number: string | null
+          product_id: string | null
           updated_at: string
           vendor_name: string | null
         }
         Insert: {
           category?: string
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           default_cost_classification?: string
@@ -2134,11 +2137,13 @@ export type Database = {
           is_active?: boolean
           name: string
           part_number?: string | null
+          product_id?: string | null
           updated_at?: string
           vendor_name?: string | null
         }
         Update: {
           category?: string
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           default_cost_classification?: string
@@ -2149,10 +2154,26 @@ export type Database = {
           is_active?: boolean
           name?: string
           part_number?: string | null
+          product_id?: string | null
           updated_at?: string
           vendor_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "software_catalog_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "software_catalog_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       software_proposal_config: {
         Row: {

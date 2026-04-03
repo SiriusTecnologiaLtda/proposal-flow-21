@@ -593,6 +593,15 @@ export default function SoftwareProposalIssuesPage() {
                           </Button>
                           {issue.status === "open" && (
                             <>
+                              {isNotFoundIssue(issue) && issue.field_name === "client_name" && (
+                                <Button
+                                  size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenCreateClient(issue); }}
+                                >
+                                  <UserPlus className="h-3 w-3" />
+                                  Cadastrar
+                                </Button>
+                              )}
                               <Button
                                 size="sm" variant="outline" className="h-7 text-xs gap-1"
                                 onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}?resolve_issue=${issue.id}&field=${encodeURIComponent(issue.field_name)}`)}

@@ -48,6 +48,8 @@ interface EmailConfig {
   subject_filter: string;
   polling_interval_minutes: number;
   enabled: boolean;
+  auto_sync_enabled: boolean;
+  sync_interval_minutes: number;
   last_sync_at: string | null;
   last_sync_status: string;
   last_sync_message: string;

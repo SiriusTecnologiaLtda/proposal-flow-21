@@ -1010,6 +1010,7 @@ export default function ImportDataPage() {
   // On mount, reconcile stale "running" logs from crashed/closed sessions
   useEffect(() => {
     reconcileStaleLogs();
+    forceFinishAllRunning();
   }, []);
 
   return (

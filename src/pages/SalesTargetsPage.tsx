@@ -84,10 +84,12 @@ export default function SalesTargetsPage() {
   const grouped: GroupedRow[] = useMemo(() => {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
-      if (!map.has(t.esn_id)) {
+      const key = `${t.esn_id}__${t.category_id || "none"}`;
+      if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
-        map.set(t.esn_id, {
+        map.set(key, {
           esn_id: t.esn_id,
+          category_id: (t as any).category_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           unit_id: esn?.unit_id || null,
@@ -95,7 +97,7 @@ export default function SalesTargetsPage() {
           months: {},
         });
       }
-      map.get(t.esn_id)!.months[t.month] = { id: t.id, amount: t.amount };
+      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount };
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, esnMap]);

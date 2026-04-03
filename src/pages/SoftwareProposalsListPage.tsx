@@ -138,6 +138,23 @@ export default function SoftwareProposalsListPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      await supabase.from("software_proposal_items").delete().eq("software_proposal_id", proposalId);
+      await supabase.from("extraction_issues").delete().eq("software_proposal_id", proposalId);
+      await supabase.from("extraction_corrections_log").delete().eq("software_proposal_id", proposalId);
+      const { error } = await supabase.from("software_proposals").delete().eq("id", proposalId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+      toast.success("Proposta excluída com sucesso");
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao excluir: " + (err?.message || "desconhecido"));
+    },
+  });
+
   const { data: allProposals, isLoading } = useQuery({
     queryKey: ["software-proposals", searchTerm],
     enabled: !!user,

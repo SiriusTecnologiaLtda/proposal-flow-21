@@ -1759,9 +1759,30 @@ export default function SmartImport() {
                     {Object.values(mapping).includes("segment_name") && (
                       <Badge variant="outline" className="text-xs">Segmento: via coluna mapeada</Badge>
                     )}
+
+                    {/* Role — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("role_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Nível:</Label>
+                        <Select value={targetRole} onValueChange={setTargetRole}>
+                          <SelectTrigger className="w-[180px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
+                            <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
+                            <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
+                            <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("role_name") && (
+                      <Badge variant="outline" className="text-xs">Nível: via coluna mapeada</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Se a planilha possuir colunas de Categoria/Segmento mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
                 </div>
               )}

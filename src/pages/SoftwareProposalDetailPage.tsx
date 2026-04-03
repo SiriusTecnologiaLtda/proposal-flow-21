@@ -1208,7 +1208,7 @@ export default function SoftwareProposalDetailPage() {
                             <Button
                               size="sm" variant="outline" className="h-7 text-xs"
                               onClick={() => {
-                                const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
+                                const targetTab = getTabForField(issue.field_name);
                                 setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
                                 setActiveTab(targetTab);
                                 setHighlightField(issue.field_name);

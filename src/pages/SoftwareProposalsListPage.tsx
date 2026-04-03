@@ -259,7 +259,7 @@ export default function SoftwareProposalsListPage() {
           </Button>
           <Button className="gap-2" onClick={() => navigate("/propostas-software/importar")}>
             <Upload className="h-4 w-4" />
-            Importar PDF
+            Central de Importação
           </Button>
         </div>
       </div>

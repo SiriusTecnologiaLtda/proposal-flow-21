@@ -763,7 +763,7 @@ Return ONLY valid JSON with this exact structure:
           }
         }
 
-        itemRows.push({
+        const itemRow = {
           software_proposal_id,
           description: desc,
           quantity: item.quantity ?? 1,
@@ -776,7 +776,12 @@ Return ONLY valid JSON with this exact structure:
           sort_order: idx,
           notes: item.notes || null,
           catalog_item_id: catalogItemId,
-        });
+        };
+
+        // Apply extraction rules to item
+        applyItemRules(itemRow, desc);
+
+        itemRows.push(itemRow);
       }
 
       const { error: itemsErr } = await adminClient

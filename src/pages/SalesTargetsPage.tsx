@@ -400,6 +400,15 @@ export default function SalesTargetsPage() {
                                 </>
                               ) : null;
                             })()}
+                            {row.segment_id && (() => {
+                              const segName = segments.find((s: any) => s.id === row.segment_id)?.name;
+                              return segName ? (
+                                <>
+                                  <span className="text-muted-foreground/40">•</span>
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">{segName}</Badge>
+                                </>
+                              ) : null;
+                            })()}
                           </span>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {

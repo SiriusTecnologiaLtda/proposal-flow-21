@@ -380,6 +380,17 @@ export default function Dashboard() {
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
   const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+
+  // Fetch units for filter
+  const { data: units = [] } = useQuery({
+    queryKey: ["units-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unit_info").select("id, name").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch sales targets for the selected year
   const targetYear = useMemo(() => {

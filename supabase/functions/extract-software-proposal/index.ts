@@ -260,6 +260,14 @@ Return ONLY valid JSON with this exact structure:
       "issue_type": <"low_confidence"|"missing_required"|"ambiguous_value"|"format_error">,
       "extracted_value": <string|null>
     }
+  ],
+  "signatories": [
+    {
+      "name": <string>,
+      "email": <string|null>,
+      "cpf_cnpj": <string|null>,
+      "role": <string|null, e.g. "Signatário", "Testemunha">
+    }
   ]
 }`;
 

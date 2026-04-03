@@ -73,6 +73,53 @@ function getHeader(headers: any[], name: string): string {
   return h?.value || "";
 }
 
+// --- Retry helper ---
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 1000): Promise<T> {
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        console.log(`Retry ${attempt + 1}/${maxRetries} after error: ${lastErr.message}`);
+        await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr!;
+}
+
+// --- Error classification ---
+interface SyncErrorDetail {
+  email_id: string;
+  subject: string;
+  sender: string;
+  filename: string;
+  error_type: "download_failed" | "upload_failed" | "insert_failed" | "duplicate" | "no_attachment" | "unknown";
+  error_message: string;
+  auto_resolved: boolean;
+  requires_action: string | null;
+  timestamp: string;
+}
+
+function classifyError(errMsg: string): { type: SyncErrorDetail["error_type"]; requires_action: string | null } {
+  const lower = errMsg.toLowerCase();
+  if (lower.includes("duplicate") || lower.includes("já importado") || lower.includes("hash")) {
+    return { type: "duplicate", requires_action: null };
+  }
+  if (lower.includes("gmail api") || lower.includes("attachment")) {
+    return { type: "download_failed", requires_action: "Verifique se o e-mail ainda existe na caixa de entrada e tente sincronizar novamente." };
+  }
+  if (lower.includes("storage") || lower.includes("upload") || lower.includes("salvar")) {
+    return { type: "upload_failed", requires_action: "Erro temporário de armazenamento. Tente sincronizar novamente." };
+  }
+  if (lower.includes("insert") || lower.includes("registro")) {
+    return { type: "insert_failed", requires_action: "Erro ao criar registro. Tente sincronizar novamente." };
+  }
+  return { type: "unknown", requires_action: "Erro inesperado. Se persistir, verifique os logs ou entre em contato com o suporte." };
+}
+
 // --- Main handler ---
 
 serve(async (req) => {
@@ -118,7 +165,7 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action || "sync"; // "test" | "sync"
 
-    // --- Load email inbox config (filters, refresh token) ---
+    // --- Load email inbox config ---
     const { data: config, error: configErr } = await adminClient
       .from("email_inbox_config")
       .select("*")
@@ -129,7 +176,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Configuração de e-mail não encontrada" }, 404);
     }
 
-    // --- Load Google OAuth credentials from google_integrations (default) ---
+    // --- Load Google OAuth credentials ---
     const { data: gInt, error: gIntErr } = await adminClient
       .from("google_integrations")
       .select("oauth_client_id, oauth_client_secret")
@@ -142,20 +189,17 @@ serve(async (req) => {
       }, 400);
     }
 
-    // Validate refresh token from email config
     if (!config.gmail_refresh_token) {
       return jsonResponse({
         error: "Conta Gmail não autorizada. Clique em 'Autorizar Conta Gmail' na tela de configuração."
       }, 400);
     }
 
-    // --- Get access token ---
+    // --- Get access token (with retry) ---
     let accessToken: string;
     try {
-      accessToken = await refreshAccessToken(
-        gInt.oauth_client_id,
-        gInt.oauth_client_secret,
-        config.gmail_refresh_token
+      accessToken = await withRetry(() =>
+        refreshAccessToken(gInt.oauth_client_id, gInt.oauth_client_secret, config.gmail_refresh_token)
       );
     } catch (tokenErr) {
       const errMsg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
@@ -190,7 +234,7 @@ serve(async (req) => {
     const syncStartedAt = new Date().toISOString();
     let emailsFound = 0;
     let pdfsImported = 0;
-    const syncErrors: string[] = [];
+    const syncErrors: SyncErrorDetail[] = [];
 
     try {
       // Build Gmail search query
@@ -230,6 +274,7 @@ serve(async (req) => {
             last_sync_message: "Nenhum e-mail novo encontrado.",
             last_sync_emails_found: 0,
             last_sync_pdfs_imported: 0,
+            last_sync_errors: [],
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", config.id);
@@ -238,34 +283,45 @@ serve(async (req) => {
           success: true,
           emails_found: 0,
           pdfs_imported: 0,
+          errors: [],
           message: "Nenhum e-mail novo encontrado.",
         });
       }
 
       // Process each message
       for (const msgId of messageIds) {
+        let msgSubject = "(desconhecido)";
+        let msgSender = "";
         try {
           const msg = await gmailRequest(accessToken, `messages/${msgId}?format=full`);
 
-          const sender = getHeader(msg.payload?.headers, "From");
-          const subject = getHeader(msg.payload?.headers, "Subject") || "(sem assunto)";
+          msgSender = getHeader(msg.payload?.headers, "From");
+          msgSubject = getHeader(msg.payload?.headers, "Subject") || "(sem assunto)";
           const dateStr = getHeader(msg.payload?.headers, "Date");
           const messageIdHeader = getHeader(msg.payload?.headers, "Message-ID") || msgId;
 
           const pdfParts = findPdfParts(msg.payload);
 
           if (pdfParts.length === 0) {
+            // No PDF attachments found — not an error, just skip
             await markAsRead(accessToken, msgId);
             continue;
           }
+
+          let allPartsSucceeded = true;
 
           for (const part of pdfParts) {
             try {
               if (!part.attachmentId) continue;
 
-              const pdfBuffer = await gmailGetAttachment(accessToken, msgId, part.attachmentId);
+              // Download attachment with retry
+              const pdfBuffer = await withRetry(() =>
+                gmailGetAttachment(accessToken, msgId, part.attachmentId)
+              );
+
               const fileHash = await hashBuffer(pdfBuffer);
 
+              // Check for duplicate
               const { data: existing } = await adminClient
                 .from("software_proposals")
                 .select("id")
@@ -273,73 +329,128 @@ serve(async (req) => {
                 .maybeSingle();
 
               if (existing) {
-                syncErrors.push(`PDF "${part.filename}" ignorado — já importado (hash duplicado).`);
+                syncErrors.push({
+                  email_id: msgId,
+                  subject: msgSubject,
+                  sender: msgSender,
+                  filename: part.filename,
+                  error_type: "duplicate",
+                  error_message: `PDF "${part.filename}" já importado anteriormente (hash duplicado).`,
+                  auto_resolved: true,
+                  requires_action: null,
+                  timestamp: new Date().toISOString(),
+                });
                 continue;
               }
 
+              // Upload to storage with retry
               const storagePath = `email-imports/${fileHash}/${part.filename}`;
-              const { error: uploadErr } = await adminClient.storage
-                .from("software-proposal-pdfs")
-                .upload(storagePath, pdfBuffer, {
-                  contentType: "application/pdf",
-                  upsert: false,
-                });
+              await withRetry(async () => {
+                const { error: uploadErr } = await adminClient.storage
+                  .from("software-proposal-pdfs")
+                  .upload(storagePath, pdfBuffer, {
+                    contentType: "application/pdf",
+                    upsert: true, // use upsert to handle partial previous uploads
+                  });
 
-              if (uploadErr) {
-                syncErrors.push(`Erro ao salvar PDF "${part.filename}": ${uploadErr.message}`);
-                continue;
-              }
+                if (uploadErr && !uploadErr.message.includes("already exists")) {
+                  throw new Error(`Erro ao salvar PDF: ${uploadErr.message}`);
+                }
+              });
 
-              const { error: insertErr } = await adminClient
-                .from("software_proposals")
-                .insert({
-                  file_name: part.filename,
-                  file_url: storagePath,
-                  file_hash: fileHash,
-                  status: "pending_extraction",
-                  origin: "email_inbox",
-                  origin_detail: JSON.stringify({
-                    sender,
-                    subject,
-                    received_at: dateStr || new Date().toISOString(),
-                    message_id: messageIdHeader,
-                  }),
-                  uploaded_by: user.id,
-                  vendor_name: "",
-                  total_value: 0,
-                });
+              // Insert record with retry
+              await withRetry(async () => {
+                const { error: insertErr } = await adminClient
+                  .from("software_proposals")
+                  .insert({
+                    file_name: part.filename,
+                    file_url: storagePath,
+                    file_hash: fileHash,
+                    status: "pending_extraction",
+                    origin: "email_inbox",
+                    origin_detail: JSON.stringify({
+                      sender: msgSender,
+                      subject: msgSubject,
+                      received_at: dateStr || new Date().toISOString(),
+                      message_id: messageIdHeader,
+                    }),
+                    uploaded_by: user.id,
+                    vendor_name: "",
+                    total_value: 0,
+                  });
 
-              if (insertErr) {
-                syncErrors.push(`Erro ao criar registro para "${part.filename}": ${insertErr.message}`);
-                continue;
-              }
+                if (insertErr) {
+                  // Check if it's a duplicate hash constraint
+                  if (insertErr.message.includes("file_hash") || insertErr.message.includes("duplicate")) {
+                    console.log(`Duplicate hash detected for ${part.filename}, skipping.`);
+                    return; // Not an error
+                  }
+                  throw new Error(`Erro ao criar registro: ${insertErr.message}`);
+                }
+              });
 
               pdfsImported++;
             } catch (partErr) {
+              allPartsSucceeded = false;
               const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
-              syncErrors.push(`Erro ao processar anexo "${part.filename}": ${errMsg}`);
+              const classified = classifyError(errMsg);
+              syncErrors.push({
+                email_id: msgId,
+                subject: msgSubject,
+                sender: msgSender,
+                filename: part.filename,
+                error_type: classified.type,
+                error_message: errMsg,
+                auto_resolved: false,
+                requires_action: classified.requires_action,
+                timestamp: new Date().toISOString(),
+              });
             }
           }
 
-          await markAsRead(accessToken, msgId);
+          // Only mark as read if all parts processed successfully
+          if (allPartsSucceeded) {
+            await markAsRead(accessToken, msgId);
+          }
         } catch (msgErr) {
           const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
-          syncErrors.push(`Erro ao processar e-mail ${msgId}: ${errMsg}`);
+          const classified = classifyError(errMsg);
+          syncErrors.push({
+            email_id: msgId,
+            subject: msgSubject,
+            sender: msgSender,
+            filename: "(mensagem inteira)",
+            error_type: classified.type,
+            error_message: errMsg,
+            auto_resolved: false,
+            requires_action: classified.requires_action,
+            timestamp: new Date().toISOString(),
+          });
         }
       }
 
-      const statusMsg = syncErrors.length > 0
-        ? `Sincronização parcial: ${pdfsImported} PDFs importados, ${syncErrors.length} erro(s).`
-        : `Sincronização concluída: ${pdfsImported} PDFs importados de ${emailsFound} e-mail(s).`;
+      // Filter out auto-resolved (duplicates) from error count
+      const realErrors = syncErrors.filter(e => !e.auto_resolved);
+      const duplicates = syncErrors.filter(e => e.auto_resolved);
+
+      let statusMsg: string;
+      if (realErrors.length > 0) {
+        statusMsg = `Sincronização parcial: ${pdfsImported} PDF(s) importado(s), ${realErrors.length} erro(s)${duplicates.length > 0 ? `, ${duplicates.length} duplicado(s) ignorado(s)` : ""}.`;
+      } else if (duplicates.length > 0) {
+        statusMsg = `Sincronização concluída: ${pdfsImported} PDF(s) importado(s), ${duplicates.length} duplicado(s) ignorado(s).`;
+      } else {
+        statusMsg = `Sincronização concluída: ${pdfsImported} PDF(s) importado(s) de ${emailsFound} e-mail(s).`;
+      }
 
       await adminClient
         .from("email_inbox_config")
         .update({
           last_sync_at: syncStartedAt,
-          last_sync_status: syncErrors.length > 0 ? "partial" : "success",
+          last_sync_status: realErrors.length > 0 ? "partial" : "success",
           last_sync_message: statusMsg,
           last_sync_emails_found: emailsFound,
           last_sync_pdfs_imported: pdfsImported,
+          last_sync_errors: syncErrors,
           updated_at: new Date().toISOString(),
         } as any)
         .eq("id", config.id);
@@ -362,6 +473,7 @@ serve(async (req) => {
           last_sync_message: `Erro na sincronização: ${errMsg}`,
           last_sync_emails_found: emailsFound,
           last_sync_pdfs_imported: pdfsImported,
+          last_sync_errors: syncErrors,
           updated_at: new Date().toISOString(),
         } as any)
         .eq("id", config.id);
@@ -371,7 +483,7 @@ serve(async (req) => {
         error: `Erro na sincronização: ${errMsg}`,
         emails_found: emailsFound,
         pdfs_imported: pdfsImported,
-        partial_errors: syncErrors,
+        errors: syncErrors,
       }, 500);
     }
   } catch (err) {

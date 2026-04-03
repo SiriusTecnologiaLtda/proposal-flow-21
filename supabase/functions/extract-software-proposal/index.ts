@@ -208,7 +208,10 @@ Return ONLY valid JSON with this exact structure:
   "proposal_number": <string|null>,
   "header": {
     "vendor_name": { "value": <string|null>, "confidence": <number> },
-    "client_name": { "value": <string|null>, "confidence": <number> },
+    "client_name": { "value": <string|null, full legal name without code>, "confidence": <number> },
+    "client_code": { "value": <string|null, code from parentheses e.g. "DBLJZO">, "confidence": <number> },
+    "client_cnpj": { "value": <string|null, CNPJ from contractual body e.g. "10.221.365/0001-08">, "confidence": <number> },
+    "client_address": { "value": <string|null, full address from contractual body>, "confidence": <number> },
     "totvs_unit_name": { "value": <string|null>, "confidence": <number> },
     "proposal_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "validity_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },

@@ -613,6 +613,12 @@ export default function SoftwareProposalsListPage() {
           </Button>
         </div>
       )}
+
+      <PdfPreviewDialog
+        open={!!pdfPreviewId}
+        onOpenChange={(open) => { if (!open) setPdfPreviewId(null); }}
+        proposalId={pdfPreviewId}
+      />
     </div>
   );
 }

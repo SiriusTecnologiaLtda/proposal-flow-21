@@ -631,22 +631,38 @@ Return ONLY valid JSON with this exact structure:
           matchedUnitId = unitMatches[0].id;
           matchedUnitName = unitMatches[0].name;
         } else {
+          // Try learned correction before creating issue
+          const learnedUnit = findLearnedHeaderCorrection("unit_id", rawUnitName);
+          if (learnedUnit) {
+            matchedUnitId = learnedUnit;
+            learnedCorrectionsApplied++;
+            console.log(`[LEARNING] Unit resolved via previous correction: ${rawUnitName} → ${learnedUnit}`);
+          } else {
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: "totvs_unit_name",
+              issue_type: "ambiguous_value",
+              extracted_value: rawUnitName,
+              status: ISSUE_STATUS_OPEN,
+            });
+          }
+        }
+      } else {
+        // No DB matches at all — try learned correction
+        const learnedUnit = findLearnedHeaderCorrection("unit_id", rawUnitName);
+        if (learnedUnit) {
+          matchedUnitId = learnedUnit;
+          learnedCorrectionsApplied++;
+          console.log(`[LEARNING] Unit resolved via previous correction (no DB match): ${rawUnitName} → ${learnedUnit}`);
+        } else {
           issuesToInsert.push({
             software_proposal_id,
             field_name: "totvs_unit_name",
-            issue_type: "ambiguous_value",
-            extracted_value: rawUnitName,
+            issue_type: "missing_required",
+            extracted_value: `Unidade não encontrada: ${rawUnitName}`,
             status: ISSUE_STATUS_OPEN,
           });
         }
-      } else {
-        issuesToInsert.push({
-          software_proposal_id,
-          field_name: "totvs_unit_name",
-          issue_type: "missing_required",
-          extracted_value: `Unidade não encontrada: ${rawUnitName}`,
-          status: ISSUE_STATUS_OPEN,
-        });
       }
     }
 

@@ -600,6 +600,83 @@ Return ONLY valid JSON with this exact structure:
       .delete()
       .eq("software_proposal_id", software_proposal_id);
 
+    // --- Load extraction rules ---
+    const { data: extractionRules } = await adminClient
+      .from("extraction_rules")
+      .select("*")
+      .eq("is_active", true)
+      .order("priority", { ascending: true });
+
+    const activeRules = extractionRules || [];
+    const ruleApplications: Array<{
+      rule_id: string;
+      software_proposal_id: string;
+      item_id: string | null;
+      field_name: string;
+      original_value: string | null;
+      applied_value: string;
+    }> = [];
+
+    // Rule condition matcher
+    function matchesCondition(text: string, condType: string, condValue: string): boolean {
+      const t = (text || "").toLowerCase();
+      const v = (condValue || "").toLowerCase();
+      switch (condType) {
+        case "contains": return t.includes(v);
+        case "not_contains": return !t.includes(v);
+        case "equals": return t === v;
+        case "starts_with": return t.startsWith(v);
+        case "ends_with": return t.endsWith(v);
+        case "regex": try { return new RegExp(condValue, "i").test(text || ""); } catch { return false; }
+        case "greater_than": return parseFloat(text) > parseFloat(condValue);
+        case "less_than": return parseFloat(text) < parseFloat(condValue);
+        default: return false;
+      }
+    }
+
+    // Apply rules to an item row (mutates in place, returns applied rule IDs)
+    function applyItemRules(itemRow: any, desc: string): void {
+      for (const rule of activeRules) {
+        if (rule.scope !== "item") continue;
+        if (!matchesCondition(desc, rule.condition_type, rule.condition_value)) continue;
+        const targetField = rule.target_field;
+        const originalValue = itemRow[targetField] != null ? String(itemRow[targetField]) : null;
+        switch (rule.action_type) {
+          case "set_value":
+            itemRow[targetField] = rule.action_value;
+            break;
+          case "append":
+            itemRow[targetField] = (itemRow[targetField] || "") + rule.action_value;
+            break;
+          case "replace":
+            if (typeof itemRow[targetField] === "string") {
+              itemRow[targetField] = itemRow[targetField].replace(
+                new RegExp(rule.condition_value, "gi"),
+                rule.action_value
+              );
+            }
+            break;
+          case "flag_issue":
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: `rule:${rule.name} → ${targetField}`,
+              issue_type: "low_confidence",
+              extracted_value: rule.action_value,
+              status: ISSUE_STATUS_OPEN,
+            });
+            break;
+        }
+        ruleApplications.push({
+          rule_id: rule.id,
+          software_proposal_id,
+          item_id: null, // will be set after insert
+          field_name: targetField,
+          original_value: originalValue,
+          applied_value: String(itemRow[targetField] ?? rule.action_value),
+        });
+      }
+    }
+
     // --- Load catalog items + aliases for matching ---
     const { data: catalogItems } = await adminClient
       .from("software_catalog_items")

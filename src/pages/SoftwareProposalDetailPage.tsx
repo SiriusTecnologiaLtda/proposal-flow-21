@@ -67,19 +67,8 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   format_error: "Erro de Formato",
 };
 
-const RECURRENCE_OPTIONS = [
-  { value: "one_time", label: "Único" },
-  { value: "monthly", label: "Mensal" },
-  { value: "annual", label: "Anual" },
-  { value: "usage_based", label: "Sob demanda" },
-  { value: "measurement", label: "Medição" },
-];
+import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
 
-const COST_OPTIONS = [
-  { value: "opex", label: "Opex" },
-  { value: "capex", label: "Capex" },
-  { value: "other", label: "Outros" },
-];
 
 interface ProposalItem {
   id: string;
@@ -1148,7 +1137,7 @@ export default function SoftwareProposalDetailPage() {
                         </Select>
                         <Select value={itemForm.cost_classification} onValueChange={(v) => setItemForm((p: any) => ({ ...p, cost_classification: v }))}>
                           <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                          <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                          <SelectContent>{COST_CLASSIFICATION_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                         </Select>
                         <div className="flex items-center justify-end gap-1">
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveItemEdit}><Save className="h-3.5 w-3.5" /></Button>
@@ -1201,7 +1190,7 @@ export default function SoftwareProposalDetailPage() {
                       </Select>
                       <Select value={newItemForm.cost_classification} onValueChange={(v) => setNewItemForm((p) => ({ ...p, cost_classification: v }))}>
                         <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                        <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        <SelectContent>{COST_CLASSIFICATION_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
                       <div className="flex items-center justify-end gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addItem} disabled={!newItemForm.description.trim()}>

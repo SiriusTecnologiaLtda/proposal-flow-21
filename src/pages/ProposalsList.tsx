@@ -137,11 +137,11 @@ export default function ProposalsList() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("gmail_refresh_token")
+      .select("gmail_sender_email")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
-        setGmailAuthorized(!!data?.gmail_refresh_token);
+        setGmailAuthorized(!!data?.gmail_sender_email);
       });
   }, [user]);
 

@@ -1192,12 +1192,15 @@ Return ONLY valid JSON with this exact structure:
         .eq("id", software_proposal_id);
     }
 
+    console.log(`Extraction complete: ${items.length} items, ${uniqueIssues.length} issues, ${learnedCorrectionsApplied} learned corrections applied`);
+
     return jsonResponse({
       success: true,
       status: finalStatus,
       extraction_confidence: overallConfidence,
       items_extracted: items.length,
       issues_created: uniqueIssues.length,
+      learned_corrections_applied: learnedCorrectionsApplied,
       client_matched: !!matchedClientId,
       client_auto_created: clientAutoCreated,
       unit_matched: !!matchedUnitId,

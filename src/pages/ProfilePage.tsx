@@ -33,7 +33,7 @@ export default function ProfilePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, user_id, display_name, email, phone, avatar_url, is_cra, sales_team_member_id, gmail_sender_email, created_at, updated_at")
         .eq("user_id", user!.id)
         .maybeSingle();
       if (error) throw error;

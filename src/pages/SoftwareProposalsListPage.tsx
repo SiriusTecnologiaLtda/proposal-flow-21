@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import PdfPreviewDialog from "@/components/software-proposal/PdfPreviewDialog";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";

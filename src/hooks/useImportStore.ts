@@ -14,6 +14,7 @@ export interface ImportRun {
   fileName: string;
   status: "running" | "success" | "error" | "interrupted";
   totalRows: number;
+  processed: number;
   imported: number;
   updated: number;
   errors: number;
@@ -37,7 +38,18 @@ function notify() {
 
 export function requestCancelImport(entity: ImportEntity) {
   const ctrl = cancelSignals.get(entity);
-  if (ctrl) ctrl.abort();
+  if (ctrl && !ctrl.signal.aborted) {
+    ctrl.abort();
+    const run = activeImports.get(entity);
+    if (run?.status === "running") {
+      run.logs.push({
+        status: "info",
+        message: "Solicitação de interrupção recebida. Finalizando o processamento atual...",
+        timestamp: Date.now(),
+      });
+      notify();
+    }
+  }
 }
 
 export function getCancelSignal(entity: ImportEntity): AbortSignal | undefined {
@@ -57,6 +69,7 @@ export function startImportRun(entity: ImportEntity, fileName: string, clearedBe
     fileName,
     status: "running",
     totalRows: 0,
+    processed: 0,
     imported: 0,
     updated: 0,
     errors: 0,
@@ -79,7 +92,7 @@ export function addImportLog(entity: ImportEntity, status: ImportLogEntry["statu
   }
 }
 
-export function updateImportStats(entity: ImportEntity, updates: Partial<Pick<ImportRun, "totalRows" | "imported" | "updated" | "errors" | "skipped">>) {
+export function updateImportStats(entity: ImportEntity, updates: Partial<Pick<ImportRun, "totalRows" | "processed" | "imported" | "updated" | "errors" | "skipped">>) {
   const run = activeImports.get(entity);
   if (run) {
     Object.assign(run, updates);
@@ -93,6 +106,7 @@ export function finishImportRun(entity: ImportEntity, status: "success" | "error
     run.status = status;
     run.finishedAt = Date.now();
     run.durationMs = run.finishedAt - run.startedAt;
+    cancelSignals.delete(entity);
     notify();
   }
 }

@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { ArrowLeft, Search, Plus, Loader2, Filter, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useUnits, useSalesTeam, useCategories } from "@/hooks/useSupabaseData";
 
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 

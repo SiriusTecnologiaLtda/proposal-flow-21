@@ -306,13 +306,13 @@ export default function SoftwareCatalogPage() {
     CATEGORY_OPTIONS.find((c) => c.value === cat)?.label || cat;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Catálogo de Itens de Software</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Catálogo de Itens de Software</h1>
           <p className="text-sm text-muted-foreground">
-            Catálogo mestre para normalização de itens extraídos de propostas
+            {search ? `${filteredItems.length} de ${items.length}` : items.length} itens cadastrados
           </p>
         </div>
         {isAdmin && (
@@ -324,140 +324,122 @@ export default function SoftwareCatalogPage() {
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, fornecedor, descrição, alias, part number ou código..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nome, fornecedor, descrição, alias, part number ou código..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
-      {/* Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            Itens do Catálogo
-            <Badge variant="secondary" className="ml-2 text-xs">
-              {filteredItems.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* List — Grid-based */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Grid Header */}
+        <div className={`hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}>
+          <span className="text-xs font-medium text-muted-foreground">Nome</span>
+          <span className="text-xs font-medium text-muted-foreground">Fornecedor</span>
+          <span className="text-xs font-medium text-muted-foreground">Categoria</span>
+          <span className="text-xs font-medium text-muted-foreground">Recorrência</span>
+          <span className="text-xs font-medium text-muted-foreground">Classificação</span>
+          <span className="text-xs font-medium text-muted-foreground">Aliases</span>
+          <span className="text-xs font-medium text-muted-foreground">Ativo</span>
+          {isAdmin && <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>}
+        </div>
+
+        <div className="divide-y divide-border">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <div key={i} className="px-4 py-3">
+                  <Skeleton className="h-8 w-full" />
+                </div>
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <BookOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-1">
-                Nenhum item cadastrado
+                {search ? "Nenhum resultado encontrado" : "Nenhum item cadastrado"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Cadastre itens no catálogo para normalizar dados extraídos das propostas de software.
+                {search
+                  ? "Tente ajustar os termos de busca."
+                  : "Cadastre itens no catálogo para normalizar dados extraídos das propostas de software."}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Recorrência</TableHead>
-                    <TableHead>Classificação</TableHead>
-                    <TableHead>Aliases</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    {isAdmin && <TableHead className="w-[100px]">Ações</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map((item) => {
-                    const itemAliases = aliases.filter(
-                      (a) => a.catalog_item_id === item.id
-                    );
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>{item.vendor_name || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {categoryLabel(item.category)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {RECURRENCE_OPTIONS.find((r) => r.value === item.default_recurrence)
-                            ?.label || item.default_recurrence}
-                        </TableCell>
-                        <TableCell className="text-sm uppercase">
-                          {item.default_cost_classification}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            onClick={() => setAliasDialogItem(item)}
-                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Tag className="h-3 w-3" />
-                            {itemAliases.length}
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          {isAdmin ? (
-                            <Switch
-                              checked={item.is_active}
-                              onCheckedChange={(checked) =>
-                                toggleActiveMutation.mutate({
-                                  id: item.id,
-                                  is_active: checked,
-                                })
-                              }
-                            />
-                          ) : item.is_active ? (
-                            <ToggleRight className="h-4 w-4 text-primary" />
-                          ) : (
-                            <ToggleLeft className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </TableCell>
-                        {isAdmin && (
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(item)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteTarget(item)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            filteredItems.map((item) => {
+              const itemAliases = aliases.filter((a) => a.catalog_item_id === item.id);
+              return (
+                <div
+                  key={item.id}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}
+                >
+                  {/* Nome */}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                    {item.description && (
+                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                    )}
+                  </div>
+                  {/* Fornecedor */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{item.vendor_name || "—"}</p>
+                  {/* Categoria */}
+                  <div>
+                    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {categoryLabel(item.category)}
+                    </span>
+                  </div>
+                  {/* Recorrência */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">
+                    {RECURRENCE_OPTIONS.find((r) => r.value === item.default_recurrence)?.label || item.default_recurrence}
+                  </p>
+                  {/* Classificação */}
+                  <p className="text-sm text-foreground uppercase whitespace-nowrap">{item.default_cost_classification}</p>
+                  {/* Aliases */}
+                  <div>
+                    <button
+                      onClick={() => setAliasDialogItem(item)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Tag className="h-3 w-3" />
+                      {itemAliases.length}
+                    </button>
+                  </div>
+                  {/* Ativo */}
+                  <div>
+                    {isAdmin ? (
+                      <Switch
+                        checked={item.is_active}
+                        onCheckedChange={(checked) =>
+                          toggleActiveMutation.mutate({ id: item.id, is_active: checked })
+                        }
+                      />
+                    ) : item.is_active ? (
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-success/15 text-success whitespace-nowrap">Ativo</span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground whitespace-nowrap">Inativo</span>
+                    )}
+                  </div>
+                  {/* Ações */}
+                  {isAdmin && (
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(item)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={(o) => !o && closeForm()}>

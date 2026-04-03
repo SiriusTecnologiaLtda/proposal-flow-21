@@ -518,14 +518,21 @@ Return ONLY valid JSON with this exact structure:
           matchedClientId = clientMatches[0].id;
           matchedClientName = clientMatches[0].name;
         } else {
-          // Multiple ambiguous matches
-          issuesToInsert.push({
-            software_proposal_id,
-            field_name: "client_name",
-            issue_type: "ambiguous_value",
-            extracted_value: rawClientName,
-            status: ISSUE_STATUS_OPEN,
-          });
+          // Multiple ambiguous matches — try learned correction
+          const learnedClient = findLearnedHeaderCorrection("client_id", rawClientName);
+          if (learnedClient) {
+            matchedClientId = learnedClient;
+            learnedCorrectionsApplied++;
+            console.log(`[LEARNING] Client resolved via previous correction: ${rawClientName} → ${learnedClient}`);
+          } else {
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: "client_name",
+              issue_type: "ambiguous_value",
+              extracted_value: rawClientName,
+              status: ISSUE_STATUS_OPEN,
+            });
+          }
         }
       }
       // No match found → auto-create client if we have minimum data (name + code or CNPJ)

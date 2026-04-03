@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
-  BarChart3, Percent, UserCheck, Trophy, DollarSign,
+  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";

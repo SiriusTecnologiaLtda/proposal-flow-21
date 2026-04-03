@@ -156,8 +156,8 @@ const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
   ],
   templates: [],
   sales_targets: [
-    { fieldKey: "esn_code", label: "ESN (código)", listType: "esn" },
-    { fieldKey: "esn_name", label: "ESN (nome)", listType: "esn" },
+    { fieldKey: "esn_code", label: "Dono da Meta (código)", listType: "sales_team" },
+    { fieldKey: "esn_name", label: "Dono da Meta (nome)", listType: "sales_team" },
   ],
 };
 

@@ -116,10 +116,13 @@ export default function SalesTargetsPage() {
     if (filterGsnIds.length > 0) {
       result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     }
+    if (filterCategoryIds.length > 0) {
+      result = result.filter(g => g.category_id && filterCategoryIds.includes(g.category_id));
+    }
     return result;
-  }, [grouped, search, filterUnitIds, filterGsnIds]);
+  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds]);
 
-  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0);
+  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0);
 
   // Available years
   const years = useMemo(() => {

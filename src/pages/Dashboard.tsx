@@ -19,6 +19,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RechartsTooltip, Line, ComposedChart } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { UnifiedRevenueTab } from "@/components/dashboard/UnifiedRevenueTab";
 
 function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;
@@ -902,12 +903,18 @@ export default function Dashboard() {
       </Card>
 
       {/* ─── Tabs ────────────────────────────────────────────── */}
-      <Tabs defaultValue="propostas" className="space-y-6">
+      <Tabs defaultValue="unificado" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="unificado">Visão Unificada</TabsTrigger>
           <TabsTrigger value="propostas">Oportunidades</TabsTrigger>
           <TabsTrigger value="resultado">Análise de Resultado</TabsTrigger>
           <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
         </TabsList>
+
+        {/* ═══ TAB: Visão Unificada ═══ */}
+        <TabsContent value="unificado">
+          <UnifiedRevenueTab />
+        </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}
         <TabsContent value="propostas" className="space-y-6">

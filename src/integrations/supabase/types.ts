@@ -1829,6 +1829,47 @@ export type Database = {
           },
         ]
       }
+      revenue_targets: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          month: number
+          revenue_line: Database["public"]["Enums"]["revenue_line"]
+          unit_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          month: number
+          revenue_line: Database["public"]["Enums"]["revenue_line"]
+          unit_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          month?: number
+          revenue_line?: Database["public"]["Enums"]["revenue_line"]
+          unit_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_targets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -3093,6 +3134,13 @@ export type Database = {
         | "ganha"
         | "cancelada"
       proposal_type: "projeto" | "banco_de_horas"
+      revenue_line:
+        | "producao"
+        | "recorrente"
+        | "nao_recorrente"
+        | "servico"
+        | "rrf"
+        | "nrf"
       sales_role: "esn" | "gsn" | "arquiteto"
       scope_type: "detalhado" | "macro"
     }
@@ -3233,6 +3281,14 @@ export const Constants = {
         "cancelada",
       ],
       proposal_type: ["projeto", "banco_de_horas"],
+      revenue_line: [
+        "producao",
+        "recorrente",
+        "nao_recorrente",
+        "servico",
+        "rrf",
+        "nrf",
+      ],
       sales_role: ["esn", "gsn", "arquiteto"],
       scope_type: ["detalhado", "macro"],
     },

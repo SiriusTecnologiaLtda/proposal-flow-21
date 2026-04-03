@@ -256,6 +256,20 @@ export default function SoftwareProposalDetailPage() {
   });
   const catalogNameMap = new Map(catalogNames.map(c => [c.id, c.name]));
 
+  // Fetch rule applications for this proposal
+  const { data: ruleApplications = [] } = useQuery({
+    queryKey: ["rule-applications", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("extraction_rule_applications")
+        .select("*, extraction_rules(name, description, scope)")
+        .eq("software_proposal_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Init header form when proposal loads
   useEffect(() => {
     if (proposal && !headerDirty) {

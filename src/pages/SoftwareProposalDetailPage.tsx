@@ -975,245 +975,157 @@ export default function SoftwareProposalDetailPage() {
 
         {/* TAB: Items */}
         <TabsContent value="itens" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">Itens da Proposta</CardTitle>
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => setAddingItem(true)}>
-                  <Plus className="h-4 w-4" />
-                  Adicionar Item
-                </Button>
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Itens da Proposta</h3>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
               </div>
-            </CardHeader>
-            <CardContent>
+              <Button size="sm" variant="outline" className="gap-2 h-7 text-xs" onClick={() => setAddingItem(true)}>
+                <Plus className="h-3 w-3" />
+                Adicionar Item
+              </Button>
+            </div>
+
+            {/* Grid header */}
+            <div className="hidden border-b border-border px-4 py-2 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+              <span className="text-xs font-medium text-muted-foreground">Descrição</span>
+              <span className="text-xs font-medium text-muted-foreground">Catálogo</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">Qtd</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Vlr Unit.</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Vlr Total</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">Desc%</span>
+              <span className="text-xs font-medium text-muted-foreground">Recorrência</span>
+              <span className="text-xs font-medium text-muted-foreground">Class.</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+            </div>
+
+            <div className="divide-y divide-border">
               {itemsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3"><Skeleton className="h-8 w-full" /></div>
+                ))
               ) : items.length === 0 && !addingItem ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <FileText className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhum item encontrado</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <FileText className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-1">Nenhum item encontrado</h3>
+                  <p className="text-sm text-muted-foreground">Adicione itens manualmente ou reprocesse a proposta.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[200px]">Descrição</TableHead>
-                        <TableHead className="w-[120px]">Catálogo</TableHead>
-                        <TableHead className="w-[70px]">Qtd</TableHead>
-                        <TableHead className="w-[110px]">Vlr Unit.</TableHead>
-                        <TableHead className="w-[110px]">Vlr Total</TableHead>
-                        <TableHead className="w-[80px]">Desc %</TableHead>
-                        <TableHead className="w-[100px]">Recorrência</TableHead>
-                        <TableHead className="w-[80px]">Class.</TableHead>
-                        <TableHead className="w-[90px]">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) =>
-                        editingItemId === item.id ? (
-                          <TableRow key={item.id} className="bg-primary/5">
-                            <TableCell>
-                              <Input
-                                value={itemForm.description || ""}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, description: e.target.value }))}
-                                className="text-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <SearchableCatalogSelect
-                                value={itemForm.catalog_item_id || null}
-                                displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
-                                onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" className="text-sm w-16"
-                                value={itemForm.quantity ?? 0}
-                                onChange={(e) => {
-                                  const qty = parseFloat(e.target.value) || 0;
-                                  const unitPrice = parseFloat(itemForm.unit_price) || 0;
-                                  setItemForm((p: any) => ({ ...p, quantity: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-24"
-                                value={itemForm.unit_price ?? 0}
-                                onChange={(e) => {
-                                  const unitPrice = parseFloat(e.target.value) || 0;
-                                  const qty = parseFloat(itemForm.quantity) || 1;
-                                  setItemForm((p: any) => ({ ...p, unit_price: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-24"
-                                value={itemForm.total_price ?? 0}
-                                onChange={(e) => {
-                                  const totalPrice = parseFloat(e.target.value) || 0;
-                                  const qty = parseFloat(itemForm.quantity) || 1;
-                                  setItemForm((p: any) => ({ ...p, total_price: e.target.value, unit_price: qty > 0 ? Math.round((totalPrice / qty) * 100) / 100 : 0 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-16"
-                                value={itemForm.discount_pct ?? 0}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, discount_pct: e.target.value }))}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Select value={itemForm.recurrence} onValueChange={(v) => setItemForm((p: any) => ({ ...p, recurrence: v }))}>
-                                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <Select value={itemForm.cost_classification} onValueChange={(v) => setItemForm((p: any) => ({ ...p, cost_classification: v }))}>
-                                <SelectTrigger className="text-sm h-9 w-20"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveItemEdit}>
-                                  <Save className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}>
-                                  <EyeOff className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-sm font-medium">{item.description}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
-                              {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
-                            </TableCell>
-                            <TableCell className="text-sm text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-sm font-mono">{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-sm font-mono">{formatCurrency(item.total_price)}</TableCell>
-                            <TableCell className="text-sm text-center">{item.discount_pct > 0 ? `${item.discount_pct}%` : "—"}</TableCell>
-                            <TableCell className="text-xs">
-                              {RECURRENCE_OPTIONS.find((r) => r.value === item.recurrence)?.label || item.recurrence}
-                            </TableCell>
-                            <TableCell className="text-xs uppercase">{item.cost_classification}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                                  setEditingItemId(item.id);
-                                  setItemForm({ ...item });
-                                }}>
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteItemTarget(item.id)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
+                <>
+                  {items.map((item) =>
+                    editingItemId === item.id ? (
+                      <div key={item.id} className="flex flex-col gap-2 px-4 py-3 bg-primary/5 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+                        <Input value={itemForm.description || ""} onChange={(e) => setItemForm((p: any) => ({ ...p, description: e.target.value }))} className="text-sm" />
+                        <SearchableCatalogSelect
+                          value={itemForm.catalog_item_id || null}
+                          displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
+                          onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
+                        />
+                        <Input type="number" className="text-sm" value={itemForm.quantity ?? 0} onChange={(e) => {
+                          const qty = parseFloat(e.target.value) || 0;
+                          const unitPrice = parseFloat(itemForm.unit_price) || 0;
+                          setItemForm((p: any) => ({ ...p, quantity: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.unit_price ?? 0} onChange={(e) => {
+                          const unitPrice = parseFloat(e.target.value) || 0;
+                          const qty = parseFloat(itemForm.quantity) || 1;
+                          setItemForm((p: any) => ({ ...p, unit_price: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.total_price ?? 0} onChange={(e) => {
+                          const totalPrice = parseFloat(e.target.value) || 0;
+                          const qty = parseFloat(itemForm.quantity) || 1;
+                          setItemForm((p: any) => ({ ...p, total_price: e.target.value, unit_price: qty > 0 ? Math.round((totalPrice / qty) * 100) / 100 : 0 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.discount_pct ?? 0} onChange={(e) => setItemForm((p: any) => ({ ...p, discount_pct: e.target.value }))} />
+                        <Select value={itemForm.recurrence} onValueChange={(v) => setItemForm((p: any) => ({ ...p, recurrence: v }))}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>{RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Select value={itemForm.cost_classification} onValueChange={(v) => setItemForm((p: any) => ({ ...p, cost_classification: v }))}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveItemEdit}><Save className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}><EyeOff className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.description}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate min-w-0">
+                          {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
+                        </p>
+                        <p className="text-sm text-center">{item.quantity}</p>
+                        <p className="text-sm font-mono text-right">{formatCurrency(item.unit_price)}</p>
+                        <p className="text-sm font-mono text-right">{formatCurrency(item.total_price)}</p>
+                        <p className="text-sm text-center">{item.discount_pct > 0 ? `${item.discount_pct}%` : "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {RECURRENCE_OPTIONS.find((r) => r.value === item.recurrence)?.label || item.recurrence}
+                        </p>
+                        <p className="text-xs uppercase text-muted-foreground">{item.cost_classification}</p>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingItemId(item.id); setItemForm({ ...item }); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteItemTarget(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  )}
 
-                      {/* Add new item inline */}
-                      {addingItem && (
-                        <TableRow className="bg-primary/5">
-                          <TableCell>
-                            <Input
-                              placeholder="Descrição do item"
-                              value={newItemForm.description}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, description: e.target.value }))}
-                              className="text-sm"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" className="text-sm w-16"
-                              value={newItemForm.quantity}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, quantity: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-24"
-                              value={newItemForm.unit_price}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, unit_price: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-24"
-                              value={newItemForm.total_price}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, total_price: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-16"
-                              value={newItemForm.discount_pct}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, discount_pct: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select value={newItemForm.recurrence} onValueChange={(v) => setNewItemForm((p) => ({ ...p, recurrence: v }))}>
-                              <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select value={newItemForm.cost_classification} onValueChange={(v) => setNewItemForm((p) => ({ ...p, cost_classification: v }))}>
-                              <SelectTrigger className="text-sm h-9 w-20"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addItem} disabled={!newItemForm.description.trim()}>
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAddingItem(false)}>
-                                <EyeOff className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                  {/* Add new item inline */}
+                  {addingItem && (
+                    <div className="flex flex-col gap-2 px-4 py-3 bg-primary/5 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+                      <Input placeholder="Descrição do item" value={newItemForm.description} onChange={(e) => setNewItemForm((p) => ({ ...p, description: e.target.value }))} className="text-sm" />
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <Input type="number" className="text-sm" value={newItemForm.quantity} onChange={(e) => setNewItemForm((p) => ({ ...p, quantity: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.unit_price} onChange={(e) => setNewItemForm((p) => ({ ...p, unit_price: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.total_price} onChange={(e) => setNewItemForm((p) => ({ ...p, total_price: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.discount_pct} onChange={(e) => setNewItemForm((p) => ({ ...p, discount_pct: Number(e.target.value) }))} />
+                      <Select value={newItemForm.recurrence} onValueChange={(v) => setNewItemForm((p) => ({ ...p, recurrence: v }))}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>{RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Select value={newItemForm.cost_classification} onValueChange={(v) => setNewItemForm((p) => ({ ...p, cost_classification: v }))}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addItem} disabled={!newItemForm.description.trim()}>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAddingItem(false)}>
+                          <EyeOff className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
+            </div>
 
-              {/* Items total */}
-              {items.length > 0 && (
-                <div className="flex justify-end pt-4 border-t mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Total dos Itens:{" "}
-                    <span className="font-semibold text-foreground font-mono">
-                      {formatCurrency(items.reduce((sum, i) => sum + (i.total_price || 0), 0))}
-                    </span>
-                  </div>
+            {/* Items total */}
+            {items.length > 0 && (
+              <div className="flex justify-end border-t border-border px-4 py-3">
+                <div className="text-sm text-muted-foreground">
+                  Total dos Itens:{" "}
+                  <span className="font-semibold text-foreground font-mono">
+                    {formatCurrency(items.reduce((sum, i) => sum + (i.total_price || 0), 0))}
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* TAB: Issues */}

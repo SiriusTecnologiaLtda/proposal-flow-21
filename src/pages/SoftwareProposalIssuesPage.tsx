@@ -8,9 +8,10 @@ import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, star
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle, CheckCircle2, Search, ExternalLink,
-  EyeOff, ArrowLeft, FileText,
+  EyeOff, ArrowLeft, FileText, UserPlus,
   SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp,
 } from "lucide-react";
+import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +70,12 @@ export default function SoftwareProposalIssuesPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Quick-create client dialog state
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [createClientInitialName, setCreateClientInitialName] = useState("");
+  const [createClientIssueId, setCreateClientIssueId] = useState<string | null>(null);
+  const [createClientProposalId, setCreateClientProposalId] = useState<string | null>(null);
 
   const { data: allIssues = [], isLoading } = useQuery({
     queryKey: ["software-issues-queue", searchTerm],
@@ -212,6 +219,51 @@ export default function SoftwareProposalIssuesPage() {
     } catch (err: any) {
       toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
     }
+  };
+
+  // Extract raw name from "Cliente não encontrado: NOME" pattern
+  const extractNotFoundName = (extracted: string | null): string => {
+    if (!extracted) return "";
+    const match = extracted.match(/não encontrad[oa]:\s*(.+)/i);
+    return match ? match[1].trim() : extracted;
+  };
+
+  const isNotFoundIssue = (issue: IssueRow) =>
+    issue.status === "open" &&
+    issue.extracted_value &&
+    /não encontrad/i.test(issue.extracted_value);
+
+  const handleOpenCreateClient = (issue: IssueRow) => {
+    const name = extractNotFoundName(issue.extracted_value);
+    setCreateClientInitialName(name);
+    setCreateClientIssueId(issue.id);
+    setCreateClientProposalId(issue.software_proposal_id);
+    setCreateClientOpen(true);
+  };
+
+  const handleClientCreated = async (clientId: string) => {
+    // Link the client to the proposal
+    if (createClientProposalId) {
+      await supabase
+        .from("software_proposals")
+        .update({ client_id: clientId })
+        .eq("id", createClientProposalId);
+    }
+    // Resolve the issue
+    if (createClientIssueId) {
+      await supabase
+        .from("extraction_issues")
+        .update({
+          status: "resolved",
+          corrected_value: clientId,
+          resolved_at: new Date().toISOString(),
+          resolved_by: user?.id || null,
+        })
+        .eq("id", createClientIssueId);
+    }
+    queryClient.invalidateQueries({ queryKey: ["software-issues-queue"] });
+    queryClient.invalidateQueries({ queryKey: ["software-issues-counters"] });
+    toast.success("Cliente criado e vinculado à proposta");
   };
 
   const formatDateStr = (dateStr: string) =>
@@ -541,6 +593,15 @@ export default function SoftwareProposalIssuesPage() {
                           </Button>
                           {issue.status === "open" && (
                             <>
+                              {isNotFoundIssue(issue) && issue.field_name === "client_name" && (
+                                <Button
+                                  size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenCreateClient(issue); }}
+                                >
+                                  <UserPlus className="h-3 w-3" />
+                                  Cadastrar
+                                </Button>
+                              )}
                               <Button
                                 size="sm" variant="outline" className="h-7 text-xs gap-1"
                                 onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}?resolve_issue=${issue.id}&field=${encodeURIComponent(issue.field_name)}`)}
@@ -567,6 +628,13 @@ export default function SoftwareProposalIssuesPage() {
           )}
         </CardContent>
       </Card>
+
+      <QuickCreateClientDialog
+        open={createClientOpen}
+        onOpenChange={setCreateClientOpen}
+        onClientCreated={handleClientCreated}
+        initialSearch={createClientInitialName}
+      />
     </div>
   );
 }

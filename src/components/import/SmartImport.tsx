@@ -692,14 +692,44 @@ export default function SmartImport() {
   }, [detectedEntity, mapping, allDataRows, extractValue]);
 
   // ── Save resolutions and proceed ──────────────────────────────
-  const handleSaveResolutions = useCallback(() => {
+  const handleSaveResolutions = useCallback(async () => {
     const newAliases = { ...aliasStore };
     let savedCount = 0;
+    let createdCount = 0;
 
     for (const item of unresolvedItems) {
       const selectionKey = `${item.fieldKey}:${item.valueLower}`;
       const selectedId = resolutionSelections[selectionKey];
       if (!selectedId || selectedId === "__skip__") continue;
+
+      // Handle "create new" for sales_team members
+      if (selectedId === "__create__") {
+        const isCode = item.fieldKey.includes("code");
+        const insertData: any = {
+          name: isCode ? item.value.toUpperCase() : item.value.toUpperCase(),
+          code: isCode ? item.value.toUpperCase() : `AUTO_${Date.now()}`,
+          role: "esn" as any, // default role, will be refined during import
+          commission_pct: 0,
+        };
+        const { data: created, error } = await supabase.from("sales_team").insert(insertData).select("id").single();
+        if (created && !error) {
+          const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
+          if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
+          newAliases[aliasKey][item.valueLower] = created.id;
+          // Also update lookup cache
+          const newEntry = { id: created.id, code: insertData.code.toLowerCase(), name: insertData.name.toLowerCase() };
+          setLookupListsCache(prev => ({
+            ...prev,
+            salesTeamList: [...prev.salesTeamList, newEntry],
+            esnList: [...prev.esnList, newEntry],
+          }));
+          createdCount++;
+          savedCount++;
+        } else {
+          toast({ title: "Erro ao criar membro", description: error?.message || "Erro desconhecido", variant: "destructive" });
+        }
+        continue;
+      }
 
       const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
       if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
@@ -711,14 +741,19 @@ export default function SmartImport() {
     setAliasStore(newAliases);
     setShowResolutionDialog(false);
 
+    const parts: string[] = [];
+    if (savedCount - createdCount > 0) parts.push(`${savedCount - createdCount} associação(ões) salva(s)`);
+    if (createdCount > 0) parts.push(`${createdCount} membro(s) criado(s)`);
     toast({
       title: "Mapeamentos salvos",
-      description: `${savedCount} associação(ões) salva(s). Serão reutilizadas em futuras importações.`,
+      description: parts.length > 0 ? `${parts.join(", ")}. Serão reutilizados em futuras importações.` : "Nenhuma alteração.",
     });
+
+    if (createdCount > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
 
     // Now proceed with import
     executeImport(newAliases);
-  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast]);
+  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast, qc]);
 
   // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {

@@ -10,28 +10,17 @@ import {
   Trash2,
   Search,
   Tag,
-  ToggleLeft,
-  ToggleRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -53,21 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-
-const CATEGORY_OPTIONS = [
-  { value: "erp", label: "ERP" },
-  { value: "crm", label: "CRM" },
-  { value: "bi", label: "BI / Analytics" },
-  { value: "rh", label: "RH / HCM" },
-  { value: "fiscal", label: "Fiscal / Contábil" },
-  { value: "infra", label: "Infraestrutura" },
-  { value: "security", label: "Segurança" },
-  { value: "cloud", label: "Cloud / SaaS" },
-  { value: "other", label: "Outro" },
-];
-
-import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS, getRecurrenceLabel, getCostClassificationLabel } from "@/lib/softwareConstants";
-
+import { RECURRENCE_OPTIONS, COST_CLASSIFICATION_OPTIONS } from "@/lib/softwareConstants";
 
 interface CatalogItem {
   id: string;
@@ -81,6 +56,8 @@ interface CatalogItem {
   part_number: string | null;
   external_code: string | null;
   created_at: string;
+  product_id: string | null;
+  category_id: string | null;
 }
 
 interface AliasItem {
@@ -100,6 +77,8 @@ type FormData = {
   is_active: boolean;
   part_number: string;
   external_code: string;
+  product_id: string;
+  category_id: string;
 };
 
 const emptyForm: FormData = {
@@ -112,6 +91,8 @@ const emptyForm: FormData = {
   is_active: true,
   part_number: "",
   external_code: "",
+  product_id: "",
+  category_id: "",
 };
 
 export default function SoftwareCatalogPage() {
@@ -138,7 +119,7 @@ export default function SoftwareCatalogPage() {
         .select("*")
         .order("name");
       if (error) throw error;
-      return data as CatalogItem[];
+      return data as unknown as CatalogItem[];
     },
   });
 
@@ -151,6 +132,24 @@ export default function SoftwareCatalogPage() {
         .order("alias");
       if (error) throw error;
       return data as AliasItem[];
+    },
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["products-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("id, name").order("name");
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -168,11 +167,15 @@ export default function SoftwareCatalogPage() {
     );
   });
 
+  // Helper lookups
+  const getProductName = (id: string | null) => products.find((p) => p.id === id)?.name || "—";
+  const getCategoryName = (id: string | null) => categories.find((c) => c.id === id)?.name || "—";
+
   // Mutations
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!formData.name.trim()) throw new Error("Nome é obrigatório");
-      const payload = {
+      const payload: any = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         category: formData.category,
@@ -182,6 +185,8 @@ export default function SoftwareCatalogPage() {
         is_active: formData.is_active,
         part_number: formData.part_number.trim() || null,
         external_code: formData.external_code.trim() || null,
+        product_id: formData.product_id || null,
+        category_id: formData.category_id || null,
       };
       if (editItem) {
         const { error } = await supabase
@@ -283,6 +288,8 @@ export default function SoftwareCatalogPage() {
       is_active: item.is_active,
       part_number: item.part_number || "",
       external_code: item.external_code || "",
+      product_id: item.product_id || "",
+      category_id: item.category_id || "",
     });
     setFormOpen(true);
   }
@@ -292,9 +299,6 @@ export default function SoftwareCatalogPage() {
     setEditItem(null);
     setFormData(emptyForm);
   }
-
-  const categoryLabel = (cat: string) =>
-    CATEGORY_OPTIONS.find((c) => c.value === cat)?.label || cat;
 
   return (
     <div className="space-y-4">
@@ -328,9 +332,10 @@ export default function SoftwareCatalogPage() {
       {/* List — Grid-based */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Grid Header */}
-        <div className={`hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}>
+        <div className={`hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1fr_auto_auto_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1fr_auto_auto_auto_auto_auto_auto_auto]"}`}>
           <span className="text-xs font-medium text-muted-foreground">Nome</span>
           <span className="text-xs font-medium text-muted-foreground">Fornecedor</span>
+          <span className="text-xs font-medium text-muted-foreground">Produto</span>
           <span className="text-xs font-medium text-muted-foreground">Categoria</span>
           <span className="text-xs font-medium text-muted-foreground">Recorrência</span>
           <span className="text-xs font-medium text-muted-foreground">Classificação</span>
@@ -366,7 +371,7 @@ export default function SoftwareCatalogPage() {
               return (
                 <div
                   key={item.id}
-                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1.5fr_auto_auto_auto_auto_auto]"}`}
+                  className={`flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:gap-3 md:items-center ${isAdmin ? "md:grid-cols-[2fr_1fr_auto_auto_auto_auto_auto_auto_auto_80px]" : "md:grid-cols-[2fr_1fr_auto_auto_auto_auto_auto_auto_auto]"}`}
                 >
                   {/* Nome */}
                   <div className="min-w-0">
@@ -377,12 +382,10 @@ export default function SoftwareCatalogPage() {
                   </div>
                   {/* Fornecedor */}
                   <p className="text-sm text-muted-foreground truncate min-w-0">{item.vendor_name || "—"}</p>
+                  {/* Produto */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">{getProductName(item.product_id)}</p>
                   {/* Categoria */}
-                  <div>
-                    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      {categoryLabel(item.category)}
-                    </span>
-                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">{getCategoryName(item.category_id)}</p>
                   {/* Recorrência */}
                   <p className="text-sm text-muted-foreground whitespace-nowrap">
                     {RECURRENCE_OPTIONS.find((r) => r.value === item.default_recurrence)?.label || item.default_recurrence}
@@ -473,23 +476,39 @@ export default function SoftwareCatalogPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Categoria</Label>
+                  <Label className="text-xs">Produto</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
+                    value={formData.product_id || "none"}
+                    onValueChange={(v) => setFormData((p) => ({ ...p, product_id: v === "none" ? "" : v }))}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORY_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
+                      <SelectItem value="none">— Nenhum —</SelectItem>
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Categoria</Label>
+                <Select
+                  value={formData.category_id || "none"}
+                  onValueChange={(v) => setFormData((p) => ({ ...p, category_id: v === "none" ? "" : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhuma —</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

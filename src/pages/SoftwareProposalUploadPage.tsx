@@ -343,6 +343,11 @@ function EmailSyncTab() {
       if (error) return null;
       return data as unknown as EmailConfig;
     },
+    // Auto-refresh every 60s when auto-sync is enabled to show latest status
+    refetchInterval: (query) => {
+      const cfg = query.state.data as EmailConfig | null;
+      return cfg?.auto_sync_enabled ? 60_000 : false;
+    },
   });
 
   const { data: pendingAttempts } = useQuery({
@@ -356,6 +361,7 @@ function EmailSyncTab() {
       if (error) return [];
       return (data || []) as unknown as EmailImportAttempt[];
     },
+    refetchInterval: emailConfig?.auto_sync_enabled ? 60_000 : false,
   });
 
   const hasGmailAuthorized = !!emailConfig?.gmail_refresh_token;
@@ -489,6 +495,42 @@ function EmailSyncTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Alert banner for unresolved failures */}
+      {(pendingAttempts?.length ?? 0) > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <MailWarning className="mt-0.5 h-5 w-5 text-destructive shrink-0" />
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium text-destructive">
+              {pendingAttempts!.length} importação(ões) com falha aguardando resolução
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Existem e-mails que não puderam ser importados automaticamente. Verifique a seção de pendências abaixo para reprocessar ou resolver manualmente.
+            </p>
+          </div>
+          <Badge variant="destructive" className="shrink-0">{pendingAttempts!.length}</Badge>
+        </div>
+      )}
+
+      {/* Sync health alert when last sync had errors */}
+      {config?.last_sync_status === "error" && config?.auto_sync_enabled && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-50 p-4 dark:bg-amber-900/20">
+          <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Última sincronização automática falhou
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {config.last_sync_message || "Verifique a conexão Gmail e tente sincronizar manualmente."}
+            </p>
+            {config.last_sync_at && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                Última tentativa: {new Date(config.last_sync_at).toLocaleString("pt-BR")}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sync action + auto-sync + last status */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -834,6 +876,19 @@ function EmailHistoryTab() {
 export default function SoftwareProposalUploadPage() {
   const navigate = useNavigate();
 
+  const { data: pendingCount } = useQuery({
+    queryKey: ["email-import-pending-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("email_import_attempts" as any)
+        .select("id", { count: "exact", head: true })
+        .in("status", ["failed", "pending"]);
+      if (error) return 0;
+      return count ?? 0;
+    },
+    refetchInterval: 60_000,
+  });
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -856,8 +911,13 @@ export default function SoftwareProposalUploadPage() {
           <TabsTrigger value="manual" className="gap-2">
             <Upload className="h-4 w-4" /> Upload Manual
           </TabsTrigger>
-          <TabsTrigger value="email" className="gap-2">
+          <TabsTrigger value="email" className="gap-2 relative">
             <Mail className="h-4 w-4" /> Importação por E-mail
+            {(pendingCount ?? 0) > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-destructive-foreground">
+                {pendingCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2">
             <Inbox className="h-4 w-4" /> Histórico de E-mails

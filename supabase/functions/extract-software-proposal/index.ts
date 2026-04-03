@@ -169,9 +169,16 @@ IMPORTANT RULES:
 - For total_value: sum ALL recurring item totals (this represents the monthly/periodic commitment). If there are both one-time and recurring tables, report the recurring total as total_value and mention one-time totals in notes.
 - For payment_type: map "Mensal" → "monthly", "90 DIAS DDL" → "quarterly", "Gratuito" → "free", "Sob Consumo" → "usage_based".
 - The vendor_name is the company issuing the proposal (e.g., "TOTVS S.A."), NOT the client.
-- The client_name appears after "Cliente:" or "CLIENTE:" in the header section.
+- The client_name appears after "Cliente:" or "CLIENTE:" in the header section. It often has a code in parentheses at the end like "EMPRESA LTDA (DBLJZO)" — extract the code separately as client_code.
+- The document body (usually the contractual section) contains the full client legal details including CNPJ and address. Extract these as client_cnpj and client_address.
 - proposal_number appears after "Proposta N°:" in the header.
 - totvs_unit_name appears after "Unidade TOTVS:" or similar label in the header.
+
+CLIENT DATA EXTRACTION:
+- client_name: The full legal name WITHOUT the code in parentheses (e.g., "ORLETTI SERVICOS ADMINISTRATIVOS LTDA - EPP").
+- client_code: The code in parentheses after the client name in the header (e.g., "DBLJZO"). This is NOT the CNPJ.
+- client_cnpj: Found in the contractual body, typically after "CNPJ/MF sob o n.º" or "inscrito no CNPJ" (e.g., "10.221.365/0001-08").
+- client_address: The full address found in the contractual body near the client name and CNPJ.
 
 RECURRENCE MAPPING for items:
 - "Gratuito" or one-time payment → "one_time"

@@ -1206,9 +1206,9 @@ export default function SmartImport() {
     const { data: allCategories } = await supabase.from("categories").select("id, name");
     const { data: allSegments } = await supabase.from("software_segments").select("id, name");
     const catMap = new Map<string, string>();
-    for (const c of (allCategories || [])) { catMap.set(c.name.trim().toLowerCase(), c.id); }
+    for (const c of (allCategories || [])) { catMap.set(normalize(c.name), c.id); }
     const segMap = new Map<string, string>();
-    for (const s of (allSegments || [])) { segMap.set(s.name.trim().toLowerCase(), s.id); }
+    for (const s of (allSegments || [])) { segMap.set(normalize(s.name), s.id); }
 
     const hasCategoryCol = fieldToCol["category_name"] !== undefined;
     const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
@@ -1242,6 +1242,15 @@ export default function SmartImport() {
     if (dataRows.length === 0) {
       addImportLog(entity, "error", "Nenhum dono de meta encontrado.");
       finishImportRun(entity, "error");
+      if (dbLogId) {
+        await supabase.from("import_logs").update({
+          status: "error",
+          total_rows: 0,
+          finished_at: new Date().toISOString(),
+          duration_ms: Date.now() - importRun.startedAt,
+          summary: "Nenhum dono de meta encontrado.",
+        } as any).eq("id", dbLogId);
+      }
       return;
     }
 
@@ -1259,9 +1268,88 @@ export default function SmartImport() {
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
 
-    let imported = 0, updated = 0, errors = 0, skipped = 0;
+    let imported = 0, updated = 0, errors = 0, skipped = 0, processed = 0;
+    const cancelSignal = getCancelSignal(entity);
+    let interrupted = false;
+
+    const persistProgress = async (status: "running" | "success" | "error" | "interrupted", finished = false) => {
+      if (!dbLogId) return;
+      const duration = Date.now() - importRun.startedAt;
+      const summary = `${processed}/${dataRows.length} linhas processadas | ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`;
+      await supabase.from("import_logs").update({
+        status,
+        total_rows: dataRows.length,
+        imported,
+        updated,
+        errors,
+        skipped,
+        finished_at: finished ? new Date().toISOString() : null,
+        duration_ms: finished ? duration : null,
+        summary,
+      } as any).eq("id", dbLogId);
+    };
+
+    const ensureCategoryId = async (rawValue: string) => {
+      const label = rawValue.trim();
+      if (!label) return null;
+      const key = normalize(label);
+      const existingId = catMap.get(key);
+      if (existingId) return existingId;
+
+      const { data: created, error } = await supabase
+        .from("categories")
+        .insert({ name: label.toUpperCase() } as any)
+        .select("id, name")
+        .single();
+
+      if (error || !created) {
+        errors++;
+        addImportLog(entity, "error", `Categoria "${label}" não pôde ser criada automaticamente: ${error?.message || "erro desconhecido"}.`);
+        return null;
+      }
+
+      const createdKey = normalize(created.name || label);
+      catMap.set(key, created.id);
+      catMap.set(createdKey, created.id);
+      setCategoriesList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
+      addImportLog(entity, "info", `Categoria "${created.name}" criada automaticamente.`);
+      return created.id;
+    };
+
+    const ensureSegmentId = async (rawValue: string) => {
+      const label = rawValue.trim();
+      if (!label) return null;
+      const key = normalize(label);
+      const existingId = segMap.get(key);
+      if (existingId) return existingId;
+
+      const { data: created, error } = await supabase
+        .from("software_segments")
+        .insert({ name: label.toUpperCase(), is_active: true } as any)
+        .select("id, name")
+        .single();
+
+      if (error || !created) {
+        errors++;
+        addImportLog(entity, "error", `Segmento "${label}" não pôde ser criado automaticamente: ${error?.message || "erro desconhecido"}.`);
+        return null;
+      }
+
+      const createdKey = normalize(created.name || label);
+      segMap.set(key, created.id);
+      segMap.set(createdKey, created.id);
+      setSegmentsList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
+      addImportLog(entity, "info", `Segmento "${created.name}" criado automaticamente.`);
+      return created.id;
+    };
 
     for (let i = 0; i < dataRows.length; i++) {
+      if (cancelSignal?.aborted) {
+        interrupted = true;
+        addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário.");
+        break;
+      }
+
       const row = dataRows[i];
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
@@ -1279,18 +1367,21 @@ export default function SmartImport() {
         errors++;
         const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
         addImportLog(entity, "error", `Linha ${i + 2}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
-        updateImportStats(entity, { errors });
+        processed++;
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
+        await persistProgress("running").catch(() => {});
         continue;
       }
 
       // Resolve category_id for this row
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
-        const catVal = (ev(row, "category_name") || "").trim().toLowerCase();
+        const rawCategoryValue = (ev(row, "category_name") || "").trim();
+        const catVal = normalize(rawCategoryValue);
         if (catVal) {
           rowCategoryId = catMap.get(catVal) || null;
           if (!rowCategoryId) {
-            addImportLog(entity, "error", `Linha ${i + 2}: Categoria "${ev(row, "category_name")}" não encontrada no cadastro.`);
+            rowCategoryId = await ensureCategoryId(rawCategoryValue);
           }
         }
       }
@@ -1298,11 +1389,12 @@ export default function SmartImport() {
       // Resolve segment_id for this row
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
-        const segVal = (ev(row, "segment_name") || "").trim().toLowerCase();
+        const rawSegmentValue = (ev(row, "segment_name") || "").trim();
+        const segVal = normalize(rawSegmentValue);
         if (segVal) {
           rowSegmentId = segMap.get(segVal) || null;
           if (!rowSegmentId) {
-            addImportLog(entity, "error", `Linha ${i + 2}: Segmento "${ev(row, "segment_name")}" não encontrado no cadastro.`);
+            rowSegmentId = await ensureSegmentId(rawSegmentValue);
           }
         }
       }
@@ -1319,7 +1411,15 @@ export default function SmartImport() {
         rowRole = detectedMemberRole;
       }
 
+      let interruptedDuringRow = false;
       for (let m = 1; m <= 12; m++) {
+        if (cancelSignal?.aborted) {
+          interrupted = true;
+          interruptedDuringRow = true;
+          addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário.");
+          break;
+        }
+
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
@@ -1345,19 +1445,26 @@ export default function SmartImport() {
           if (error) { errors++; } else { imported++; }
         }
       }
-      updateImportStats(entity, { imported, updated, errors, skipped });
+
+      processed++;
+      updateImportStats(entity, { processed, imported, updated, errors, skipped });
+      await persistProgress(interrupted ? "interrupted" : "running").catch(() => {});
+
+      if (interruptedDuringRow) {
+        break;
+      }
     }
 
-    const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
-    finishImportRun(entity, finalStatus);
+    const finalStatus = interrupted ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
+    finishImportRun(entity, finalStatus as any);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${skipped} zerados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
+    addImportLog(
+      entity,
+      finalStatus === "interrupted" ? "info" : "ok",
+      `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
+    );
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_targets"] });
-    if (dbLogId) await supabase.from("import_logs").update({
-      status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
-      finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros`,
-    } as any).eq("id", dbLogId);
+    await persistProgress(finalStatus as any, true).catch(() => {});
   }
 
   // ── AI Filter prompt ──────────────────────────────────────────
@@ -1847,7 +1954,7 @@ export default function SmartImport() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos ausentes serão criados automaticamente; caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
                 </div>
               )}
@@ -2091,7 +2198,10 @@ export default function SmartImport() {
 function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => void; isDone: boolean }) {
   const [showLog, setShowLog] = useState(true);
   const isRunning = run.status === "running";
-  const progress = run.totalRows > 0 ? ((run.imported + run.updated + run.errors) / run.totalRows * 100) : 0;
+  const processedCount = run.totalRows > 0
+    ? Math.min(run.totalRows, Math.max(run.processed || 0, run.imported + run.updated + run.errors + run.skipped))
+    : 0;
+  const progress = run.totalRows > 0 ? (processedCount / run.totalRows * 100) : 0;
 
   return (
     <div className="space-y-3">
@@ -2099,7 +2209,7 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
         <div className="space-y-2">
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{run.imported + run.updated + run.errors} / {run.totalRows} registros</span>
+              <span>{processedCount} / {run.totalRows} registros</span>
               <span>{progress.toFixed(0)}%</span>
             </div>
             <Progress value={progress} className="h-2" />

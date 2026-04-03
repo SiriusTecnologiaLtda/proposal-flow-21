@@ -1320,6 +1320,11 @@ Return ONLY valid JSON with this exact structure:
       esn_matched: !!matchedEsnId,
       arquiteto_matched: !!matchedArquitetoId,
       segment_matched: !!matchedSegmentId,
+      signatories_found: extractedSignatories.length,
+      contacts_created: clientAutoCreated ? extractedSignatories.filter((s: any) => {
+        const email = (s.email || "").toLowerCase().trim();
+        return email && !email.endsWith("@totvs.com.br");
+      }).length : 0,
     });
   } catch (e) {
     console.error("extract-software-proposal error:", e);

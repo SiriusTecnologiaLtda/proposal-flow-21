@@ -557,20 +557,21 @@ export default function Dashboard() {
   // Monthly chart (unfiltered)
   const monthlyData = useMemo(() => {
     const now = new Date();
-    const months: { key: string; label: string; ganhas: number; perdidas: number }[] = [];
+    const months: { key: string; label: string; ganhas: number; perdidas: number; ganhasValor: number; perdidasValor: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-      months.push({ key, label, ganhas: 0, perdidas: 0 });
+      months.push({ key, label, ganhas: 0, perdidas: 0, ganhasValor: 0, perdidasValor: 0 });
     }
     for (const p of proposals as any[]) {
       if (p.status !== "ganha" && p.status !== "cancelada") continue;
       const closeMonth = (p.expected_close_date || "").substring(0, 7);
       const bucket = months.find((m) => m.key === closeMonth);
       if (!bucket) continue;
-      if (p.status === "ganha") bucket.ganhas++;
-      if (p.status === "cancelada") bucket.perdidas++;
+      const val = computeNetValue(p) || 0;
+      if (p.status === "ganha") { bucket.ganhas++; bucket.ganhasValor += val; }
+      if (p.status === "cancelada") { bucket.perdidas++; bucket.perdidasValor += val; }
     }
     return months;
   }, [proposals]);

@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const roleLabels: Record<string, string> = {
+  dsn: "Diretor de Vendas (DSN)",
   esn: "Executivo de Vendas (ESN)",
   gsn: "Gerente de Vendas (GSN)",
   arquiteto: "Engenheiro de Valor",

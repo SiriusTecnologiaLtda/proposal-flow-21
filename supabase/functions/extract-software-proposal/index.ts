@@ -818,7 +818,50 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // --- Update proposal record with extracted data + master data links ---
+    // --- Auto-create client contacts from PDF signatories ---
+    const extractedSignatories = extracted.signatories || [];
+    if (clientAutoCreated && matchedClientId && extractedSignatories.length > 0) {
+      // Filter out @totvs.com.br emails (internal vendor contacts)
+      const clientSignatories = extractedSignatories.filter((s: any) => {
+        const email = (s.email || "").toLowerCase().trim();
+        return email && !email.endsWith("@totvs.com.br");
+      });
+
+      if (clientSignatories.length > 0) {
+        // Check existing contacts for this client to avoid duplicates
+        const { data: existingContacts } = await adminClient
+          .from("client_contacts")
+          .select("email")
+          .eq("client_id", matchedClientId);
+
+        const existingEmails = new Set(
+          (existingContacts || []).map((c: any) => c.email.toLowerCase().trim())
+        );
+
+        const contactsToInsert = clientSignatories
+          .filter((s: any) => !existingEmails.has(s.email.toLowerCase().trim()))
+          .map((s: any) => ({
+            client_id: matchedClientId,
+            name: s.name || "Contato extraído",
+            email: s.email.trim(),
+            role: s.role || "Signatário",
+            notes: `Contato extraído automaticamente do PDF da proposta ${extracted.proposal_number || software_proposal_id}`,
+          }));
+
+        if (contactsToInsert.length > 0) {
+          const { error: contactsErr } = await adminClient
+            .from("client_contacts")
+            .insert(contactsToInsert);
+
+          if (contactsErr) {
+            console.error("Error inserting client contacts from signatories:", contactsErr);
+          } else {
+            console.log(`Auto-created ${contactsToInsert.length} client contacts from PDF signatories`);
+          }
+        }
+      }
+    }
+
     await userClient
       .from("software_proposals")
       .update({

@@ -120,6 +120,322 @@ function classifyError(errMsg: string): { type: SyncErrorDetail["error_type"]; r
   return { type: "unknown", requires_action: "Erro inesperado. Se persistir, verifique os logs ou entre em contato com o suporte." };
 }
 
+// --- Gmail helpers ---
+
+async function markAsRead(accessToken: string, messageId: string) {
+  await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
+  });
+}
+
+interface PdfPartInfo {
+  filename: string;
+  attachmentId: string;
+}
+
+function findPdfParts(payload: any): PdfPartInfo[] {
+  const results: PdfPartInfo[] = [];
+  if (!payload) return results;
+
+  if (payload.filename && payload.filename.toLowerCase().endsWith(".pdf") && payload.body?.attachmentId) {
+    results.push({
+      filename: payload.filename,
+      attachmentId: payload.body.attachmentId,
+    });
+  }
+
+  if (payload.parts && Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      results.push(...findPdfParts(part));
+    }
+  }
+
+  return results;
+}
+
+// --- Upsert attempt record ---
+async function upsertAttempt(
+  adminClient: any,
+  data: {
+    gmail_message_id: string;
+    subject?: string;
+    sender?: string;
+    received_at?: string;
+    message_id_header?: string;
+    status: string;
+    error_type?: string;
+    error_message?: string;
+    requires_action?: string;
+    attachment_filename?: string;
+    attachment_count?: number;
+    software_proposal_id?: string;
+  }
+) {
+  // Check if attempt already exists for this gmail_message_id + attachment
+  const { data: existing } = await adminClient
+    .from("email_import_attempts")
+    .select("id, retry_count")
+    .eq("gmail_message_id", data.gmail_message_id)
+    .eq("attachment_filename", data.attachment_filename || "")
+    .maybeSingle();
+
+  if (existing) {
+    await adminClient
+      .from("email_import_attempts")
+      .update({
+        status: data.status,
+        error_type: data.error_type || null,
+        error_message: data.error_message || null,
+        requires_action: data.requires_action || null,
+        retry_count: (existing.retry_count || 0) + 1,
+        last_attempt_at: new Date().toISOString(),
+        software_proposal_id: data.software_proposal_id || null,
+        resolved_at: data.status === "success" || data.status === "duplicate" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    await adminClient
+      .from("email_import_attempts")
+      .insert({
+        gmail_message_id: data.gmail_message_id,
+        subject: data.subject || null,
+        sender: data.sender || null,
+        received_at: data.received_at ? new Date(data.received_at).toISOString() : null,
+        message_id_header: data.message_id_header || null,
+        status: data.status,
+        error_type: data.error_type || null,
+        error_message: data.error_message || null,
+        requires_action: data.requires_action || null,
+        attachment_filename: data.attachment_filename || null,
+        attachment_count: data.attachment_count || 0,
+        software_proposal_id: data.software_proposal_id || null,
+        resolved_at: data.status === "success" || data.status === "duplicate" ? new Date().toISOString() : null,
+      });
+  }
+}
+
+// --- Process a single message ---
+async function processMessage(
+  accessToken: string,
+  adminClient: any,
+  userId: string,
+  msgId: string,
+  syncErrors: SyncErrorDetail[]
+): Promise<number> {
+  let pdfsImported = 0;
+  let msgSubject = "(desconhecido)";
+  let msgSender = "";
+
+  try {
+    const msg = await gmailRequest(accessToken, `messages/${msgId}?format=full`);
+
+    msgSender = getHeader(msg.payload?.headers, "From");
+    msgSubject = getHeader(msg.payload?.headers, "Subject") || "(sem assunto)";
+    const dateStr = getHeader(msg.payload?.headers, "Date");
+    const messageIdHeader = getHeader(msg.payload?.headers, "Message-ID") || msgId;
+
+    const pdfParts = findPdfParts(msg.payload);
+
+    if (pdfParts.length === 0) {
+      await upsertAttempt(adminClient, {
+        gmail_message_id: msgId,
+        subject: msgSubject,
+        sender: msgSender,
+        received_at: dateStr,
+        message_id_header: messageIdHeader,
+        status: "skipped",
+        error_type: "no_attachment",
+        error_message: "E-mail não contém anexos PDF.",
+        attachment_filename: "(sem PDF)",
+        attachment_count: 0,
+      });
+      await markAsRead(accessToken, msgId);
+      return 0;
+    }
+
+    let allPartsSucceeded = true;
+
+    for (const part of pdfParts) {
+      try {
+        if (!part.attachmentId) continue;
+
+        const pdfBuffer = await withRetry(() =>
+          gmailGetAttachment(accessToken, msgId, part.attachmentId)
+        );
+
+        const fileHash = await hashBuffer(pdfBuffer);
+
+        // Check for duplicate
+        const { data: existing } = await adminClient
+          .from("software_proposals")
+          .select("id")
+          .eq("file_hash", fileHash)
+          .maybeSingle();
+
+        if (existing) {
+          syncErrors.push({
+            email_id: msgId,
+            subject: msgSubject,
+            sender: msgSender,
+            filename: part.filename,
+            error_type: "duplicate",
+            error_message: `PDF "${part.filename}" já importado anteriormente (hash duplicado).`,
+            auto_resolved: true,
+            requires_action: null,
+            timestamp: new Date().toISOString(),
+          });
+          await upsertAttempt(adminClient, {
+            gmail_message_id: msgId,
+            subject: msgSubject,
+            sender: msgSender,
+            received_at: dateStr,
+            message_id_header: messageIdHeader,
+            status: "duplicate",
+            error_type: "duplicate",
+            error_message: `PDF "${part.filename}" já importado (hash duplicado).`,
+            attachment_filename: part.filename,
+            attachment_count: pdfParts.length,
+            software_proposal_id: existing.id,
+          });
+          continue;
+        }
+
+        // Upload to storage
+        const storagePath = `email-imports/${fileHash}/${part.filename}`;
+        await withRetry(async () => {
+          const { error: uploadErr } = await adminClient.storage
+            .from("software-proposal-pdfs")
+            .upload(storagePath, pdfBuffer, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+
+          if (uploadErr && !uploadErr.message.includes("already exists")) {
+            throw new Error(`Erro ao salvar PDF: ${uploadErr.message}`);
+          }
+        });
+
+        // Insert record
+        let insertedId: string | null = null;
+        await withRetry(async () => {
+          const { data: inserted, error: insertErr } = await adminClient
+            .from("software_proposals")
+            .insert({
+              file_name: part.filename,
+              file_url: storagePath,
+              file_hash: fileHash,
+              status: "pending_extraction",
+              origin: "email_inbox",
+              origin_detail: JSON.stringify({
+                sender: msgSender,
+                subject: msgSubject,
+                received_at: dateStr || new Date().toISOString(),
+                message_id: messageIdHeader,
+              }),
+              uploaded_by: userId,
+              vendor_name: "",
+              total_value: 0,
+            })
+            .select("id")
+            .single();
+
+          if (insertErr) {
+            if (insertErr.message.includes("file_hash") || insertErr.message.includes("duplicate")) {
+              console.log(`Duplicate hash detected for ${part.filename}, skipping.`);
+              return;
+            }
+            throw new Error(`Erro ao criar registro: ${insertErr.message}`);
+          }
+          if (inserted) insertedId = inserted.id;
+        });
+
+        pdfsImported++;
+
+        // Record success
+        await upsertAttempt(adminClient, {
+          gmail_message_id: msgId,
+          subject: msgSubject,
+          sender: msgSender,
+          received_at: dateStr,
+          message_id_header: messageIdHeader,
+          status: "success",
+          attachment_filename: part.filename,
+          attachment_count: pdfParts.length,
+          software_proposal_id: insertedId || undefined,
+        });
+      } catch (partErr) {
+        allPartsSucceeded = false;
+        const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
+        const classified = classifyError(errMsg);
+        syncErrors.push({
+          email_id: msgId,
+          subject: msgSubject,
+          sender: msgSender,
+          filename: part.filename,
+          error_type: classified.type,
+          error_message: errMsg,
+          auto_resolved: false,
+          requires_action: classified.requires_action,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Record failure
+        await upsertAttempt(adminClient, {
+          gmail_message_id: msgId,
+          subject: msgSubject,
+          sender: msgSender,
+          received_at: dateStr,
+          message_id_header: messageIdHeader,
+          status: "failed",
+          error_type: classified.type,
+          error_message: errMsg,
+          requires_action: classified.requires_action,
+          attachment_filename: part.filename,
+          attachment_count: pdfParts.length,
+        });
+      }
+    }
+
+    // Only mark as read if all parts processed successfully
+    if (allPartsSucceeded) {
+      await markAsRead(accessToken, msgId);
+    }
+  } catch (msgErr) {
+    const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
+    const classified = classifyError(errMsg);
+    syncErrors.push({
+      email_id: msgId,
+      subject: msgSubject,
+      sender: msgSender,
+      filename: "(mensagem inteira)",
+      error_type: classified.type,
+      error_message: errMsg,
+      auto_resolved: false,
+      requires_action: classified.requires_action,
+      timestamp: new Date().toISOString(),
+    });
+
+    await upsertAttempt(adminClient, {
+      gmail_message_id: msgId,
+      subject: msgSubject,
+      sender: msgSender,
+      status: "failed",
+      error_type: classified.type,
+      error_message: errMsg,
+      requires_action: classified.requires_action,
+      attachment_filename: "(mensagem inteira)",
+    });
+  }
+
+  return pdfsImported;
+}
+
 // --- Main handler ---
 
 serve(async (req) => {
@@ -163,7 +479,7 @@ serve(async (req) => {
 
     // --- Parse request ---
     const body = await req.json();
-    const action = body.action || "sync"; // "test" | "sync"
+    const action = body.action || "sync"; // "test" | "sync" | "retry"
 
     // --- Load email inbox config ---
     const { data: config, error: configErr } = await adminClient
@@ -195,7 +511,7 @@ serve(async (req) => {
       }, 400);
     }
 
-    // --- Get access token (with retry) ---
+    // --- Get access token ---
     let accessToken: string;
     try {
       accessToken = await withRetry(() =>
@@ -223,14 +539,54 @@ serve(async (req) => {
         });
       } catch (connErr) {
         const errMsg = connErr instanceof Error ? connErr.message : String(connErr);
-        return jsonResponse({
-          success: false,
-          error: `Falha na conexão Gmail: ${errMsg}`,
-        });
+        return jsonResponse({ success: false, error: `Falha na conexão Gmail: ${errMsg}` });
       }
     }
 
-    // === SYNC ===
+    // === RETRY specific failed messages ===
+    if (action === "retry") {
+      const retryAttemptIds: string[] = body.attempt_ids || [];
+      if (retryAttemptIds.length === 0) {
+        return jsonResponse({ error: "Nenhum ID de tentativa informado." }, 400);
+      }
+
+      // Get the failed attempts
+      const { data: attempts } = await adminClient
+        .from("email_import_attempts")
+        .select("*")
+        .in("id", retryAttemptIds)
+        .in("status", ["failed", "pending"]);
+
+      if (!attempts || attempts.length === 0) {
+        return jsonResponse({ success: true, message: "Nenhuma tentativa pendente encontrada.", pdfs_imported: 0, errors: [] });
+      }
+
+      const syncErrors: SyncErrorDetail[] = [];
+      let pdfsImported = 0;
+
+      // Retry each unique gmail message
+      const uniqueMessageIds = [...new Set(attempts.map((a: any) => a.gmail_message_id))];
+
+      for (const gmailMsgId of uniqueMessageIds) {
+        try {
+          const imported = await processMessage(accessToken, adminClient, user.id, gmailMsgId, syncErrors);
+          pdfsImported += imported;
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.error(`Retry failed for ${gmailMsgId}: ${errMsg}`);
+        }
+      }
+
+      return jsonResponse({
+        success: true,
+        pdfs_imported: pdfsImported,
+        retried: uniqueMessageIds.length,
+        errors: syncErrors,
+        message: `Reprocessamento: ${pdfsImported} PDF(s) importado(s) de ${uniqueMessageIds.length} e-mail(s).`,
+      });
+    }
+
+    // === SYNC (normal flow) ===
     const syncStartedAt = new Date().toISOString();
     let emailsFound = 0;
     let pdfsImported = 0;
@@ -290,143 +646,8 @@ serve(async (req) => {
 
       // Process each message
       for (const msgId of messageIds) {
-        let msgSubject = "(desconhecido)";
-        let msgSender = "";
-        try {
-          const msg = await gmailRequest(accessToken, `messages/${msgId}?format=full`);
-
-          msgSender = getHeader(msg.payload?.headers, "From");
-          msgSubject = getHeader(msg.payload?.headers, "Subject") || "(sem assunto)";
-          const dateStr = getHeader(msg.payload?.headers, "Date");
-          const messageIdHeader = getHeader(msg.payload?.headers, "Message-ID") || msgId;
-
-          const pdfParts = findPdfParts(msg.payload);
-
-          if (pdfParts.length === 0) {
-            // No PDF attachments found — not an error, just skip
-            await markAsRead(accessToken, msgId);
-            continue;
-          }
-
-          let allPartsSucceeded = true;
-
-          for (const part of pdfParts) {
-            try {
-              if (!part.attachmentId) continue;
-
-              // Download attachment with retry
-              const pdfBuffer = await withRetry(() =>
-                gmailGetAttachment(accessToken, msgId, part.attachmentId)
-              );
-
-              const fileHash = await hashBuffer(pdfBuffer);
-
-              // Check for duplicate
-              const { data: existing } = await adminClient
-                .from("software_proposals")
-                .select("id")
-                .eq("file_hash", fileHash)
-                .maybeSingle();
-
-              if (existing) {
-                syncErrors.push({
-                  email_id: msgId,
-                  subject: msgSubject,
-                  sender: msgSender,
-                  filename: part.filename,
-                  error_type: "duplicate",
-                  error_message: `PDF "${part.filename}" já importado anteriormente (hash duplicado).`,
-                  auto_resolved: true,
-                  requires_action: null,
-                  timestamp: new Date().toISOString(),
-                });
-                continue;
-              }
-
-              // Upload to storage with retry
-              const storagePath = `email-imports/${fileHash}/${part.filename}`;
-              await withRetry(async () => {
-                const { error: uploadErr } = await adminClient.storage
-                  .from("software-proposal-pdfs")
-                  .upload(storagePath, pdfBuffer, {
-                    contentType: "application/pdf",
-                    upsert: true, // use upsert to handle partial previous uploads
-                  });
-
-                if (uploadErr && !uploadErr.message.includes("already exists")) {
-                  throw new Error(`Erro ao salvar PDF: ${uploadErr.message}`);
-                }
-              });
-
-              // Insert record with retry
-              await withRetry(async () => {
-                const { error: insertErr } = await adminClient
-                  .from("software_proposals")
-                  .insert({
-                    file_name: part.filename,
-                    file_url: storagePath,
-                    file_hash: fileHash,
-                    status: "pending_extraction",
-                    origin: "email_inbox",
-                    origin_detail: JSON.stringify({
-                      sender: msgSender,
-                      subject: msgSubject,
-                      received_at: dateStr || new Date().toISOString(),
-                      message_id: messageIdHeader,
-                    }),
-                    uploaded_by: user.id,
-                    vendor_name: "",
-                    total_value: 0,
-                  });
-
-                if (insertErr) {
-                  // Check if it's a duplicate hash constraint
-                  if (insertErr.message.includes("file_hash") || insertErr.message.includes("duplicate")) {
-                    console.log(`Duplicate hash detected for ${part.filename}, skipping.`);
-                    return; // Not an error
-                  }
-                  throw new Error(`Erro ao criar registro: ${insertErr.message}`);
-                }
-              });
-
-              pdfsImported++;
-            } catch (partErr) {
-              allPartsSucceeded = false;
-              const errMsg = partErr instanceof Error ? partErr.message : String(partErr);
-              const classified = classifyError(errMsg);
-              syncErrors.push({
-                email_id: msgId,
-                subject: msgSubject,
-                sender: msgSender,
-                filename: part.filename,
-                error_type: classified.type,
-                error_message: errMsg,
-                auto_resolved: false,
-                requires_action: classified.requires_action,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-
-          // Only mark as read if all parts processed successfully
-          if (allPartsSucceeded) {
-            await markAsRead(accessToken, msgId);
-          }
-        } catch (msgErr) {
-          const errMsg = msgErr instanceof Error ? msgErr.message : String(msgErr);
-          const classified = classifyError(errMsg);
-          syncErrors.push({
-            email_id: msgId,
-            subject: msgSubject,
-            sender: msgSender,
-            filename: "(mensagem inteira)",
-            error_type: classified.type,
-            error_message: errMsg,
-            auto_resolved: false,
-            requires_action: classified.requires_action,
-            timestamp: new Date().toISOString(),
-          });
-        }
+        const imported = await processMessage(accessToken, adminClient, user.id, msgId, syncErrors);
+        pdfsImported += imported;
       }
 
       // Filter out auto-resolved (duplicates) from error count
@@ -491,41 +712,3 @@ serve(async (req) => {
     return jsonResponse({ error: `Erro interno: ${errMsg}` }, 500);
   }
 });
-
-// --- Gmail helpers ---
-
-async function markAsRead(accessToken: string, messageId: string) {
-  await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
-  });
-}
-
-interface PdfPartInfo {
-  filename: string;
-  attachmentId: string;
-}
-
-function findPdfParts(payload: any): PdfPartInfo[] {
-  const results: PdfPartInfo[] = [];
-  if (!payload) return results;
-
-  if (payload.filename && payload.filename.toLowerCase().endsWith(".pdf") && payload.body?.attachmentId) {
-    results.push({
-      filename: payload.filename,
-      attachmentId: payload.body.attachmentId,
-    });
-  }
-
-  if (payload.parts && Array.isArray(payload.parts)) {
-    for (const part of payload.parts) {
-      results.push(...findPdfParts(part));
-    }
-  }
-
-  return results;
-}

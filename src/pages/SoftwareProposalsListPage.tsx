@@ -225,8 +225,7 @@ export default function SoftwareProposalsListPage() {
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation();
-    const viewerUrl = `/propostas-software/${proposalId}/pdf`;
-    window.open(viewerUrl, "_blank", "noopener,noreferrer");
+    setPdfPreviewId(proposalId);
   };
 
   const formatDate = (dateStr: string | null) => {

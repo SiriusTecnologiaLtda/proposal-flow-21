@@ -230,8 +230,8 @@ Return ONLY valid JSON with this exact structure:
       "quantity": <number>,
       "unit_price": <number>,
       "total_price": <number>,
-      "recurrence": <"one_time"|"monthly"|"quarterly"|"annual"|"usage_based"|"other">,
-      "cost_classification": <"capex"|"opex"|"mixed">,
+      "recurrence": <"one_time"|"monthly"|"quarterly"|"annual"|"usage_based"|"measurement"|"other">,
+      "cost_classification": <"capex"|"opex"|"mixed"|"other">,
       "item_type": <"license"|"service"|"support"|"infrastructure"|"other">,
       "confidence_score": <number 0-1>,
       "notes": <string|null>

@@ -295,12 +295,20 @@ export default function SalesTargetsPage() {
               searchPlaceholder="Buscar GSN..."
               className="h-9 min-w-[140px]"
             />
+            <MultiSelectCombobox
+              options={categoryOptions}
+              selected={filterCategoryIds}
+              onChange={setFilterCategoryIds}
+              placeholder="Categoria"
+              searchPlaceholder="Buscar categoria..."
+              className="h-9 min-w-[140px]"
+            />
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-9 text-xs text-muted-foreground"
-                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setSearch(""); }}
+                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setSearch(""); }}
               >
                 Limpar filtros
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{activeFilterCount}</Badge>

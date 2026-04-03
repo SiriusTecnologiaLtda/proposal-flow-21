@@ -163,13 +163,14 @@ export default function SalesTargetsPage() {
 
   // Add ESN row
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id }: { esn_id: string; category_id: string }) => {
+    mutationFn: async ({ esn_id, category_id, segment_id }: { esn_id: string; category_id: string; segment_id: string }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
         month: i + 1,
         amount: 0,
         category_id,
+        segment_id,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;

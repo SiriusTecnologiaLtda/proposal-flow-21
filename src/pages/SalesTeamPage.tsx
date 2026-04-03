@@ -180,6 +180,7 @@ export default function SalesTeamPage() {
           </div>
           <MultiSelectCombobox
             options={[
+              { value: "dsn", label: "Diretor de Vendas (DSN)" },
               { value: "esn", label: "Executivo de Vendas (ESN)" },
               { value: "gsn", label: "Gerente de Vendas (GSN)" },
               { value: "arquiteto", label: "Engenheiro de Valor" },

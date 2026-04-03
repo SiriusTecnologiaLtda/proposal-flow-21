@@ -82,6 +82,7 @@ const TEMPLATE_DB_FIELDS: DbField[] = [
 const SALES_TARGETS_DB_FIELDS: DbField[] = [
   { key: "esn_code", label: "Código ESN", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn"] },
   { key: "esn_name", label: "Nome ESN", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador"] },
+  { key: "role_name", label: "Nível de Meta", required: false, aliases: ["nivel", "nível", "nivel meta", "nível de meta", "funcao", "função", "role", "tipo meta"] },
   { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
   { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },
   { key: "month_1", label: "Janeiro", required: false, aliases: ["janeiro", "jan", "01", "1"] },
@@ -462,6 +463,7 @@ export default function SmartImport() {
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
   const [targetCategoryId, setTargetCategoryId] = useState<string>("");
   const [targetSegmentId, setTargetSegmentId] = useState<string>("");
+  const [targetRole, setTargetRole] = useState<string>("esn");
   const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
   const [segmentsList, setSegmentsList] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1175,13 +1177,22 @@ export default function SmartImport() {
 
     const hasCategoryCol = fieldToCol["category_name"] !== undefined;
     const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+    const hasRoleCol = fieldToCol["role_name"] !== undefined;
+
+    const roleMap: Record<string, string> = {
+      "esn": "esn", "executivo": "esn", "executivo de vendas": "esn",
+      "gsn": "gsn", "gerente": "gsn", "gerente de vendas": "gsn",
+      "dsn": "dsn", "diretor": "dsn", "diretor de vendas": "dsn",
+      "arquiteto": "arquiteto", "engenheiro de valor": "arquiteto", "ev": "arquiteto",
+    };
 
     const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
     updateImportStats(entity, { totalRows: dataRows.length });
 
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
+    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1252,14 +1263,23 @@ export default function SmartImport() {
         }
       }
 
+      // Resolve role for this row
+      let rowRole = targetRole || "esn";
+      if (hasRoleCol) {
+        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
+        if (roleVal) {
+          rowRole = roleMap[roleVal] || targetRole || "esn";
+        }
+      }
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
 
-        // Build query matching category and segment
+        // Build query matching category, segment and role
         let query = supabase.from("sales_targets").select("id")
-          .eq("esn_id", esnId).eq("year", year).eq("month", m);
+          .eq("esn_id", esnId).eq("year", year).eq("month", m).eq("role", rowRole as any);
         if (rowCategoryId) query = query.eq("category_id", rowCategoryId);
         else query = query.is("category_id", null);
         if (rowSegmentId) query = query.eq("segment_id", rowSegmentId);
@@ -1271,7 +1291,7 @@ export default function SmartImport() {
           const { error } = await supabase.from("sales_targets").update({ amount }).eq("id", existing.id);
           if (error) { errors++; } else { updated++; }
         } else {
-          const insertData: any = { esn_id: esnId, year, month: m, amount };
+          const insertData: any = { esn_id: esnId, year, month: m, amount, role: rowRole };
           if (rowCategoryId) insertData.category_id = rowCategoryId;
           if (rowSegmentId) insertData.segment_id = rowSegmentId;
           const { error } = await supabase.from("sales_targets").insert(insertData);
@@ -1757,9 +1777,30 @@ export default function SmartImport() {
                     {Object.values(mapping).includes("segment_name") && (
                       <Badge variant="outline" className="text-xs">Segmento: via coluna mapeada</Badge>
                     )}
+
+                    {/* Role — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("role_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Nível:</Label>
+                        <Select value={targetRole} onValueChange={setTargetRole}>
+                          <SelectTrigger className="w-[180px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
+                            <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
+                            <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
+                            <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("role_name") && (
+                      <Badge variant="outline" className="text-xs">Nível: via coluna mapeada</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Se a planilha possuir colunas de Categoria/Segmento mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
                 </div>
               )}

@@ -20,10 +20,25 @@ import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useS
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MONTH_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+const ROLE_LABELS: Record<string, string> = {
+  dsn: "DSN",
+  gsn: "GSN",
+  esn: "ESN",
+  arquiteto: "EV",
+};
+
+const ROLE_OPTIONS = [
+  { value: "esn", label: "Executivo de Vendas (ESN)" },
+  { value: "gsn", label: "Gerente de Vendas (GSN)" },
+  { value: "dsn", label: "Diretor de Vendas (DSN)" },
+  { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
+];
+
 type GroupedRow = {
   esn_id: string;
   category_id: string | null;
   segment_id: string | null;
+  role: string;
   name: string;
   code: string;
   unit_id: string | null;
@@ -44,6 +59,7 @@ export default function SalesTargetsPage() {
   const [filterGsnIds, setFilterGsnIds] = useState<string[]>([]);
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
+  const [filterRoles, setFilterRoles] = useState<string[]>([]);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
@@ -54,6 +70,7 @@ export default function SalesTargetsPage() {
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");
+  const [newRole, setNewRole] = useState("esn");
 
   const { data: categories = [] } = useCategories();
   const { data: segments = [] } = useSegments();
@@ -90,13 +107,15 @@ export default function SalesTargetsPage() {
   const grouped: GroupedRow[] = useMemo(() => {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
-      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}`;
+      const tRole = (t as any).role || "esn";
+      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}__${tRole}`;
       if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
           category_id: (t as any).category_id || null,
           segment_id: (t as any).segment_id || null,
+          role: tRole,
           name: esn?.name || "—",
           code: esn?.code || "—",
           unit_id: esn?.unit_id || null,
@@ -119,10 +138,11 @@ export default function SalesTargetsPage() {
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     if (filterCategoryIds.length > 0) result = result.filter(g => g.category_id && filterCategoryIds.includes(g.category_id));
     if (filterSegmentIds.length > 0) result = result.filter(g => g.segment_id && filterSegmentIds.includes(g.segment_id));
+    if (filterRoles.length > 0) result = result.filter(g => filterRoles.includes(g.role));
     return result;
-  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds]);
+  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles]);
 
-  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0);
+  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0) + (filterRoles.length > 0 ? 1 : 0);
 
   const years = useMemo(() => {
     const y = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2]);
@@ -136,7 +156,7 @@ export default function SalesTargetsPage() {
   }, [esnList, grouped]);
 
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id, segment_id }: { esn_id: string; category_id: string; segment_id: string }) => {
+    mutationFn: async ({ esn_id, category_id, segment_id, role }: { esn_id: string; category_id: string; segment_id: string; role: string }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
@@ -144,6 +164,7 @@ export default function SalesTargetsPage() {
         amount: 0,
         category_id,
         segment_id,
+        role,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
@@ -154,6 +175,7 @@ export default function SalesTargetsPage() {
       setNewEsnId("");
       setNewCategoryId("");
       setNewSegmentId("");
+      setNewRole("esn");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -205,6 +227,7 @@ export default function SalesTargetsPage() {
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;
+          if (editRow.role) insertData.role = editRow.role;
           const { error } = await supabase.from("sales_targets").insert(insertData);
           if (error) throw error;
         }
@@ -309,7 +332,7 @@ export default function SalesTargetsPage() {
             )}
             <div className="ml-auto flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setSearch(""); }}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setFilterRoles([]); setSearch(""); }}>
                   Limpar filtros
                 </Button>
               )}
@@ -318,7 +341,7 @@ export default function SalesTargetsPage() {
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
             <div className="relative col-span-2 sm:col-span-1">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input placeholder="Pesquisar ESN..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
@@ -331,6 +354,7 @@ export default function SalesTargetsPage() {
                 {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
+            <MultiSelectCombobox options={ROLE_OPTIONS.map(r => ({ value: r.value, label: r.label }))} selected={filterRoles} onChange={setFilterRoles} placeholder="Nível" searchPlaceholder="Buscar nível..." className="h-9" />
             <MultiSelectCombobox options={unitOptions} selected={filterUnitIds} onChange={setFilterUnitIds} placeholder="Unidade" searchPlaceholder="Buscar unidade..." className="h-9" />
             <MultiSelectCombobox options={gsnOptions} selected={filterGsnIds} onChange={setFilterGsnIds} placeholder="GSN" searchPlaceholder="Buscar GSN..." className="h-9" />
             <MultiSelectCombobox options={categoryOptions} selected={filterCategoryIds} onChange={setFilterCategoryIds} placeholder="Categoria" searchPlaceholder="Buscar categoria..." className="h-9" />
@@ -383,7 +407,7 @@ export default function SalesTargetsPage() {
                     const segName = getSegmentName(row.segment_id);
                     return (
                       <tr
-                        key={`${row.esn_id}-${row.category_id}-${row.segment_id}`}
+                        key={`${row.esn_id}-${row.category_id}-${row.segment_id}-${row.role}`}
                         className={cn(
                           "group transition-colors hover:bg-accent/40",
                           isAdmin && "cursor-pointer"
@@ -394,6 +418,7 @@ export default function SalesTargetsPage() {
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm text-foreground font-medium leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
                               {unitName && (
                                 <>
@@ -488,11 +513,15 @@ export default function SalesTargetsPage() {
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">ESN</Label>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
                     <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Nível</Label>
+                    <Badge className="text-xs mt-1 bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[editRow.role] || editRow.role.toUpperCase()}</Badge>
                   </div>
                   <div>
                     <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>
@@ -599,7 +628,18 @@ export default function SalesTargetsPage() {
                     </Select>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Nível de Meta</Label>
+                    <Select value={newRole} onValueChange={setNewRole}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map(r => (
+                          <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Categoria</Label>
                     <Select value={newCategoryId} onValueChange={setNewCategoryId}>
@@ -630,7 +670,7 @@ export default function SalesTargetsPage() {
           <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
             <Button variant="ghost" onClick={() => setNewDialog(false)} className="h-9">Cancelar</Button>
             <Button
-              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId })}
+              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole })}
               disabled={!newEsnId || !newCategoryId || !newSegmentId || availableEsns.length === 0 || addEsnMutation.isPending}
               className="h-9"
             >

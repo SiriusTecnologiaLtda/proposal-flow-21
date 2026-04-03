@@ -1899,6 +1899,7 @@ export type Database = {
           esn_id: string
           id: string
           month: number
+          role: Database["public"]["Enums"]["sales_role"]
           segment_id: string | null
           updated_at: string
           year: number
@@ -1910,6 +1911,7 @@ export type Database = {
           esn_id: string
           id?: string
           month: number
+          role?: Database["public"]["Enums"]["sales_role"]
           segment_id?: string | null
           updated_at?: string
           year: number
@@ -1921,6 +1923,7 @@ export type Database = {
           esn_id?: string
           id?: string
           month?: number
+          role?: Database["public"]["Enums"]["sales_role"]
           segment_id?: string | null
           updated_at?: string
           year?: number

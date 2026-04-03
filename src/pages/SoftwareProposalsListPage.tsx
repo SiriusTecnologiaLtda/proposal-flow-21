@@ -205,7 +205,14 @@ export default function SoftwareProposalsListPage() {
         .download(fileUrl);
       if (error) throw error;
       const blobUrl = URL.createObjectURL(data);
-      window.open(blobUrl, "_blank");
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.type = "application/pdf";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
     } catch (err: any) {
       toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
     }

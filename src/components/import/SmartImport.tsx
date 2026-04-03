@@ -1263,14 +1263,23 @@ export default function SmartImport() {
         }
       }
 
+      // Resolve role for this row
+      let rowRole = targetRole || "esn";
+      if (hasRoleCol) {
+        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
+        if (roleVal) {
+          rowRole = roleMap[roleVal] || targetRole || "esn";
+        }
+      }
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
 
-        // Build query matching category and segment
+        // Build query matching category, segment and role
         let query = supabase.from("sales_targets").select("id")
-          .eq("esn_id", esnId).eq("year", year).eq("month", m);
+          .eq("esn_id", esnId).eq("year", year).eq("month", m).eq("role", rowRole as any);
         if (rowCategoryId) query = query.eq("category_id", rowCategoryId);
         else query = query.is("category_id", null);
         if (rowSegmentId) query = query.eq("segment_id", rowSegmentId);
@@ -1282,7 +1291,7 @@ export default function SmartImport() {
           const { error } = await supabase.from("sales_targets").update({ amount }).eq("id", existing.id);
           if (error) { errors++; } else { updated++; }
         } else {
-          const insertData: any = { esn_id: esnId, year, month: m, amount };
+          const insertData: any = { esn_id: esnId, year, month: m, amount, role: rowRole };
           if (rowCategoryId) insertData.category_id = rowCategoryId;
           if (rowSegmentId) insertData.segment_id = rowSegmentId;
           const { error } = await supabase.from("sales_targets").insert(insertData);

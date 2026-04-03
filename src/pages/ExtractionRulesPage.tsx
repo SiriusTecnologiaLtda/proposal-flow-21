@@ -88,11 +88,13 @@ const RECURRENCE_VALUES = [
   { value: "monthly", label: "Mensal (monthly)" },
   { value: "annual", label: "Anual (annual)" },
   { value: "usage_based", label: "Sob demanda (usage_based)" },
+  { value: "measurement", label: "Medição (measurement)" },
 ];
 
 const COST_VALUES = [
   { value: "capex", label: "Capex" },
   { value: "opex", label: "Opex" },
+  { value: "other", label: "Outros" },
 ];
 
 interface RuleForm {

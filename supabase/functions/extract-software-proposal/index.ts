@@ -179,12 +179,14 @@ RECURRENCE MAPPING for items:
 - "90 DIAS DDL" or quarterly → "quarterly"
 - "Anual" → "annual"
 - "Sob Consumo" → "usage_based"
+- "Medição", "Por medição", measurement-based → "measurement"
 - If unclear → "other"
 
 COST CLASSIFICATION:
 - CDU (Cessão de Direito de Uso), Adesão, Setup → "capex"
 - SMS (Serviço de Manutenção), Cloud subscriptions, recurring licenses → "opex"
 - Mixed or unclear → "mixed"
+- Other / not classifiable → "other"
 
 ITEM TYPE:
 - CDU, License, Licenciamento → "license"
@@ -228,8 +230,8 @@ Return ONLY valid JSON with this exact structure:
       "quantity": <number>,
       "unit_price": <number>,
       "total_price": <number>,
-      "recurrence": <"one_time"|"monthly"|"quarterly"|"annual"|"usage_based"|"other">,
-      "cost_classification": <"capex"|"opex"|"mixed">,
+      "recurrence": <"one_time"|"monthly"|"quarterly"|"annual"|"usage_based"|"measurement"|"other">,
+      "cost_classification": <"capex"|"opex"|"mixed"|"other">,
       "item_type": <"license"|"service"|"support"|"infrastructure"|"other">,
       "confidence_score": <number 0-1>,
       "notes": <string|null>
@@ -699,8 +701,8 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // --- Insert extracted items with catalog matching ---
-    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "other"];
-    const validClassifications = ["capex", "opex", "mixed"];
+    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "measurement", "other"];
+    const validClassifications = ["capex", "opex", "mixed", "other"];
     const validItemTypes = ["license", "service", "support", "infrastructure", "other"];
 
     if (items.length > 0) {

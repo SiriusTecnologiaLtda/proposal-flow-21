@@ -36,11 +36,14 @@ const RECURRENCE_OPTIONS = [
   { value: "one_time", label: "Único" },
   { value: "monthly", label: "Mensal" },
   { value: "annual", label: "Anual" },
+  { value: "usage_based", label: "Sob demanda" },
+  { value: "measurement", label: "Medição" },
 ];
 
 const COST_OPTIONS = [
   { value: "opex", label: "Opex" },
   { value: "capex", label: "Capex" },
+  { value: "other", label: "Outros" },
 ];
 
 interface ManualItem {

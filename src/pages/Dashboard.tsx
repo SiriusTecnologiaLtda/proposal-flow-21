@@ -984,7 +984,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

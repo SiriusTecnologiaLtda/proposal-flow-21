@@ -557,20 +557,21 @@ export default function Dashboard() {
   // Monthly chart (unfiltered)
   const monthlyData = useMemo(() => {
     const now = new Date();
-    const months: { key: string; label: string; ganhas: number; perdidas: number }[] = [];
+    const months: { key: string; label: string; ganhas: number; perdidas: number; ganhasValor: number; perdidasValor: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-      months.push({ key, label, ganhas: 0, perdidas: 0 });
+      months.push({ key, label, ganhas: 0, perdidas: 0, ganhasValor: 0, perdidasValor: 0 });
     }
     for (const p of proposals as any[]) {
       if (p.status !== "ganha" && p.status !== "cancelada") continue;
       const closeMonth = (p.expected_close_date || "").substring(0, 7);
       const bucket = months.find((m) => m.key === closeMonth);
       if (!bucket) continue;
-      if (p.status === "ganha") bucket.ganhas++;
-      if (p.status === "cancelada") bucket.perdidas++;
+      const val = computeNetValue(p) || 0;
+      if (p.status === "ganha") { bucket.ganhas++; bucket.ganhasValor += val; }
+      if (p.status === "cancelada") { bucket.perdidas++; bucket.perdidasValor += val; }
     }
     return months;
   }, [proposals]);
@@ -981,7 +982,38 @@ export default function Dashboard() {
                     allowDecimals={false}
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                   />
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartTooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0]?.payload;
+                      return (
+                        <div className="rounded-lg border border-border bg-background p-3 shadow-md">
+                          <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
+                          {data?.ganhas > 0 && (
+                            <div className="flex items-center justify-between gap-4 text-sm">
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "hsl(var(--success))" }} />
+                                Ganhas ({data.ganhas})
+                              </span>
+                              <span className="font-medium">{data.ganhasValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                            </div>
+                          )}
+                          {data?.perdidas > 0 && (
+                            <div className="flex items-center justify-between gap-4 text-sm">
+                              <span className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "hsl(var(--destructive))" }} />
+                                Perdidas ({data.perdidas})
+                              </span>
+                              <span className="font-medium">{data.perdidasValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                            </div>
+                          )}
+                          {(!data?.ganhas && !data?.perdidas) && (
+                            <p className="text-xs text-muted-foreground">Sem dados</p>
+                          )}
+                        </div>
+                      );
+                    }}
+                  />
                   <Legend />
                   <Bar dataKey="ganhas" name="Ganhas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="perdidas" name="Perdidas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />

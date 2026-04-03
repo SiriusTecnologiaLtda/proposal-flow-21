@@ -669,11 +669,13 @@ Return ONLY valid JSON with this exact structure:
     // --- Match Sales Team members ---
     const salesTeam = extracted.sales_team || {};
 
-    // Helper: match a sales_team member by name and/or code
+    // Helper: match a sales_team member by name and/or code, with learned correction fallback
     const matchSalesTeamMember = async (
       rawName: string | null,
       rawCode: string | null,
       fieldLabel: string,
+      learnedFieldId: string,
+      rawFullName: string | null,
       roleFilter?: string[],
     ): Promise<string | null> => {
       if (!rawName && !rawCode) return null;
@@ -687,6 +689,13 @@ Return ONLY valid JSON with this exact structure:
       const { data: matches } = await query.limit(10);
 
       if (!matches || matches.length === 0) {
+        // Try learned correction before creating issue
+        const learned = findLearnedHeaderCorrection(learnedFieldId, rawFullName || rawName);
+        if (learned) {
+          learnedCorrectionsApplied++;
+          console.log(`[LEARNING] ${fieldLabel} resolved via previous correction: ${rawFullName || rawName} → ${learned}`);
+          return learned;
+        }
         issuesToInsert.push({
           software_proposal_id,
           field_name: fieldLabel,
@@ -712,7 +721,14 @@ Return ONLY valid JSON with this exact structure:
       // If only one result, use it
       if (matches.length === 1) return matches[0].id;
 
-      // Ambiguous
+      // Ambiguous — try learned correction
+      const learned = findLearnedHeaderCorrection(learnedFieldId, rawFullName || rawName);
+      if (learned) {
+        learnedCorrectionsApplied++;
+        console.log(`[LEARNING] ${fieldLabel} resolved via previous correction (ambiguous): ${rawFullName || rawName} → ${learned}`);
+        return learned;
+      }
+
       issuesToInsert.push({
         software_proposal_id,
         field_name: fieldLabel,
@@ -731,9 +747,13 @@ Return ONLY valid JSON with this exact structure:
     const rawArquitetoCode = val(salesTeam.arquiteto_code);
     const rawSegmentName = val(salesTeam.segment);
 
-    const matchedGsnId = await matchSalesTeamMember(rawGsnName, rawGsnCode, "gsn");
-    const matchedEsnId = await matchSalesTeamMember(rawEsnName, rawEsnCode, "esn");
-    const matchedArquitetoId = await matchSalesTeamMember(rawArquitetoName, rawArquitetoCode, "arquiteto");
+    const rawGsnFull = rawGsnName ? `${rawGsnName}${rawGsnCode ? ` (${rawGsnCode})` : ""}` : null;
+    const rawEsnFull = rawEsnName ? `${rawEsnName}${rawEsnCode ? ` (${rawEsnCode})` : ""}` : null;
+    const rawArquitetoFull = rawArquitetoName ? `${rawArquitetoName}${rawArquitetoCode ? ` (${rawArquitetoCode})` : ""}` : null;
+
+    const matchedGsnId = await matchSalesTeamMember(rawGsnName, rawGsnCode, "gsn", "gsn_id", rawGsnFull);
+    const matchedEsnId = await matchSalesTeamMember(rawEsnName, rawEsnCode, "esn", "esn_id", rawEsnFull);
+    const matchedArquitetoId = await matchSalesTeamMember(rawArquitetoName, rawArquitetoCode, "arquiteto", "arquiteto_id", rawArquitetoFull);
 
     // --- Match/auto-create Segment ---
     let matchedSegmentId: string | null = null;

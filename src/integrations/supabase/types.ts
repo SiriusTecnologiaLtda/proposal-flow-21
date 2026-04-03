@@ -3161,7 +3161,7 @@ export type Database = {
         | "servico"
         | "rrf"
         | "nrf"
-      sales_role: "esn" | "gsn" | "arquiteto"
+      sales_role: "esn" | "gsn" | "arquiteto" | "dsn"
       scope_type: "detalhado" | "macro"
     }
     CompositeTypes: {
@@ -3309,7 +3309,7 @@ export const Constants = {
         "rrf",
         "nrf",
       ],
-      sales_role: ["esn", "gsn", "arquiteto"],
+      sales_role: ["esn", "gsn", "arquiteto", "dsn"],
       scope_type: ["detalhado", "macro"],
     },
   },

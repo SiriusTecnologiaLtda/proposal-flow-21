@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 const roleLabels: Record<string, string> = {
+  dsn: "Diretor de Vendas (DSN)",
   esn: "Executivo de Vendas (ESN)",
   gsn: "Gerente de Vendas (GSN)",
   arquiteto: "Engenheiro de Valor",
@@ -179,6 +180,7 @@ export default function SalesTeamPage() {
           </div>
           <MultiSelectCombobox
             options={[
+              { value: "dsn", label: "Diretor de Vendas (DSN)" },
               { value: "esn", label: "Executivo de Vendas (ESN)" },
               { value: "gsn", label: "Gerente de Vendas (GSN)" },
               { value: "arquiteto", label: "Engenheiro de Valor" },
@@ -233,6 +235,7 @@ export default function SalesTeamPage() {
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
                   <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
                   <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
                   <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>

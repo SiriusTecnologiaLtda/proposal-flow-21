@@ -1,0 +1,1 @@
+ALTER TYPE public.sales_role ADD VALUE IF NOT EXISTS 'dsn';

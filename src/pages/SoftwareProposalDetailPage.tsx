@@ -756,6 +756,14 @@ export default function SoftwareProposalDetailPage() {
               </Badge>
             )}
           </TabsTrigger>
+          {ruleApplications.length > 0 && (
+            <TabsTrigger value="regras">
+              Regras Aplicadas
+              <Badge variant="secondary" className="ml-2 h-5 min-w-5 text-xs">
+                {ruleApplications.length}
+              </Badge>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* TAB: Header data */}

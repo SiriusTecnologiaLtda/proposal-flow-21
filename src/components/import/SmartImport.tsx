@@ -80,8 +80,8 @@ const TEMPLATE_DB_FIELDS: DbField[] = [
 ];
 
 const SALES_TARGETS_DB_FIELDS: DbField[] = [
-  { key: "esn_code", label: "Código ESN", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn"] },
-  { key: "esn_name", label: "Nome ESN", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador"] },
+  { key: "esn_code", label: "Código Dono da Meta", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn", "cod dono", "cod dono da meta", "código dono da meta", "cod dsn", "cod gsn"] },
+  { key: "esn_name", label: "Nome Dono da Meta", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador", "dono da meta", "nome dono da meta", "dono", "nome dsn", "nome gsn"] },
   { key: "role_name", label: "Nível de Meta", required: false, aliases: ["nivel", "nível", "nivel meta", "nível de meta", "funcao", "função", "role", "tipo meta"] },
   { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
   { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },

@@ -46,6 +46,7 @@ import SoftwareCatalogPage from "@/pages/SoftwareCatalogPage";
 import SoftwareProposalDetailPage from "@/pages/SoftwareProposalDetailPage";
 import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
+import SoftwareProposalPdfViewerPage from "@/pages/SoftwareProposalPdfViewerPage";
 import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -128,6 +129,7 @@ function ProtectedRoutes() {
         <Route path="/propostas-software/catalogo" element={<GuardedRoute path="/propostas-software"><SoftwareCatalogPage /></GuardedRoute>} />
         <Route path="/propostas-software/pendencias" element={<GuardedRoute path="/propostas-software"><SoftwareProposalIssuesPage /></GuardedRoute>} />
         <Route path="/propostas-software/regras" element={<GuardedRoute path="/propostas-software"><ExtractionRulesPage /></GuardedRoute>} />
+        <Route path="/propostas-software/:id/pdf" element={<GuardedRoute path="/propostas-software"><SoftwareProposalPdfViewerPage /></GuardedRoute>} />
         <Route path="/propostas-software/:id" element={<GuardedRoute path="/propostas-software"><SoftwareProposalDetailPage /></GuardedRoute>} />
         <Route path="/cadastros" element={<GuardedRoute path="/cadastros"><CadastrosPage /></GuardedRoute>} />
         <Route path="/cadastros/clientes" element={<GuardedRoute path="/cadastros/clientes"><ClientsList /></GuardedRoute>} />

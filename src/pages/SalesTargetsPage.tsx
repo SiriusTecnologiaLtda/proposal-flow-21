@@ -274,8 +274,19 @@ export default function SalesTargetsPage() {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={() => { setNewDialog(true); setNewEsnId(availableEsns[0]?.id || ""); }}>
-                <Plus className="h-4 w-4 mr-1.5" /> Adicionar ESN
+              <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={() => {
+                setIsCreateMode(true);
+                setEditRow(null);
+                setNewEsnId(allEsns[0]?.id || "");
+                setNewCategoryId("");
+                setNewSegmentId("");
+                setNewRole("esn");
+                const emptyMonths: Record<number, string> = {};
+                for (let m = 1; m <= 12; m++) emptyMonths[m] = "0";
+                setEditMonthValues(emptyMonths);
+                setEditDialogOpen(true);
+              }}>
+                <Plus className="h-4 w-4 mr-1.5" /> Adicionar Meta
               </Button>
             )}
           </div>

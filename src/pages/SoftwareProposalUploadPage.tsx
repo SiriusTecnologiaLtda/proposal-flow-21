@@ -766,17 +766,19 @@ export default function SoftwareProposalUploadPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/propostas-software")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Central de Importação</h1>
-          <p className="text-sm text-muted-foreground">
-            Importe propostas de software via upload manual ou leitura automática de e-mails
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/propostas-software")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Central de Importação</h1>
+            <p className="text-sm text-muted-foreground">
+              Importe propostas de software via upload manual ou leitura automática de e-mails
+            </p>
+          </div>
         </div>
       </div>
 

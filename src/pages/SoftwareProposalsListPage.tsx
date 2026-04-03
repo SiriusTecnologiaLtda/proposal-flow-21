@@ -26,16 +26,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos os Status" },
@@ -60,11 +52,11 @@ const ORIGIN_OPTIONS = [
 
 const STATUS_BADGE_VARIANT: Record<string, string> = {
   pending_extraction: "bg-muted text-muted-foreground",
-  extracting: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  extracted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-  in_review: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  validated: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  error: "bg-destructive/10 text-destructive",
+  extracting: "bg-primary/15 text-primary",
+  extracted: "bg-success/15 text-success",
+  in_review: "bg-warning/15 text-warning",
+  validated: "bg-success/15 text-success",
+  error: "bg-destructive/15 text-destructive",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -98,6 +90,7 @@ export default function SoftwareProposalsListPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
 
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -197,6 +190,9 @@ export default function SoftwareProposalsListPage() {
     });
   }, [allProposals, statusFilter, originFilter, periodRange]);
 
+  const visibleProposals = useMemo(() => proposals.slice(0, visibleCount), [proposals, visibleCount]);
+  const hasMore = visibleCount < proposals.length;
+
   const openPdf = async (e: React.MouseEvent, fileUrl: string) => {
     e.stopPropagation();
     try {
@@ -228,16 +224,19 @@ export default function SoftwareProposalsListPage() {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
+  const activeFilterCount =
+    (statusFilter.length > 0 ? 1 : 0) +
+    (originFilter.length > 0 ? 1 : 0) +
+    (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Gestão de Propostas de Software
-          </h1>
+          <h1 className="text-2xl font-semibold text-foreground">Propostas de Software</h1>
           <p className="text-sm text-muted-foreground">
-            Importação e análise de propostas comerciais de software
+            {searchTerm ? `${proposals.length} de ${allProposals?.length || 0}` : allProposals?.length || 0} propostas importadas
           </p>
         </div>
         <div className="flex gap-2">
@@ -284,189 +283,176 @@ export default function SoftwareProposalsListPage() {
       </div>
 
       {/* Collapsible Filter Bar */}
-      {(() => {
-        const activeFilterCount =
-          (statusFilter.length > 0 ? 1 : 0) +
-          (originFilter.length > 0 ? 1 : 0) +
-          (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
-        return (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
-            >
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <SlidersHorizontal className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
-              </div>
-              {activeFilterCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              )}
-              <div className="flex-1" />
-              {activeFilterCount > 0 && (
-                <span
-                  role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setStatusFilter([]);
-                    setOriginFilter([]);
-                    setPeriodFilter("este_ano");
-                    setCustomStart("");
-                    setCustomEnd("");
-                  }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Limpar tudo
-                </span>
-              )}
-              {filtersOpen ? (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              )}
-            </button>
-
-            {filtersOpen && (
-              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
-                {/* Period */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <CalendarRange className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {([
-                      { key: "este_mes", label: "Este mês" },
-                      { key: "ultimo_mes", label: "Último mês" },
-                      { key: "este_trimestre", label: "Este trimestre" },
-                      { key: "este_ano", label: "Este ano" },
-                      { key: "personalizado", label: "Personalizado" },
-                    ] as const).map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                          periodFilter === key
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {periodFilter === "personalizado" && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <Input
-                        type="date"
-                        value={customStart}
-                        onChange={(e) => setCustomStart(e.target.value)}
-                        className="h-8 w-36 text-xs"
-                      />
-                      <span className="text-xs text-muted-foreground">até</span>
-                      <Input
-                        type="date"
-                        value={customEnd}
-                        onChange={(e) => setCustomEnd(e.target.value)}
-                        className="h-8 w-36 text-xs"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Divider */}
-                <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-                {/* Status */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <FileText className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                      const active = statusFilter.includes(value);
-                      const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
-                      return (
-                        <button
-                          key={value}
-                          onClick={() =>
-                            setStatusFilter((prev) =>
-                              active ? prev.filter((s) => s !== value) : [...prev, value]
-                            )
-                          }
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                            active
-                              ? `${badgeClass} border-current ring-1 ring-current/30`
-                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-                {/* Origin */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <FileSearch className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                      const active = originFilter.includes(value);
-                      return (
-                        <button
-                          key={value}
-                          onClick={() =>
-                            setOriginFilter((prev) =>
-                              active ? prev.filter((s) => s !== value) : [...prev, value]
-                            )
-                          }
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                            active
-                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
           </div>
-        );
-      })()}
+          {activeFilterCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+          <div className="flex-1" />
+          {activeFilterCount > 0 && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setStatusFilter([]);
+                setOriginFilter([]);
+                setPeriodFilter("este_ano");
+                setCustomStart("");
+                setCustomEnd("");
+              }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Limpar tudo
+            </span>
+          )}
+          {filtersOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
 
-      {/* Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <FileSearch className="h-4 w-4 text-primary" />
-            Propostas Importadas
-            {proposals && (
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {proposals.length}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {filtersOpen && (
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+            {/* Period */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: "este_mes", label: "Este mês" },
+                  { key: "ultimo_mes", label: "Último mês" },
+                  { key: "este_trimestre", label: "Este trimestre" },
+                  { key: "este_ano", label: "Este ano" },
+                  { key: "personalizado", label: "Personalizado" },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      periodFilter === key
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {periodFilter === "personalizado" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
+                </div>
+              )}
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Status */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                  const active = statusFilter.includes(value);
+                  const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
+                  return (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        setStatusFilter((prev) =>
+                          active ? prev.filter((s) => s !== value) : [...prev, value]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? `${badgeClass} border-current ring-1 ring-current/30`
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Origin */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileSearch className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                  const active = originFilter.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        setOriginFilter((prev) =>
+                          active ? prev.filter((s) => s !== value) : [...prev, value]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* List — Grid-based like ProjectsPage */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Grid Header */}
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:gap-3 md:items-center">
+          <span className="text-xs font-medium text-muted-foreground"></span>
+          <span className="text-xs font-medium text-muted-foreground">Arquivo</span>
+          <span className="text-xs font-medium text-muted-foreground">Nº Proposta</span>
+          <span className="text-xs font-medium text-muted-foreground">Fornecedor</span>
+          <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+          <span className="text-xs font-medium text-muted-foreground">Origem</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Capex</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Opex</span>
+          <span className="text-xs font-medium text-muted-foreground text-right">Produção Total</span>
+          <span className="text-xs font-medium text-muted-foreground">Status</span>
+          <span className="text-xs font-medium text-muted-foreground">Data Import.</span>
+          <span className="text-xs font-medium text-muted-foreground text-center">Ações</span>
+        </div>
+
+        <div className="divide-y divide-border">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <div key={i} className="px-4 py-3">
+                  <Skeleton className="h-8 w-full" />
+                </div>
               ))}
             </div>
           ) : !proposals || proposals.length === 0 ? (
@@ -477,118 +463,104 @@ export default function SoftwareProposalsListPage() {
               </h3>
               <p className="text-sm text-muted-foreground max-w-md">
                 As propostas de software importadas aparecerão aqui. Use o botão
-                "Importar PDF" para começar a análise de propostas comerciais.
+                "Central de Importação" para começar.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]"></TableHead>
-                    <TableHead>Arquivo</TableHead>
-                    <TableHead>Nº Proposta</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead className="text-right">Capex</TableHead>
-                    <TableHead className="text-right">Opex</TableHead>
-                    <TableHead className="text-right">Produção Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data Import.</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {proposals.map((p: any) => (
-                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/propostas-software/${p.id}`)}>
-                      <TableCell className="px-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          title="Abrir PDF"
-                          onClick={(e) => openPdf(e, p.file_url)}
-                        >
-                          <FileText className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                      <TableCell className="font-medium max-w-[200px] truncate">
-                        {p.file_name}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {(p as any).proposal_number || "—"}
-                      </TableCell>
-                      <TableCell>{p.vendor_name || "—"}</TableCell>
-                      <TableCell>{p.client_name || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {ORIGIN_LABELS[p.origin] || p.origin}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(p._totalCapex)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(p._totalOpex)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold">
-                        {formatCurrency(p._producaoTotal)}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            STATUS_BADGE_VARIANT[p.status] || "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {STATUS_LABELS[p.status] || p.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(p.created_at)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {extractingIds.has(p.id) || p.status === "extracting" ? (
-                          <Button size="sm" variant="ghost" disabled className="gap-1.5">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            <span className="text-xs">Extraindo…</span>
-                          </Button>
-                        ) : p.status === "pending_extraction" || p.status === "error" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              extractMutation.mutate(p.id);
-                            }}
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            <span className="text-xs">Extrair</span>
-                          </Button>
-                        ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="gap-1.5 text-muted-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              extractMutation.mutate(p.id);
-                            }}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            <span className="text-xs">Re-extrair</span>
-                          </Button>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            visibleProposals.map((p: any) => (
+              <div
+                key={p.id}
+                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 cursor-pointer md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:items-center md:gap-3"
+                onClick={() => navigate(`/propostas-software/${p.id}`)}
+              >
+                {/* PDF */}
+                <div className="flex items-center justify-center">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    title="Abrir PDF"
+                    onClick={(e) => openPdf(e, p.file_url)}
+                  >
+                    <FileText className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                {/* Arquivo */}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{p.file_name}</p>
+                </div>
+                {/* Nº Proposta */}
+                <p className="text-sm font-mono text-muted-foreground truncate">{(p as any).proposal_number || "—"}</p>
+                {/* Fornecedor */}
+                <p className="text-sm text-muted-foreground truncate min-w-0">{p.vendor_name || "—"}</p>
+                {/* Cliente */}
+                <p className="text-sm text-muted-foreground truncate min-w-0">{p.client_name || "—"}</p>
+                {/* Origem */}
+                <div>
+                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    {ORIGIN_LABELS[p.origin] || p.origin}
+                  </span>
+                </div>
+                {/* Capex */}
+                <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalCapex)}</p>
+                {/* Opex */}
+                <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalOpex)}</p>
+                {/* Produção Total */}
+                <p className="text-sm font-mono font-semibold text-foreground text-right whitespace-nowrap">{formatCurrency(p._producaoTotal)}</p>
+                {/* Status */}
+                <div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+                      STATUS_BADGE_VARIANT[p.status] || "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {STATUS_LABELS[p.status] || p.status}
+                  </span>
+                </div>
+                {/* Data Import */}
+                <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</p>
+                {/* Ações */}
+                <div className="text-center" onClick={(e) => e.stopPropagation()}>
+                  {extractingIds.has(p.id) || p.status === "extracting" ? (
+                    <Button size="sm" variant="ghost" disabled className="gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span className="text-xs">Extraindo…</span>
+                    </Button>
+                  ) : p.status === "pending_extraction" || p.status === "error" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => extractMutation.mutate(p.id)}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="text-xs">Extrair</span>
+                    </Button>
+                  ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1.5 text-muted-foreground"
+                      onClick={() => extractMutation.mutate(p.id)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span className="text-xs">Re-extrair</span>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {hasMore && (
+        <div className="flex justify-center py-3">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 50)}>
+            Carregar mais ({proposals.length - visibleCount} restantes)
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

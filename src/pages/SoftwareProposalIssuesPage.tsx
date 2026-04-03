@@ -15,10 +15,6 @@ import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDial
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_OPTIONS = [
@@ -71,7 +67,6 @@ export default function SoftwareProposalIssuesPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Quick-create client dialog state
   const [createClientOpen, setCreateClientOpen] = useState(false);
   const [createClientInitialName, setCreateClientInitialName] = useState("");
   const [createClientIssueId, setCreateClientIssueId] = useState<string | null>(null);
@@ -228,7 +223,6 @@ export default function SoftwareProposalIssuesPage() {
     }
   };
 
-  // Extract raw name from "Cliente não encontrado: NOME" pattern
   const extractNotFoundName = (extracted: string | null): string => {
     if (!extracted) return "";
     const match = extracted.match(/não encontrad[oa]:\s*(.+)/i);
@@ -249,14 +243,12 @@ export default function SoftwareProposalIssuesPage() {
   };
 
   const handleClientCreated = async (clientId: string) => {
-    // Link the client to the proposal
     if (createClientProposalId) {
       await supabase
         .from("software_proposals")
         .update({ client_id: clientId })
         .eq("id", createClientProposalId);
     }
-    // Resolve the issue
     if (createClientIssueId) {
       await supabase
         .from("extraction_issues")
@@ -276,49 +268,46 @@ export default function SoftwareProposalIssuesPage() {
   const formatDateStr = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("pt-BR");
 
+  const activeFilterCount =
+    (statusFilter.length > 0 && !(statusFilter.length === 1 && statusFilter[0] === "open") ? 1 : 0) +
+    (typeFilter.length > 0 ? 1 : 0) +
+    (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/propostas-software")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Fila de Pendências
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Revisão operacional de pendências de extração em todas as propostas
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/propostas-software")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Fila de Pendências</h1>
+            <p className="text-sm text-muted-foreground">
+              {issues.length} pendências {statusFilter.length === 1 && statusFilter[0] === "open" ? "abertas" : "encontradas"}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Counters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-1">Abertas</p>
-            <p className="text-2xl font-bold text-destructive">{counters?.open ?? "—"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-1">Resolvidas</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{counters?.resolved ?? "—"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-1">Ignoradas</p>
-            <p className="text-2xl font-bold text-muted-foreground">{counters?.ignored ?? "—"}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-xs text-muted-foreground mb-1">Propostas em Revisão</p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{counters?.inReview ?? "—"}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Abertas</p>
+          <p className="text-2xl font-bold text-destructive">{counters?.open ?? "—"}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Resolvidas</p>
+          <p className="text-2xl font-bold text-success">{counters?.resolved ?? "—"}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Ignoradas</p>
+          <p className="text-2xl font-bold text-muted-foreground">{counters?.ignored ?? "—"}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Propostas em Revisão</p>
+          <p className="text-2xl font-bold text-warning">{counters?.inReview ?? "—"}</p>
+        </div>
       </div>
 
       {/* Search */}
@@ -333,191 +322,177 @@ export default function SoftwareProposalIssuesPage() {
       </div>
 
       {/* Collapsible Filter Bar */}
-      {(() => {
-        const activeFilterCount =
-          (statusFilter.length > 0 && !(statusFilter.length === 1 && statusFilter[0] === "open") ? 1 : 0) +
-          (typeFilter.length > 0 ? 1 : 0) +
-          (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
-        return (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
-            >
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <SlidersHorizontal className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
-              </div>
-              {activeFilterCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              )}
-              <div className="flex-1" />
-              {activeFilterCount > 0 && (
-                <span
-                  role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setStatusFilter(["open"]);
-                    setTypeFilter([]);
-                    setPeriodFilter("este_ano");
-                    setCustomStart("");
-                    setCustomEnd("");
-                  }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Limpar tudo
-                </span>
-              )}
-              {filtersOpen ? (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              )}
-            </button>
-
-            {filtersOpen && (
-              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
-                {/* Period */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <CalendarRange className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {([
-                      { key: "este_mes", label: "Este mês" },
-                      { key: "ultimo_mes", label: "Último mês" },
-                      { key: "este_trimestre", label: "Este trimestre" },
-                      { key: "este_ano", label: "Este ano" },
-                      { key: "personalizado", label: "Personalizado" },
-                    ] as const).map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                          periodFilter === key
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {periodFilter === "personalizado" && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <Input
-                        type="date"
-                        value={customStart}
-                        onChange={(e) => setCustomStart(e.target.value)}
-                        className="h-8 w-36 text-xs"
-                      />
-                      <span className="text-xs text-muted-foreground">até</span>
-                      <Input
-                        type="date"
-                        value={customEnd}
-                        onChange={(e) => setCustomEnd(e.target.value)}
-                        className="h-8 w-36 text-xs"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Divider */}
-                <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-                {/* Status */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <FileText className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                      const active = statusFilter.includes(value);
-                      return (
-                        <button
-                          key={value}
-                          onClick={() =>
-                            setStatusFilter((prev) =>
-                              active ? prev.filter((s) => s !== value) : [...prev, value]
-                            )
-                          }
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                            active
-                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-                {/* Type */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    <span className="text-[11px] font-medium uppercase tracking-wider">Tipo</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ISSUE_TYPE_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                      const active = typeFilter.includes(value);
-                      return (
-                        <button
-                          key={value}
-                          onClick={() =>
-                            setTypeFilter((prev) =>
-                              active ? prev.filter((s) => s !== value) : [...prev, value]
-                            )
-                          }
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                            active
-                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
           </div>
-        );
-      })()}
+          {activeFilterCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+          <div className="flex-1" />
+          {activeFilterCount > 0 && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setStatusFilter(["open"]);
+                setTypeFilter([]);
+                setPeriodFilter("este_ano");
+                setCustomStart("");
+                setCustomEnd("");
+              }}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Limpar tudo
+            </span>
+          )}
+          {filtersOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
 
-      {/* Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            Pendências
-            {issues.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">{issues.length}</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {filtersOpen && (
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+            {/* Period */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: "este_mes", label: "Este mês" },
+                  { key: "ultimo_mes", label: "Último mês" },
+                  { key: "este_trimestre", label: "Este trimestre" },
+                  { key: "este_ano", label: "Este ano" },
+                  { key: "personalizado", label: "Personalizado" },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                      periodFilter === key
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {periodFilter === "personalizado" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
+                </div>
+              )}
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Status */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                  const active = statusFilter.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        setStatusFilter((prev) =>
+                          active ? prev.filter((s) => s !== value) : [...prev, value]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Type */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Tipo</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ISSUE_TYPE_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                  const active = typeFilter.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        setTypeFilter((prev) =>
+                          active ? prev.filter((s) => s !== value) : [...prev, value]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* List — Grid-based like ProjectsPage */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Grid Header */}
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[40px_1fr_1.5fr_1fr_auto_1.5fr_auto_auto_160px] md:gap-3 md:items-center">
+          <span className="text-xs font-medium text-muted-foreground"></span>
+          <span className="text-xs font-medium text-muted-foreground">Proposta</span>
+          <span className="text-xs font-medium text-muted-foreground">Fornecedor / Cliente</span>
+          <span className="text-xs font-medium text-muted-foreground">Campo</span>
+          <span className="text-xs font-medium text-muted-foreground">Tipo</span>
+          <span className="text-xs font-medium text-muted-foreground">Valor Extraído</span>
+          <span className="text-xs font-medium text-muted-foreground">Status</span>
+          <span className="text-xs font-medium text-muted-foreground">Data</span>
+          <span className="text-xs font-medium text-muted-foreground">Ações</span>
+        </div>
+
+        <div className="divide-y divide-border">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <div key={i} className="px-4 py-3">
+                  <Skeleton className="h-8 w-full" />
+                </div>
               ))}
             </div>
           ) : issues.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-500/40 mb-4" />
+              <CheckCircle2 className="h-12 w-12 text-success/40 mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-1">
                 Nenhuma pendência encontrada
               </h3>
@@ -528,113 +503,96 @@ export default function SoftwareProposalIssuesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]"></TableHead>
-                    <TableHead>Proposta</TableHead>
-                    <TableHead>Fornecedor / Cliente</TableHead>
-                    <TableHead>Campo</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Valor Extraído</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="w-[160px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {issues.map((issue) => (
-                    <TableRow key={issue.id}>
-                      <TableCell className="px-2">
+            issues.map((issue) => (
+              <div
+                key={issue.id}
+                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[40px_1fr_1.5fr_1fr_auto_1.5fr_auto_auto_160px] md:items-center md:gap-3"
+              >
+                {/* PDF */}
+                <div className="flex items-center justify-center">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    title="Abrir PDF"
+                    onClick={(e) => openPdf(e, issue.file_url)}
+                  >
+                    <FileText className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                {/* Proposta */}
+                <p className="text-sm font-mono text-muted-foreground truncate">{issue.proposal_number || "—"}</p>
+                {/* Fornecedor / Cliente */}
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground truncate">{issue.vendor_name || "—"}</p>
+                  {issue.client_name && (
+                    <p className="text-xs text-muted-foreground truncate">{issue.client_name}</p>
+                  )}
+                </div>
+                {/* Campo */}
+                <p className="text-sm font-medium text-foreground truncate">{issue.field_name}</p>
+                {/* Tipo */}
+                <div>
+                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
+                  </span>
+                </div>
+                {/* Valor Extraído */}
+                <p className="text-sm text-muted-foreground truncate max-w-[180px]">{issue.extracted_value || "—"}</p>
+                {/* Status */}
+                <div>
+                  {issue.status === "open" ? (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-destructive/15 text-destructive whitespace-nowrap">Aberta</span>
+                  ) : issue.status === "resolved" ? (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-success/15 text-success whitespace-nowrap">Resolvida</span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground whitespace-nowrap">Ignorada</span>
+                  )}
+                </div>
+                {/* Data */}
+                <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDateStr(issue.created_at)}</p>
+                {/* Ações */}
+                <div className="flex gap-1">
+                  <Button
+                    size="icon" variant="ghost" className="h-7 w-7"
+                    title="Abrir proposta"
+                    onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}`)}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                  {issue.status === "open" && (
+                    <>
+                      {isNotFoundIssue(issue) && issue.field_name === "client_name" && (
                         <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          title="Abrir PDF"
-                          onClick={(e) => openPdf(e, issue.file_url)}
+                          size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                          onClick={(e) => { e.stopPropagation(); handleOpenCreateClient(issue); }}
                         >
-                          <FileText className="h-4 w-4 text-red-500" />
+                          <UserPlus className="h-3 w-3" />
+                          Cadastrar
                         </Button>
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {issue.proposal_number || "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex flex-col">
-                          <span>{issue.vendor_name || "—"}</span>
-                          {issue.client_name && (
-                            <span className="text-xs text-muted-foreground">{issue.client_name}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{issue.field_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
-                        {issue.extracted_value || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {issue.status === "open" ? (
-                          <Badge variant="destructive" className="text-xs">Aberta</Badge>
-                        ) : issue.status === "resolved" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs">Resolvida</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">Ignorada</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDateStr(issue.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon" variant="ghost" className="h-7 w-7"
-                            title="Abrir proposta"
-                            onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}`)}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                          {issue.status === "open" && (
-                            <>
-                              {isNotFoundIssue(issue) && issue.field_name === "client_name" && (
-                                <Button
-                                  size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
-                                  onClick={(e) => { e.stopPropagation(); handleOpenCreateClient(issue); }}
-                                >
-                                  <UserPlus className="h-3 w-3" />
-                                  Cadastrar
-                                </Button>
-                              )}
-                              <Button
-                                size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}?resolve_issue=${issue.id}&field=${encodeURIComponent(issue.field_name)}`)}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                Resolver
-                              </Button>
-                              <Button
-                                size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground gap-1"
-                                onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
-                              >
-                                <EyeOff className="h-3 w-3" />
-                                Ignorar
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      )}
+                      <Button
+                        size="sm" variant="outline" className="h-7 text-xs gap-1"
+                        onClick={() => navigate(`/propostas-software/${issue.software_proposal_id}?resolve_issue=${issue.id}&field=${encodeURIComponent(issue.field_name)}`)}
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        Resolver
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground gap-1"
+                        onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
+                      >
+                        <EyeOff className="h-3 w-3" />
+                        Ignorar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <QuickCreateClientDialog
         open={createClientOpen}

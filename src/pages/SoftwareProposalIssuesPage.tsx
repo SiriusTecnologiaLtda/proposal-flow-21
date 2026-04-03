@@ -502,7 +502,7 @@ export default function SoftwareProposalIssuesPage() {
                     variant="ghost"
                     className="h-7 w-7"
                     title="Abrir PDF"
-                    onClick={(e) => openPdf(e, issue.file_url)}
+                    onClick={(e) => openPdf(e, issue.software_proposal_id)}
                   >
                     <FileText className="h-4 w-4 text-destructive" />
                   </Button>

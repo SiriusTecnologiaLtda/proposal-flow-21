@@ -953,7 +953,9 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // --- Insert extracted items with catalog matching ---
-    const validRecurrences = ["one_time", "monthly", "quarterly", "annual", "usage_based", "measurement", "other"];
+    // "quarterly" is NOT a valid UI option — must be flagged as issue
+    const validRecurrences = ["one_time", "monthly", "annual", "usage_based", "measurement"];
+    const knownButInvalidRecurrences = ["quarterly", "biannual", "weekly", "daily"]; // AI may extract these but they need manual review
     const validClassifications = ["capex", "opex", "mixed", "other"];
     const validItemTypes = ["license", "service", "support", "infrastructure", "other"];
 

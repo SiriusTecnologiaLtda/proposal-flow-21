@@ -11,8 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, LogIn, Loader2, ChevronDown, FileWarning, RotateCcw, CheckCheck,
+  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, LogIn, Loader2, ChevronDown, FileWarning, RotateCcw, CheckCheck, Timer,
 } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 
 interface SyncErrorDetail {
@@ -614,6 +617,42 @@ export default function EmailInboxConfigPage() {
                   <span>Nenhuma sincronização realizada ainda.</span>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Sincronização Automática */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Timer className="h-4 w-4" /> Sincronização Automática
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Ativar polling automático</span>
+                <Switch
+                  checked={mergedForm.enabled ?? false}
+                  onCheckedChange={(v) => setField("enabled", v)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Intervalo (minutos)</Label>
+                <Select
+                  value={String(mergedForm.polling_interval_minutes || 15)}
+                  onValueChange={(v) => setField("polling_interval_minutes", parseInt(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 min</SelectItem>
+                    <SelectItem value="10">10 min</SelectItem>
+                    <SelectItem value="15">15 min</SelectItem>
+                    <SelectItem value="30">30 min</SelectItem>
+                    <SelectItem value="60">60 min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 

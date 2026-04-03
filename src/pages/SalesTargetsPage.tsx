@@ -14,13 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { ArrowLeft, Search, Plus, Loader2, Filter, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUnits, useSalesTeam, useCategories } from "@/hooks/useSupabaseData";
+import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
 
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 type GroupedRow = {
   esn_id: string;
   category_id: string | null;
+  segment_id: string | null;
   name: string;
   code: string;
   unit_id: string | null;
@@ -45,8 +46,11 @@ export default function SalesTargetsPage() {
   const [newDialog, setNewDialog] = useState(false);
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
+  const [newSegmentId, setNewSegmentId] = useState("");
   const [filterCategoryIds, setFilterCategoryIds] = useState<string[]>([]);
+  const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
   const { data: categories = [] } = useCategories();
+  const { data: segments = [] } = useSegments();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
 
@@ -80,17 +84,19 @@ export default function SalesTargetsPage() {
   const unitOptions = useMemo(() => units.map((u: any) => ({ value: u.id, label: u.name })), [units]);
   const gsnOptions = useMemo(() => gsnList.map((g: any) => ({ value: g.id, label: `${g.name} (${g.code})` })), [gsnList]);
   const categoryOptions = useMemo(() => categories.map((c: any) => ({ value: c.id, label: c.name })), [categories]);
+  const segmentOptions = useMemo(() => segments.map((s: any) => ({ value: s.id, label: s.name })), [segments]);
 
   // Group by ESN for pivot view
   const grouped: GroupedRow[] = useMemo(() => {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
-      const key = `${t.esn_id}__${t.category_id || "none"}`;
+      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}`;
       if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
           category_id: (t as any).category_id || null,
+          segment_id: (t as any).segment_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           unit_id: esn?.unit_id || null,
@@ -119,10 +125,13 @@ export default function SalesTargetsPage() {
     if (filterCategoryIds.length > 0) {
       result = result.filter(g => g.category_id && filterCategoryIds.includes(g.category_id));
     }
+    if (filterSegmentIds.length > 0) {
+      result = result.filter(g => g.segment_id && filterSegmentIds.includes(g.segment_id));
+    }
     return result;
-  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds]);
+  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds]);
 
-  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0);
+  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0);
 
   // Available years
   const years = useMemo(() => {
@@ -154,13 +163,14 @@ export default function SalesTargetsPage() {
 
   // Add ESN row
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id }: { esn_id: string; category_id: string }) => {
+    mutationFn: async ({ esn_id, category_id, segment_id }: { esn_id: string; category_id: string; segment_id: string }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
         month: i + 1,
         amount: 0,
         category_id,
+        segment_id,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
@@ -170,6 +180,7 @@ export default function SalesTargetsPage() {
       setNewDialog(false);
       setNewEsnId("");
       setNewCategoryId("");
+      setNewSegmentId("");
       toast({ title: "ESN adicionado com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -305,12 +316,20 @@ export default function SalesTargetsPage() {
               searchPlaceholder="Buscar categoria..."
               className="h-9 min-w-[140px]"
             />
+            <MultiSelectCombobox
+              options={segmentOptions}
+              selected={filterSegmentIds}
+              onChange={setFilterSegmentIds}
+              placeholder="Segmento"
+              searchPlaceholder="Buscar segmento..."
+              className="h-9 min-w-[140px]"
+            />
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-9 text-xs text-muted-foreground"
-                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setSearch(""); }}
+                onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setSearch(""); }}
               >
                 Limpar filtros
                 <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">{activeFilterCount}</Badge>
@@ -378,6 +397,15 @@ export default function SalesTargetsPage() {
                                 <>
                                   <span className="text-muted-foreground/40">•</span>
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{catName}</Badge>
+                                </>
+                              ) : null;
+                            })()}
+                            {row.segment_id && (() => {
+                              const segName = segments.find((s: any) => s.id === row.segment_id)?.name;
+                              return segName ? (
+                                <>
+                                  <span className="text-muted-foreground/40">•</span>
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">{segName}</Badge>
                                 </>
                               ) : null;
                             })()}
@@ -492,12 +520,25 @@ export default function SalesTargetsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Segmento</Label>
+              <Select value={newSegmentId} onValueChange={setNewSegmentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o segmento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {segments.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => newEsnId && newCategoryId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId })}
-              disabled={!newEsnId || !newCategoryId || availableEsns.length === 0 || addEsnMutation.isPending}
+              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId })}
+              disabled={!newEsnId || !newCategoryId || !newSegmentId || availableEsns.length === 0 || addEsnMutation.isPending}
             >
               {addEsnMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Adicionar

@@ -1899,6 +1899,7 @@ export type Database = {
           esn_id: string
           id: string
           month: number
+          segment_id: string | null
           updated_at: string
           year: number
         }
@@ -1909,6 +1910,7 @@ export type Database = {
           esn_id: string
           id?: string
           month: number
+          segment_id?: string | null
           updated_at?: string
           year: number
         }
@@ -1919,6 +1921,7 @@ export type Database = {
           esn_id?: string
           id?: string
           month?: number
+          segment_id?: string | null
           updated_at?: string
           year?: number
         }
@@ -1935,6 +1938,13 @@ export type Database = {
             columns: ["esn_id"]
             isOneToOne: false
             referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_targets_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "software_segments"
             referencedColumns: ["id"]
           },
         ]

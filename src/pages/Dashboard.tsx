@@ -903,12 +903,18 @@ export default function Dashboard() {
       </Card>
 
       {/* ─── Tabs ────────────────────────────────────────────── */}
-      <Tabs defaultValue="propostas" className="space-y-6">
+      <Tabs defaultValue="unificado" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="unificado">Visão Unificada</TabsTrigger>
           <TabsTrigger value="propostas">Oportunidades</TabsTrigger>
           <TabsTrigger value="resultado">Análise de Resultado</TabsTrigger>
           <TabsTrigger value="performance">Indicadores de Performance</TabsTrigger>
         </TabsList>
+
+        {/* ═══ TAB: Visão Unificada ═══ */}
+        <TabsContent value="unificado">
+          <UnifiedRevenueTab />
+        </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}
         <TabsContent value="propostas" className="space-y-6">

@@ -402,6 +402,7 @@ export type Database = {
       }
       email_inbox_config: {
         Row: {
+          auto_sync_enabled: boolean
           email_address: string
           enabled: boolean
           gmail_client_id: string | null
@@ -421,11 +422,13 @@ export type Database = {
           provider: string
           sender_filter: string | null
           subject_filter: string | null
+          sync_interval_minutes: number
           updated_at: string
           updated_by: string | null
           use_tls: boolean
         }
         Insert: {
+          auto_sync_enabled?: boolean
           email_address?: string
           enabled?: boolean
           gmail_client_id?: string | null
@@ -445,11 +448,13 @@ export type Database = {
           provider?: string
           sender_filter?: string | null
           subject_filter?: string | null
+          sync_interval_minutes?: number
           updated_at?: string
           updated_by?: string | null
           use_tls?: boolean
         }
         Update: {
+          auto_sync_enabled?: boolean
           email_address?: string
           enabled?: boolean
           gmail_client_id?: string | null
@@ -469,6 +474,7 @@ export type Database = {
           provider?: string
           sender_filter?: string | null
           subject_filter?: string | null
+          sync_interval_minutes?: number
           updated_at?: string
           updated_by?: string | null
           use_tls?: boolean

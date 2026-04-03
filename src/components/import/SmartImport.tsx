@@ -1696,26 +1696,71 @@ export default function SmartImport() {
                 </div>
               )}
 
-              {/* Year selector for sales_targets */}
+              {/* Year / Category / Segment selector for sales_targets */}
               {detectedEntity === "sales_targets" && (
                 <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium">Configuração de Metas</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano da meta:</Label>
-                    <Select value={targetYear} onValueChange={setTargetYear}>
-                      <SelectTrigger className="w-[100px] h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
-                          <SelectItem key={y} value={y}>{y}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Ano:</Label>
+                      <Select value={targetYear} onValueChange={setTargetYear}>
+                        <SelectTrigger className="w-[100px] h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 1 + i)).map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Category — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("category_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Categoria:</Label>
+                        <Select value={targetCategoryId} onValueChange={setTargetCategoryId}>
+                          <SelectTrigger className="w-[160px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categoriesList.map(c => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("category_name") && (
+                      <Badge variant="outline" className="text-xs">Categoria: via coluna mapeada</Badge>
+                    )}
+
+                    {/* Segment — hidden if mapped from column */}
+                    {!Object.values(mapping).includes("segment_name") && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Segmento:</Label>
+                        <Select value={targetSegmentId} onValueChange={setTargetSegmentId}>
+                          <SelectTrigger className="w-[160px] h-8 text-sm">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {segmentsList.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {Object.values(mapping).includes("segment_name") && (
+                      <Badge variant="outline" className="text-xs">Segmento: via coluna mapeada</Badge>
+                    )}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Se a planilha possuir colunas de Categoria/Segmento mapeadas, os valores serão usados por linha. Caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                  </p>
                 </div>
               )}
 

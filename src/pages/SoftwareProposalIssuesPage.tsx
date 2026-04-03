@@ -199,21 +199,15 @@ export default function SoftwareProposalIssuesPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const openPdf = async (e: React.MouseEvent, fileUrl: string | null) => {
+  const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
+
+  const openPdf = (e: React.MouseEvent, proposalId: string | null) => {
     e.stopPropagation();
-    if (!fileUrl) {
+    if (!proposalId) {
       toast.error("PDF não disponível para esta proposta");
       return;
     }
-    try {
-      const { data, error } = await supabase.storage
-        .from("software-proposal-pdfs")
-        .createSignedUrl(fileUrl, 300);
-      if (error) throw error;
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
-      toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
-    }
+    setPdfPreviewId(proposalId);
   };
 
   const extractNotFoundName = (extracted: string | null): string => {

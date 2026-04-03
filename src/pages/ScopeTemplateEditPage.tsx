@@ -291,7 +291,7 @@ export default function ScopeTemplateEditPage() {
       const statusMsg = isDirty && isEditing ? " Status: Em Revisão" : "";
       toast({ title: isEditing ? `Template atualizado!${statusMsg}` : "Template criado!" });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
-      navigate("/templates");
+      navigate("/cadastros/templates");
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
@@ -311,7 +311,7 @@ export default function ScopeTemplateEditPage() {
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
       // On approve, close editor and return to list
       if (newStatus === "aprovado") {
-        navigate("/templates");
+        navigate("/cadastros/templates");
         return;
       }
     } catch (err: any) {
@@ -335,7 +335,7 @@ export default function ScopeTemplateEditPage() {
       if (error) throw error;
       toast({ title: "Template excluído com sucesso" });
       qc.invalidateQueries({ queryKey: ["scope_templates"] });
-      navigate("/templates");
+      navigate("/cadastros/templates");
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
     }
@@ -353,7 +353,7 @@ export default function ScopeTemplateEditPage() {
       <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] p-5 text-white shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-3">
-            <button onClick={() => navigate("/templates")} className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+            <button onClick={() => navigate("/cadastros/templates")} className="mt-1 rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
@@ -601,7 +601,7 @@ export default function ScopeTemplateEditPage() {
       {/* ─── Bottom Save Bar ─────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <Button variant="outline" onClick={() => navigate("/templates")}>
+          <Button variant="outline" onClick={() => navigate("/cadastros/templates")}>
             <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
           </Button>
           <div className="flex items-center gap-2">

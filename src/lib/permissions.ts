@@ -16,7 +16,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   "cadastros/categorias": "Cadastros → Categorias",
   "cadastros/tipos-proposta": "Cadastros → Tipos de Oportunidade",
   "cadastros/metas": "Cadastros → Metas de Vendas",
-  templates: "Templates de Escopo",
+  "cadastros/templates": "Cadastros → Templates de Escopo",
   projetos: "Projetos de Implantação",
   configuracoes: "Configurações",
   "configuracoes/logs-propostas": "Configurações → Logs de Oportunidades",

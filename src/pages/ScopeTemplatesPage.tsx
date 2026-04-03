@@ -142,7 +142,7 @@ export default function ScopeTemplatesPage() {
           <h1 className="text-2xl font-semibold text-foreground">Templates de Escopo</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} de {templates.length} templates</p>
         </div>
-        <Button onClick={() => navigate("/templates/novo")}>
+        <Button onClick={() => navigate("/cadastros/templates/novo")}>
           <Plus className="mr-2 h-4 w-4" />Novo Template
         </Button>
       </div>

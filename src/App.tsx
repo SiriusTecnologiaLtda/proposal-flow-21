@@ -139,14 +139,17 @@ function ProtectedRoutes() {
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
+        <Route path="/cadastros/templates" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplatesPage /></GuardedRoute>} />
+        <Route path="/cadastros/templates/novo" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
+        <Route path="/cadastros/templates/:id" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
         {/* Legacy routes redirect */}
         <Route path="/clientes" element={<Navigate to="/cadastros/clientes" replace />} />
         <Route path="/unidades" element={<Navigate to="/cadastros/unidades" replace />} />
         <Route path="/produtos-categorias" element={<Navigate to="/cadastros/produtos" replace />} />
         <Route path="/time" element={<Navigate to="/cadastros/time" replace />} />
-        <Route path="/templates" element={<GuardedRoute path="/templates"><ScopeTemplatesPage /></GuardedRoute>} />
-        <Route path="/templates/novo" element={<GuardedRoute path="/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
-        <Route path="/templates/:id" element={<GuardedRoute path="/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
+        <Route path="/templates" element={<Navigate to="/cadastros/templates" replace />} />
+        <Route path="/templates/novo" element={<Navigate to="/cadastros/templates/novo" replace />} />
+        <Route path="/templates/:id" element={<Navigate to="/cadastros/templates/:id" replace />} />
         <Route path="/configuracoes" element={<GuardedRoute path="/configuracoes"><SettingsPage /></GuardedRoute>} />
         <Route path="/configuracoes/parametros" element={<GuardedRoute path="/configuracoes"><ProposalDefaultsPage /></GuardedRoute>} />
         <Route path="/configuracoes/google" element={<GuardedRoute path="/configuracoes"><GoogleIntegrationPage /></GuardedRoute>} />

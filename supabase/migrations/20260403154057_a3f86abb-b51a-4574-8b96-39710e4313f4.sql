@@ -1,0 +1,1 @@
+UPDATE public.role_permissions SET resource = 'cadastros/templates' WHERE resource = 'templates';

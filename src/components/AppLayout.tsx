@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, LayoutTemplate, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun, FolderKanban, FileSearch,
+  FileText, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun, FolderKanban, FileSearch,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import FeatureRequestsPanel from "@/components/FeatureRequestsPanel";
@@ -22,7 +22,6 @@ const navItems = [
   { path: "/projetos", key: "projetos", label: "Meus Projetos", icon: FolderKanban },
   { path: "/propostas-software", key: "propostas-software", label: "Importação de Propostas de Software", icon: FileSearch },
   { path: "/cadastros", key: "cadastros", label: "Cadastros", icon: Package },
-  { path: "/templates", key: "templates", label: "Templates de Escopo", icon: LayoutTemplate },
   { path: "/configuracoes", key: "configuracoes", label: "Configurações", icon: Settings },
 ];
 

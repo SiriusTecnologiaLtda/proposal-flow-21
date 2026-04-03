@@ -205,9 +205,10 @@ export default function SoftwareProposalIssuesPage() {
     try {
       const { data, error } = await supabase.storage
         .from("software-proposal-pdfs")
-        .createSignedUrl(fileUrl, 300);
+        .download(fileUrl);
       if (error) throw error;
-      window.open(data.signedUrl, "_blank");
+      const blobUrl = URL.createObjectURL(data);
+      window.open(blobUrl, "_blank");
     } catch (err: any) {
       toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
     }

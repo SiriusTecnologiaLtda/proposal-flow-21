@@ -601,9 +601,10 @@ export default function SoftwareProposalDetailPage() {
     try {
       const { data, error } = await supabase.storage
         .from("software-proposal-pdfs")
-        .createSignedUrl(proposal.file_url, 300);
+        .download(proposal.file_url);
       if (error) throw error;
-      window.open(data.signedUrl, "_blank");
+      const blobUrl = URL.createObjectURL(data);
+      window.open(blobUrl, "_blank");
     } catch (err: any) {
       toast.error("Erro ao gerar link de download");
     }

@@ -91,11 +91,13 @@ export default function SoftwareProposalsListPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [originFilter, setOriginFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [originFilter, setOriginFilter] = useState<string[]>([]);
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -131,8 +133,8 @@ export default function SoftwareProposalsListPage() {
     },
   });
 
-  const { data: proposals, isLoading } = useQuery({
-    queryKey: ["software-proposals", statusFilter, originFilter, searchTerm, dateFrom?.toISOString(), dateTo?.toISOString()],
+  const { data: allProposals, isLoading } = useQuery({
+    queryKey: ["software-proposals", searchTerm],
     enabled: !!user,
     queryFn: async () => {
       let query = supabase
@@ -140,24 +142,10 @@ export default function SoftwareProposalsListPage() {
         .select("*, software_proposal_items(total_price, cost_classification)")
         .order("created_at", { ascending: false });
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-      if (originFilter !== "all") {
-        query = query.eq("origin", originFilter);
-      }
       if (searchTerm.trim()) {
         query = query.or(
           `file_name.ilike.%${searchTerm}%,vendor_name.ilike.%${searchTerm}%,client_name.ilike.%${searchTerm}%,proposal_number.ilike.%${searchTerm}%`
         );
-      }
-      if (dateFrom) {
-        query = query.gte("created_at", dateFrom.toISOString());
-      }
-      if (dateTo) {
-        const endOfDay = new Date(dateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        query = query.lte("created_at", endOfDay.toISOString());
       }
 
       const { data, error } = await query;
@@ -177,10 +165,41 @@ export default function SoftwareProposalsListPage() {
     },
   });
 
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
+  const proposals = useMemo(() => {
+    if (!allProposals) return [];
+    return allProposals.filter((p: any) => {
+      if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
+      if (originFilter.length > 0 && !originFilter.includes(p.origin)) return false;
+      if (periodRange) {
+        const created = p.created_at;
+        if (!created) return false;
+        try {
+          const d = parseISO(created);
+          if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [allProposals, statusFilter, originFilter, periodRange]);
+
   const openPdf = async (e: React.MouseEvent, fileUrl: string) => {
     e.stopPropagation();
     try {
-      // fileUrl format: user_id/filename.pdf — get signed URL
       const { data, error } = await supabase.storage
         .from("software-proposal-pdfs")
         .createSignedUrl(fileUrl, 300);
@@ -200,8 +219,6 @@ export default function SoftwareProposalsListPage() {
     if (value === null || value === undefined) return "—";
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
-
-  const hasDateFilter = dateFrom || dateTo;
 
   return (
     <div className="space-y-6">

@@ -418,6 +418,7 @@ export default function SalesTargetsPage() {
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm text-foreground font-medium leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
                               {unitName && (
                                 <>

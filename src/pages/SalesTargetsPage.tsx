@@ -138,10 +138,11 @@ export default function SalesTargetsPage() {
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     if (filterCategoryIds.length > 0) result = result.filter(g => g.category_id && filterCategoryIds.includes(g.category_id));
     if (filterSegmentIds.length > 0) result = result.filter(g => g.segment_id && filterSegmentIds.includes(g.segment_id));
+    if (filterRoles.length > 0) result = result.filter(g => filterRoles.includes(g.role));
     return result;
-  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds]);
+  }, [grouped, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles]);
 
-  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0);
+  const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0) + (filterRoles.length > 0 ? 1 : 0);
 
   const years = useMemo(() => {
     const y = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2]);

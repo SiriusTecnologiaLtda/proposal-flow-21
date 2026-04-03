@@ -1272,13 +1272,16 @@ export default function SmartImport() {
         }
       }
 
-      // Resolve role for this row
+      // Resolve role for this row — priority: column > auto-detect from member > global default
       let rowRole = targetRole || "esn";
       if (hasRoleCol) {
         const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
         if (roleVal) {
           rowRole = roleMap[roleVal] || targetRole || "esn";
         }
+      } else if (detectedMemberRole) {
+        // If no role column mapped, use the role from the matched sales_team member
+        rowRole = detectedMemberRole;
       }
 
       for (let m = 1; m <= 12; m++) {

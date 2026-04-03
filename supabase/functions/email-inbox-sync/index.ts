@@ -398,6 +398,30 @@ async function processMessage(
           attachment_count: pdfParts.length,
           software_proposal_id: insertedId || undefined,
         });
+
+        // Auto-trigger extraction if proposal was created successfully
+        if (insertedId) {
+          try {
+            const extractUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-software-proposal`;
+            const extractResp = await fetch(extractUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ software_proposal_id: insertedId }),
+            });
+            if (extractResp.ok) {
+              console.log(`[email-sync] Auto-extraction triggered for proposal ${insertedId}`);
+            } else {
+              const extractErr = await extractResp.text();
+              console.error(`[email-sync] Auto-extraction failed for ${insertedId}: ${extractErr}`);
+            }
+          } catch (extractErr) {
+            console.error(`[email-sync] Auto-extraction error for ${insertedId}:`, extractErr);
+            // Non-blocking: extraction failure should not fail the import
+          }
+        }
       } catch (partErr) {
         allPartsSucceeded = false;
         const errMsg = partErr instanceof Error ? partErr.message : String(partErr);

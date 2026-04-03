@@ -460,6 +460,10 @@ export default function SmartImport() {
   const [filterLoading, setFilterLoading] = useState(false);
   const [savedPresets, setSavedPresets] = useState<SavedFilterPreset[]>([]);
   const [targetYear, setTargetYear] = useState(String(new Date().getFullYear()));
+  const [targetCategoryId, setTargetCategoryId] = useState<string>("");
+  const [targetSegmentId, setTargetSegmentId] = useState<string>("");
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
+  const [segmentsList, setSegmentsList] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();

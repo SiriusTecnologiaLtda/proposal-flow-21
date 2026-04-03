@@ -235,6 +235,7 @@ export default function SalesTeamPage() {
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
                   <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
                   <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
                   <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>

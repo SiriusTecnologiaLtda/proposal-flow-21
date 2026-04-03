@@ -653,7 +653,7 @@ export default function SalesTargetsPage() {
           <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
             <Button variant="ghost" onClick={() => setNewDialog(false)} className="h-9">Cancelar</Button>
             <Button
-              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId })}
+              onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole })}
               disabled={!newEsnId || !newCategoryId || !newSegmentId || availableEsns.length === 0 || addEsnMutation.isPending}
               className="h-9"
             >

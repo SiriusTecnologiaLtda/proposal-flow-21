@@ -1028,6 +1028,20 @@ Return ONLY valid JSON with this exact structure:
         // Apply extraction rules to item
         applyItemRules(itemRow, desc);
 
+        // Apply learned item corrections (from previous manual edits on similar items)
+        const learnedItemCorr = findLearnedItemCorrections(desc);
+        if (learnedItemCorr) {
+          const applyableFields = ["recurrence", "cost_classification", "item_type"];
+          for (const field of applyableFields) {
+            if (learnedItemCorr[field]) {
+              const oldVal = itemRow[field as keyof typeof itemRow];
+              (itemRow as any)[field] = learnedItemCorr[field];
+              learnedCorrectionsApplied++;
+              console.log(`[LEARNING] Item "${desc.substring(0, 50)}" field ${field}: ${oldVal} → ${learnedItemCorr[field]}`);
+            }
+          }
+        }
+
         itemRows.push(itemRow);
       }
 

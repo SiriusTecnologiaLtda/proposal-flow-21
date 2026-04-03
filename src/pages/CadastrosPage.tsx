@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Building, UserCog, Package, Tag, FileText, Target, LayoutTemplate, ChevronRight } from "lucide-react";
+import { Users, Building, UserCog, Package, Tag, FileText, Target, LayoutTemplate, ChevronRight, Layers } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canAccessRoute } from "@/lib/permissions";
 
@@ -11,6 +11,7 @@ const cards = [
   { title: "Categorias", desc: "Categorias de escopo para templates", path: "/cadastros/categorias", resource: "cadastros/categorias", icon: Tag },
   { title: "Tipos de Oportunidade", desc: "Tipos e templates Google Docs vinculados", path: "/cadastros/tipos-proposta", resource: "cadastros/tipos-proposta", icon: FileText },
   { title: "Metas de Vendas", desc: "Metas mensais por ESN — Receita SCS", path: "/cadastros/metas", resource: "cadastros/metas", icon: Target },
+  { title: "Segmentos", desc: "Segmentos de mercado para propostas de software", path: "/cadastros/segmentos", resource: "cadastros/segmentos", icon: Layers },
   { title: "Templates de Escopo", desc: "Modelos reutilizáveis de escopo para oportunidades", path: "/cadastros/templates", resource: "cadastros/templates", icon: LayoutTemplate },
 ];
 

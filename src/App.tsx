@@ -48,6 +48,7 @@ import SoftwareProposalCreatePage from "@/pages/SoftwareProposalCreatePage";
 import SoftwareProposalIssuesPage from "@/pages/SoftwareProposalIssuesPage";
 import SoftwareProposalPdfViewerPage from "@/pages/SoftwareProposalPdfViewerPage";
 import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
+import SegmentsPage from "@/pages/SegmentsPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -139,6 +140,7 @@ function ProtectedRoutes() {
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
+        <Route path="/cadastros/segmentos" element={<GuardedRoute path="/cadastros/segmentos"><SegmentsPage /></GuardedRoute>} />
         <Route path="/cadastros/templates" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplatesPage /></GuardedRoute>} />
         <Route path="/cadastros/templates/novo" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />
         <Route path="/cadastros/templates/:id" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />

@@ -1177,13 +1177,22 @@ export default function SmartImport() {
 
     const hasCategoryCol = fieldToCol["category_name"] !== undefined;
     const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+    const hasRoleCol = fieldToCol["role_name"] !== undefined;
+
+    const roleMap: Record<string, string> = {
+      "esn": "esn", "executivo": "esn", "executivo de vendas": "esn",
+      "gsn": "gsn", "gerente": "gsn", "gerente de vendas": "gsn",
+      "dsn": "dsn", "diretor": "dsn", "diretor de vendas": "dsn",
+      "arquiteto": "arquiteto", "engenheiro de valor": "arquiteto", "ev": "arquiteto",
+    };
 
     const dataRows = allDataRows.filter(r => ev(r, "esn_code"));
     updateImportStats(entity, { totalRows: dataRows.length });
 
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
-    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
+    addImportLog(entity, "info", `${dataRows.length} linhas com código ESN. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;

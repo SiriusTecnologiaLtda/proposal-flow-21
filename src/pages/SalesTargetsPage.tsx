@@ -406,7 +406,7 @@ export default function SalesTargetsPage() {
                     const segName = getSegmentName(row.segment_id);
                     return (
                       <tr
-                        key={`${row.esn_id}-${row.category_id}-${row.segment_id}`}
+                        key={`${row.esn_id}-${row.category_id}-${row.segment_id}-${row.role}`}
                         className={cn(
                           "group transition-colors hover:bg-accent/40",
                           isAdmin && "cursor-pointer"

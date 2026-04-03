@@ -221,6 +221,51 @@ export default function SoftwareProposalIssuesPage() {
     }
   };
 
+  // Extract raw name from "Cliente não encontrado: NOME" pattern
+  const extractNotFoundName = (extracted: string | null): string => {
+    if (!extracted) return "";
+    const match = extracted.match(/não encontrad[oa]:\s*(.+)/i);
+    return match ? match[1].trim() : extracted;
+  };
+
+  const isNotFoundIssue = (issue: IssueRow) =>
+    issue.status === "open" &&
+    issue.extracted_value &&
+    /não encontrad/i.test(issue.extracted_value);
+
+  const handleOpenCreateClient = (issue: IssueRow) => {
+    const name = extractNotFoundName(issue.extracted_value);
+    setCreateClientInitialName(name);
+    setCreateClientIssueId(issue.id);
+    setCreateClientProposalId(issue.software_proposal_id);
+    setCreateClientOpen(true);
+  };
+
+  const handleClientCreated = async (clientId: string) => {
+    // Link the client to the proposal
+    if (createClientProposalId) {
+      await supabase
+        .from("software_proposals")
+        .update({ client_id: clientId })
+        .eq("id", createClientProposalId);
+    }
+    // Resolve the issue
+    if (createClientIssueId) {
+      await supabase
+        .from("extraction_issues")
+        .update({
+          status: "resolved",
+          corrected_value: clientId,
+          resolved_at: new Date().toISOString(),
+          resolved_by: user?.id || null,
+        })
+        .eq("id", createClientIssueId);
+    }
+    queryClient.invalidateQueries({ queryKey: ["software-issues-queue"] });
+    queryClient.invalidateQueries({ queryKey: ["software-issues-counters"] });
+    toast.success("Cliente criado e vinculado à proposta");
+  };
+
   const formatDateStr = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("pt-BR");
 

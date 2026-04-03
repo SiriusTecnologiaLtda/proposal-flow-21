@@ -750,7 +750,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">

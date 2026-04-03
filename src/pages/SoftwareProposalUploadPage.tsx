@@ -438,63 +438,21 @@ function EmailSyncTab() {
 
   return (
     <div className="space-y-6">
-      {/* Connection status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" /> Status da Conexão Gmail
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!hasGmailAuthorized ? (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-50 p-4 dark:bg-amber-900/20">
-              <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Conta Gmail não autorizada</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Configure e autorize a conta Gmail nas configurações de e-mail para habilitar a importação automática.
-                </p>
-                <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")} className="mt-1">
-                  <Settings className="mr-2 h-3.5 w-3.5" /> Ir para Configurações
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-                <CheckCircle2 className="h-4 w-4" />
-                <div>
-                  <p className="font-medium">Conta conectada</p>
-                  {config?.email_address && <p className="text-xs opacity-80">{config.email_address}</p>}
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")}>
-                <Settings className="mr-2 h-3.5 w-3.5" /> Configurações
-              </Button>
-            </div>
-          )}
-
-          {hasGmailAuthorized && config && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
-              {config.monitored_folder && (
-                <div><span className="font-medium text-foreground">Pasta:</span> {config.monitored_folder}</div>
-              )}
-              {config.sender_filter && (
-                <div><span className="font-medium text-foreground">Remetente:</span> {config.sender_filter}</div>
-              )}
-              {config.subject_filter && (
-                <div><span className="font-medium text-foreground">Assunto:</span> {config.subject_filter}</div>
-              )}
-              <div>
-                <span className="font-medium text-foreground">Status:</span>{" "}
-                <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px] ml-1">
-                  {config.enabled ? "Ativo" : "Inativo"}
-                </Badge>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Gmail not authorized inline warning */}
+      {!hasGmailAuthorized && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-50 p-4 dark:bg-amber-900/20">
+          <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Conta Gmail não autorizada</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Configure e autorize a conta Gmail nas configurações de e-mail para habilitar a importação automática.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/configuracoes/email-inbox")} className="mt-1">
+              <Settings className="mr-2 h-3.5 w-3.5" /> Ir para Configurações
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Alert banner for unresolved failures */}
       {(pendingAttempts?.length ?? 0) > 0 && (

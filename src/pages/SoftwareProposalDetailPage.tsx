@@ -314,7 +314,7 @@ export default function SoftwareProposalDetailPage() {
   useEffect(() => {
     if (!resolveIssueId || !resolveField || !proposal) return;
 
-    const targetTab = FIELD_TAB_MAP[resolveField] || "dados";
+    const targetTab = getTabForField(resolveField);
     setActiveTab(targetTab);
     setHighlightField(resolveField);
 

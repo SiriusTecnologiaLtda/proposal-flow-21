@@ -356,7 +356,7 @@ export default function SalesTargetsPage() {
                     const total = Object.values(row.months).reduce((s, m) => s + m.amount, 0);
                     const unitName = units.find((u: any) => u.id === row.unit_id)?.name;
                     return (
-                      <tr key={row.esn_id} className={cn("group transition-colors hover:bg-accent/30", rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20")}>
+                      <tr key={`${row.esn_id}-${row.category_id}`} className={cn("group transition-colors hover:bg-accent/30", rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20")}>
                         <td className={cn(
                           "sticky left-0 z-10 px-3 py-2 border-r border-border font-medium",
                           rowIdx % 2 === 0 ? "bg-background" : "bg-muted/20",

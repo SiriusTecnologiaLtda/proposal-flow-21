@@ -339,29 +339,49 @@ Return ONLY valid JSON with this exact structure:
 
     // --- Match client ---
     const rawClientName = val(header.client_name);
+    const rawClientCode = val(header.client_code);
+    const rawClientCnpj = val(header.client_cnpj);
+    const rawClientAddress = val(header.client_address);
     let matchedClientId: string | null = null;
     let matchedClientName: string | null = null;
+    let clientAutoCreated = false;
 
-    if (rawClientName) {
+    if (rawClientName || rawClientCode || rawClientCnpj) {
+      // Build search clauses
+      const orClauses: string[] = [];
+      if (rawClientName) orClauses.push(`name.ilike.%${rawClientName}%`);
+      if (rawClientCnpj) orClauses.push(`cnpj.ilike.%${rawClientCnpj}%`);
+      if (rawClientCode) orClauses.push(`code.ilike.%${rawClientCode}%`);
+
       const { data: clientMatches } = await adminClient
         .from("clients")
-        .select("id, name")
-        .or(`name.ilike.%${rawClientName}%,cnpj.ilike.%${rawClientName}%`)
-        .limit(5);
+        .select("id, name, code, cnpj")
+        .or(orClauses.join(","))
+        .limit(10);
 
-      if (clientMatches && clientMatches.length === 1) {
-        matchedClientId = clientMatches[0].id;
-        matchedClientName = clientMatches[0].name;
-      } else if (clientMatches && clientMatches.length > 1) {
-        // Ambiguous - try exact match first
-        const exact = clientMatches.find(
-          (c) => c.name.toLowerCase() === rawClientName.toLowerCase()
-        );
-        if (exact) {
-          matchedClientId = exact.id;
-          matchedClientName = exact.name;
+      if (clientMatches && clientMatches.length > 0) {
+        // Priority 1: exact CNPJ match (most reliable)
+        const cnpjMatch = rawClientCnpj
+          ? clientMatches.find((c) => c.cnpj && c.cnpj.replace(/\D/g, "") === rawClientCnpj.replace(/\D/g, ""))
+          : null;
+        // Priority 2: exact code match
+        const codeMatch = !cnpjMatch && rawClientCode
+          ? clientMatches.find((c) => c.code && c.code.toLowerCase() === rawClientCode.toLowerCase())
+          : null;
+        // Priority 3: exact name match
+        const nameMatch = !cnpjMatch && !codeMatch && rawClientName
+          ? clientMatches.find((c) => c.name.toLowerCase() === rawClientName.toLowerCase())
+          : null;
+
+        const bestMatch = cnpjMatch || codeMatch || nameMatch;
+        if (bestMatch) {
+          matchedClientId = bestMatch.id;
+          matchedClientName = bestMatch.name;
+        } else if (clientMatches.length === 1) {
+          matchedClientId = clientMatches[0].id;
+          matchedClientName = clientMatches[0].name;
         } else {
-          // Multiple matches, create issue
+          // Multiple ambiguous matches
           issuesToInsert.push({
             software_proposal_id,
             field_name: "client_name",
@@ -370,15 +390,42 @@ Return ONLY valid JSON with this exact structure:
             status: ISSUE_STATUS_OPEN,
           });
         }
-      } else {
-        // No match found - create issue for manual review
-        issuesToInsert.push({
-          software_proposal_id,
-          field_name: "client_name",
-          issue_type: "missing_required",
-          extracted_value: `Cliente não encontrado: ${rawClientName}`,
-          status: ISSUE_STATUS_OPEN,
-        });
+      }
+      // No match found → auto-create client if we have minimum data (name + code or CNPJ)
+      if (!matchedClientId && !issuesToInsert.some((i) => i.field_name === "client_name" && i.issue_type === "ambiguous_value")) {
+        const clientCode = rawClientCode || (rawClientCnpj ? rawClientCnpj.replace(/\D/g, "").substring(0, 10) : `AUTO_${Date.now()}`);
+        const clientCnpj = rawClientCnpj || `00.000.000/0000-00`;
+        const clientName = rawClientName || "Cliente não identificado";
+
+        console.log(`Auto-creating client: ${clientName} (${clientCode})`);
+
+        const { data: newClient, error: createClientErr } = await adminClient
+          .from("clients")
+          .insert({
+            name: clientName,
+            code: clientCode,
+            cnpj: clientCnpj,
+            address: rawClientAddress || null,
+            // unit_id, esn_id, gsn_id will be set after matching below
+          })
+          .select("id, name")
+          .single();
+
+        if (!createClientErr && newClient) {
+          matchedClientId = newClient.id;
+          matchedClientName = newClient.name;
+          clientAutoCreated = true;
+          console.log(`Client auto-created: ${newClient.id}`);
+        } else {
+          console.error("Error auto-creating client:", createClientErr);
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: "client_name",
+            issue_type: "missing_required",
+            extracted_value: `Falha ao criar cliente: ${clientName} — ${createClientErr?.message || "erro desconhecido"}`,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
       }
     }
 

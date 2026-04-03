@@ -341,6 +341,14 @@ function EmailSyncTab() {
   const [syncing, setSyncing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
 
+  // Pending list filters
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingStatusFilter, setPendingStatusFilter] = useState<string[]>([]);
+  const [pendingPeriod, setPendingPeriod] = useState<string>("");
+  const [pendingCustomStart, setPendingCustomStart] = useState("");
+  const [pendingCustomEnd, setPendingCustomEnd] = useState("");
+  const [pendingFiltersOpen, setPendingFiltersOpen] = useState(false);
+
   const { data: emailConfig, isLoading } = useQuery({
     queryKey: ["email-inbox-config"],
     queryFn: async () => {
@@ -348,7 +356,6 @@ function EmailSyncTab() {
       if (error) return null;
       return data as unknown as EmailConfig;
     },
-    // Auto-refresh every 60s when auto-sync is enabled to show latest status
     refetchInterval: (query) => {
       const cfg = query.state.data as EmailConfig | null;
       return cfg?.auto_sync_enabled ? 60_000 : false;
@@ -435,11 +442,71 @@ function EmailSyncTab() {
     }
   };
 
+  // Pending list filtering logic
+  const PENDING_ERROR_TYPE_OPTIONS = [
+    { value: "download_failed", label: "Download" },
+    { value: "upload_failed", label: "Upload" },
+    { value: "insert_failed", label: "Registro" },
+    { value: "config_failed", label: "Configuração" },
+  ];
+
+  const pendingPeriodRange = useMemo(() => {
+    const now = new Date();
+    switch (pendingPeriod) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (pendingCustomStart && pendingCustomEnd) return { start: parseISO(pendingCustomStart), end: parseISO(pendingCustomEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [pendingPeriod, pendingCustomStart, pendingCustomEnd]);
+
+  const filteredPending = useMemo(() => {
+    if (!pendingAttempts) return [];
+    return pendingAttempts.filter((a) => {
+      if (pendingStatusFilter.length > 0 && !pendingStatusFilter.includes(a.error_type || "")) return false;
+      if (pendingSearch.trim()) {
+        const term = pendingSearch.toLowerCase();
+        const matches =
+          (a.attachment_filename || "").toLowerCase().includes(term) ||
+          (a.subject || "").toLowerCase().includes(term) ||
+          (a.sender || "").toLowerCase().includes(term) ||
+          (a.error_message || "").toLowerCase().includes(term);
+        if (!matches) return false;
+      }
+      if (pendingPeriodRange) {
+        try {
+          const d = parseISO(a.created_at);
+          if (!isWithinInterval(d, { start: pendingPeriodRange.start, end: pendingPeriodRange.end })) return false;
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [pendingAttempts, pendingStatusFilter, pendingSearch, pendingPeriodRange]);
+
+  const pendingActiveFilterCount =
+    (pendingStatusFilter.length > 0 ? 1 : 0) +
+    (pendingPeriod ? 1 : 0);
+
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
 
   const config = emailConfig;
+
+  const errorTypeLabel = (type: string | null) => {
+    switch (type) {
+      case "download_failed": return "Download";
+      case "upload_failed": return "Upload";
+      case "config_failed": return "Configuração";
+      case "insert_failed": return "Registro";
+      default: return "Outro";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -456,22 +523,6 @@ function EmailSyncTab() {
               <Settings className="mr-2 h-3.5 w-3.5" /> Ir para Configurações
             </Button>
           </div>
-        </div>
-      )}
-
-      {/* Alert banner for unresolved failures */}
-      {(pendingAttempts?.length ?? 0) > 0 && (
-        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <MailWarning className="mt-0.5 h-5 w-5 text-destructive shrink-0" />
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium text-destructive">
-              {pendingAttempts!.length} importação(ões) com falha aguardando resolução
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Existem e-mails que não puderam ser importados automaticamente. Verifique a seção de pendências abaixo para reprocessar ou resolver manualmente.
-            </p>
-          </div>
-          <Badge variant="destructive" className="shrink-0">{pendingAttempts!.length}</Badge>
         </div>
       )}
 
@@ -553,97 +604,240 @@ function EmailSyncTab() {
         </Card>
       </div>
 
-      {/* Pending / Failed Attempts */}
+      {/* Pending / Failed Attempts — Standardized */}
       {pendingAttempts && pendingAttempts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MailWarning className="h-4 w-4 text-destructive" />
-                Pendências de Importação
-                <Badge variant="destructive" className="ml-2">{pendingAttempts.length}</Badge>
-              </CardTitle>
-              <Button variant="outline" size="sm" onClick={handleRetryAll} disabled={syncing}>
-                <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reprocessar Todos
-              </Button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MailWarning className="h-5 w-5 text-destructive" />
+              <h2 className="text-lg font-semibold text-foreground">Pendências de Importação</h2>
+              <Badge variant="destructive">{pendingAttempts.length}</Badge>
             </div>
-            <CardDescription>E-mails que não foram importados com sucesso. Reprocesse individualmente ou todos de uma vez.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Arquivo</TableHead>
-                    <TableHead>Assunto do E-mail</TableHead>
-                    <TableHead>Remetente</TableHead>
-                    <TableHead>Erro</TableHead>
-                    <TableHead className="text-center">Tentativas</TableHead>
-                    <TableHead>Última Tentativa</TableHead>
-                    <TableHead className="w-20"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingAttempts.map((attempt) => (
-                    <TableRow key={attempt.id}>
-                      <TableCell className="text-sm font-medium max-w-[150px] truncate" title={attempt.attachment_filename || ""}>
-                        {attempt.attachment_filename || "—"}
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[180px] truncate" title={attempt.subject || ""}>
-                        {attempt.subject || "—"}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate" title={attempt.sender || ""}>
-                        {attempt.sender || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
+            <Button variant="outline" size="sm" onClick={handleRetryAll} disabled={syncing}>
+              <RotateCcw className="mr-2 h-3.5 w-3.5" /> Reprocessar Todos
+            </Button>
+          </div>
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">Total</p>
+              <p className="text-2xl font-bold">{filteredPending.length}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">Download</p>
+              <p className="text-2xl font-bold text-destructive">{filteredPending.filter(a => a.error_type === "download_failed").length}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">Registro</p>
+              <p className="text-2xl font-bold text-destructive">{filteredPending.filter(a => a.error_type === "insert_failed").length}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground mb-1">Outros</p>
+              <p className="text-2xl font-bold text-muted-foreground">{filteredPending.filter(a => !["download_failed", "insert_failed"].includes(a.error_type || "")).length}</p>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por arquivo, assunto, remetente ou erro..."
+              value={pendingSearch}
+              onChange={(e) => setPendingSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Collapsible Filter Bar */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <button
+              onClick={() => setPendingFiltersOpen(!pendingFiltersOpen)}
+              className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+              </div>
+              {pendingActiveFilterCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {pendingActiveFilterCount}
+                </span>
+              )}
+              <div className="flex-1" />
+              {pendingActiveFilterCount > 0 && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPendingStatusFilter([]);
+                    setPendingPeriod("");
+                    setPendingCustomStart("");
+                    setPendingCustomEnd("");
+                  }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar tudo
+                </span>
+              )}
+              {pendingFiltersOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {pendingFiltersOpen && (
+              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+                {/* Period */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { key: "este_mes", label: "Este mês" },
+                      { key: "ultimo_mes", label: "Último mês" },
+                      { key: "este_trimestre", label: "Este trimestre" },
+                      { key: "este_ano", label: "Este ano" },
+                      { key: "personalizado", label: "Personalizado" },
+                    ] as const).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setPendingPeriod(pendingPeriod === key ? "" : key)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                          pendingPeriod === key
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {pendingPeriod === "personalizado" && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Input type="date" value={pendingCustomStart} onChange={(e) => setPendingCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
+                      <span className="text-xs text-muted-foreground">até</span>
+                      <Input type="date" value={pendingCustomEnd} onChange={(e) => setPendingCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                {/* Error type */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <FileWarning className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Tipo de Erro</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PENDING_ERROR_TYPE_OPTIONS.map(({ value, label }) => {
+                      const active = pendingStatusFilter.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          onClick={() =>
+                            setPendingStatusFilter((prev) =>
+                              active ? prev.filter((s) => s !== value) : [...prev, value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            active
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Table */}
+          {filteredPending.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Search className="h-8 w-8 mb-3 opacity-40" />
+              <p className="text-sm font-medium">Nenhuma pendência corresponde aos filtros</p>
+              <p className="text-xs mt-1">Ajuste os filtros ou limpe a busca para ver mais resultados.</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Arquivo</TableHead>
+                      <TableHead>Assunto</TableHead>
+                      <TableHead>Remetente</TableHead>
+                      <TableHead>Tipo de Erro</TableHead>
+                      <TableHead>Detalhe</TableHead>
+                      <TableHead className="text-center">Tentativas</TableHead>
+                      <TableHead>Última Tentativa</TableHead>
+                      <TableHead className="w-20"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPending.map((attempt) => (
+                      <TableRow key={attempt.id}>
+                        <TableCell className="text-sm font-medium max-w-[150px] truncate" title={attempt.attachment_filename || ""}>
+                          {attempt.attachment_filename || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[180px] truncate" title={attempt.subject || ""}>
+                          {attempt.subject || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[130px] truncate" title={attempt.sender || ""}>
+                          {attempt.sender || "—"}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="destructive" className="text-[10px]">
-                            {attempt.error_type === "download_failed"
-                              ? "Download"
-                              : attempt.error_type === "upload_failed"
-                                ? "Upload"
-                                : attempt.error_type === "config_failed"
-                                  ? "Configuração"
-                                  : attempt.error_type === "insert_failed"
-                                    ? "Registro"
-                                    : "Outro"}
+                            {errorTypeLabel(attempt.error_type)}
                           </Badge>
-                          <p className="text-[11px] text-muted-foreground line-clamp-2">{attempt.error_message}</p>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{attempt.error_message || "—"}</p>
                           {attempt.requires_action && (
-                            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
                               <Info className="h-3 w-3 shrink-0" />
                               {attempt.requires_action}
                             </p>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center text-sm">{attempt.retry_count + 1}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {attempt.last_attempt_at ? new Date(attempt.last_attempt_at).toLocaleString("pt-BR") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                          disabled={retrying === attempt.id || syncing}
-                          onClick={() => handleRetry(attempt.id)}
-                        >
-                          {retrying === attempt.id ? (
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          )}
-                          Tentar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                        <TableCell className="text-center text-sm">{attempt.retry_count + 1}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {attempt.last_attempt_at ? new Date(attempt.last_attempt_at).toLocaleString("pt-BR") : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            disabled={retrying === attempt.id || syncing}
+                            onClick={() => handleRetry(attempt.id)}
+                          >
+                            {retrying === attempt.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            Tentar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       )}
     </div>
   );

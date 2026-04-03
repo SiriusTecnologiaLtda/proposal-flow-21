@@ -586,6 +586,118 @@ export type Database = {
           },
         ]
       }
+      extraction_rule_applications: {
+        Row: {
+          applied_value: string
+          created_at: string
+          field_name: string
+          id: string
+          item_id: string | null
+          original_value: string | null
+          rule_id: string | null
+          software_proposal_id: string
+        }
+        Insert: {
+          applied_value: string
+          created_at?: string
+          field_name: string
+          id?: string
+          item_id?: string | null
+          original_value?: string | null
+          rule_id?: string | null
+          software_proposal_id: string
+        }
+        Update: {
+          applied_value?: string
+          created_at?: string
+          field_name?: string
+          id?: string
+          item_id?: string | null
+          original_value?: string | null
+          rule_id?: string | null
+          software_proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_rule_applications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposal_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extraction_rule_applications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "extraction_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extraction_rule_applications_software_proposal_id_fkey"
+            columns: ["software_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extraction_rules: {
+        Row: {
+          action_type: string
+          action_value: string
+          condition_type: string
+          condition_value: string
+          created_at: string
+          created_by: string | null
+          description: string
+          example: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          priority: number
+          scope: string
+          target_field: string
+          updated_at: string
+        }
+        Insert: {
+          action_type?: string
+          action_value?: string
+          condition_type?: string
+          condition_value?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          example?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          priority?: number
+          scope?: string
+          target_field?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          action_value?: string
+          condition_type?: string
+          condition_value?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          example?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          priority?: number
+          scope?: string
+          target_field?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feature_request_votes: {
         Row: {
           created_at: string

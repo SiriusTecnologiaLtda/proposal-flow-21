@@ -150,10 +150,7 @@ export default function SalesTargetsPage() {
     return Array.from(y).sort();
   }, [targets, currentYear]);
 
-  const availableEsns = useMemo(() => {
-    const usedIds = new Set(grouped.map(g => g.esn_id));
-    return esnList.filter((e: any) => !usedIds.has(e.id));
-  }, [esnList, grouped]);
+  const allEsns = esnList;
 
   const addEsnMutation = useMutation({
     mutationFn: async ({ esn_id, category_id, segment_id, role }: { esn_id: string; category_id: string; segment_id: string; role: string }) => {

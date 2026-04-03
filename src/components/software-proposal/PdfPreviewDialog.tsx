@@ -54,8 +54,14 @@ const PdfPreviewDialog = ({ open, onOpenChange, proposalId }: PdfPreviewDialogPr
           .download(proposal.file_url);
 
         if (dlErr) throw dlErr;
+        if (!blob || blob.size === 0) throw new Error("Arquivo PDF retornado está vazio.");
 
-        objectUrl = URL.createObjectURL(blob);
+        // Force correct MIME type for PDF rendering in iframe
+        const pdfBlob = blob.type === "application/pdf"
+          ? blob
+          : new Blob([blob], { type: "application/pdf" });
+
+        objectUrl = URL.createObjectURL(pdfBlob);
         if (!cancelled) setPdfUrl(objectUrl);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Não foi possível carregar o PDF.");

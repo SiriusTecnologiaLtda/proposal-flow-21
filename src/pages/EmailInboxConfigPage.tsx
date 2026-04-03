@@ -15,6 +15,18 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+interface SyncErrorDetail {
+  email_id: string;
+  subject: string;
+  sender: string;
+  filename: string;
+  error_type: string;
+  error_message: string;
+  auto_resolved: boolean;
+  requires_action: string | null;
+  timestamp: string;
+}
+
 interface EmailConfig {
   id: string;
   email_address: string;
@@ -30,6 +42,7 @@ interface EmailConfig {
   last_sync_message: string;
   last_sync_emails_found: number;
   last_sync_pdfs_imported: number;
+  last_sync_errors: SyncErrorDetail[];
   updated_at: string;
 }
 

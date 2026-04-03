@@ -628,6 +628,13 @@ export default function SoftwareProposalIssuesPage() {
           )}
         </CardContent>
       </Card>
+
+      <QuickCreateClientDialog
+        open={createClientOpen}
+        onOpenChange={setCreateClientOpen}
+        onClientCreated={handleClientCreated}
+        initialSearch={createClientInitialName}
+      />
     </div>
   );
 }

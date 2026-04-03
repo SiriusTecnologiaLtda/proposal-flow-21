@@ -169,9 +169,16 @@ IMPORTANT RULES:
 - For total_value: sum ALL recurring item totals (this represents the monthly/periodic commitment). If there are both one-time and recurring tables, report the recurring total as total_value and mention one-time totals in notes.
 - For payment_type: map "Mensal" → "monthly", "90 DIAS DDL" → "quarterly", "Gratuito" → "free", "Sob Consumo" → "usage_based".
 - The vendor_name is the company issuing the proposal (e.g., "TOTVS S.A."), NOT the client.
-- The client_name appears after "Cliente:" or "CLIENTE:" in the header section.
+- The client_name appears after "Cliente:" or "CLIENTE:" in the header section. It often has a code in parentheses at the end like "EMPRESA LTDA (DBLJZO)" — extract the code separately as client_code.
+- The document body (usually the contractual section) contains the full client legal details including CNPJ and address. Extract these as client_cnpj and client_address.
 - proposal_number appears after "Proposta N°:" in the header.
 - totvs_unit_name appears after "Unidade TOTVS:" or similar label in the header.
+
+CLIENT DATA EXTRACTION:
+- client_name: The full legal name WITHOUT the code in parentheses (e.g., "ORLETTI SERVICOS ADMINISTRATIVOS LTDA - EPP").
+- client_code: The code in parentheses after the client name in the header (e.g., "DBLJZO"). This is NOT the CNPJ.
+- client_cnpj: Found in the contractual body, typically after "CNPJ/MF sob o n.º" or "inscrito no CNPJ" (e.g., "10.221.365/0001-08").
+- client_address: The full address found in the contractual body near the client name and CNPJ.
 
 RECURRENCE MAPPING for items:
 - "Gratuito" or one-time payment → "one_time"
@@ -201,7 +208,10 @@ Return ONLY valid JSON with this exact structure:
   "proposal_number": <string|null>,
   "header": {
     "vendor_name": { "value": <string|null>, "confidence": <number> },
-    "client_name": { "value": <string|null>, "confidence": <number> },
+    "client_name": { "value": <string|null, full legal name without code>, "confidence": <number> },
+    "client_code": { "value": <string|null, code from parentheses e.g. "DBLJZO">, "confidence": <number> },
+    "client_cnpj": { "value": <string|null, CNPJ from contractual body e.g. "10.221.365/0001-08">, "confidence": <number> },
+    "client_address": { "value": <string|null, full address from contractual body>, "confidence": <number> },
     "totvs_unit_name": { "value": <string|null>, "confidence": <number> },
     "proposal_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
     "validity_date": { "value": <string|null in YYYY-MM-DD>, "confidence": <number> },
@@ -329,29 +339,49 @@ Return ONLY valid JSON with this exact structure:
 
     // --- Match client ---
     const rawClientName = val(header.client_name);
+    const rawClientCode = val(header.client_code);
+    const rawClientCnpj = val(header.client_cnpj);
+    const rawClientAddress = val(header.client_address);
     let matchedClientId: string | null = null;
     let matchedClientName: string | null = null;
+    let clientAutoCreated = false;
 
-    if (rawClientName) {
+    if (rawClientName || rawClientCode || rawClientCnpj) {
+      // Build search clauses
+      const orClauses: string[] = [];
+      if (rawClientName) orClauses.push(`name.ilike.%${rawClientName}%`);
+      if (rawClientCnpj) orClauses.push(`cnpj.ilike.%${rawClientCnpj}%`);
+      if (rawClientCode) orClauses.push(`code.ilike.%${rawClientCode}%`);
+
       const { data: clientMatches } = await adminClient
         .from("clients")
-        .select("id, name")
-        .or(`name.ilike.%${rawClientName}%,cnpj.ilike.%${rawClientName}%`)
-        .limit(5);
+        .select("id, name, code, cnpj")
+        .or(orClauses.join(","))
+        .limit(10);
 
-      if (clientMatches && clientMatches.length === 1) {
-        matchedClientId = clientMatches[0].id;
-        matchedClientName = clientMatches[0].name;
-      } else if (clientMatches && clientMatches.length > 1) {
-        // Ambiguous - try exact match first
-        const exact = clientMatches.find(
-          (c) => c.name.toLowerCase() === rawClientName.toLowerCase()
-        );
-        if (exact) {
-          matchedClientId = exact.id;
-          matchedClientName = exact.name;
+      if (clientMatches && clientMatches.length > 0) {
+        // Priority 1: exact CNPJ match (most reliable)
+        const cnpjMatch = rawClientCnpj
+          ? clientMatches.find((c) => c.cnpj && c.cnpj.replace(/\D/g, "") === rawClientCnpj.replace(/\D/g, ""))
+          : null;
+        // Priority 2: exact code match
+        const codeMatch = !cnpjMatch && rawClientCode
+          ? clientMatches.find((c) => c.code && c.code.toLowerCase() === rawClientCode.toLowerCase())
+          : null;
+        // Priority 3: exact name match
+        const nameMatch = !cnpjMatch && !codeMatch && rawClientName
+          ? clientMatches.find((c) => c.name.toLowerCase() === rawClientName.toLowerCase())
+          : null;
+
+        const bestMatch = cnpjMatch || codeMatch || nameMatch;
+        if (bestMatch) {
+          matchedClientId = bestMatch.id;
+          matchedClientName = bestMatch.name;
+        } else if (clientMatches.length === 1) {
+          matchedClientId = clientMatches[0].id;
+          matchedClientName = clientMatches[0].name;
         } else {
-          // Multiple matches, create issue
+          // Multiple ambiguous matches
           issuesToInsert.push({
             software_proposal_id,
             field_name: "client_name",
@@ -360,15 +390,42 @@ Return ONLY valid JSON with this exact structure:
             status: ISSUE_STATUS_OPEN,
           });
         }
-      } else {
-        // No match found - create issue for manual review
-        issuesToInsert.push({
-          software_proposal_id,
-          field_name: "client_name",
-          issue_type: "missing_required",
-          extracted_value: `Cliente não encontrado: ${rawClientName}`,
-          status: ISSUE_STATUS_OPEN,
-        });
+      }
+      // No match found → auto-create client if we have minimum data (name + code or CNPJ)
+      if (!matchedClientId && !issuesToInsert.some((i) => i.field_name === "client_name" && i.issue_type === "ambiguous_value")) {
+        const clientCode = rawClientCode || (rawClientCnpj ? rawClientCnpj.replace(/\D/g, "").substring(0, 10) : `AUTO_${Date.now()}`);
+        const clientCnpj = rawClientCnpj || `00.000.000/0000-00`;
+        const clientName = rawClientName || "Cliente não identificado";
+
+        console.log(`Auto-creating client: ${clientName} (${clientCode})`);
+
+        const { data: newClient, error: createClientErr } = await adminClient
+          .from("clients")
+          .insert({
+            name: clientName,
+            code: clientCode,
+            cnpj: clientCnpj,
+            address: rawClientAddress || null,
+            // unit_id, esn_id, gsn_id will be set after matching below
+          })
+          .select("id, name")
+          .single();
+
+        if (!createClientErr && newClient) {
+          matchedClientId = newClient.id;
+          matchedClientName = newClient.name;
+          clientAutoCreated = true;
+          console.log(`Client auto-created: ${newClient.id}`);
+        } else {
+          console.error("Error auto-creating client:", createClientErr);
+          issuesToInsert.push({
+            software_proposal_id,
+            field_name: "client_name",
+            issue_type: "missing_required",
+            extracted_value: `Falha ao criar cliente: ${clientName} — ${createClientErr?.message || "erro desconhecido"}`,
+            status: ISSUE_STATUS_OPEN,
+          });
+        }
       }
     }
 
@@ -548,6 +605,21 @@ Return ONLY valid JSON with this exact structure:
         if (newSegment) {
           matchedSegmentId = newSegment.id;
         }
+      }
+    }
+
+    // --- Update auto-created client with matched unit/esn/gsn ---
+    if (clientAutoCreated && matchedClientId) {
+      const clientUpdate: Record<string, any> = {};
+      if (matchedUnitId) clientUpdate.unit_id = matchedUnitId;
+      if (matchedEsnId) clientUpdate.esn_id = matchedEsnId;
+      if (matchedGsnId) clientUpdate.gsn_id = matchedGsnId;
+      if (Object.keys(clientUpdate).length > 0) {
+        await adminClient
+          .from("clients")
+          .update(clientUpdate)
+          .eq("id", matchedClientId);
+        console.log(`Auto-created client ${matchedClientId} updated with:`, clientUpdate);
       }
     }
 
@@ -940,6 +1012,7 @@ Return ONLY valid JSON with this exact structure:
       items_extracted: items.length,
       issues_created: uniqueIssues.length,
       client_matched: !!matchedClientId,
+      client_auto_created: clientAutoCreated,
       unit_matched: !!matchedUnitId,
       gsn_matched: !!matchedGsnId,
       esn_matched: !!matchedEsnId,

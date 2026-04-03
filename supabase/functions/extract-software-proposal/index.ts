@@ -143,7 +143,7 @@ DOCUMENT STRUCTURE GUIDANCE:
   - "Adesão ou soluções de pagamento não recorrentes" (one-time items like CDU, setup fees)
   - "Soluções de pagamento recorrentes" (recurring items like SMS, cloud subscriptions, licenses)
 - There may be a DISCOUNT section ("Desconto com vigência") with explicit discount amounts and duration.
-- The last pages are often SIGNATURE PROTOCOL pages — IGNORE these entirely for data extraction.
+- The last pages are often SIGNATURE PROTOCOL pages — DO NOT use them for commercial data extraction, BUT extract the list of signatories/participants from these pages (see SIGNATORIES EXTRACTION below).
 - Legal/contractual boilerplate sections should be ignored for line item extraction.
 - The HEADER typically contains a "Unidade TOTVS" field, usually below the emission/issue date. Extract this as totvs_unit_name.
 

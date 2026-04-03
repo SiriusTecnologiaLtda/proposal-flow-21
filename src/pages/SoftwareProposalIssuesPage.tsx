@@ -1,31 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
-  AlertTriangle, CheckCircle2, Filter, Search, ExternalLink,
-  EyeOff, ArrowLeft, FileText, CalendarIcon,
+  AlertTriangle, CheckCircle2, Search, ExternalLink,
+  EyeOff, ArrowLeft, FileText,
+  SlidersHorizontal, CalendarRange, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos" },
@@ -69,37 +62,22 @@ export default function SoftwareProposalIssuesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState("open");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>(["open"]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { data: issues = [], isLoading } = useQuery({
-    queryKey: ["software-issues-queue", statusFilter, typeFilter, searchTerm, dateFrom?.toISOString(), dateTo?.toISOString()],
+  const { data: allIssues = [], isLoading } = useQuery({
+    queryKey: ["software-issues-queue", searchTerm],
     enabled: !!user,
     queryFn: async () => {
-      let issueQuery = supabase
+      const { data: issueData, error: issueError } = await supabase
         .from("extraction_issues")
         .select("id, field_name, issue_type, extracted_value, status, created_at, software_proposal_id")
         .order("created_at", { ascending: false });
-
-      if (statusFilter !== "all") {
-        issueQuery = issueQuery.eq("status", statusFilter);
-      }
-      if (typeFilter !== "all") {
-        issueQuery = issueQuery.eq("issue_type", typeFilter);
-      }
-      if (dateFrom) {
-        issueQuery = issueQuery.gte("created_at", dateFrom.toISOString());
-      }
-      if (dateTo) {
-        const endOfDay = new Date(dateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        issueQuery = issueQuery.lte("created_at", endOfDay.toISOString());
-      }
-
-      const { data: issueData, error: issueError } = await issueQuery;
       if (issueError) throw issueError;
       if (!issueData || issueData.length === 0) return [];
 
@@ -140,6 +118,35 @@ export default function SoftwareProposalIssuesPage() {
       return results;
     },
   });
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    switch (periodFilter) {
+      case "este_mes": return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "ultimo_mes": { const prev = subMonths(now, 1); return { start: startOfMonth(prev), end: endOfMonth(prev) }; }
+      case "este_trimestre": return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "este_ano": return { start: startOfYear(now), end: endOfYear(now) };
+      case "personalizado": {
+        if (customStart && customEnd) return { start: parseISO(customStart), end: parseISO(customEnd) };
+        return null;
+      }
+      default: return null;
+    }
+  }, [periodFilter, customStart, customEnd]);
+
+  const issues = useMemo(() => {
+    return allIssues.filter((r) => {
+      if (statusFilter.length > 0 && !statusFilter.includes(r.status)) return false;
+      if (typeFilter.length > 0 && !typeFilter.includes(r.issue_type)) return false;
+      if (periodRange) {
+        try {
+          const d = parseISO(r.created_at);
+          if (!isWithinInterval(d, { start: periodRange.start, end: periodRange.end })) return false;
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [allIssues, statusFilter, typeFilter, periodRange]);
 
   const { data: counters } = useQuery({
     queryKey: ["software-issues-counters"],
@@ -209,8 +216,6 @@ export default function SoftwareProposalIssuesPage() {
   const formatDateStr = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("pt-BR");
 
-  const hasDateFilter = dateFrom || dateTo;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,94 +261,181 @@ export default function SoftwareProposalIssuesPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por campo, fornecedor, cliente ou proposta..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ISSUE_TYPE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {/* Date From */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-[150px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Data início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={setDateFrom}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              {/* Date To */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-[150px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateTo ? format(dateTo, "dd/MM/yyyy") : "Data fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={setDateTo}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              {hasDateFilter && (
-                <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
-                  Limpar datas
-                </Button>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por campo, fornecedor, cliente ou proposta..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Collapsible Filter Bar */}
+      {(() => {
+        const activeFilterCount =
+          (statusFilter.length > 0 && !(statusFilter.length === 1 && statusFilter[0] === "open") ? 1 : 0) +
+          (typeFilter.length > 0 ? 1 : 0) +
+          (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+        return (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-3 bg-accent/30 px-4 py-2.5 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
+              </div>
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
               )}
-            </div>
+              <div className="flex-1" />
+              {activeFilterCount > 0 && (
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStatusFilter(["open"]);
+                    setTypeFilter([]);
+                    setPeriodFilter("este_ano");
+                    setCustomStart("");
+                    setCustomEnd("");
+                  }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Limpar tudo
+                </span>
+              )}
+              {filtersOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {filtersOpen && (
+              <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
+                {/* Period */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { key: "este_mes", label: "Este mês" },
+                      { key: "ultimo_mes", label: "Último mês" },
+                      { key: "este_trimestre", label: "Este trimestre" },
+                      { key: "este_ano", label: "Este ano" },
+                      { key: "personalizado", label: "Personalizado" },
+                    ] as const).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setPeriodFilter(periodFilter === key && key !== "este_ano" ? "" : key)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                          periodFilter === key
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {periodFilter === "personalizado" && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Input
+                        type="date"
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="h-8 w-36 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">até</span>
+                      <Input
+                        type="date"
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="h-8 w-36 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                {/* Status */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                      const active = statusFilter.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          onClick={() =>
+                            setStatusFilter((prev) =>
+                              active ? prev.filter((s) => s !== value) : [...prev, value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            active
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+                {/* Type */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wider">Tipo</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ISSUE_TYPE_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                      const active = typeFilter.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          onClick={() =>
+                            setTypeFilter((prev) =>
+                              active ? prev.filter((s) => s !== value) : [...prev, value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                            active
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        );
+      })()}
 
       {/* Table */}
       <Card>
@@ -370,7 +462,7 @@ export default function SoftwareProposalIssuesPage() {
                 Nenhuma pendência encontrada
               </h3>
               <p className="text-sm text-muted-foreground">
-                {statusFilter === "open"
+                {statusFilter.length === 1 && statusFilter[0] === "open"
                   ? "Todas as pendências abertas foram resolvidas."
                   : "Nenhum resultado para os filtros selecionados."}
               </p>

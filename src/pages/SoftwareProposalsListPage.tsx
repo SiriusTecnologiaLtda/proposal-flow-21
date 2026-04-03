@@ -227,17 +227,9 @@ export default function SoftwareProposalsListPage() {
     try {
       const { data, error } = await supabase.storage
         .from("software-proposal-pdfs")
-        .download(fileUrl);
+        .createSignedUrl(fileUrl, 300);
       if (error) throw error;
-      const blobUrl = URL.createObjectURL(data);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.type = "application/pdf";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       toast.error("Erro ao abrir PDF: " + (err.message || "desconhecido"));
     }

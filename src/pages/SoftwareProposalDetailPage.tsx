@@ -612,25 +612,17 @@ export default function SoftwareProposalDetailPage() {
     onError: (err: any) => toast.error(err.message || "Erro na re-extração"),
   });
 
-  // Download file
+  // Download file via signed URL
   const downloadFile = async () => {
     if (!proposal?.file_url) return;
     try {
       const { data, error } = await supabase.storage
         .from("software-proposal-pdfs")
-        .download(proposal.file_url);
+        .createSignedUrl(proposal.file_url, 300);
       if (error) throw error;
-      const blobUrl = URL.createObjectURL(data);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.type = "application/pdf";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
-      toast.error("Erro ao gerar link de download");
+      toast.error("Erro ao gerar link de visualização");
     }
   };
 

@@ -746,37 +746,40 @@ export default function SoftwareProposalDetailPage() {
 
         {/* TAB: Header data */}
         <TabsContent value="dados" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">Informações Comerciais</CardTitle>
-                {headerDirty && (
-                  <Button size="sm" className="gap-2" onClick={saveHeader} disabled={savingHeader}>
-                    {savingHeader ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Salvar Alterações
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          {/* Save bar */}
+          {headerDirty && (
+            <div className="flex justify-end">
+              <Button size="sm" className="gap-2" onClick={saveHeader} disabled={savingHeader}>
+                {savingHeader ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Salvar Alterações
+              </Button>
+            </div>
+          )}
+
+          {/* Section: Identificação da Proposta */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação da Proposta</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
-                  <Label>Nº da Proposta</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "proposal_number" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="proposal_number">
+                  <Label className="text-xs">Nº da Proposta</Label>
                   <Input
                     value={headerForm.proposal_number || ""}
                     onChange={(e) => updateHeaderField("proposal_number", e.target.value)}
                     placeholder="Ex: AAPDFQ"
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
-                  <Label>Fornecedor</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "vendor_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="vendor_name">
+                  <Label className="text-xs">Fornecedor</Label>
                   <Input
                     value={headerForm.vendor_name || ""}
                     onChange={(e) => updateHeaderField("vendor_name", e.target.value)}
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
-                  <Label>Cliente (texto extraído)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_name" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_name">
+                  <Label className="text-xs">Cliente (texto extraído)</Label>
                   <Input
                     value={headerForm.client_name || ""}
                     onChange={(e) => updateHeaderField("client_name", e.target.value)}
@@ -784,9 +787,18 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Vínculos Cadastrais */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vínculos Cadastrais</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
-                  <Label>Cliente Vinculado</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "client_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="client_id">
+                  <Label className="text-xs">Cliente Vinculado</Label>
                   <SearchableClientSelect
                     value={headerForm.client_id}
                     displayValue={linkedClient?.name}
@@ -798,8 +810,8 @@ export default function SoftwareProposalDetailPage() {
                     }}
                   />
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
-                  <Label>Unidade TOTVS</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "unit_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="unit_id">
+                  <Label className="text-xs">Unidade TOTVS</Label>
                   <SearchableUnitSelect
                     value={headerForm.unit_id}
                     displayValue={linkedUnit?.name}
@@ -809,9 +821,18 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Time Comercial */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time Comercial</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
-                  <Label>Gerente de Vendas (GSN)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "gsn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="gsn_id">
+                  <Label className="text-xs">Gerente de Vendas (GSN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.gsn_id}
                     displayValue={linkedGsn ? `${linkedGsn.name} (${linkedGsn.code})` : undefined}
@@ -823,8 +844,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_gsn_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
-                  <Label>Executivo de Vendas (ESN)</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "esn_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="esn_id">
+                  <Label className="text-xs">Executivo de Vendas (ESN)</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.esn_id}
                     displayValue={linkedEsn ? `${linkedEsn.name} (${linkedEsn.code})` : undefined}
@@ -836,8 +857,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_esn_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
-                  <Label>Arquiteto de Solução</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "arquiteto_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="arquiteto_id">
+                  <Label className="text-xs">Arquiteto de Solução</Label>
                   <SearchableSalesTeamSelect
                     value={headerForm.arquiteto_id}
                     displayValue={linkedArquiteto ? `${linkedArquiteto.name} (${linkedArquiteto.code})` : undefined}
@@ -849,8 +870,8 @@ export default function SoftwareProposalDetailPage() {
                     <p className="text-xs text-muted-foreground">Extraído: {(proposal as any).raw_arquiteto_name}</p>
                   )}
                 </div>
-                <div className={`space-y-2 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
-                  <Label>Segmento</Label>
+                <div className={`space-y-1.5 rounded-md p-2 -m-2 transition-all duration-500 ${highlightField === "segment_id" ? "ring-2 ring-primary bg-primary/5" : ""}`} data-field="segment_id">
+                  <Label className="text-xs">Segmento</Label>
                   <SearchableSegmentSelect
                     value={headerForm.segment_id}
                     displayValue={linkedSegment?.name}
@@ -861,9 +882,18 @@ export default function SoftwareProposalDetailPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Section: Datas e Origem */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas & Origem</h3>
+            </div>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Origem</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Origem</Label>
                   <Select value={headerForm.origin || "other"} onValueChange={(v) => updateHeaderField("origin", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -873,16 +903,16 @@ export default function SoftwareProposalDetailPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Data da Proposta</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Data da Proposta</Label>
                   <Input
                     type="date"
                     value={headerForm.proposal_date || ""}
                     onChange={(e) => updateHeaderField("proposal_date", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Validade</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Validade</Label>
                   <Input
                     type="date"
                     value={headerForm.validity_date || ""}
@@ -890,13 +920,21 @@ export default function SoftwareProposalDetailPage() {
                   />
                 </div>
               </div>
-              {/* Calculated totals from items */}
+            </div>
+          </div>
+
+          {/* Section: Resumo Financeiro */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo Financeiro</h3>
+            </div>
+            <div className="p-4 space-y-4">
               {(() => {
                 const totalCapex = items
-                  .filter(i => i.cost_classification === "capex")
+                  .filter((i) => i.cost_classification === "capex")
                   .reduce((sum, i) => sum + (i.total_price || 0), 0);
                 const totalOpex = items
-                  .filter(i => i.cost_classification === "opex")
+                  .filter((i) => i.cost_classification === "opex")
                   .reduce((sum, i) => sum + (i.total_price || 0), 0);
                 const producaoTotal = Math.round(((totalCapex / 21.82) + totalOpex) * 100) / 100;
                 return (
@@ -916,354 +954,269 @@ export default function SoftwareProposalDetailPage() {
                   </div>
                 );
               })()}
-              <div className="space-y-2">
-                <Label>Observações Gerais</Label>
-                <Textarea
-                  value={headerForm.notes || ""}
-                  onChange={(e) => updateHeaderField("notes", e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Section: Observações */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</h3>
+            </div>
+            <div className="p-4">
+              <Textarea
+                value={headerForm.notes || ""}
+                onChange={(e) => updateHeaderField("notes", e.target.value)}
+                rows={3}
+                placeholder="Observações gerais sobre a proposta..."
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* TAB: Items */}
         <TabsContent value="itens" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">Itens da Proposta</CardTitle>
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => setAddingItem(true)}>
-                  <Plus className="h-4 w-4" />
-                  Adicionar Item
-                </Button>
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Itens da Proposta</h3>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
               </div>
-            </CardHeader>
-            <CardContent>
+              <Button size="sm" variant="outline" className="gap-2 h-7 text-xs" onClick={() => setAddingItem(true)}>
+                <Plus className="h-3 w-3" />
+                Adicionar Item
+              </Button>
+            </div>
+
+            {/* Grid header */}
+            <div className="hidden border-b border-border px-4 py-2 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+              <span className="text-xs font-medium text-muted-foreground">Descrição</span>
+              <span className="text-xs font-medium text-muted-foreground">Catálogo</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">Qtd</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Vlr Unit.</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Vlr Total</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">Desc%</span>
+              <span className="text-xs font-medium text-muted-foreground">Recorrência</span>
+              <span className="text-xs font-medium text-muted-foreground">Class.</span>
+              <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+            </div>
+
+            <div className="divide-y divide-border">
               {itemsLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3"><Skeleton className="h-8 w-full" /></div>
+                ))
               ) : items.length === 0 && !addingItem ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <FileText className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhum item encontrado</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <FileText className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-1">Nenhum item encontrado</h3>
+                  <p className="text-sm text-muted-foreground">Adicione itens manualmente ou reprocesse a proposta.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[200px]">Descrição</TableHead>
-                        <TableHead className="w-[120px]">Catálogo</TableHead>
-                        <TableHead className="w-[70px]">Qtd</TableHead>
-                        <TableHead className="w-[110px]">Vlr Unit.</TableHead>
-                        <TableHead className="w-[110px]">Vlr Total</TableHead>
-                        <TableHead className="w-[80px]">Desc %</TableHead>
-                        <TableHead className="w-[100px]">Recorrência</TableHead>
-                        <TableHead className="w-[80px]">Class.</TableHead>
-                        <TableHead className="w-[90px]">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) =>
-                        editingItemId === item.id ? (
-                          <TableRow key={item.id} className="bg-primary/5">
-                            <TableCell>
-                              <Input
-                                value={itemForm.description || ""}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, description: e.target.value }))}
-                                className="text-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <SearchableCatalogSelect
-                                value={itemForm.catalog_item_id || null}
-                                displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
-                                onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" className="text-sm w-16"
-                                value={itemForm.quantity ?? 0}
-                                onChange={(e) => {
-                                  const qty = parseFloat(e.target.value) || 0;
-                                  const unitPrice = parseFloat(itemForm.unit_price) || 0;
-                                  setItemForm((p: any) => ({ ...p, quantity: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-24"
-                                value={itemForm.unit_price ?? 0}
-                                onChange={(e) => {
-                                  const unitPrice = parseFloat(e.target.value) || 0;
-                                  const qty = parseFloat(itemForm.quantity) || 1;
-                                  setItemForm((p: any) => ({ ...p, unit_price: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-24"
-                                value={itemForm.total_price ?? 0}
-                                onChange={(e) => {
-                                  const totalPrice = parseFloat(e.target.value) || 0;
-                                  const qty = parseFloat(itemForm.quantity) || 1;
-                                  setItemForm((p: any) => ({ ...p, total_price: e.target.value, unit_price: qty > 0 ? Math.round((totalPrice / qty) * 100) / 100 : 0 }));
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number" step="0.01" className="text-sm w-16"
-                                value={itemForm.discount_pct ?? 0}
-                                onChange={(e) => setItemForm((p: any) => ({ ...p, discount_pct: e.target.value }))}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Select value={itemForm.recurrence} onValueChange={(v) => setItemForm((p: any) => ({ ...p, recurrence: v }))}>
-                                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <Select value={itemForm.cost_classification} onValueChange={(v) => setItemForm((p: any) => ({ ...p, cost_classification: v }))}>
-                                <SelectTrigger className="text-sm h-9 w-20"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveItemEdit}>
-                                  <Save className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}>
-                                  <EyeOff className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-sm font-medium">{item.description}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">
-                              {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
-                            </TableCell>
-                            <TableCell className="text-sm text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-sm font-mono">{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell className="text-sm font-mono">{formatCurrency(item.total_price)}</TableCell>
-                            <TableCell className="text-sm text-center">{item.discount_pct > 0 ? `${item.discount_pct}%` : "—"}</TableCell>
-                            <TableCell className="text-xs">
-                              {RECURRENCE_OPTIONS.find((r) => r.value === item.recurrence)?.label || item.recurrence}
-                            </TableCell>
-                            <TableCell className="text-xs uppercase">{item.cost_classification}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                                  setEditingItemId(item.id);
-                                  setItemForm({ ...item });
-                                }}>
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteItemTarget(item.id)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
+                <>
+                  {items.map((item) =>
+                    editingItemId === item.id ? (
+                      <div key={item.id} className="flex flex-col gap-2 px-4 py-3 bg-primary/5 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+                        <Input value={itemForm.description || ""} onChange={(e) => setItemForm((p: any) => ({ ...p, description: e.target.value }))} className="text-sm" />
+                        <SearchableCatalogSelect
+                          value={itemForm.catalog_item_id || null}
+                          displayValue={itemForm.catalog_item_id ? catalogNameMap.get(itemForm.catalog_item_id) : undefined}
+                          onChange={(catalogItemId) => setItemForm((p: any) => ({ ...p, catalog_item_id: catalogItemId }))}
+                        />
+                        <Input type="number" className="text-sm" value={itemForm.quantity ?? 0} onChange={(e) => {
+                          const qty = parseFloat(e.target.value) || 0;
+                          const unitPrice = parseFloat(itemForm.unit_price) || 0;
+                          setItemForm((p: any) => ({ ...p, quantity: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.unit_price ?? 0} onChange={(e) => {
+                          const unitPrice = parseFloat(e.target.value) || 0;
+                          const qty = parseFloat(itemForm.quantity) || 1;
+                          setItemForm((p: any) => ({ ...p, unit_price: e.target.value, total_price: Math.round(qty * unitPrice * 100) / 100 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.total_price ?? 0} onChange={(e) => {
+                          const totalPrice = parseFloat(e.target.value) || 0;
+                          const qty = parseFloat(itemForm.quantity) || 1;
+                          setItemForm((p: any) => ({ ...p, total_price: e.target.value, unit_price: qty > 0 ? Math.round((totalPrice / qty) * 100) / 100 : 0 }));
+                        }} />
+                        <Input type="number" step="0.01" className="text-sm" value={itemForm.discount_pct ?? 0} onChange={(e) => setItemForm((p: any) => ({ ...p, discount_pct: e.target.value }))} />
+                        <Select value={itemForm.recurrence} onValueChange={(v) => setItemForm((p: any) => ({ ...p, recurrence: v }))}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>{RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Select value={itemForm.cost_classification} onValueChange={(v) => setItemForm((p: any) => ({ ...p, cost_classification: v }))}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                          <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveItemEdit}><Save className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}><EyeOff className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.description}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate min-w-0">
+                          {item.catalog_item_id ? (catalogNameMap.get(item.catalog_item_id) || "Vinculado") : "—"}
+                        </p>
+                        <p className="text-sm text-center">{item.quantity}</p>
+                        <p className="text-sm font-mono text-right">{formatCurrency(item.unit_price)}</p>
+                        <p className="text-sm font-mono text-right">{formatCurrency(item.total_price)}</p>
+                        <p className="text-sm text-center">{item.discount_pct > 0 ? `${item.discount_pct}%` : "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {RECURRENCE_OPTIONS.find((r) => r.value === item.recurrence)?.label || item.recurrence}
+                        </p>
+                        <p className="text-xs uppercase text-muted-foreground">{item.cost_classification}</p>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingItemId(item.id); setItemForm({ ...item }); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteItemTarget(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  )}
 
-                      {/* Add new item inline */}
-                      {addingItem && (
-                        <TableRow className="bg-primary/5">
-                          <TableCell>
-                            <Input
-                              placeholder="Descrição do item"
-                              value={newItemForm.description}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, description: e.target.value }))}
-                              className="text-sm"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" className="text-sm w-16"
-                              value={newItemForm.quantity}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, quantity: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-24"
-                              value={newItemForm.unit_price}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, unit_price: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-24"
-                              value={newItemForm.total_price}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, total_price: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number" step="0.01" className="text-sm w-16"
-                              value={newItemForm.discount_pct}
-                              onChange={(e) => setNewItemForm((p) => ({ ...p, discount_pct: Number(e.target.value) }))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select value={newItemForm.recurrence} onValueChange={(v) => setNewItemForm((p) => ({ ...p, recurrence: v }))}>
-                              <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select value={newItemForm.cost_classification} onValueChange={(v) => setNewItemForm((p) => ({ ...p, cost_classification: v }))}>
-                              <SelectTrigger className="text-sm h-9 w-20"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addItem} disabled={!newItemForm.description.trim()}>
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAddingItem(false)}>
-                                <EyeOff className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                  {/* Add new item inline */}
+                  {addingItem && (
+                    <div className="flex flex-col gap-2 px-4 py-3 bg-primary/5 md:grid md:grid-cols-[2fr_1.2fr_60px_100px_100px_60px_90px_70px_80px] md:gap-2 md:items-center">
+                      <Input placeholder="Descrição do item" value={newItemForm.description} onChange={(e) => setNewItemForm((p) => ({ ...p, description: e.target.value }))} className="text-sm" />
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <Input type="number" className="text-sm" value={newItemForm.quantity} onChange={(e) => setNewItemForm((p) => ({ ...p, quantity: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.unit_price} onChange={(e) => setNewItemForm((p) => ({ ...p, unit_price: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.total_price} onChange={(e) => setNewItemForm((p) => ({ ...p, total_price: Number(e.target.value) }))} />
+                      <Input type="number" step="0.01" className="text-sm" value={newItemForm.discount_pct} onChange={(e) => setNewItemForm((p) => ({ ...p, discount_pct: Number(e.target.value) }))} />
+                      <Select value={newItemForm.recurrence} onValueChange={(v) => setNewItemForm((p) => ({ ...p, recurrence: v }))}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>{RECURRENCE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Select value={newItemForm.cost_classification} onValueChange={(v) => setNewItemForm((p) => ({ ...p, cost_classification: v }))}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>{COST_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={addItem} disabled={!newItemForm.description.trim()}>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAddingItem(false)}>
+                          <EyeOff className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
+            </div>
 
-              {/* Items total */}
-              {items.length > 0 && (
-                <div className="flex justify-end pt-4 border-t mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Total dos Itens:{" "}
-                    <span className="font-semibold text-foreground font-mono">
-                      {formatCurrency(items.reduce((sum, i) => sum + (i.total_price || 0), 0))}
-                    </span>
-                  </div>
+            {/* Items total */}
+            {items.length > 0 && (
+              <div className="flex justify-end border-t border-border px-4 py-3">
+                <div className="text-sm text-muted-foreground">
+                  Total dos Itens:{" "}
+                  <span className="font-semibold text-foreground font-mono">
+                    {formatCurrency(items.reduce((sum, i) => sum + (i.total_price || 0), 0))}
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* TAB: Issues */}
         <TabsContent value="pendencias" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                Pendências da Extração
-                {openIssues.length > 0 && (
-                  <Badge variant="destructive" className="text-xs">{openIssues.length} abertas</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {issues.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhuma pendência registrada</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Campo</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Valor Extraído</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[120px]">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {issues.map((issue) => (
-                        <TableRow key={issue.id}>
-                          <TableCell className="text-sm font-medium">{issue.field_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                            {issue.extracted_value || "—"}
-                          </TableCell>
-                          <TableCell>
-                            {issue.status === "open" ? (
-                              <Badge variant="destructive" className="text-xs">Aberta</Badge>
-                            ) : issue.status === "resolved" ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs">Resolvida</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-xs">Ignorada</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {issue.status === "open" && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm" variant="outline" className="h-7 text-xs"
-                                  onClick={() => {
-                                    // Navigate to the correct field with resolve context
-                                    const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
-                                    setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
-                                    setActiveTab(targetTab);
-                                    setHighlightField(issue.field_name);
-                                    // Scroll to field after tab renders
-                                    setTimeout(() => {
-                                      const el = document.querySelector(`[data-field="${issue.field_name}"]`);
-                                      if (el) {
-                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                                        const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
-                                        if (input) input.focus();
-                                      }
-                                    }, 300);
-                                    setTimeout(() => setHighlightField(null), 5000);
-                                  }}
-                                >
-                                  Resolver
-                                </Button>
-                                <Button
-                                  size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
-                                  onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
-                                >
-                                  Ignorar
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pendências da Extração</h3>
+              {openIssues.length > 0 && (
+                <Badge variant="destructive" className="text-xs h-5 min-w-5">{openIssues.length} abertas</Badge>
               )}
-            </CardContent>
-          </Card>
+            </div>
+
+            {issues.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <CheckCircle2 className="h-12 w-12 text-emerald-500/40 mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-1">Nenhuma pendência</h3>
+                <p className="text-sm text-muted-foreground">Todos os campos extraídos foram validados com sucesso.</p>
+              </div>
+            ) : (
+              <>
+                {/* Grid header */}
+                <div className="hidden border-b border-border px-4 py-2 md:grid md:grid-cols-[1.5fr_1fr_2fr_100px_120px] md:gap-3 md:items-center">
+                  <span className="text-xs font-medium text-muted-foreground">Campo</span>
+                  <span className="text-xs font-medium text-muted-foreground">Tipo</span>
+                  <span className="text-xs font-medium text-muted-foreground">Valor Extraído</span>
+                  <span className="text-xs font-medium text-muted-foreground">Status</span>
+                  <span className="text-xs font-medium text-muted-foreground text-right">Ações</span>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {issues.map((issue) => (
+                    <div
+                      key={issue.id}
+                      className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 md:grid md:grid-cols-[1.5fr_1fr_2fr_100px_120px] md:gap-3 md:items-center"
+                    >
+                      <p className="text-sm font-medium text-foreground">{issue.field_name}</p>
+                      <div>
+                        <Badge variant="outline" className="text-xs">
+                          {ISSUE_TYPE_LABELS[issue.issue_type] || issue.issue_type}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate min-w-0">{issue.extracted_value || "—"}</p>
+                      <div>
+                        {issue.status === "open" ? (
+                          <Badge variant="destructive" className="text-xs">Aberta</Badge>
+                        ) : issue.status === "resolved" ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs">Resolvida</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Ignorada</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        {issue.status === "open" && (
+                          <>
+                            <Button
+                              size="sm" variant="outline" className="h-7 text-xs"
+                              onClick={() => {
+                                const targetTab = FIELD_TAB_MAP[issue.field_name] || "dados";
+                                setSearchParams({ resolve_issue: issue.id, field: issue.field_name }, { replace: true });
+                                setActiveTab(targetTab);
+                                setHighlightField(issue.field_name);
+                                setTimeout(() => {
+                                  const el = document.querySelector(`[data-field="${issue.field_name}"]`);
+                                  if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    const input = el.querySelector("input, textarea, button[role='combobox']") as HTMLElement;
+                                    if (input) input.focus();
+                                  }
+                                }, 300);
+                                setTimeout(() => setHighlightField(null), 5000);
+                              }}
+                            >
+                              Resolver
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground"
+                              onClick={() => updateIssueMutation.mutate({ issueId: issue.id, status: "ignored" })}
+                            >
+                              Ignorar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

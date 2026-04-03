@@ -290,7 +290,7 @@ Return ONLY valid JSON with this exact structure:
               },
               {
                 type: "text",
-                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions) and ignore signature protocol pages. Also extract the TOTVS unit name from the header.`,
+                text: `Extract all structured data from this software proposal PDF. File: ${proposal.file_name}. Focus on commercial data (items, values, dates, payment conditions). Also extract the TOTVS unit name from the header. IMPORTANT: Also extract ALL signatories/participants from the signature protocol pages at the end of the PDF — include their name, email, CPF/CNPJ, and role.`,
               },
             ],
           },

@@ -332,7 +332,7 @@ export default function SalesTargetsPage() {
             )}
             <div className="ml-auto flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setSearch(""); }}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => { setFilterUnitIds([]); setFilterGsnIds([]); setFilterCategoryIds([]); setFilterSegmentIds([]); setFilterRoles([]); setSearch(""); }}>
                   Limpar filtros
                 </Button>
               )}

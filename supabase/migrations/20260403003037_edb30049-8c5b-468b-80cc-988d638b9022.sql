@@ -1,0 +1,1 @@
+ALTER TABLE public.email_inbox_config ADD COLUMN IF NOT EXISTS last_sync_errors jsonb DEFAULT '[]'::jsonb;

@@ -9,10 +9,23 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, LogIn, Loader2,
+  Mail, RefreshCw, Wifi, WifiOff, Save, Play, Clock, AlertCircle, CheckCircle2, Info, ArrowLeft, LogIn, Loader2, ChevronDown, FileWarning, RotateCcw, CheckCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+interface SyncErrorDetail {
+  email_id: string;
+  subject: string;
+  sender: string;
+  filename: string;
+  error_type: string;
+  error_message: string;
+  auto_resolved: boolean;
+  requires_action: string | null;
+  timestamp: string;
+}
 
 interface EmailConfig {
   id: string;
@@ -29,6 +42,7 @@ interface EmailConfig {
   last_sync_message: string;
   last_sync_emails_found: number;
   last_sync_pdfs_imported: number;
+  last_sync_errors: SyncErrorDetail[];
   updated_at: string;
 }
 
@@ -521,6 +535,76 @@ export default function EmailInboxConfigPage() {
                     <>
                       <Separator />
                       <p className="text-xs text-muted-foreground">{config.last_sync_message}</p>
+                    </>
+                  )}
+
+                  {/* Detailed errors section */}
+                  {config.last_sync_errors && config.last_sync_errors.length > 0 && (
+                    <>
+                      <Separator />
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-sm font-medium hover:bg-accent">
+                          <span className="flex items-center gap-2">
+                            <FileWarning className="h-4 w-4 text-destructive" />
+                            Detalhes ({config.last_sync_errors.filter((e: SyncErrorDetail) => !e.auto_resolved).length} erro(s),{" "}
+                            {config.last_sync_errors.filter((e: SyncErrorDetail) => e.auto_resolved).length} resolvido(s) automaticamente)
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 pt-2">
+                          {config.last_sync_errors.map((err: SyncErrorDetail, idx: number) => (
+                            <div
+                              key={idx}
+                              className={`rounded-md border p-3 text-xs space-y-1.5 ${
+                                err.auto_resolved
+                                  ? "border-muted bg-muted/30"
+                                  : "border-destructive/30 bg-destructive/5"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-1.5 font-medium">
+                                  {err.auto_resolved ? (
+                                    <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                                  )}
+                                  <span className="truncate max-w-[180px]" title={err.filename}>{err.filename}</span>
+                                </div>
+                                <Badge variant={err.auto_resolved ? "outline" : "destructive"} className="text-[10px] shrink-0">
+                                  {err.error_type === "duplicate" ? "Duplicado"
+                                    : err.error_type === "download_failed" ? "Download"
+                                    : err.error_type === "upload_failed" ? "Upload"
+                                    : err.error_type === "insert_failed" ? "Registro"
+                                    : "Outro"}
+                                </Badge>
+                              </div>
+                              <p className="text-muted-foreground leading-relaxed">{err.error_message}</p>
+                              {err.subject && (
+                                <p className="text-muted-foreground"><strong>Assunto:</strong> {err.subject}</p>
+                              )}
+                              {err.requires_action && !err.auto_resolved && (
+                                <div className="flex items-start gap-1.5 rounded bg-accent/50 p-2 mt-1">
+                                  <RotateCcw className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                  <span>{err.requires_action}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          {config.last_sync_errors.some((e: SyncErrorDetail) => !e.auto_resolved) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={handleSync}
+                              disabled={syncing}
+                            >
+                              <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                              Tentar Sincronizar Novamente
+                            </Button>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
                     </>
                   )}
                 </>

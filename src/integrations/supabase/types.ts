@@ -346,6 +346,7 @@ export type Database = {
           imap_port: number
           last_sync_at: string | null
           last_sync_emails_found: number | null
+          last_sync_errors: Json | null
           last_sync_message: string | null
           last_sync_pdfs_imported: number | null
           last_sync_status: string | null
@@ -369,6 +370,7 @@ export type Database = {
           imap_port?: number
           last_sync_at?: string | null
           last_sync_emails_found?: number | null
+          last_sync_errors?: Json | null
           last_sync_message?: string | null
           last_sync_pdfs_imported?: number | null
           last_sync_status?: string | null
@@ -392,6 +394,7 @@ export type Database = {
           imap_port?: number
           last_sync_at?: string | null
           last_sync_emails_found?: number | null
+          last_sync_errors?: Json | null
           last_sync_message?: string | null
           last_sync_pdfs_imported?: number | null
           last_sync_status?: string | null

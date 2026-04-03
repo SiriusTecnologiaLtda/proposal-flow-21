@@ -153,12 +153,12 @@ export default function SalesTargetsPage() {
   const allEsns = esnList;
 
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id, segment_id, role }: { esn_id: string; category_id: string; segment_id: string; role: string }) => {
+    mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string> }) => {
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
         month: i + 1,
-        amount: 0,
+        amount: Number(monthValues[i + 1]) || 0,
         category_id,
         segment_id,
         role,
@@ -168,12 +168,13 @@ export default function SalesTargetsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sales-targets"] });
-      setNewDialog(false);
+      setEditDialogOpen(false);
+      setIsCreateMode(false);
       setNewEsnId("");
       setNewCategoryId("");
       setNewSegmentId("");
       setNewRole("esn");
-      toast({ title: "ESN adicionado com sucesso!" });
+      toast({ title: "Meta adicionada com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });

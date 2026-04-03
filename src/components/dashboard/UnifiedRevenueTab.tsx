@@ -181,11 +181,12 @@ function UnitBreakdownRow({
   );
 }
 
-// ─── Main Component ──────────────────────────────
-export function UnifiedRevenueTab() {
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+interface UnifiedRevenueTabProps {
+  selectedYear: number;
+  selectedUnitId: string;
+}
+
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

@@ -992,7 +992,7 @@ Return ONLY valid JSON with this exact structure:
     // --- Load catalog items + aliases for matching ---
     const { data: catalogItems } = await adminClient
       .from("software_catalog_items")
-      .select("id, name, vendor_name, is_active")
+      .select("id, name, vendor_name, is_active, product_id, category_id")
       .eq("is_active", true);
 
     const { data: catalogAliases } = await adminClient
@@ -1000,14 +1000,56 @@ Return ONLY valid JSON with this exact structure:
       .select("id, catalog_item_id, alias");
 
     // Build lookup maps for item matching
-    const catalogLookup: Array<{ id: string; name: string; nameLower: string }> = (catalogItems || []).map((c) => ({
+    const catalogLookup: Array<{ id: string; name: string; nameLower: string; vendor_name: string | null; product_id: string | null; category_id: string | null }> = (catalogItems || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       nameLower: c.name.toLowerCase().trim(),
+      vendor_name: c.vendor_name,
+      product_id: c.product_id,
+      category_id: c.category_id,
     }));
     const aliasLookup: Map<string, string> = new Map();
     for (const a of catalogAliases || []) {
       aliasLookup.set(a.alias.toLowerCase().trim(), a.catalog_item_id);
+    }
+
+    // Helper: infer product_id and category_id from similar existing catalog items
+    function inferCatalogClassification(itemDesc: string, vendorName: string | null): { product_id: string | null; category_id: string | null } {
+      const itemWords = new Set(itemDesc.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+      const vendorLower = (vendorName || "").toLowerCase().trim();
+
+      // Only consider items that have at least one classification set
+      const classified = catalogLookup.filter(c => c.product_id || c.category_id);
+      if (classified.length === 0) return { product_id: null, category_id: null };
+
+      let bestMatch: typeof classified[0] | null = null;
+      let bestScore = 0;
+
+      for (const c of classified) {
+        let score = 0;
+        const cWords = new Set(c.nameLower.split(/\s+/).filter(w => w.length > 2));
+
+        // Word overlap score
+        for (const w of itemWords) {
+          if (cWords.has(w)) score += 2;
+        }
+
+        // Vendor match bonus
+        if (vendorLower && c.vendor_name && c.vendor_name.toLowerCase().trim() === vendorLower) {
+          score += 3;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = c;
+        }
+      }
+
+      // Require minimum similarity threshold
+      if (bestScore >= 3 && bestMatch) {
+        return { product_id: bestMatch.product_id, category_id: bestMatch.category_id };
+      }
+      return { product_id: null, category_id: null };
     }
 
     // --- Insert extracted items with catalog matching ---

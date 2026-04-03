@@ -66,7 +66,7 @@ export default function SalesTargetsPage() {
   const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
 
-  const [newDialog, setNewDialog] = useState(false);
+  const [isCreateMode, setIsCreateMode] = useState(false);
   const [newEsnId, setNewEsnId] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");

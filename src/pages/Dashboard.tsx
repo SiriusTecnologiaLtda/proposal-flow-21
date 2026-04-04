@@ -2,10 +2,10 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
-  SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
+  SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown, Tag,
   BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat,
 } from "lucide-react";
-import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
+import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -362,6 +362,9 @@ export default function Dashboard() {
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+
+  const { data: categories = [] } = useCategories();
 
   const REVENUE_FILTER_OPTIONS = [
     { value: "recorrente", label: "Recorrente" },
@@ -642,11 +645,16 @@ export default function Dashboard() {
     }));
 
     // Filter targets by hierarchy + role scope
-    const relevantTargets = isArquiteto && !isEffectiveAdmin
+    let relevantTargets = isArquiteto && !isEffectiveAdmin
       ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? salesTargets
         : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
+
+    // Category filter on targets
+    if (selectedCategoryId !== "all") {
+      relevantTargets = relevantTargets.filter((t: any) => t.category_id === selectedCategoryId);
+    }
 
     // When revenue filter is "scs", hide sales targets (they relate to software revenue)
     // When "recorrente" or "nao_recorrente", show only matching targets
@@ -697,7 +705,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter, selectedCategoryId]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12
@@ -792,7 +800,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0) + (selectedRevenueFilter !== "all" ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0) + (selectedRevenueFilter !== "all" ? 1 : 0) + (selectedCategoryId !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -1049,6 +1057,77 @@ export default function Dashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Divider before Category */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Tag className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Categoria</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal",
+                      selectedCategoryId !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <Tag className="h-3.5 w-3.5" />
+                    {selectedCategoryId === "all"
+                      ? "Todas as categorias"
+                      : categories.find((c) => c.id === selectedCategoryId)?.name || selectedCategoryId}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <div className="max-h-64 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedCategoryId("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedCategoryId === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedCategoryId === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todas as categorias</span>
+                    </button>
+                    {categories.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCategoryId(c.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedCategoryId === c.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedCategoryId === c.id && <Check className="h-3.5 w-3.5" />}
+                        <span className="font-medium">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedCategoryId !== "all" && (
+                    <div className="border-t border-border p-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs text-muted-foreground"
+                        onClick={() => setSelectedCategoryId("all")}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1064,7 +1143,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} selectedRevenueFilter={selectedRevenueFilter} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} selectedRevenueFilter={selectedRevenueFilter} selectedCategoryId={selectedCategoryId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

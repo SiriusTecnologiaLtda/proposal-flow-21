@@ -192,6 +192,7 @@ interface UnifiedRevenueTabProps {
   isArquiteto: boolean;
   mySalesTeamId: string | null;
   selectedRevenueFilter: string;
+  selectedCategoryId: string;
 }
 
 const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
@@ -200,7 +201,7 @@ const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
   scs: ["servico"],
 };
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter, selectedCategoryId }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({
@@ -233,7 +234,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       const endDate = `${selectedYear}-12-31`;
       const { data, error } = await supabase
         .from("software_proposals")
-        .select("id, client_id, esn_id, gsn_id, proposal_date, status, unit_id, software_proposal_items(total_price, cost_classification, recurrence)")
+        .select("id, client_id, esn_id, gsn_id, proposal_date, status, unit_id, software_proposal_items(total_price, cost_classification, recurrence, catalog_item_id)")
         .gte("proposal_date", startDate)
         .lte("proposal_date", endDate);
       if (error) throw error;
@@ -273,6 +274,24 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     for (const c of clients) { if (c.unit_id) map.set(c.id, c.unit_id); }
     return map;
   }, [clients]);
+
+  // Fetch catalog items for category mapping (only when category filter is active)
+  const { data: catalogItems = [] } = useQuery({
+    queryKey: ["catalog-category-map"],
+    staleTime: 5 * 60 * 1000,
+    enabled: selectedCategoryId !== "all",
+    queryFn: async () => {
+      const { data, error } = await supabase.from("software_catalog_items").select("id, category_id").limit(5000);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const catalogCategoryMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const c of catalogItems) { map.set(c.id, c.category_id); }
+    return map;
+  }, [catalogItems]);
 
   // Fetch sales team for role filtering
   const { data: salesTeamMembers = [] } = useQuery({
@@ -351,7 +370,14 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id)) || "unknown";
       ensureUnit(unitId);
 
-      const items = sp.software_proposal_items || [];
+      const allItems = sp.software_proposal_items || [];
+      // Apply category filter at item level (via catalog_item_id → category_id)
+      const items = selectedCategoryId !== "all"
+        ? allItems.filter((item: any) => {
+            const catId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
+            return catId === selectedCategoryId;
+          })
+        : allItems;
       let totalCapex = 0;
       let totalOpex = 0;
 
@@ -385,7 +411,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     }
 
     return result;
-  }, [filteredSwProposals, filteredSvcProposals, clientUnitMap]);
+  }, [filteredSwProposals, filteredSvcProposals, clientUnitMap, selectedCategoryId, catalogCategoryMap]);
 
   // Compute Meta by revenue line and unit
   const metaData = useMemo(() => {

@@ -275,6 +275,24 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return map;
   }, [clients]);
 
+  // Fetch catalog items for category mapping (only when category filter is active)
+  const { data: catalogItems = [] } = useQuery({
+    queryKey: ["catalog-category-map"],
+    staleTime: 5 * 60 * 1000,
+    enabled: selectedCategoryId !== "all",
+    queryFn: async () => {
+      const { data, error } = await supabase.from("software_catalog_items").select("id, category_id").limit(5000);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const catalogCategoryMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const c of catalogItems) { map.set(c.id, c.category_id); }
+    return map;
+  }, [catalogItems]);
+
   // Fetch sales team for role filtering
   const { data: salesTeamMembers = [] } = useQuery({
     queryKey: ["sales-team-role-filter"],

@@ -512,9 +512,13 @@ export default function Dashboard() {
       const refDate = p.expected_close_date || "";
       if (dateFrom && refDate && refDate < dateFrom) return false;
       if (dateTo && refDate && refDate > dateTo) return false;
+
+      // Revenue filter: service proposals only visible for "all" or "scs"
+      if (selectedRevenueFilter !== "all" && selectedRevenueFilter !== "scs") return false;
+
       return true;
     });
-  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId]);
+  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId, selectedRevenueFilter]);
 
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");

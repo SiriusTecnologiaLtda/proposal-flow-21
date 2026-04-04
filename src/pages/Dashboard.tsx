@@ -355,7 +355,7 @@ export default function Dashboard() {
   const [periodPreset, setPeriodPreset] = useState("this_year");
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
-  const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
 
   // Fetch units for filter

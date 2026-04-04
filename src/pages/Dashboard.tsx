@@ -5,7 +5,7 @@ import {
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
   BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat,
 } from "lucide-react";
-import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
+import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";

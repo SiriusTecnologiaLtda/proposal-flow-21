@@ -186,9 +186,12 @@ interface UnifiedRevenueTabProps {
   dateFrom: string;
   dateTo: string;
   selectedRoleFilter: string;
+  hierarchyScopedIds: string[] | null;
+  isArquiteto: boolean;
+  mySalesTeamId: string | null;
 }
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

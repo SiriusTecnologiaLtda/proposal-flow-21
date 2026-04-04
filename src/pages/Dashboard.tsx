@@ -973,6 +973,7 @@ export default function Dashboard() {
                 setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
                 setSelectedRevenueFilter("all");
+                setSelectedCategoryId("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />

@@ -418,15 +418,18 @@ export default function Dashboard() {
   // Filter proposals
   const filteredProposals = useMemo(() => {
     return proposals.filter((p: any) => {
-      if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(p.esn_id)) return false;
+      // Role filter: match ESN, GSN or DSN linked members
+      if (filteredMembersByRole) {
+        const matchesRole = filteredMembersByRole.includes(p.esn_id) || filteredMembersByRole.includes(p.gsn_id);
+        if (!matchesRole) return false;
+      }
       // Always use expected_close_date for date filtering
       const refDate = p.expected_close_date || "";
       if (dateFrom && refDate && refDate < dateFrom) return false;
       if (dateTo && refDate && refDate > dateTo) return false;
-      // If no expected_close_date set, don't filter out
       return true;
     });
-  }, [proposals, dateFrom, dateTo, selectedEsnIds]);
+  }, [proposals, dateFrom, dateTo, filteredMembersByRole]);
 
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");

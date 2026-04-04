@@ -550,6 +550,9 @@ export default function SmartImport() {
     setDetectedEntity(entity);
     const fields = ENTITY_CONFIGS[entity].dbFields;
 
+    // Use a local variable so layout matching uses the correct (possibly updated) headers
+    let currentHeaders = headers;
+
     if (entity === "sales_targets" && rawWorkbook) {
       const specificSheet = rawWorkbook.SheetNames.find(s => s.includes("BASE DE DADOS") && s.includes("Time Comercial"));
       if (specificSheet) {
@@ -559,20 +562,21 @@ export default function SmartImport() {
         setHeaderRowIdx(hdrIdx);
         const hdrs = (raw[hdrIdx] || []).map((h: any) => String(h || "").trim());
         setHeaders(hdrs);
+        currentHeaders = hdrs;
         const data = raw.slice(hdrIdx + 1).filter(r => r.some(c => c != null && c !== ""));
         setAllDataRows(data);
         setPreviewRows(data.slice(0, 5));
       }
     }
 
-    const savedLayout = findMatchingLayout(headers, entity);
+    const savedLayout = findMatchingLayout(currentHeaders, entity);
     let autoMap: Record<number, string>;
     if (savedLayout) {
       autoMap = savedLayout.mapping;
       setLayoutRestored(true);
       toast({ title: "Layout restaurado", description: `Mapeamento "${savedLayout.name}" aplicado automaticamente.` });
     } else {
-      autoMap = autoMapColumns(headers, fields);
+      autoMap = autoMapColumns(currentHeaders, fields);
     }
     setMapping(autoMap);
 

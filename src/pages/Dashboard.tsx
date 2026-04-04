@@ -361,6 +361,13 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+  const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
+
+  const REVENUE_FILTER_OPTIONS = [
+    { value: "recorrente", label: "Recorrente" },
+    { value: "nao_recorrente", label: "Não Recorrente" },
+    { value: "scs", label: "SCS (Serviços)" },
+  ];
 
   // Fetch units for filter
   const { data: units = [] } = useQuery({

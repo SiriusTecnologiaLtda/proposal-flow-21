@@ -777,7 +777,7 @@ export default function Dashboard() {
               className="h-7 text-xs text-muted-foreground hover:text-destructive"
               onClick={() => {
                 handlePreset("this_year");
-                setSelectedEsnIds([]);
+                setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
               }}
             >

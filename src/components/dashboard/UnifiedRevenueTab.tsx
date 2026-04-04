@@ -445,51 +445,59 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
   // Monthly chart data
   const monthlyChartData = useMemo(() => {
     const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const includeSw = selectedRevenueFilter === "all" || selectedRevenueFilter === "recorrente" || selectedRevenueFilter === "nao_recorrente";
+    const includeSvc = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
+
     return MONTH_LABELS.map((label, i) => {
       const month = i + 1;
       let meta = 0;
       let realizado = 0;
 
-      // Meta from targets
+      // Meta from targets (revenue_targets relate to all lines; filter by active keys)
       for (const t of revenueTargets as any[]) {
         if (t.month !== month) continue;
         if (selectedUnitId !== "all" && t.unit_id !== selectedUnitId) continue;
+        if (selectedRevenueFilter !== "all" && !activeKeys.has(t.revenue_line)) continue;
         meta += Number(t.amount);
       }
 
       // Realizado from software proposals
-      for (const sp of filteredSwProposals) {
-        const pd = sp.proposal_date || "";
-        const pMonth = Number(pd.substring(5, 7));
-        if (pMonth !== month) continue;
-        const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
-        if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
+      if (includeSw) {
+        for (const sp of filteredSwProposals) {
+          const pd = sp.proposal_date || "";
+          const pMonth = Number(pd.substring(5, 7));
+          if (pMonth !== month) continue;
+          const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+          if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-        const items = sp.software_proposal_items || [];
-        let capex = 0, opex = 0;
-        for (const item of items) {
-          if (item.cost_classification === "capex") capex += Number(item.total_price) || 0;
-          if (item.cost_classification === "opex") opex += Number(item.total_price) || 0;
+          const items = sp.software_proposal_items || [];
+          let capex = 0, opex = 0;
+          for (const item of items) {
+            if (item.cost_classification === "capex") capex += Number(item.total_price) || 0;
+            if (item.cost_classification === "opex") opex += Number(item.total_price) || 0;
+          }
+          realizado += (capex / 21.82) + opex;
         }
-        realizado += (capex / 21.82) + opex;
       }
 
       // Realizado from service proposals
-      for (const sp of filteredSvcProposals) {
-        const dateStr = sp.expected_close_date || "";
-        const pMonth = Number(dateStr.substring(5, 7));
-        if (pMonth !== month) continue;
-        const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
-        if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
+      if (includeSvc) {
+        for (const sp of filteredSvcProposals) {
+          const dateStr = sp.expected_close_date || "";
+          const pMonth = Number(dateStr.substring(5, 7));
+          if (pMonth !== month) continue;
+          const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+          if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-        const serviceItems = sp.proposal_service_items || [];
-        realizado += serviceItems.reduce((sum: number, item: any) =>
-          sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+          const serviceItems = sp.proposal_service_items || [];
+          realizado += serviceItems.reduce((sum: number, item: any) =>
+            sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+        }
       }
 
       return { label, meta, realizado };
     });
-  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap]);
+  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap, selectedRevenueFilter, activeKeys]);
 
   // Totals for summary (only from active revenue lines)
   const activeKeys = new Set(activeRevenueLines.map((rl) => rl.key));

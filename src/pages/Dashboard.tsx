@@ -818,6 +818,7 @@ export default function Dashboard() {
                 handlePreset("this_year");
                 setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
+                setSelectedRevenueFilter("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />

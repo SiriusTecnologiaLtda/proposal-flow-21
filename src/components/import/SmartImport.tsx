@@ -322,17 +322,35 @@ function findMatchingLayout(headers: string[], entity: ImportEntity): SavedLayou
 }
 
 // ─── Auto-mapping ───────────────────────────────────────────────
+function isNumeric(s: string): boolean { return /^\d+$/.test(s); }
+
 function autoMapColumns(headers: string[], fields: DbField[]): Record<number, string> {
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
+
+  // Pass 1: exact matches only
   for (let i = 0; i < headers.length; i++) {
+    const h = normalize(headers[i] || "");
+    if (!h) continue;
+    for (const field of fields) {
+      if (usedFields.has(field.key)) continue;
+      const exactMatch = field.aliases.some(alias => normalize(alias) === h);
+      if (exactMatch) { mapping[i] = field.key; usedFields.add(field.key); break; }
+    }
+  }
+
+  // Pass 2: substring matches for remaining unmatched columns/fields
+  for (let i = 0; i < headers.length; i++) {
+    if (mapping[i]) continue;
     const h = normalize(headers[i] || "");
     if (!h) continue;
     for (const field of fields) {
       if (usedFields.has(field.key)) continue;
       const match = field.aliases.some(alias => {
         const na = normalize(alias);
-        return h === na || h.includes(na) || na.includes(h);
+        // Never allow pure-numeric aliases to substring-match (prevents "1" matching "12")
+        if (isNumeric(na) || isNumeric(h)) return false;
+        return h.includes(na) || na.includes(h);
       });
       if (match) { mapping[i] = field.key; usedFields.add(field.key); break; }
     }

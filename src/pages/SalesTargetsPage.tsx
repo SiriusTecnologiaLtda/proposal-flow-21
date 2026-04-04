@@ -94,6 +94,9 @@ export default function SalesTargetsPage() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
 
   const esnList = useMemo(() =>

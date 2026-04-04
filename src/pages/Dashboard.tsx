@@ -362,6 +362,9 @@ export default function Dashboard() {
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+
+  const { data: categories = [] } = useCategories();
 
   const REVENUE_FILTER_OPTIONS = [
     { value: "recorrente", label: "Recorrente" },

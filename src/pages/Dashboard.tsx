@@ -894,9 +894,9 @@ export default function Dashboard() {
       }
     } else {
       // ESN-based commissions from commission_projections
-      const relevant = effectiveEsnFilter === null
+      const relevant = combinedMemberFilter === null
         ? (commissionProjections as any[])
-        : (commissionProjections as any[]).filter((cp: any) => effectiveEsnFilter.includes(cp.esn_id));
+        : (commissionProjections as any[]).filter((cp: any) => combinedMemberFilter.includes(cp.esn_id));
 
       for (const cp of relevant) {
         const dueDate = cp.due_date || "";
@@ -920,7 +920,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [commissionProjections, effectiveEsnFilter, isArquiteto, mySalesTeamMember, mySalesTeamId, proposals, targetYear]);
+  }, [commissionProjections, combinedMemberFilter, isArquiteto, mySalesTeamMember, mySalesTeamId, proposals, targetYear]);
 
   const totalCommRealizada = commissionChartData.reduce((s, m) => s + m.realizada, 0);
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);

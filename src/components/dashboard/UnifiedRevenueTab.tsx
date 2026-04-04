@@ -278,29 +278,47 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
 
   const roleFilteredIds = useMemo(() => {
     if (selectedRoleFilter === "all") return null;
-    return new Set(salesTeamMembers.filter((m) => m.role === selectedRoleFilter).map((m) => m.id));
-  }, [salesTeamMembers, selectedRoleFilter]);
+    const roleMembers = salesTeamMembers.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
+    if (hierarchyScopedIds === null) return new Set(roleMembers);
+    return new Set(roleMembers.filter((id) => hierarchyScopedIds.includes(id)));
+  }, [salesTeamMembers, selectedRoleFilter, hierarchyScopedIds]);
 
-  // Apply period and role filters to proposals
+  // Build effective scope: hierarchy + role filter
+  const effectiveScopeIds = useMemo(() => {
+    if (roleFilteredIds) return roleFilteredIds;
+    if (hierarchyScopedIds === null) return null;
+    return new Set(hierarchyScopedIds);
+  }, [roleFilteredIds, hierarchyScopedIds]);
+
+  // Apply period, hierarchy scope, and role filters to proposals
   const filteredSwProposals = useMemo(() => {
     return (softwareProposals as any[]).filter((sp) => {
       const pd = sp.proposal_date || "";
       if (dateFrom && pd && pd < dateFrom) return false;
       if (dateTo && pd && pd > dateTo) return false;
-      if (roleFilteredIds && !roleFilteredIds.has(sp.esn_id) && !roleFilteredIds.has(sp.gsn_id)) return false;
+      // Hierarchy + role filter
+      if (isArquiteto) {
+        // EV cross role: not filtered by team IDs in unified tab (no arquiteto_id on sw proposals)
+        return true;
+      }
+      if (effectiveScopeIds && !effectiveScopeIds.has(sp.esn_id) && !effectiveScopeIds.has(sp.gsn_id)) return false;
       return true;
     });
-  }, [softwareProposals, dateFrom, dateTo, roleFilteredIds]);
+  }, [softwareProposals, dateFrom, dateTo, effectiveScopeIds, isArquiteto]);
 
   const filteredSvcProposals = useMemo(() => {
     return (serviceProposals as any[]).filter((sp) => {
       const pd = sp.expected_close_date || "";
       if (dateFrom && pd && pd < dateFrom) return false;
       if (dateTo && pd && pd > dateTo) return false;
-      if (roleFilteredIds && !roleFilteredIds.has(sp.esn_id)) return false;
+      if (isArquiteto) {
+        // EV: only proposals where they're the arquiteto
+        return sp.arquiteto_id === mySalesTeamId;
+      }
+      if (effectiveScopeIds && !effectiveScopeIds.has(sp.esn_id) && !effectiveScopeIds.has(sp.gsn_id)) return false;
       return true;
     });
-  }, [serviceProposals, dateFrom, dateTo, roleFilteredIds]);
+  }, [serviceProposals, dateFrom, dateTo, effectiveScopeIds, isArquiteto, mySalesTeamId]);
 
   // Compute Realizado by revenue line and unit
   const realizadoData = useMemo(() => {

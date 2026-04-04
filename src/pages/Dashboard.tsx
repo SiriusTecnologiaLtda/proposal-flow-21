@@ -1022,6 +1022,7 @@ export default function Dashboard() {
                 setSelectedUnitId("all");
                 setSelectedRevenueFilter("all");
                 setSelectedCategoryId("all");
+                setSelectedMemberId("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />

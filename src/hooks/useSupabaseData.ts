@@ -204,7 +204,7 @@ export function useCategories() {
 export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (category: { name: string }) => {
+    mutationFn: async (category: { name: string; cost_classification?: string }) => {
       const { data, error } = await supabase.from("categories").insert(category).select().single();
       if (error) throw error;
       return data;

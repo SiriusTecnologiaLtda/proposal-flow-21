@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown, Tag,
-  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat,
+  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat, User,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -363,6 +363,7 @@ export default function Dashboard() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
 
   const { data: categories = [] } = useCategories();
 
@@ -493,17 +494,19 @@ export default function Dashboard() {
     if (isEffectiveAdmin) return null; // full access
 
     if (isDsn) {
-      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs
+      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs + all EVs
       const myGsns = salesTeam.filter((m) => m.role === "gsn" && m.linked_gsn_id === mySalesTeamId);
       const myGsnIds = myGsns.map((m) => m.id);
       const myEsns = salesTeam.filter((m) => m.role === "esn" && myGsnIds.includes(m.linked_gsn_id || ""));
-      return [mySalesTeamId!, ...myGsnIds, ...myEsns.map((m) => m.id)];
+      const allEvs = salesTeam.filter((m) => m.role === "arquiteto");
+      return [mySalesTeamId!, ...myGsnIds, ...myEsns.map((m) => m.id), ...allEvs.map((m) => m.id)];
     }
 
     if (isGsn) {
-      // GSN sees: themselves + their linked ESNs
+      // GSN sees: themselves + their linked ESNs + all EVs
       const myEsns = salesTeam.filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId);
-      return [mySalesTeamId!, ...myEsns.map((m) => m.id)];
+      const allEvs = salesTeam.filter((m) => m.role === "arquiteto");
+      return [mySalesTeamId!, ...myEsns.map((m) => m.id), ...allEvs.map((m) => m.id)];
     }
 
     if (isEsn) {
@@ -517,6 +520,21 @@ export default function Dashboard() {
 
     return [];
   }, [isEffectiveAdmin, isDsn, isGsn, isEsn, isArquiteto, mySalesTeamId, salesTeam]);
+
+  // ─── Hierarchy-scoped member list for filter ──────────────────
+  const allowedMembers = useMemo(() => {
+    if (isEffectiveAdmin) return salesTeam;
+    if (!hierarchyScopedIds) return [];
+    return salesTeam.filter((m) => hierarchyScopedIds.includes(m.id));
+  }, [isEffectiveAdmin, hierarchyScopedIds, salesTeam]);
+
+  // ─── Hierarchy-scoped units ──────────────────────────────────
+  const allowedUnits = useMemo(() => {
+    if (isEffectiveAdmin) return units;
+    // Restrict units to those that the allowed members belong to
+    const memberUnitIds = new Set(allowedMembers.map((m) => m.unit_id).filter(Boolean));
+    return units.filter((u) => memberUnitIds.has(u.id));
+  }, [isEffectiveAdmin, units, allowedMembers]);
 
   // Determine which role filter options are available based on hierarchy
   const allowedRoleFilterOptions = useMemo((): string[] => {
@@ -571,8 +589,17 @@ export default function Dashboard() {
       }
     }
 
+    // Intersect with specific member filter
+    if (selectedMemberId !== "all") {
+      if (result === null) {
+        result = [selectedMemberId];
+      } else {
+        result = result.filter((id) => id === selectedMemberId);
+      }
+    }
+
     return result;
-  }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds]);
+  }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds, selectedMemberId]);
 
   const handlePreset = (preset: string) => {
     setPeriodPreset(preset);
@@ -947,7 +974,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0) + (selectedRevenueFilter !== "all" ? 1 : 0) + (selectedCategoryId !== "all" ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0) + (selectedRevenueFilter !== "all" ? 1 : 0) + (selectedCategoryId !== "all" ? 1 : 0) + (selectedMemberId !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -995,6 +1022,7 @@ export default function Dashboard() {
                 setSelectedUnitId("all");
                 setSelectedRevenueFilter("all");
                 setSelectedCategoryId("all");
+                setSelectedMemberId("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />
@@ -1115,7 +1143,7 @@ export default function Dashboard() {
                       {selectedUnitId === "all" && <Check className="h-3.5 w-3.5" />}
                       <span className="font-medium">Todas as unidades</span>
                     </button>
-                    {units.map((u) => (
+                    {allowedUnits.map((u) => (
                       <button
                         key={u.id}
                         onClick={() => setSelectedUnitId(u.id)}
@@ -1276,6 +1304,82 @@ export default function Dashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Divider before Member */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Member Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <User className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Membro</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal max-w-[220px]",
+                      selectedMemberId !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {selectedMemberId === "all"
+                        ? "Todos os membros"
+                        : allowedMembers.find((m) => m.id === selectedMemberId)?.name || "Membro"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  <div className="max-h-72 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedMemberId("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedMemberId === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedMemberId === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todos os membros</span>
+                    </button>
+                    {allowedMembers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setSelectedMemberId(m.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedMemberId === m.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedMemberId === m.id && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium">{m.name}</span>
+                          <span className="ml-1.5 text-muted-foreground">{m.role?.toUpperCase()}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedMemberId !== "all" && (
+                    <div className="border-t border-border p-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs text-muted-foreground"
+                        onClick={() => setSelectedMemberId("all")}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1291,7 +1395,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} selectedRevenueFilter={selectedRevenueFilter} selectedCategoryId={selectedCategoryId} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} selectedRevenueFilter={selectedRevenueFilter} selectedCategoryId={selectedCategoryId} selectedMemberId={selectedMemberId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

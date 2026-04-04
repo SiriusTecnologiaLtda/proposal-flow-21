@@ -256,6 +256,7 @@ interface UnifiedRevenueTabProps {
   mySalesTeamId: string | null;
   selectedRevenueFilter: string;
   selectedCategoryId: string;
+  selectedMemberId: string;
 }
 
 const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
@@ -264,7 +265,7 @@ const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
   scs: ["servico"],
 };
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter, selectedCategoryId }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter, selectedCategoryId, selectedMemberId }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({
@@ -407,12 +408,26 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return new Set(roleMembers.filter((id) => hierarchyScopedIds.includes(id)));
   }, [salesTeamMembers, selectedRoleFilter, hierarchyScopedIds]);
 
-  // Build effective scope: hierarchy + role filter
+  // Build effective scope: hierarchy + role filter + member filter
   const effectiveScopeIds = useMemo(() => {
-    if (roleFilteredIds) return roleFilteredIds;
-    if (hierarchyScopedIds === null) return null;
-    return new Set(hierarchyScopedIds);
-  }, [roleFilteredIds, hierarchyScopedIds]);
+    let base: Set<string> | null = null;
+    if (roleFilteredIds) {
+      base = roleFilteredIds;
+    } else if (hierarchyScopedIds !== null) {
+      base = new Set(hierarchyScopedIds);
+    }
+
+    // Apply specific member filter
+    if (selectedMemberId !== "all") {
+      if (base === null) {
+        base = new Set([selectedMemberId]);
+      } else {
+        base = new Set([...base].filter((id) => id === selectedMemberId));
+      }
+    }
+
+    return base;
+  }, [roleFilteredIds, hierarchyScopedIds, selectedMemberId]);
 
   // Determine which revenue lines to show based on filter
   const activeRevenueLines = useMemo(() => {

@@ -442,6 +442,9 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return rows.sort((a, b) => a.unitName.localeCompare(b.unitName));
   }, [realizadoData, metaData, units, selectedUnitId]);
 
+  // Active revenue line keys for filtering
+  const activeKeys = useMemo(() => new Set(activeRevenueLines.map((rl) => rl.key)), [activeRevenueLines]);
+
   // Monthly chart data
   const monthlyChartData = useMemo(() => {
     const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -453,7 +456,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       let meta = 0;
       let realizado = 0;
 
-      // Meta from targets (revenue_targets relate to all lines; filter by active keys)
+      // Meta from targets (filter by active revenue lines)
       for (const t of revenueTargets as any[]) {
         if (t.month !== month) continue;
         if (selectedUnitId !== "all" && t.unit_id !== selectedUnitId) continue;
@@ -500,7 +503,6 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
   }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap, selectedRevenueFilter, activeKeys]);
 
   // Totals for summary (only from active revenue lines)
-  const activeKeys = new Set(activeRevenueLines.map((rl) => rl.key));
   const grandTotalMeta = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.meta, 0);
   const grandTotalReal = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.realizado, 0);
   const grandPct = grandTotalMeta > 0 ? (grandTotalReal / grandTotalMeta) * 100 : 0;

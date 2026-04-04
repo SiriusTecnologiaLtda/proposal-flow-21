@@ -265,7 +265,7 @@ const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
   scs: ["servico"],
 };
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter, selectedCategoryId }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter, selectedCategoryId, selectedMemberId }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

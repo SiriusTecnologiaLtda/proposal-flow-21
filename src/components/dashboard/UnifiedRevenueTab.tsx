@@ -262,26 +262,42 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return map;
   }, [clients]);
 
-  // Apply period and ESN filters to proposals
+  // Fetch sales team for role filtering
+  const { data: salesTeamMembers = [] } = useQuery({
+    queryKey: ["sales-team-role-filter"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("sales_team").select("id, role").limit(2000);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const roleFilteredIds = useMemo(() => {
+    if (selectedRoleFilter === "all") return null;
+    return new Set(salesTeamMembers.filter((m) => m.role === selectedRoleFilter).map((m) => m.id));
+  }, [salesTeamMembers, selectedRoleFilter]);
+
+  // Apply period and role filters to proposals
   const filteredSwProposals = useMemo(() => {
     return (softwareProposals as any[]).filter((sp) => {
       const pd = sp.proposal_date || "";
       if (dateFrom && pd && pd < dateFrom) return false;
       if (dateTo && pd && pd > dateTo) return false;
-      if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(sp.esn_id)) return false;
+      if (roleFilteredIds && !roleFilteredIds.has(sp.esn_id) && !roleFilteredIds.has(sp.gsn_id)) return false;
       return true;
     });
-  }, [softwareProposals, dateFrom, dateTo, selectedEsnIds]);
+  }, [softwareProposals, dateFrom, dateTo, roleFilteredIds]);
 
   const filteredSvcProposals = useMemo(() => {
     return (serviceProposals as any[]).filter((sp) => {
       const pd = sp.expected_close_date || "";
       if (dateFrom && pd && pd < dateFrom) return false;
       if (dateTo && pd && pd > dateTo) return false;
-      if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(sp.esn_id)) return false;
+      if (roleFilteredIds && !roleFilteredIds.has(sp.esn_id)) return false;
       return true;
     });
-  }, [serviceProposals, dateFrom, dateTo, selectedEsnIds]);
+  }, [serviceProposals, dateFrom, dateTo, roleFilteredIds]);
 
   // Compute Realizado by revenue line and unit
   const realizadoData = useMemo(() => {

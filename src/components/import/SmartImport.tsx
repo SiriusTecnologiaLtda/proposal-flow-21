@@ -955,15 +955,15 @@ export default function SmartImport() {
         const rowLabel = `Cliente ${code}`;
 
         if (existingId) {
-          if (willUpdate) {
-            unresolvedWarnings.length = 0;
-            const upd = buildPayload(row, updateFieldsArr, rowLabel);
-            for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
-            const clean: Record<string, any> = {};
-            for (const [k, v] of Object.entries(upd)) if (v != null && v !== "") clean[k] = v;
-            if (Object.keys(clean).length > 0) toUpdate.push({ id: existingId, data: clean });
-            else skipped++;
-          } else skipped++;
+          // Always update existing records with all mapped fields
+          unresolvedWarnings.length = 0;
+          const updateKeys = willUpdate ? updateFieldsArr : allMappedKeys.filter(k => k !== "code" && k !== "store_code");
+          const upd = buildPayload(row, updateKeys, rowLabel);
+          for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
+          const clean: Record<string, any> = {};
+          for (const [k, v] of Object.entries(upd)) if (v != null && v !== "") clean[k] = v;
+          if (Object.keys(clean).length > 0) toUpdate.push({ id: existingId, data: clean });
+          else skipped++;
         } else {
           unresolvedWarnings.length = 0;
           const payload = buildPayload(row, allMappedKeys, rowLabel);

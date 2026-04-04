@@ -116,7 +116,7 @@ function UnitBreakdownRow({
   unitName: string;
   lines: Record<string, { meta: number; realizado: number }>;
   delay?: number;
-  visibleLines: typeof REVENUE_LINES;
+  visibleLines: { key: string; label: string; color: string }[];
 }) {
   const totalMeta = Object.values(lines).reduce((s, l) => s + l.meta, 0);
   const totalReal = Object.values(lines).reduce((s, l) => s + l.realizado, 0);

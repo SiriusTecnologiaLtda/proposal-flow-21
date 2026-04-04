@@ -413,6 +413,60 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch validated software proposals for "realizado" of non-SCS categories
+  const { data: softwareProposals = [] } = useQuery({
+    queryKey: ["sw-proposals-dashboard", targetYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("software_proposals")
+        .select("id, status, total_value, proposal_date, esn_id, gsn_id, arquiteto_id, unit_id, client_id, validated_at, segment_id")
+        .eq("status", "validated");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch SW proposal items for category-level filtering
+  const swProposalIds = useMemo(() => softwareProposals.map((sp: any) => sp.id), [softwareProposals]);
+  const { data: swProposalItems = [] } = useQuery({
+    queryKey: ["sw-proposal-items-dashboard", swProposalIds.length],
+    enabled: swProposalIds.length > 0,
+    queryFn: async () => {
+      // Fetch in batches if needed
+      const allItems: any[] = [];
+      for (let i = 0; i < swProposalIds.length; i += 50) {
+        const batch = swProposalIds.slice(i, i + 50);
+        const { data, error } = await supabase
+          .from("software_proposal_items")
+          .select("id, software_proposal_id, total_price, catalog_item_id, recurrence")
+          .in("software_proposal_id", batch);
+        if (error) throw error;
+        if (data) allItems.push(...data);
+      }
+      return allItems;
+    },
+  });
+
+  // Fetch catalog items for category mapping
+  const { data: catalogItems = [] } = useQuery({
+    queryKey: ["catalog-items-for-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("software_catalog_items")
+        .select("id, category_id");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const catalogCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of catalogItems) {
+      if (item.category_id) map.set(item.id, item.category_id);
+    }
+    return map;
+  }, [catalogItems]);
+
   
 
   // ─── Hierarchy Context ───────────────────────────────────────

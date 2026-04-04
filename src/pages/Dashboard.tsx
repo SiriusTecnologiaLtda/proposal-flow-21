@@ -403,7 +403,7 @@ export default function Dashboard() {
     },
   });
 
-  const esnMembers = salesTeam.filter((m) => m.role === "esn");
+  
 
   // ─── Hierarchy Context ───────────────────────────────────────
   // Determine the user's effective dashboard context:

@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
-import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Save, TrendingUp, Users, Calendar } from "lucide-react";
+import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Save, TrendingUp, Users, Calendar, Trash2, CheckSquare } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
 
@@ -71,6 +73,10 @@ export default function SalesTargetsPage() {
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");
   const [newRole, setNewRole] = useState("esn");
+
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: categories = [] } = useCategories();
   const { data: segments = [] } = useSegments();
@@ -248,6 +254,56 @@ export default function SalesTargetsPage() {
   const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
 
+  // Row key helper
+  const getRowKey = (row: GroupedRow) => `${row.esn_id}__${row.category_id || "none"}__${row.segment_id || "none"}__${row.role}`;
+
+  const toggleSelect = (key: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const allFilteredKeys = useMemo(() => new Set(filtered.map(getRowKey)), [filtered]);
+  const allSelected = filtered.length > 0 && allFilteredKeys.size === selectedKeys.size && [...allFilteredKeys].every(k => selectedKeys.has(k));
+  const someSelected = selectedKeys.size > 0;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(allFilteredKeys));
+    }
+  };
+
+  async function deleteSelected() {
+    setDeleting(true);
+    try {
+      const idsToDelete: string[] = [];
+      for (const key of selectedKeys) {
+        const row = filtered.find(r => getRowKey(r) === key);
+        if (row) {
+          Object.values(row.months).forEach(m => idsToDelete.push(m.id));
+        }
+      }
+      // Delete in batches of 100
+      for (let i = 0; i < idsToDelete.length; i += 100) {
+        const batch = idsToDelete.slice(i, i + 100);
+        const { error } = await supabase.from("sales_targets").delete().in("id", batch);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["sales-targets"] });
+      toast({ title: `${selectedKeys.size} meta(s) excluída(s) com sucesso!` });
+      setSelectedKeys(new Set());
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  }
+
   // KPI cards data
   const totalEsns = filtered.length;
   const avgPerEsn = totalEsns > 0 ? grandTotalMeta / totalEsns : 0;
@@ -372,6 +428,24 @@ export default function SalesTargetsPage() {
         </CardContent>
       </Card>
 
+      {/* ── Selection Action Bar ──────────────────────────────── */}
+      {isAdmin && someSelected && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckSquare className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
+            {selectedKeys.size} meta{selectedKeys.size > 1 ? "s" : ""} selecionada{selectedKeys.size > 1 ? "s" : ""}
+          </span>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground px-2" onClick={() => setSelectedKeys(new Set())}>
+            Limpar seleção
+          </Button>
+          <div className="ml-auto">
+            <Button variant="destructive" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setDeleteConfirmOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" /> Excluir selecionadas
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Table ──────────────────────────────────────────────── */}
       <Card className="overflow-hidden border-border/50 shadow-sm">
         <CardContent className="p-0">
@@ -392,7 +466,17 @@ export default function SalesTargetsPage() {
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-muted/80 backdrop-blur-sm">
-                    <th className="sticky left-0 z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60">
+                    {isAdmin && (
+                      <th className="sticky left-0 z-30 bg-muted backdrop-blur-sm px-2 py-3 w-[40px] border-b border-r border-border/60">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={toggleAll}
+                          aria-label="Selecionar todos"
+                          className="mx-auto block"
+                        />
+                      </th>
+                    )}
+                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
                       Executivo de Negócios
                     </th>
                     {MONTH_NAMES.map((m, i) => (
@@ -414,16 +498,34 @@ export default function SalesTargetsPage() {
                     const unitName = getUnitName(row.unit_id);
                     const catName = getCategoryName(row.category_id);
                     const segName = getSegmentName(row.segment_id);
+                    const rowKey = getRowKey(row);
+                    const isSelected = selectedKeys.has(rowKey);
                     return (
                       <tr
-                        key={`${row.esn_id}-${row.category_id}-${row.segment_id}-${row.role}`}
+                        key={rowKey}
                         className={cn(
                           "group transition-colors hover:bg-accent/40",
-                          isAdmin && "cursor-pointer"
+                          isAdmin && "cursor-pointer",
+                          isSelected && "bg-primary/5"
                         )}
-                        onClick={() => isAdmin && openEditDialog(row)}
                       >
-                        <td className="sticky left-0 z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors">
+                        {isAdmin && (
+                          <td className="sticky left-0 z-10 px-2 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors"
+                              style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(rowKey)}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Selecionar ${row.name}`}
+                              className="mx-auto block"
+                            />
+                          </td>
+                        )}
+                        <td
+                          className={cn("sticky z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors", isAdmin ? "left-[40px]" : "left-0")}
+                          style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
+                          onClick={() => isAdmin && openEditDialog(row)}
+                        >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm text-foreground font-medium leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -448,7 +550,7 @@ export default function SalesTargetsPage() {
                           const month = i + 1;
                           const m = row.months[month];
                           return (
-                            <td key={i} className="text-center px-1.5 py-2.5">
+                            <td key={i} className="text-center px-1.5 py-2.5" onClick={() => isAdmin && openEditDialog(row)}>
                               <span className={cn(
                                 "tabular-nums text-xs",
                                 m && m.amount > 0 ? "text-foreground font-medium" : "text-muted-foreground/30"
@@ -458,11 +560,11 @@ export default function SalesTargetsPage() {
                             </td>
                           );
                         })}
-                        <td className="text-center px-3 py-2.5 font-semibold tabular-nums text-xs border-l border-border/40 bg-muted/20">
+                        <td className="text-center px-3 py-2.5 font-semibold tabular-nums text-xs border-l border-border/40 bg-muted/20" onClick={() => isAdmin && openEditDialog(row)}>
                           {formatCurrency(total)}
                         </td>
                         {isAdmin && (
-                          <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20">
+                          <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20" onClick={() => openEditDialog(row)}>
                             <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors mx-auto" />
                           </td>
                         )}
@@ -473,7 +575,8 @@ export default function SalesTargetsPage() {
                 {/* Totals footer */}
                 <tfoot>
                   <tr className="sticky bottom-0 z-20 bg-muted backdrop-blur-sm border-t-2 border-border">
-                    <td className="sticky left-0 z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60">
+                    {isAdmin && <td className="sticky left-0 z-30 bg-muted border-r border-border/60" />}
+                    <td className={cn("sticky z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
                       Total Geral
                     </td>
                     {Array.from({ length: 12 }, (_, i) => {
@@ -495,6 +598,25 @@ export default function SalesTargetsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Delete Confirmation Dialog ────────────────────────── */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir metas selecionadas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>{selectedKeys.size}</strong> meta{selectedKeys.size > 1 ? "s" : ""} e todos os seus valores mensais. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteSelected} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Trash2 className="h-4 w-4 mr-1.5" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Edit / Create Dialog ──────────────────────────────────── */}
       <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving && !addEsnMutation.isPending) { setEditDialogOpen(false); setIsCreateMode(false); } }}>

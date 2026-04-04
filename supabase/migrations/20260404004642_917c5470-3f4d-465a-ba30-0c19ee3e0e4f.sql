@@ -1,0 +1,1 @@
+CREATE POLICY "Admins can delete sales targets" ON public.sales_targets FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'::app_role));

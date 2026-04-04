@@ -1201,8 +1201,9 @@ export default function SmartImport() {
     const entity: ImportEntity = "sales_targets";
     const importRun = startImportRun(entity, file!.name, false);
     const year = Number(targetYear);
+    const errorDetails: { line: number; owner: string; month?: number; message: string }[] = [];
 
-    // Resolve category and segment per row or use global defaults
+    // Load categories and segments
     const { data: allCategories } = await supabase.from("categories").select("id, name");
     const { data: allSegments } = await supabase.from("software_segments").select("id, name");
     const catMap = new Map<string, string>();
@@ -1244,23 +1245,19 @@ export default function SmartImport() {
       finishImportRun(entity, "error");
       if (dbLogId) {
         await supabase.from("import_logs").update({
-          status: "error",
-          total_rows: 0,
-          finished_at: new Date().toISOString(),
-          duration_ms: Date.now() - importRun.startedAt,
-          summary: "Nenhum dono de meta encontrado.",
+          status: "error", total_rows: 0, finished_at: new Date().toISOString(),
+          duration_ms: Date.now() - importRun.startedAt, summary: "Nenhum dono de meta encontrado.",
         } as any).eq("id", dbLogId);
       }
       return;
     }
 
+    // Load all sales team members
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role");
-    // Map ALL roles, not just ESN — the "dono da meta" can be ESN, GSN, DSN, etc.
     const memberMap = new Map<string, { id: string; role: string }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
-      // Store with role info for auto-detection
       if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role });
       if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role });
     }
@@ -1268,190 +1265,192 @@ export default function SmartImport() {
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
 
-    let imported = 0, updated = 0, errors = 0, skipped = 0, processed = 0;
-    const cancelSignal = getCancelSignal(entity);
-    let interrupted = false;
+    // Pre-load ALL existing targets for this year to avoid per-row queries
+    addImportLog(entity, "info", "Carregando metas existentes do ano...");
+    const existingTargets = new Map<string, string>(); // "esnId|month|role|catId|segId" -> id
+    let dbOffset = 0;
+    while (true) {
+      const { data: chunk } = await supabase.from("sales_targets")
+        .select("id, esn_id, month, role, category_id, segment_id")
+        .eq("year", year)
+        .range(dbOffset, dbOffset + 999);
+      if (!chunk || chunk.length === 0) break;
+      for (const t of chunk) {
+        const key = `${t.esn_id}|${t.month}|${t.role}|${t.category_id || ""}|${t.segment_id || ""}`;
+        existingTargets.set(key, t.id);
+      }
+      if (chunk.length < 1000) break;
+      dbOffset += 1000;
+    }
+    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`);
 
-    const persistProgress = async (status: "running" | "success" | "error" | "interrupted", finished = false) => {
-      if (!dbLogId) return;
-      const duration = Date.now() - importRun.startedAt;
-      const summary = `${processed}/${dataRows.length} linhas processadas | ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`;
-      await supabase.from("import_logs").update({
-        status,
-        total_rows: dataRows.length,
-        imported,
-        updated,
-        errors,
-        skipped,
-        finished_at: finished ? new Date().toISOString() : null,
-        duration_ms: finished ? duration : null,
-        summary,
-      } as any).eq("id", dbLogId);
-    };
-
-    const ensureCategoryId = async (rawValue: string) => {
+    // Helper: ensure category exists
+    const ensureCategoryId = async (rawValue: string): Promise<string | null> => {
       const label = rawValue.trim();
       if (!label) return null;
       const key = normalize(label);
       const existingId = catMap.get(key);
       if (existingId) return existingId;
-
       const { data: created, error } = await supabase
-        .from("categories")
-        .insert({ name: label.toUpperCase() } as any)
-        .select("id, name")
-        .single();
-
-      if (error || !created) {
-        errors++;
-        addImportLog(entity, "error", `Categoria "${label}" não pôde ser criada automaticamente: ${error?.message || "erro desconhecido"}.`);
-        return null;
-      }
-
-      const createdKey = normalize(created.name || label);
+        .from("categories").insert({ name: label.toUpperCase() } as any).select("id, name").single();
+      if (error || !created) return null;
       catMap.set(key, created.id);
-      catMap.set(createdKey, created.id);
+      catMap.set(normalize(created.name || label), created.id);
       setCategoriesList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
       addImportLog(entity, "info", `Categoria "${created.name}" criada automaticamente.`);
       return created.id;
     };
 
-    const ensureSegmentId = async (rawValue: string) => {
+    const ensureSegmentId = async (rawValue: string): Promise<string | null> => {
       const label = rawValue.trim();
       if (!label) return null;
       const key = normalize(label);
       const existingId = segMap.get(key);
       if (existingId) return existingId;
-
       const { data: created, error } = await supabase
-        .from("software_segments")
-        .insert({ name: label.toUpperCase(), is_active: true } as any)
-        .select("id, name")
-        .single();
-
-      if (error || !created) {
-        errors++;
-        addImportLog(entity, "error", `Segmento "${label}" não pôde ser criado automaticamente: ${error?.message || "erro desconhecido"}.`);
-        return null;
-      }
-
-      const createdKey = normalize(created.name || label);
+        .from("software_segments").insert({ name: label.toUpperCase(), is_active: true } as any).select("id, name").single();
+      if (error || !created) return null;
       segMap.set(key, created.id);
-      segMap.set(createdKey, created.id);
+      segMap.set(normalize(created.name || label), created.id);
       setSegmentsList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
       addImportLog(entity, "info", `Segmento "${created.name}" criado automaticamente.`);
       return created.id;
     };
 
-    for (let i = 0; i < dataRows.length; i++) {
-      if (cancelSignal?.aborted) {
-        interrupted = true;
-        addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário.");
-        break;
+    // Pre-scan: ensure all unique categories and segments exist before main loop
+    if (hasCategoryCol || hasSegmentCol) {
+      const uniqueCats = new Set<string>();
+      const uniqueSegs = new Set<string>();
+      for (const row of dataRows) {
+        if (hasCategoryCol) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
+        if (hasSegmentCol) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
       }
+      for (const cat of uniqueCats) { await ensureCategoryId(cat); }
+      for (const seg of uniqueSegs) { await ensureSegmentId(seg); }
+    }
+
+    let imported = 0, updated = 0, errors = 0, skipped = 0, processed = 0;
+    const cancelSignal = getCancelSignal(entity);
+    let interrupted = false;
+
+    // Prepare all records to insert/update in bulk
+    const toInsert: any[] = [];
+    const toUpdate: { id: string; amount: number }[] = [];
+
+    for (let i = 0; i < dataRows.length; i++) {
+      if (cancelSignal?.aborted) { interrupted = true; addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário."); break; }
 
       const row = dataRows[i];
+      const lineNum = i + 2;
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
-      
-      // Lookup in all sales team members (any role)
+      const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
+
       const memberByCode = memberMap.get(esnCode);
       const memberByName = memberMap.get(esnName);
-      const esnId = memberByCode?.id || memberByName?.id
-        || esnCodeAliases[esnCode] || esnNameAliases[esnName];
-      
-      // Auto-detect role from the matched member if not explicitly mapped
+      const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
 
       if (!esnId) {
         errors++;
-        const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
-        addImportLog(entity, "error", `Linha ${i + 2}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`);
+        const msg = `Linha ${lineNum}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`;
+        addImportLog(entity, "error", msg);
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Não encontrado no cadastro do Time de Vendas" });
         processed++;
-        updateImportStats(entity, { processed, imported, updated, errors, skipped });
-        await persistProgress("running").catch(() => {});
         continue;
       }
 
-      // Resolve category_id for this row
+      // Resolve category
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
-        const rawCategoryValue = (ev(row, "category_name") || "").trim();
-        const catVal = normalize(rawCategoryValue);
-        if (catVal) {
-          rowCategoryId = catMap.get(catVal) || null;
-          if (!rowCategoryId) {
-            rowCategoryId = await ensureCategoryId(rawCategoryValue);
-          }
-        }
+        const rawCat = (ev(row, "category_name") || "").trim();
+        if (rawCat) { rowCategoryId = catMap.get(normalize(rawCat)) || null; }
       }
 
-      // Resolve segment_id for this row
+      // Resolve segment
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
-        const rawSegmentValue = (ev(row, "segment_name") || "").trim();
-        const segVal = normalize(rawSegmentValue);
-        if (segVal) {
-          rowSegmentId = segMap.get(segVal) || null;
-          if (!rowSegmentId) {
-            rowSegmentId = await ensureSegmentId(rawSegmentValue);
-          }
-        }
+        const rawSeg = (ev(row, "segment_name") || "").trim();
+        if (rawSeg) { rowSegmentId = segMap.get(normalize(rawSeg)) || null; }
       }
 
-      // Resolve role for this row — priority: column > auto-detect from member > global default
+      // Resolve role
       let rowRole = targetRole || "esn";
       if (hasRoleCol) {
         const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
-        if (roleVal) {
-          rowRole = roleMap[roleVal] || targetRole || "esn";
-        }
+        if (roleVal) { rowRole = roleMap[roleVal] || targetRole || "esn"; }
       } else if (detectedMemberRole) {
-        // If no role column mapped, use the role from the matched sales_team member
         rowRole = detectedMemberRole;
       }
 
-      let interruptedDuringRow = false;
       for (let m = 1; m <= 12; m++) {
-        if (cancelSignal?.aborted) {
-          interrupted = true;
-          interruptedDuringRow = true;
-          addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário.");
-          break;
-        }
-
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
         if (amount === 0) { skipped++; continue; }
 
-        // Build query matching category, segment and role
-        let query = supabase.from("sales_targets").select("id")
-          .eq("esn_id", esnId).eq("year", year).eq("month", m).eq("role", rowRole as any);
-        if (rowCategoryId) query = query.eq("category_id", rowCategoryId);
-        else query = query.is("category_id", null);
-        if (rowSegmentId) query = query.eq("segment_id", rowSegmentId);
-        else query = query.is("segment_id", null);
+        const lookupKey = `${esnId}|${m}|${rowRole}|${rowCategoryId || ""}|${rowSegmentId || ""}`;
+        const existingId = existingTargets.get(lookupKey);
 
-        const { data: existing } = await query.maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase.from("sales_targets").update({ amount }).eq("id", existing.id);
-          if (error) { errors++; } else { updated++; }
+        if (existingId) {
+          toUpdate.push({ id: existingId, amount });
         } else {
           const insertData: any = { esn_id: esnId, year, month: m, amount, role: rowRole };
           if (rowCategoryId) insertData.category_id = rowCategoryId;
           if (rowSegmentId) insertData.segment_id = rowSegmentId;
-          const { error } = await supabase.from("sales_targets").insert(insertData);
-          if (error) { errors++; } else { imported++; }
+          toInsert.push({ ...insertData, _line: lineNum, _owner: esnLabel, _month: m });
         }
       }
 
       processed++;
-      updateImportStats(entity, { processed, imported, updated, errors, skipped });
-      await persistProgress(interrupted ? "interrupted" : "running").catch(() => {});
+      // Update stats every 10 rows
+      if (processed % 10 === 0) {
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
+      }
+    }
 
-      if (interruptedDuringRow) {
-        break;
+    // Batch INSERT
+    if (toInsert.length > 0 && !interrupted) {
+      addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
+      const BATCH = 100;
+      for (let b = 0; b < toInsert.length; b += BATCH) {
+        if (cancelSignal?.aborted) { interrupted = true; break; }
+        const batch = toInsert.slice(b, b + BATCH);
+        const cleanBatch = batch.map(({ _line, _owner, _month, ...rest }) => rest);
+        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
+        if (batchErr) {
+          // Fallback: insert one by one to identify which records fail
+          for (let j = 0; j < cleanBatch.length; j++) {
+            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
+            if (error) {
+              errors++;
+              const item = batch[j];
+              const msg = `Linha ${item._line} (${item._owner}) mês ${item._month}: ${error.message}`;
+              addImportLog(entity, "error", msg);
+              errorDetails.push({ line: item._line, owner: item._owner, month: item._month, message: error.message });
+            } else {
+              imported++;
+            }
+          }
+        } else {
+          imported += cleanBatch.length;
+        }
+        updateImportStats(entity, { imported, updated, errors, skipped });
+      }
+    }
+
+    // Batch UPDATE
+    if (toUpdate.length > 0 && !interrupted) {
+      addImportLog(entity, "info", `Atualizando ${toUpdate.length} registros...`);
+      const BATCH = 50;
+      for (let b = 0; b < toUpdate.length; b += BATCH) {
+        if (cancelSignal?.aborted) { interrupted = true; break; }
+        const batch = toUpdate.slice(b, b + BATCH);
+        // Updates must be done individually since each has a different amount
+        await Promise.all(batch.map(async (upd) => {
+          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount }).eq("id", upd.id);
+          if (error) { errors++; } else { updated++; }
+        }));
+        updateImportStats(entity, { imported, updated, errors, skipped });
       }
     }
 
@@ -1464,7 +1463,19 @@ export default function SmartImport() {
       `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
     );
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_targets"] });
-    await persistProgress(finalStatus as any, true).catch(() => {});
+
+    // Persist final state with error details
+    if (dbLogId) {
+      const truncatedErrors = errorDetails.slice(0, 200).map(e =>
+        `L${e.line} ${e.owner}${e.month ? ` mês ${e.month}` : ""}: ${e.message}`
+      );
+      await supabase.from("import_logs").update({
+        status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
+        finished_at: new Date().toISOString(), duration_ms: dur,
+        summary: `${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
+        error_details: truncatedErrors,
+      } as any).eq("id", dbLogId);
+    }
   }
 
   // ── AI Filter prompt ──────────────────────────────────────────

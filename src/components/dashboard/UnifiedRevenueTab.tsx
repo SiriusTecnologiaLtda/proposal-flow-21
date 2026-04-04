@@ -185,10 +185,10 @@ interface UnifiedRevenueTabProps {
   selectedUnitId: string;
   dateFrom: string;
   dateTo: string;
-  selectedEsnIds: string[];
+  selectedRoleFilter: string;
 }
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedEsnIds }: UnifiedRevenueTabProps) {
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

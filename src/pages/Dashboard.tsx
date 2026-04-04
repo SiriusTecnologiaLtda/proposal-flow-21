@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
   SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
-  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2,
+  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -361,6 +361,13 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+  const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
+
+  const REVENUE_FILTER_OPTIONS = [
+    { value: "recorrente", label: "Recorrente" },
+    { value: "nao_recorrente", label: "Não Recorrente" },
+    { value: "scs", label: "SCS (Serviços)" },
+  ];
 
   // Fetch units for filter
   const { data: units = [] } = useQuery({
@@ -505,9 +512,13 @@ export default function Dashboard() {
       const refDate = p.expected_close_date || "";
       if (dateFrom && refDate && refDate < dateFrom) return false;
       if (dateTo && refDate && refDate > dateTo) return false;
+
+      // Revenue filter: service proposals only visible for "all" or "scs"
+      if (selectedRevenueFilter !== "all" && selectedRevenueFilter !== "scs") return false;
+
       return true;
     });
-  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId]);
+  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId, selectedRevenueFilter]);
 
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
@@ -637,47 +648,56 @@ export default function Dashboard() {
         ? salesTargets
         : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
 
-    for (const t of relevantTargets) {
-      if (t.month >= 1 && t.month <= 12) {
-        months[t.month - 1].meta += Number(t.amount) || 0;
+    // When revenue filter is "scs", hide sales targets (they relate to software revenue)
+    // When "recorrente" or "nao_recorrente", show only matching targets
+    const showTargets = selectedRevenueFilter === "all" || selectedRevenueFilter !== "scs";
+
+    if (showTargets) {
+      for (const t of relevantTargets) {
+        if (t.month >= 1 && t.month <= 12) {
+          months[t.month - 1].meta += Number(t.amount) || 0;
+        }
       }
     }
 
     // Realizado / Previsto: use hierarchy-scoped proposals
-    const relevantProposals = isArquiteto && !isEffectiveAdmin
-      ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
-      : effectiveEsnFilter === null
-        ? proposals
-        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
+    // Service proposals only count for "all" or "scs"
+    const includeServiceProposals = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
 
-    for (const p of relevantProposals as any[]) {
-      const value = computeNetValue(p) || 0;
-      if (value === 0) continue;
+    if (includeServiceProposals) {
+      const relevantProposals = isArquiteto && !isEffectiveAdmin
+        ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
+        : effectiveEsnFilter === null
+          ? proposals
+          : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
 
-      if (p.status === "ganha") {
-        // Realizado: use expected_close_date or fallback to updated_at
-        const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
-        if (!dateStr) continue;
-        const year = Number(dateStr.substring(0, 4));
-        const month = Number(dateStr.substring(5, 7));
-        if (year === targetYear && month >= 1 && month <= 12) {
-          months[month - 1].realizado += value;
-          months[month - 1].previsto += value;
-        }
-      } else if (p.status !== "cancelada") {
-        // Previsto (não ganha, não cancelada): use expected_close_date
-        const dateStr = p.expected_close_date || "";
-        if (!dateStr) continue;
-        const year = Number(dateStr.substring(0, 4));
-        const month = Number(dateStr.substring(5, 7));
-        if (year === targetYear && month >= 1 && month <= 12) {
-          months[month - 1].previsto += value;
+      for (const p of relevantProposals as any[]) {
+        const value = computeNetValue(p) || 0;
+        if (value === 0) continue;
+
+        if (p.status === "ganha") {
+          const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
+          if (!dateStr) continue;
+          const year = Number(dateStr.substring(0, 4));
+          const month = Number(dateStr.substring(5, 7));
+          if (year === targetYear && month >= 1 && month <= 12) {
+            months[month - 1].realizado += value;
+            months[month - 1].previsto += value;
+          }
+        } else if (p.status !== "cancelada") {
+          const dateStr = p.expected_close_date || "";
+          if (!dateStr) continue;
+          const year = Number(dateStr.substring(0, 4));
+          const month = Number(dateStr.substring(5, 7));
+          if (year === targetYear && month >= 1 && month <= 12) {
+            months[month - 1].previsto += value;
+          }
         }
       }
     }
 
     return months;
-  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12
@@ -772,7 +792,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0) + (selectedRevenueFilter !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -818,6 +838,7 @@ export default function Dashboard() {
                 handlePreset("this_year");
                 setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
+                setSelectedRevenueFilter("all");
               }}
             >
               <X className="mr-1 h-3 w-3" />
@@ -957,6 +978,77 @@ export default function Dashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Divider before Revenue */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Revenue Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Repeat className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Receita</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal",
+                      selectedRevenueFilter !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <Repeat className="h-3.5 w-3.5" />
+                    {selectedRevenueFilter === "all"
+                      ? "Todas as receitas"
+                      : REVENUE_FILTER_OPTIONS.find((r) => r.value === selectedRevenueFilter)?.label || selectedRevenueFilter}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <div className="max-h-64 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedRevenueFilter("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedRevenueFilter === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedRevenueFilter === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todas as receitas</span>
+                    </button>
+                    {REVENUE_FILTER_OPTIONS.map((r) => (
+                      <button
+                        key={r.value}
+                        onClick={() => setSelectedRevenueFilter(r.value)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedRevenueFilter === r.value
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedRevenueFilter === r.value && <Check className="h-3.5 w-3.5" />}
+                        <span className="font-medium">{r.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedRevenueFilter !== "all" && (
+                    <div className="border-t border-border p-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs text-muted-foreground"
+                        onClick={() => setSelectedRevenueFilter("all")}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -972,7 +1064,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} selectedRevenueFilter={selectedRevenueFilter} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

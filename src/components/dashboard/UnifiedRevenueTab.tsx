@@ -111,10 +111,12 @@ function UnitBreakdownRow({
   unitName,
   lines,
   delay = 0,
+  visibleLines,
 }: {
   unitName: string;
   lines: Record<string, { meta: number; realizado: number }>;
   delay?: number;
+  visibleLines: readonly { key: string; label: string; color: string }[];
 }) {
   const totalMeta = Object.values(lines).reduce((s, l) => s + l.meta, 0);
   const totalReal = Object.values(lines).reduce((s, l) => s + l.realizado, 0);
@@ -136,8 +138,8 @@ function UnitBreakdownRow({
         </div>
 
         {/* Mini bars for each revenue line */}
-        <div className="flex-1 grid grid-cols-6 gap-3">
-          {REVENUE_LINES.map((rl) => {
+        <div className={cn("flex-1 grid gap-3", visibleLines.length <= 3 ? "grid-cols-3" : "grid-cols-6")}>
+          {visibleLines.map((rl) => {
             const data = lines[rl.key] || { meta: 0, realizado: 0 };
             const linePct = data.meta > 0 ? (data.realizado / data.meta) * 100 : 0;
             return (
@@ -189,9 +191,16 @@ interface UnifiedRevenueTabProps {
   hierarchyScopedIds: string[] | null;
   isArquiteto: boolean;
   mySalesTeamId: string | null;
+  selectedRevenueFilter: string;
 }
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId }: UnifiedRevenueTabProps) {
+const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
+  recorrente: ["recorrente", "rrf"],
+  nao_recorrente: ["nao_recorrente", "nrf", "producao"],
+  scs: ["servico"],
+};
+
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({
@@ -290,7 +299,14 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return new Set(hierarchyScopedIds);
   }, [roleFilteredIds, hierarchyScopedIds]);
 
-  // Apply period, hierarchy scope, and role filters to proposals
+  // Determine which revenue lines to show based on filter
+  const activeRevenueLines = useMemo(() => {
+    if (selectedRevenueFilter === "all") return REVENUE_LINES;
+    const allowedKeys = REVENUE_FILTER_LINE_MAP[selectedRevenueFilter] || [];
+    return REVENUE_LINES.filter((rl) => allowedKeys.includes(rl.key));
+  }, [selectedRevenueFilter]);
+
+
   const filteredSwProposals = useMemo(() => {
     return (softwareProposals as any[]).filter((sp) => {
       const pd = sp.proposal_date || "";
@@ -426,63 +442,74 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return rows.sort((a, b) => a.unitName.localeCompare(b.unitName));
   }, [realizadoData, metaData, units, selectedUnitId]);
 
+  // Active revenue line keys for filtering
+  const activeKeys = useMemo(() => new Set(activeRevenueLines.map((rl) => rl.key)), [activeRevenueLines]);
+
   // Monthly chart data
   const monthlyChartData = useMemo(() => {
     const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const includeSw = selectedRevenueFilter === "all" || selectedRevenueFilter === "recorrente" || selectedRevenueFilter === "nao_recorrente";
+    const includeSvc = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
+
     return MONTH_LABELS.map((label, i) => {
       const month = i + 1;
       let meta = 0;
       let realizado = 0;
 
-      // Meta from targets
+      // Meta from targets (filter by active revenue lines)
       for (const t of revenueTargets as any[]) {
         if (t.month !== month) continue;
         if (selectedUnitId !== "all" && t.unit_id !== selectedUnitId) continue;
+        if (selectedRevenueFilter !== "all" && !activeKeys.has(t.revenue_line)) continue;
         meta += Number(t.amount);
       }
 
       // Realizado from software proposals
-      for (const sp of filteredSwProposals) {
-        const pd = sp.proposal_date || "";
-        const pMonth = Number(pd.substring(5, 7));
-        if (pMonth !== month) continue;
-        const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
-        if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
+      if (includeSw) {
+        for (const sp of filteredSwProposals) {
+          const pd = sp.proposal_date || "";
+          const pMonth = Number(pd.substring(5, 7));
+          if (pMonth !== month) continue;
+          const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+          if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-        const items = sp.software_proposal_items || [];
-        let capex = 0, opex = 0;
-        for (const item of items) {
-          if (item.cost_classification === "capex") capex += Number(item.total_price) || 0;
-          if (item.cost_classification === "opex") opex += Number(item.total_price) || 0;
+          const items = sp.software_proposal_items || [];
+          let capex = 0, opex = 0;
+          for (const item of items) {
+            if (item.cost_classification === "capex") capex += Number(item.total_price) || 0;
+            if (item.cost_classification === "opex") opex += Number(item.total_price) || 0;
+          }
+          realizado += (capex / 21.82) + opex;
         }
-        realizado += (capex / 21.82) + opex;
       }
 
       // Realizado from service proposals
-      for (const sp of filteredSvcProposals) {
-        const dateStr = sp.expected_close_date || "";
-        const pMonth = Number(dateStr.substring(5, 7));
-        if (pMonth !== month) continue;
-        const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
-        if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
+      if (includeSvc) {
+        for (const sp of filteredSvcProposals) {
+          const dateStr = sp.expected_close_date || "";
+          const pMonth = Number(dateStr.substring(5, 7));
+          if (pMonth !== month) continue;
+          const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+          if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-        const serviceItems = sp.proposal_service_items || [];
-        realizado += serviceItems.reduce((sum: number, item: any) =>
-          sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+          const serviceItems = sp.proposal_service_items || [];
+          realizado += serviceItems.reduce((sum: number, item: any) =>
+            sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+        }
       }
 
       return { label, meta, realizado };
     });
-  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap]);
+  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap, selectedRevenueFilter, activeKeys]);
 
-  // Totals for summary
-  const grandTotalMeta = Object.values(consolidated).reduce((s, l) => s + l.meta, 0);
-  const grandTotalReal = Object.values(consolidated).reduce((s, l) => s + l.realizado, 0);
+  // Totals for summary (only from active revenue lines)
+  const grandTotalMeta = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.meta, 0);
+  const grandTotalReal = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.realizado, 0);
   const grandPct = grandTotalMeta > 0 ? (grandTotalReal / grandTotalMeta) * 100 : 0;
   const grandGap = grandTotalMeta - grandTotalReal;
 
   // Pie data for revenue mix
-  const pieData = REVENUE_LINES
+  const pieData = activeRevenueLines
     .map((rl) => ({
       name: rl.label,
       value: consolidated[rl.key]?.realizado || 0,
@@ -495,8 +522,8 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
 
 
       {/* Revenue Line KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {REVENUE_LINES.map((rl, i) => (
+      <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-3", activeRevenueLines.length <= 3 ? "xl:grid-cols-3" : "xl:grid-cols-6")}>
+        {activeRevenueLines.map((rl, i) => (
           <RevenueKpiCard
             key={rl.key}
             label={rl.label}
@@ -620,7 +647,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
               Resultado por Unidade
             </CardTitle>
             <div className="flex gap-3">
-              {REVENUE_LINES.map((rl) => (
+              {activeRevenueLines.map((rl) => (
                 <div key={rl.key} className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-sm" style={{ background: rl.color }} />
                   <span className="text-[10px] text-muted-foreground">{rl.label}</span>
@@ -637,6 +664,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
                 unitName={row.unitName}
                 lines={row.lines}
                 delay={i * 0.05}
+                visibleLines={activeRevenueLines}
               />
             ))
           ) : (

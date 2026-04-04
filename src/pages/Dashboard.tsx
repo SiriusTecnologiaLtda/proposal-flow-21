@@ -631,9 +631,8 @@ export default function Dashboard() {
       previsto: 0,
     }));
 
-    // Filter targets by role scope + manual ESN selection
-    // For arquiteto: targets where esn_id = their sales_team_id
-    const relevantTargets = isArquiteto
+    // Filter targets by hierarchy + role scope
+    const relevantTargets = isArquiteto && !isEffectiveAdmin
       ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? salesTargets
@@ -645,15 +644,12 @@ export default function Dashboard() {
       }
     }
 
-    // Realizado / Previsto: role-scoped proposals
-    // Arquiteto: proposals where arquiteto_id matches
-    // ESN: proposals where esn_id matches
-    // GSN: proposals where esn_id is in linked ESNs
-    const relevantProposals = isArquiteto
+    // Realizado / Previsto: use hierarchy-scoped proposals
+    const relevantProposals = isArquiteto && !isEffectiveAdmin
       ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? proposals
-        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id));
+        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
 
     for (const p of relevantProposals as any[]) {
       const value = computeNetValue(p) || 0;

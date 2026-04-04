@@ -403,7 +403,6 @@ export default function Dashboard() {
     },
   });
 
-  const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
 
   // ─── Hierarchy Context ───────────────────────────────────────

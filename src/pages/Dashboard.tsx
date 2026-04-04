@@ -712,7 +712,7 @@ export default function Dashboard() {
       prevista: 0,
     }));
 
-    if (isArquiteto) {
+    if (isArquiteto && !isEffectiveAdmin) {
       // Arquiteto: calculate commission from proposals where they are linked as arquiteto
       const arquitetoPct = Number(mySalesTeamMember?.commission_pct) || 1.31;
       const myProposals = (proposals as any[]).filter((p: any) => p.arquiteto_id === mySalesTeamId && p.status !== "cancelada");

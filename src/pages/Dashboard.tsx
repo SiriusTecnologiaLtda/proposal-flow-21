@@ -494,17 +494,19 @@ export default function Dashboard() {
     if (isEffectiveAdmin) return null; // full access
 
     if (isDsn) {
-      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs
+      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs + all EVs
       const myGsns = salesTeam.filter((m) => m.role === "gsn" && m.linked_gsn_id === mySalesTeamId);
       const myGsnIds = myGsns.map((m) => m.id);
       const myEsns = salesTeam.filter((m) => m.role === "esn" && myGsnIds.includes(m.linked_gsn_id || ""));
-      return [mySalesTeamId!, ...myGsnIds, ...myEsns.map((m) => m.id)];
+      const allEvs = salesTeam.filter((m) => m.role === "arquiteto");
+      return [mySalesTeamId!, ...myGsnIds, ...myEsns.map((m) => m.id), ...allEvs.map((m) => m.id)];
     }
 
     if (isGsn) {
-      // GSN sees: themselves + their linked ESNs
+      // GSN sees: themselves + their linked ESNs + all EVs
       const myEsns = salesTeam.filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId);
-      return [mySalesTeamId!, ...myEsns.map((m) => m.id)];
+      const allEvs = salesTeam.filter((m) => m.role === "arquiteto");
+      return [mySalesTeamId!, ...myEsns.map((m) => m.id), ...allEvs.map((m) => m.id)];
     }
 
     if (isEsn) {
@@ -518,6 +520,21 @@ export default function Dashboard() {
 
     return [];
   }, [isEffectiveAdmin, isDsn, isGsn, isEsn, isArquiteto, mySalesTeamId, salesTeam]);
+
+  // ─── Hierarchy-scoped member list for filter ──────────────────
+  const allowedMembers = useMemo(() => {
+    if (isEffectiveAdmin) return salesTeam;
+    if (!hierarchyScopedIds) return [];
+    return salesTeam.filter((m) => hierarchyScopedIds.includes(m.id));
+  }, [isEffectiveAdmin, hierarchyScopedIds, salesTeam]);
+
+  // ─── Hierarchy-scoped units ──────────────────────────────────
+  const allowedUnits = useMemo(() => {
+    if (isEffectiveAdmin) return units;
+    // Restrict units to those that the allowed members belong to
+    const memberUnitIds = new Set(allowedMembers.map((m) => m.unit_id).filter(Boolean));
+    return units.filter((u) => memberUnitIds.has(u.id));
+  }, [isEffectiveAdmin, units, allowedMembers]);
 
   // Determine which role filter options are available based on hierarchy
   const allowedRoleFilterOptions = useMemo((): string[] => {

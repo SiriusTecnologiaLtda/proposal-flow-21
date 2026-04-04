@@ -178,25 +178,37 @@ function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim();
 }
 
+function isNumeric(s: string): boolean { return /^\d+$/.test(s); }
+
 function autoMapColumns(headers: string[]): Record<number, string> {
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
 
+  // Pass 1: exact matches
   for (let i = 0; i < headers.length; i++) {
     const h = normalize(headers[i] || "");
     if (!h) continue;
+    for (const field of CLIENT_DB_FIELDS) {
+      if (usedFields.has(field.key)) continue;
+      if (field.aliases.some(alias => normalize(alias) === h)) {
+        mapping[i] = field.key; usedFields.add(field.key); break;
+      }
+    }
+  }
 
+  // Pass 2: substring matches (no pure-numeric substring)
+  for (let i = 0; i < headers.length; i++) {
+    if (mapping[i]) continue;
+    const h = normalize(headers[i] || "");
+    if (!h) continue;
     for (const field of CLIENT_DB_FIELDS) {
       if (usedFields.has(field.key)) continue;
       const match = field.aliases.some(alias => {
         const na = normalize(alias);
-        return h === na || h.includes(na) || na.includes(h);
+        if (isNumeric(na) || isNumeric(h)) return false;
+        return h.includes(na) || na.includes(h);
       });
-      if (match) {
-        mapping[i] = field.key;
-        usedFields.add(field.key);
-        break;
-      }
+      if (match) { mapping[i] = field.key; usedFields.add(field.key); break; }
     }
   }
   return mapping;

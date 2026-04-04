@@ -363,6 +363,7 @@ export default function Dashboard() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedRevenueFilter, setSelectedRevenueFilter] = useState<string>("all");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
 
   const { data: categories = [] } = useCategories();
 

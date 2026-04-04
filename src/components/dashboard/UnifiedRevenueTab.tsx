@@ -189,9 +189,16 @@ interface UnifiedRevenueTabProps {
   hierarchyScopedIds: string[] | null;
   isArquiteto: boolean;
   mySalesTeamId: string | null;
+  selectedRevenueFilter: string;
 }
 
-export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId }: UnifiedRevenueTabProps) {
+const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {
+  recorrente: ["recorrente", "rrf"],
+  nao_recorrente: ["nao_recorrente", "nrf", "producao"],
+  scs: ["servico"],
+};
+
+export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, dateTo, selectedRoleFilter, hierarchyScopedIds, isArquiteto, mySalesTeamId, selectedRevenueFilter }: UnifiedRevenueTabProps) {
 
   // Fetch units
   const { data: units = [] } = useQuery({

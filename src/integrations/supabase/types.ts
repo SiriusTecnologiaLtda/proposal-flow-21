@@ -1894,37 +1894,37 @@ export type Database = {
       sales_targets: {
         Row: {
           amount: number
-          category_id: string | null
+          category_id: string
           created_at: string
           esn_id: string
           id: string
           month: number
           role: Database["public"]["Enums"]["sales_role"]
-          segment_id: string | null
+          segment_id: string
           updated_at: string
           year: number
         }
         Insert: {
           amount?: number
-          category_id?: string | null
+          category_id: string
           created_at?: string
           esn_id: string
           id?: string
           month: number
           role?: Database["public"]["Enums"]["sales_role"]
-          segment_id?: string | null
+          segment_id: string
           updated_at?: string
           year: number
         }
         Update: {
           amount?: number
-          category_id?: string | null
+          category_id?: string
           created_at?: string
           esn_id?: string
           id?: string
           month?: number
           role?: Database["public"]["Enums"]["sales_role"]
-          segment_id?: string | null
+          segment_id?: string
           updated_at?: string
           year?: number
         }

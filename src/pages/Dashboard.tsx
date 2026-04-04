@@ -574,18 +574,76 @@ export default function Dashboard() {
     return result;
   }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds]);
 
+  const handlePreset = (preset: string) => {
+    setPeriodPreset(preset);
+    if (preset !== "custom") {
+      const { from, to } = getPresetDates(preset);
+      setDateFrom(from);
+      setDateTo(to);
+    }
+  };
+
+  // ─── Filter proposals using combined filter (hierarchy ∩ role ∩ unit) ───
+  const filteredProposals = useMemo(() => {
+    return proposals.filter((p: any) => {
+      // Hierarchy scope check
+      if (isArquiteto && !isEffectiveAdmin) {
+        if (p.arquiteto_id !== mySalesTeamId) return false;
+      } else if (combinedMemberFilter !== null) {
+        const matchesScope = combinedMemberFilter.includes(p.esn_id) || combinedMemberFilter.includes(p.gsn_id);
+        if (!matchesScope) return false;
+      }
+
+      // Unit filter: also check via esn/gsn member unit
+      if (unitScopedMemberIds && !(isArquiteto && !isEffectiveAdmin)) {
+        const esnInUnit = p.esn_id && unitScopedMemberIds.includes(p.esn_id);
+        const gsnInUnit = p.gsn_id && unitScopedMemberIds.includes(p.gsn_id);
+        if (!esnInUnit && !gsnInUnit) return false;
+      }
+
+      // Date filter
+      const refDate = p.expected_close_date || "";
+      if (dateFrom && refDate && refDate < dateFrom) return false;
+      if (dateTo && refDate && refDate > dateTo) return false;
+
+      // Revenue filter: service proposals only visible for "all" or "scs"
+      if (selectedRevenueFilter !== "all" && selectedRevenueFilter !== "scs") return false;
+
+      return true;
+    });
+  }, [proposals, dateFrom, dateTo, combinedMemberFilter, unitScopedMemberIds, isArquiteto, isEffectiveAdmin, mySalesTeamId, selectedRevenueFilter]);
+
+  // KPIs
+  const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
+  const lostProposals = filteredProposals.filter((p: any) => p.status === "cancelada");
+  const pendingProposals = filteredProposals.filter((p: any) =>
+    p.status === "pendente" || p.status === "proposta_gerada" || p.status === "em_assinatura"
+  );
+
+  const wonValue = wonProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
+  const lostValue = lostProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
+  const pendingValue = pendingProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
+  const avgTicket = wonProposals.length > 0 ? wonValue / wonProposals.length : 0;
+
+  const avgLifecycleDays = useMemo(() => {
+    if (wonProposals.length === 0) return 0;
+    const totalDays = wonProposals.reduce((sum: number, p: any) => {
+      const created = new Date(p.created_at).getTime();
+      const closed = new Date(p.expected_close_date || p.updated_at).getTime();
+      return sum + (closed - created) / (1000 * 60 * 60 * 24);
+    }, 0);
+    return Math.round(totalDays / wonProposals.length);
+  }, [wonProposals]);
+
   const myClients = useMemo(() => {
-    // Effective admin or unrestricted → all clients (optionally narrowed by role filter)
-    if (isEffectiveAdmin && !effectiveEsnFilter) return clients;
+    if (isEffectiveAdmin && combinedMemberFilter === null) return clients;
     
-    // When filter is active, scope clients
-    if (effectiveEsnFilter && effectiveEsnFilter.length > 0) {
+    if (combinedMemberFilter && combinedMemberFilter.length > 0) {
       return clients.filter((c: any) =>
-        effectiveEsnFilter.includes(c.esn_id) || effectiveEsnFilter.includes(c.gsn_id)
+        combinedMemberFilter.includes(c.esn_id) || combinedMemberFilter.includes(c.gsn_id)
       );
     }
 
-    // EV: clients from proposals where they're involved
     if (isArquiteto) {
       const clientIdsWithArquiteto = new Set(
         filteredProposals
@@ -595,7 +653,6 @@ export default function Dashboard() {
       return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
     }
 
-    // DSN/GSN/ESN: use hierarchy scope
     if (hierarchyScopedIds) {
       return clients.filter((c: any) =>
         hierarchyScopedIds.includes(c.esn_id) || hierarchyScopedIds.includes(c.gsn_id)
@@ -603,11 +660,10 @@ export default function Dashboard() {
     }
 
     return [];
-  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, clients, filteredProposals, effectiveEsnFilter, hierarchyScopedIds]);
+  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, clients, filteredProposals, combinedMemberFilter, hierarchyScopedIds]);
 
   const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
 
-  // Penetração: % of my clients that have at least one won proposal (filtered)
   const penetrationRate = useMemo(() => {
     if (myClients.length === 0) return 0;
     const clientsWithWon = new Set(
@@ -618,14 +674,13 @@ export default function Dashboard() {
     return (clientsWithWon.size / myClients.length) * 100;
   }, [myClients, filteredProposals, myClientIds]);
 
-  // Taxa de Conversão: won / total filtered proposals
   const conversionRate = useMemo(() => {
     if (filteredProposals.length === 0) return 0;
     const won = filteredProposals.filter((p: any) => p.status === "ganha").length;
     return (won / filteredProposals.length) * 100;
   }, [filteredProposals]);
 
-  // Monthly chart (unfiltered)
+  // Monthly chart — uses filtered proposals (respects all filters)
   const monthlyData = useMemo(() => {
     const now = new Date();
     const months: { key: string; label: string; ganhas: number; perdidas: number; ganhasValor: number; perdidasValor: number }[] = [];
@@ -635,7 +690,7 @@ export default function Dashboard() {
       const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
       months.push({ key, label, ganhas: 0, perdidas: 0, ganhasValor: 0, perdidasValor: 0 });
     }
-    for (const p of proposals as any[]) {
+    for (const p of filteredProposals as any[]) {
       if (p.status !== "ganha" && p.status !== "cancelada") continue;
       const closeMonth = (p.expected_close_date || "").substring(0, 7);
       const bucket = months.find((m) => m.key === closeMonth);
@@ -645,7 +700,7 @@ export default function Dashboard() {
       if (p.status === "cancelada") { bucket.perdidas++; bucket.perdidasValor += val; }
     }
     return months;
-  }, [proposals]);
+  }, [filteredProposals]);
 
   const chartConfig = {
     ganhas: { label: "Ganhas", color: "hsl(var(--success))" },
@@ -653,6 +708,10 @@ export default function Dashboard() {
   };
 
   // ─── Resultado: Meta vs Realizado vs Previsto ────────────────
+  // Uses combinedMemberFilter (hierarchy ∩ role ∩ unit)
+  // Realizado sources:
+  //   - SCS categories → service proposals (status ganha)
+  //   - Other categories → software proposals (validated)
   const resultadoData = useMemo(() => {
     const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const months = MONTH_LABELS.map((label, i) => ({
@@ -663,20 +722,19 @@ export default function Dashboard() {
       previsto: 0,
     }));
 
-    // Filter targets by hierarchy + role scope
+    // ── METAS ─────────────────────────────────────────────────
     let relevantTargets = isArquiteto && !isEffectiveAdmin
       ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
-      : effectiveEsnFilter === null
+      : combinedMemberFilter === null
         ? salesTargets
-        : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
+        : salesTargets.filter((t: any) => combinedMemberFilter.includes(t.esn_id));
 
     // Category filter on targets
     if (selectedCategoryId !== "all") {
       relevantTargets = relevantTargets.filter((t: any) => t.category_id === selectedCategoryId);
     }
 
-    // When revenue filter is "scs", hide sales targets (they relate to software revenue)
-    // When "recorrente" or "nao_recorrente", show only matching targets
+    // Revenue filter: when "scs" is selected, hide sales targets (they're SW-related)
     const showTargets = selectedRevenueFilter === "all" || selectedRevenueFilter !== "scs";
 
     if (showTargets) {
@@ -687,16 +745,14 @@ export default function Dashboard() {
       }
     }
 
-    // Realizado / Previsto: use hierarchy-scoped proposals
-    // Service proposals only count for "all" or "scs"
-    const includeServiceProposals = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
-
-    if (includeServiceProposals) {
+    // ── REALIZADO from Service Proposals (SCS) ────────────────
+    const includeSCS = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
+    if (includeSCS) {
       const relevantProposals = isArquiteto && !isEffectiveAdmin
         ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
-        : effectiveEsnFilter === null
+        : combinedMemberFilter === null
           ? proposals
-          : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
+          : proposals.filter((p: any) => combinedMemberFilter.includes(p.esn_id) || combinedMemberFilter.includes(p.gsn_id));
 
       for (const p of relevantProposals as any[]) {
         const value = computeNetValue(p) || 0;
@@ -723,8 +779,59 @@ export default function Dashboard() {
       }
     }
 
+    // ── REALIZADO from Software Proposals (non-SCS categories) ─
+    const includeSW = selectedRevenueFilter === "all" || selectedRevenueFilter !== "scs";
+    if (includeSW && softwareProposals.length > 0) {
+      // Filter SW proposals by member scope
+      let relevantSW = isArquiteto && !isEffectiveAdmin
+        ? softwareProposals.filter((sp: any) => sp.arquiteto_id === mySalesTeamId)
+        : combinedMemberFilter === null
+          ? softwareProposals
+          : softwareProposals.filter((sp: any) =>
+              combinedMemberFilter.includes(sp.esn_id) || combinedMemberFilter.includes(sp.gsn_id)
+            );
+
+      // Unit filter on SW proposals (via member or direct unit_id)
+      if (selectedUnitId !== "all") {
+        relevantSW = relevantSW.filter((sp: any) => {
+          if (sp.unit_id === selectedUnitId) return true;
+          if (unitScopedMemberIds) {
+            return (sp.esn_id && unitScopedMemberIds.includes(sp.esn_id)) ||
+                   (sp.gsn_id && unitScopedMemberIds.includes(sp.gsn_id));
+          }
+          return false;
+        });
+      }
+
+      for (const sp of relevantSW) {
+        const dateStr = sp.proposal_date || sp.validated_at || "";
+        if (!dateStr) continue;
+        const year = Number(dateStr.substring(0, 4));
+        const month = Number(dateStr.substring(5, 7));
+        if (year !== targetYear || month < 1 || month > 12) continue;
+
+        // Get items for this SW proposal, apply category filter
+        const items = swProposalItems.filter((item: any) => item.software_proposal_id === sp.id);
+        let totalValue = 0;
+        for (const item of items) {
+          // Category filter
+          if (selectedCategoryId !== "all") {
+            const itemCatId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
+            if (itemCatId !== selectedCategoryId) continue;
+          }
+          totalValue += Number(item.total_price) || 0;
+        }
+        if (totalValue > 0) {
+          months[month - 1].realizado += totalValue;
+          months[month - 1].previsto += totalValue;
+        }
+      }
+    }
+
     return months;
-  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter, selectedCategoryId]);
+  }, [salesTargets, proposals, softwareProposals, swProposalItems, catalogCategoryMap,
+      combinedMemberFilter, unitScopedMemberIds, isArquiteto, isEffectiveAdmin, mySalesTeamId,
+      targetYear, selectedRevenueFilter, selectedCategoryId, selectedUnitId]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12

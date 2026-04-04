@@ -234,7 +234,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       const endDate = `${selectedYear}-12-31`;
       const { data, error } = await supabase
         .from("software_proposals")
-        .select("id, client_id, esn_id, gsn_id, proposal_date, status, unit_id, software_proposal_items(total_price, cost_classification, recurrence)")
+        .select("id, client_id, esn_id, gsn_id, proposal_date, status, unit_id, software_proposal_items(total_price, cost_classification, recurrence, category_id)")
         .gte("proposal_date", startDate)
         .lte("proposal_date", endDate);
       if (error) throw error;

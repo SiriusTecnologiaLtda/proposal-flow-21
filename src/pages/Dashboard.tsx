@@ -958,6 +958,77 @@ export default function Dashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Divider before Revenue */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Revenue Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Repeat className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Receita</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal",
+                      selectedRevenueFilter !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <Repeat className="h-3.5 w-3.5" />
+                    {selectedRevenueFilter === "all"
+                      ? "Todas as receitas"
+                      : REVENUE_FILTER_OPTIONS.find((r) => r.value === selectedRevenueFilter)?.label || selectedRevenueFilter}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <div className="max-h-64 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedRevenueFilter("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedRevenueFilter === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedRevenueFilter === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todas as receitas</span>
+                    </button>
+                    {REVENUE_FILTER_OPTIONS.map((r) => (
+                      <button
+                        key={r.value}
+                        onClick={() => setSelectedRevenueFilter(r.value)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedRevenueFilter === r.value
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedRevenueFilter === r.value && <Check className="h-3.5 w-3.5" />}
+                        <span className="font-medium">{r.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedRevenueFilter !== "all" && (
+                    <div className="border-t border-border p-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs text-muted-foreground"
+                        onClick={() => setSelectedRevenueFilter("all")}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>

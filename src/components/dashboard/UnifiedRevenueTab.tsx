@@ -496,7 +496,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
   const grandGap = grandTotalMeta - grandTotalReal;
 
   // Pie data for revenue mix
-  const pieData = REVENUE_LINES
+  const pieData = activeRevenueLines
     .map((rl) => ({
       name: rl.label,
       value: consolidated[rl.key]?.realizado || 0,

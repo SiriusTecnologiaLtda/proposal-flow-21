@@ -254,6 +254,56 @@ export default function SalesTargetsPage() {
   const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
 
+  // Row key helper
+  const getRowKey = (row: GroupedRow) => `${row.esn_id}__${row.category_id || "none"}__${row.segment_id || "none"}__${row.role}`;
+
+  const toggleSelect = (key: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const allFilteredKeys = useMemo(() => new Set(filtered.map(getRowKey)), [filtered]);
+  const allSelected = filtered.length > 0 && allFilteredKeys.size === selectedKeys.size && [...allFilteredKeys].every(k => selectedKeys.has(k));
+  const someSelected = selectedKeys.size > 0;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(allFilteredKeys));
+    }
+  };
+
+  async function deleteSelected() {
+    setDeleting(true);
+    try {
+      const idsToDelete: string[] = [];
+      for (const key of selectedKeys) {
+        const row = filtered.find(r => getRowKey(r) === key);
+        if (row) {
+          Object.values(row.months).forEach(m => idsToDelete.push(m.id));
+        }
+      }
+      // Delete in batches of 100
+      for (let i = 0; i < idsToDelete.length; i += 100) {
+        const batch = idsToDelete.slice(i, i + 100);
+        const { error } = await supabase.from("sales_targets").delete().in("id", batch);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["sales-targets"] });
+      toast({ title: `${selectedKeys.size} meta(s) excluída(s) com sucesso!` });
+      setSelectedKeys(new Set());
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  }
+
   // KPI cards data
   const totalEsns = filtered.length;
   const avgPerEsn = totalEsns > 0 ? grandTotalMeta / totalEsns : 0;

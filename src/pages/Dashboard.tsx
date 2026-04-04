@@ -531,83 +531,48 @@ export default function Dashboard() {
 
   const filteredMembersByRole = useMemo(() => {
     if (selectedRoleFilter === "all") return null;
-    // When filtering by role, intersect with hierarchy scope
     const roleMembers = salesTeam.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
-    if (hierarchyScopedIds === null) return roleMembers; // admin: no restriction
+    if (hierarchyScopedIds === null) return roleMembers;
     return roleMembers.filter((id) => hierarchyScopedIds.includes(id));
   }, [salesTeam, selectedRoleFilter, hierarchyScopedIds]);
 
-  const handlePreset = (preset: string) => {
-    setPeriodPreset(preset);
-    if (preset !== "custom") {
-      const { from, to } = getPresetDates(preset);
-      setDateFrom(from);
-      setDateTo(to);
+  // ─── Unit-scoped member IDs ─────────────────────────────────
+  // When unit filter is active, restrict to members belonging to that unit
+  const unitScopedMemberIds = useMemo((): string[] | null => {
+    if (selectedUnitId === "all") return null;
+    return salesTeam.filter((m) => m.unit_id === selectedUnitId).map((m) => m.id);
+  }, [selectedUnitId, salesTeam]);
+
+  // ─── Combined member filter (hierarchy ∩ role ∩ unit) ─────────
+  // null = unrestricted
+  const combinedMemberFilter = useMemo((): string[] | null => {
+    let result: string[] | null = null;
+
+    // Start with hierarchy scope
+    if (hierarchyScopedIds !== null) {
+      result = [...hierarchyScopedIds];
     }
-  };
 
-  // Filter proposals based on hierarchy + role filter
-  const filteredProposals = useMemo(() => {
-    return proposals.filter((p: any) => {
-      // Hierarchy scope check
-      if (isArquiteto && !isEffectiveAdmin) {
-        // EV: only proposals where they're involved as arquiteto
-        if (p.arquiteto_id !== mySalesTeamId) return false;
-      } else if (hierarchyScopedIds !== null && !isArquiteto) {
-        // Non-admin: check if proposal's esn_id or gsn_id is in scoped IDs
-        const matchesScope = hierarchyScopedIds.includes(p.esn_id) || hierarchyScopedIds.includes(p.gsn_id);
-        if (!matchesScope) return false;
+    // Intersect with role filter
+    if (filteredMembersByRole) {
+      if (result === null) {
+        result = [...filteredMembersByRole];
+      } else {
+        result = result.filter((id) => filteredMembersByRole.includes(id));
       }
+    }
 
-      // Role filter: additional narrowing within allowed scope
-      if (filteredMembersByRole) {
-        const matchesRole = filteredMembersByRole.includes(p.esn_id) || filteredMembersByRole.includes(p.gsn_id);
-        if (!matchesRole) return false;
+    // Intersect with unit filter
+    if (unitScopedMemberIds) {
+      if (result === null) {
+        result = [...unitScopedMemberIds];
+      } else {
+        result = result.filter((id) => unitScopedMemberIds.includes(id));
       }
+    }
 
-      // Date filter
-      const refDate = p.expected_close_date || "";
-      if (dateFrom && refDate && refDate < dateFrom) return false;
-      if (dateTo && refDate && refDate > dateTo) return false;
-
-      // Revenue filter: service proposals only visible for "all" or "scs"
-      if (selectedRevenueFilter !== "all" && selectedRevenueFilter !== "scs") return false;
-
-      return true;
-    });
-  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId, selectedRevenueFilter]);
-
-  // KPIs
-  const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
-  const lostProposals = filteredProposals.filter((p: any) => p.status === "cancelada");
-  const pendingProposals = filteredProposals.filter((p: any) =>
-    p.status === "pendente" || p.status === "proposta_gerada" || p.status === "em_assinatura"
-  );
-
-  const wonValue = wonProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
-  const lostValue = lostProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
-  const pendingValue = pendingProposals.reduce((s: number, p: any) => s + (computeNetValue(p) || 0), 0);
-  const avgTicket = wonProposals.length > 0 ? wonValue / wonProposals.length : 0;
-
-  const avgLifecycleDays = useMemo(() => {
-    if (wonProposals.length === 0) return 0;
-    const totalDays = wonProposals.reduce((sum: number, p: any) => {
-      const created = new Date(p.created_at).getTime();
-      const closed = new Date(p.expected_close_date || p.updated_at).getTime();
-      return sum + (closed - created) / (1000 * 60 * 60 * 24);
-    }, 0);
-    return Math.round(totalDays / wonProposals.length);
-  }, [wonProposals]);
-
-  // ─── Effective ESN filter for downstream computations ─────────
-  // Combines hierarchy scope + role filter for targets/commissions
-  const effectiveEsnFilter = useMemo((): string[] | null => {
-    if (isEffectiveAdmin && !filteredMembersByRole) return null;
-    if (isEffectiveAdmin && filteredMembersByRole) return filteredMembersByRole;
-    if (isArquiteto) return mySalesTeamId ? [mySalesTeamId] : [];
-    if (filteredMembersByRole) return filteredMembersByRole;
-    return hierarchyScopedIds;
-  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, filteredMembersByRole, hierarchyScopedIds]);
+    return result;
+  }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds]);
 
   const myClients = useMemo(() => {
     // Effective admin or unrestricted → all clients (optionally narrowed by role filter)

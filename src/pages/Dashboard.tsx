@@ -78,7 +78,7 @@ function formatCurrency(v: number): string {
 }
 
 // ─── Role Filter Selector ─────────────────────────────────────
-const ROLE_OPTIONS = [
+const ALL_ROLE_OPTIONS = [
   { value: "dsn", label: "DSN" },
   { value: "gsn", label: "GSN" },
   { value: "esn", label: "ESN" },
@@ -87,10 +87,14 @@ const ROLE_OPTIONS = [
 function RoleSelector({
   selectedRole,
   onChange,
+  allowedRoles,
 }: {
   selectedRole: string;
   onChange: (role: string) => void;
+  allowedRoles: string[];
 }) {
+  const visibleOptions = ALL_ROLE_OPTIONS.filter((r) => allowedRoles.includes(r.value));
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -104,7 +108,7 @@ function RoleSelector({
           <Users className="h-3.5 w-3.5" />
           {selectedRole === "all"
             ? "Todos os Níveis"
-            : ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
+            : ALL_ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -120,7 +124,7 @@ function RoleSelector({
         >
           Todos os Níveis
         </button>
-        {ROLE_OPTIONS.map((r) => (
+        {visibleOptions.map((r) => (
           <button
             key={r.value}
             onClick={() => onChange(r.value)}
@@ -399,12 +403,75 @@ export default function Dashboard() {
     },
   });
 
-  const isAdminOrGsn = role === "admin" || role === "gsn";
-  const esnMembers = salesTeam.filter((m) => m.role === "esn");
+  
+
+  // ─── Hierarchy Context ───────────────────────────────────────
+  // Determine the user's effective dashboard context:
+  // Admin OR user NOT in sales_team → full access (acts as admin)
+  // DSN → sees their GSNs + those GSNs' ESNs
+  // GSN → sees their linked ESNs
+  // ESN → sees only own data
+  // EV (arquiteto) → sees everything they're involved in (cross role)
+  const mySalesTeamId = myProfile?.sales_team_member_id || null;
+  const mySalesTeamMember = salesTeam.find((m) => m.id === mySalesTeamId);
+  const myTeamRole = mySalesTeamMember?.role || null;
+
+  // User NOT in sales_team but has dashboard access → treat as admin
+  const isEffectiveAdmin = role === "admin" || !mySalesTeamId || !mySalesTeamMember;
+  const isArquiteto = myTeamRole === "arquiteto";
+  const isDsn = myTeamRole === "dsn";
+  const isGsn = myTeamRole === "gsn";
+  const isEsn = myTeamRole === "esn";
+
+  // Build the set of sales_team IDs this user can see based on hierarchy
+  // null = unrestricted (admin-like)
+  const hierarchyScopedIds = useMemo((): string[] | null => {
+    if (isEffectiveAdmin) return null; // full access
+
+    if (isDsn) {
+      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs
+      const myGsns = salesTeam.filter((m) => m.role === "gsn" && m.linked_gsn_id === mySalesTeamId);
+      const myGsnIds = myGsns.map((m) => m.id);
+      const myEsns = salesTeam.filter((m) => m.role === "esn" && myGsnIds.includes(m.linked_gsn_id || ""));
+      return [mySalesTeamId!, ...myGsnIds, ...myEsns.map((m) => m.id)];
+    }
+
+    if (isGsn) {
+      // GSN sees: themselves + their linked ESNs
+      const myEsns = salesTeam.filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId);
+      return [mySalesTeamId!, ...myEsns.map((m) => m.id)];
+    }
+
+    if (isEsn) {
+      return [mySalesTeamId!];
+    }
+
+    if (isArquiteto) {
+      // EV: cross role — will be handled via proposal involvement, not member IDs
+      return [mySalesTeamId!];
+    }
+
+    return [];
+  }, [isEffectiveAdmin, isDsn, isGsn, isEsn, isArquiteto, mySalesTeamId, salesTeam]);
+
+  // Determine which role filter options are available based on hierarchy
+  const allowedRoleFilterOptions = useMemo((): string[] => {
+    if (isEffectiveAdmin) return ["dsn", "gsn", "esn"];
+    if (isDsn) return ["gsn", "esn"];
+    if (isGsn) return ["esn"];
+    // ESN and EV don't get role filter
+    return [];
+  }, [isEffectiveAdmin, isDsn, isGsn]);
+
+  const showRoleFilter = allowedRoleFilterOptions.length > 0;
+
   const filteredMembersByRole = useMemo(() => {
     if (selectedRoleFilter === "all") return null;
-    return salesTeam.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
-  }, [salesTeam, selectedRoleFilter]);
+    // When filtering by role, intersect with hierarchy scope
+    const roleMembers = salesTeam.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
+    if (hierarchyScopedIds === null) return roleMembers; // admin: no restriction
+    return roleMembers.filter((id) => hierarchyScopedIds.includes(id));
+  }, [salesTeam, selectedRoleFilter, hierarchyScopedIds]);
 
   const handlePreset = (preset: string) => {
     setPeriodPreset(preset);
@@ -415,21 +482,32 @@ export default function Dashboard() {
     }
   };
 
-  // Filter proposals
+  // Filter proposals based on hierarchy + role filter
   const filteredProposals = useMemo(() => {
     return proposals.filter((p: any) => {
-      // Role filter: match ESN, GSN or DSN linked members
+      // Hierarchy scope check
+      if (isArquiteto && !isEffectiveAdmin) {
+        // EV: only proposals where they're involved as arquiteto
+        if (p.arquiteto_id !== mySalesTeamId) return false;
+      } else if (hierarchyScopedIds !== null && !isArquiteto) {
+        // Non-admin: check if proposal's esn_id or gsn_id is in scoped IDs
+        const matchesScope = hierarchyScopedIds.includes(p.esn_id) || hierarchyScopedIds.includes(p.gsn_id);
+        if (!matchesScope) return false;
+      }
+
+      // Role filter: additional narrowing within allowed scope
       if (filteredMembersByRole) {
         const matchesRole = filteredMembersByRole.includes(p.esn_id) || filteredMembersByRole.includes(p.gsn_id);
         if (!matchesRole) return false;
       }
-      // Always use expected_close_date for date filtering
+
+      // Date filter
       const refDate = p.expected_close_date || "";
       if (dateFrom && refDate && refDate < dateFrom) return false;
       if (dateTo && refDate && refDate > dateTo) return false;
       return true;
     });
-  }, [proposals, dateFrom, dateTo, filteredMembersByRole]);
+  }, [proposals, dateFrom, dateTo, filteredMembersByRole, hierarchyScopedIds, isArquiteto, isEffectiveAdmin, mySalesTeamId]);
 
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
@@ -453,72 +531,29 @@ export default function Dashboard() {
     return Math.round(totalDays / wonProposals.length);
   }, [wonProposals]);
 
-  // ─── Performance KPIs (role-based) ───────────────────────────
-  const mySalesTeamId = myProfile?.sales_team_member_id || null;
-  const mySalesTeamMember = salesTeam.find((m) => m.id === mySalesTeamId);
-
-  // ─── Role-based scope for dashboard data ──────────────────────
-  // null = no restriction (admin); [] = no access; [...ids] = scoped ESN IDs
-  const myLinkedEsnIds = useMemo(() => {
-    if (role === "admin") return null;
-    if (!mySalesTeamId || !mySalesTeamMember) return [];
-    const memberRole = mySalesTeamMember.role;
-    if (memberRole === "esn") return [mySalesTeamId];
-    if (memberRole === "gsn") {
-      return salesTeam
-        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
-        .map((m) => m.id);
-    }
-    if (memberRole === "arquiteto") return [mySalesTeamId];
-    return [];
-  }, [role, mySalesTeamId, mySalesTeamMember, salesTeam]);
-
-  // ESN members available for filter (GSN sees only their linked ESNs)
-  const scopedEsnMembers = useMemo(() => {
-    if (role === "admin") return esnMembers;
-    if (role === "gsn" && myLinkedEsnIds) {
-      return esnMembers.filter((m) => myLinkedEsnIds.includes(m.id));
-    }
-    return esnMembers;
-  }, [role, esnMembers, myLinkedEsnIds]);
-
-  // Effective ESN IDs for filtering data (combines role scope + manual selection)
+  // ─── Effective ESN filter for downstream computations ─────────
+  // Combines hierarchy scope + role filter for targets/commissions
   const effectiveEsnFilter = useMemo((): string[] | null => {
-    if (role === "admin") {
-      return filteredMembersByRole || null;
-    }
-    if (!myLinkedEsnIds || myLinkedEsnIds.length === 0) return [];
-    if (filteredMembersByRole) {
-      return filteredMembersByRole.filter((id) => myLinkedEsnIds.includes(id));
-    }
-    return myLinkedEsnIds;
-  }, [role, myLinkedEsnIds, filteredMembersByRole]);
-
-  const isArquiteto = mySalesTeamMember?.role === "arquiteto";
+    if (isEffectiveAdmin && !filteredMembersByRole) return null;
+    if (isEffectiveAdmin && filteredMembersByRole) return filteredMembersByRole;
+    if (isArquiteto) return mySalesTeamId ? [mySalesTeamId] : [];
+    if (filteredMembersByRole) return filteredMembersByRole;
+    return hierarchyScopedIds;
+  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, filteredMembersByRole, hierarchyScopedIds]);
 
   const myClients = useMemo(() => {
-    // When ESN filter is active, scope clients to selected ESNs
+    // Effective admin or unrestricted → all clients (optionally narrowed by role filter)
+    if (isEffectiveAdmin && !effectiveEsnFilter) return clients;
+    
+    // When filter is active, scope clients
     if (effectiveEsnFilter && effectiveEsnFilter.length > 0) {
-      return clients.filter((c: any) => effectiveEsnFilter.includes(c.esn_id));
+      return clients.filter((c: any) =>
+        effectiveEsnFilter.includes(c.esn_id) || effectiveEsnFilter.includes(c.gsn_id)
+      );
     }
-    // No filter active
-    if (role === "admin" && !effectiveEsnFilter) return clients;
-    if (!mySalesTeamId) {
-      if (role === "admin") return clients;
-      return [];
-    }
-    const memberRole = mySalesTeamMember?.role;
 
-    if (memberRole === "esn") {
-      return clients.filter((c: any) => c.esn_id === mySalesTeamId);
-    }
-    if (memberRole === "gsn") {
-      const linkedEsnIds = salesTeam
-        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
-        .map((m) => m.id);
-      return clients.filter((c: any) => linkedEsnIds.includes(c.esn_id) || c.gsn_id === mySalesTeamId);
-    }
-    if (memberRole === "arquiteto") {
+    // EV: clients from proposals where they're involved
+    if (isArquiteto) {
       const clientIdsWithArquiteto = new Set(
         filteredProposals
           .filter((p: any) => p.arquiteto_id === mySalesTeamId)
@@ -526,8 +561,16 @@ export default function Dashboard() {
       );
       return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
     }
+
+    // DSN/GSN/ESN: use hierarchy scope
+    if (hierarchyScopedIds) {
+      return clients.filter((c: any) =>
+        hierarchyScopedIds.includes(c.esn_id) || hierarchyScopedIds.includes(c.gsn_id)
+      );
+    }
+
     return [];
-  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, filteredProposals, role, effectiveEsnFilter]);
+  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, clients, filteredProposals, effectiveEsnFilter, hierarchyScopedIds]);
 
   const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
 
@@ -587,9 +630,8 @@ export default function Dashboard() {
       previsto: 0,
     }));
 
-    // Filter targets by role scope + manual ESN selection
-    // For arquiteto: targets where esn_id = their sales_team_id
-    const relevantTargets = isArquiteto
+    // Filter targets by hierarchy + role scope
+    const relevantTargets = isArquiteto && !isEffectiveAdmin
       ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? salesTargets
@@ -601,15 +643,12 @@ export default function Dashboard() {
       }
     }
 
-    // Realizado / Previsto: role-scoped proposals
-    // Arquiteto: proposals where arquiteto_id matches
-    // ESN: proposals where esn_id matches
-    // GSN: proposals where esn_id is in linked ESNs
-    const relevantProposals = isArquiteto
+    // Realizado / Previsto: use hierarchy-scoped proposals
+    const relevantProposals = isArquiteto && !isEffectiveAdmin
       ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? proposals
-        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id));
+        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
 
     for (const p of relevantProposals as any[]) {
       const value = computeNetValue(p) || 0;
@@ -673,7 +712,7 @@ export default function Dashboard() {
       prevista: 0,
     }));
 
-    if (isArquiteto) {
+    if (isArquiteto && !isEffectiveAdmin) {
       // Arquiteto: calculate commission from proposals where they are linked as arquiteto
       const arquitetoPct = Number(mySalesTeamMember?.commission_pct) || 1.31;
       const myProposals = (proposals as any[]).filter((p: any) => p.arquiteto_id === mySalesTeamId && p.status !== "cancelada");
@@ -841,12 +880,12 @@ export default function Dashboard() {
             </div>
 
             {/* Divider */}
-            {isAdminOrGsn && (
+            {showRoleFilter && (
               <div className="hidden h-16 w-px self-center bg-border md:block" />
             )}
 
             {/* Role Selector */}
-            {isAdminOrGsn && (
+            {showRoleFilter && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
@@ -855,6 +894,7 @@ export default function Dashboard() {
                 <RoleSelector
                   selectedRole={selectedRoleFilter}
                   onChange={setSelectedRoleFilter}
+                  allowedRoles={allowedRoleFilterOptions}
                 />
               </div>
             )}
@@ -932,7 +972,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

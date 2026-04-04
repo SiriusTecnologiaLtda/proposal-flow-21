@@ -77,25 +77,20 @@ function formatCurrency(v: number): string {
   return `${k.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K`;
 }
 
-// ─── ESN Multi-Select Popover ─────────────────────────────────
-function EsnSelector({
-  esnMembers,
-  selectedIds,
+// ─── Role Filter Selector ─────────────────────────────────────
+const ROLE_OPTIONS = [
+  { value: "dsn", label: "DSN" },
+  { value: "gsn", label: "GSN" },
+  { value: "esn", label: "ESN" },
+] as const;
+
+function RoleSelector({
+  selectedRole,
   onChange,
 }: {
-  esnMembers: any[];
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
+  selectedRole: string;
+  onChange: (role: string) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const filtered = esnMembers.filter(
-    (m) =>
-      m.code.toLowerCase().includes(search.toLowerCase()) ||
-      m.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const toggle = (id: string) =>
-    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
-
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -103,70 +98,51 @@ function EsnSelector({
           variant="outline"
           className={cn(
             "h-9 gap-2 border-dashed text-xs font-normal",
-            selectedIds.length > 0 && "border-primary/40 bg-primary/5 text-primary"
+            selectedRole !== "all" && "border-primary/40 bg-primary/5 text-primary"
           )}
         >
           <Users className="h-3.5 w-3.5" />
-          {selectedIds.length === 0
-            ? "Todos os ESNs"
-            : `${selectedIds.length} ESN${selectedIds.length > 1 ? "s" : ""}`}
+          {selectedRole === "all"
+            ? "Todos os Níveis"
+            : ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
-        <div className="border-b border-border p-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar vendedor..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-        </div>
-        <div className="max-h-56 overflow-auto p-1">
-          {filtered.map((m) => {
-            const selected = selectedIds.includes(m.id);
-            return (
-              <button
-                key={m.id}
-                onClick={() => toggle(m.id)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                  selected
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground hover:bg-accent"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground/30"
-                  )}
-                >
-                  {selected && <Check className="h-2.5 w-2.5" />}
-                </div>
-                <span className="font-medium">{m.code}</span>
-                <span className="truncate text-muted-foreground">{m.name}</span>
-              </button>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhum resultado</p>
+      <PopoverContent className="w-48 p-1" align="start">
+        <button
+          onClick={() => onChange("all")}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+            selectedRole === "all"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-foreground hover:bg-accent"
           )}
-        </div>
-        {selectedIds.length > 0 && (
-          <div className="border-t border-border p-1.5">
+        >
+          Todos os Níveis
+        </button>
+        {ROLE_OPTIONS.map((r) => (
+          <button
+            key={r.value}
+            onClick={() => onChange(r.value)}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+              selectedRole === r.value
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-foreground hover:bg-accent"
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+        {selectedRole !== "all" && (
+          <div className="border-t border-border mt-1 pt-1">
             <Button
               variant="ghost"
               size="sm"
               className="h-7 w-full text-xs text-muted-foreground"
-              onClick={() => onChange([])}
+              onClick={() => onChange("all")}
             >
-              <X className="mr-1 h-3 w-3" /> Limpar seleção
+              <X className="mr-1 h-3 w-3" /> Limpar
             </Button>
           </div>
         )}
@@ -379,7 +355,7 @@ export default function Dashboard() {
   const [periodPreset, setPeriodPreset] = useState("this_year");
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);
-  const [selectedEsnIds, setSelectedEsnIds] = useState<string[]>([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
 
   // Fetch units for filter
@@ -425,6 +401,10 @@ export default function Dashboard() {
 
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
+  const filteredMembersByRole = useMemo(() => {
+    if (selectedRoleFilter === "all") return null;
+    return salesTeam.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
+  }, [salesTeam, selectedRoleFilter]);
 
   const handlePreset = (preset: string) => {
     setPeriodPreset(preset);
@@ -438,15 +418,18 @@ export default function Dashboard() {
   // Filter proposals
   const filteredProposals = useMemo(() => {
     return proposals.filter((p: any) => {
-      if (selectedEsnIds.length > 0 && !selectedEsnIds.includes(p.esn_id)) return false;
+      // Role filter: match ESN, GSN or DSN linked members
+      if (filteredMembersByRole) {
+        const matchesRole = filteredMembersByRole.includes(p.esn_id) || filteredMembersByRole.includes(p.gsn_id);
+        if (!matchesRole) return false;
+      }
       // Always use expected_close_date for date filtering
       const refDate = p.expected_close_date || "";
       if (dateFrom && refDate && refDate < dateFrom) return false;
       if (dateTo && refDate && refDate > dateTo) return false;
-      // If no expected_close_date set, don't filter out
       return true;
     });
-  }, [proposals, dateFrom, dateTo, selectedEsnIds]);
+  }, [proposals, dateFrom, dateTo, filteredMembersByRole]);
 
   // KPIs
   const wonProposals = filteredProposals.filter((p: any) => p.status === "ganha");
@@ -502,14 +485,14 @@ export default function Dashboard() {
   // Effective ESN IDs for filtering data (combines role scope + manual selection)
   const effectiveEsnFilter = useMemo((): string[] | null => {
     if (role === "admin") {
-      return selectedEsnIds.length > 0 ? selectedEsnIds : null;
+      return filteredMembersByRole || null;
     }
     if (!myLinkedEsnIds || myLinkedEsnIds.length === 0) return [];
-    if (selectedEsnIds.length > 0) {
-      return selectedEsnIds.filter((id) => myLinkedEsnIds.includes(id));
+    if (filteredMembersByRole) {
+      return filteredMembersByRole.filter((id) => myLinkedEsnIds.includes(id));
     }
     return myLinkedEsnIds;
-  }, [role, myLinkedEsnIds, selectedEsnIds]);
+  }, [role, myLinkedEsnIds, filteredMembersByRole]);
 
   const isArquiteto = mySalesTeamMember?.role === "arquiteto";
 
@@ -750,7 +733,7 @@ export default function Dashboard() {
   const totalCommPrevista = commissionChartData.reduce((s, m) => s + m.prevista, 0);
 
   const activeFilters =
-    (dateFrom || dateTo ? 1 : 0) + (selectedEsnIds.length > 0 ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0);
+    (dateFrom || dateTo ? 1 : 0) + (selectedRoleFilter !== "all" ? 1 : 0) + (selectedUnitId !== "all" ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -794,7 +777,7 @@ export default function Dashboard() {
               className="h-7 text-xs text-muted-foreground hover:text-destructive"
               onClick={() => {
                 handlePreset("this_year");
-                setSelectedEsnIds([]);
+                setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
               }}
             >
@@ -862,52 +845,17 @@ export default function Dashboard() {
               <div className="hidden h-16 w-px self-center bg-border md:block" />
             )}
 
-            {/* ESN Selector */}
+            {/* Role Selector */}
             {isAdminOrGsn && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
-                  <span className="text-[11px] font-medium uppercase tracking-wider">Vendedor</span>
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Nível</span>
                 </div>
-                <EsnSelector
-                  esnMembers={scopedEsnMembers}
-                  selectedIds={selectedEsnIds}
-                  onChange={setSelectedEsnIds}
+                <RoleSelector
+                  selectedRole={selectedRoleFilter}
+                  onChange={setSelectedRoleFilter}
                 />
-                {/* Selected chips */}
-                <AnimatePresence>
-                  {selectedEsnIds.length > 0 && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="flex flex-wrap gap-1 overflow-hidden"
-                    >
-                      {selectedEsnIds.map((id) => {
-                        const m = esnMembers.find((e) => e.id === id);
-                        return (
-                          <motion.span
-                            key={id}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary"
-                          >
-                            {m?.code}
-                            <button
-                              onClick={() =>
-                                setSelectedEsnIds((prev) => prev.filter((x) => x !== id))
-                              }
-                              className="rounded-full p-0.5 hover:bg-primary/10"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </motion.span>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             )}
 
@@ -984,7 +932,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedEsnIds={selectedEsnIds} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

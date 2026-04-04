@@ -1383,6 +1383,32 @@ export default function SmartImport() {
         rowRole = detectedMemberRole;
       }
 
+      // Validação obrigatória: nunca inserir meta sem dono, categoria, segmento ou nível
+      if (!rowCategoryId) {
+        errors++;
+        const msg = `Linha ${lineNum}: Categoria obrigatória não encontrada para "${esnLabel}".`;
+        addImportLog(entity, "error", msg);
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Categoria obrigatória não encontrada" });
+        processed++;
+        continue;
+      }
+      if (!rowSegmentId) {
+        errors++;
+        const msg = `Linha ${lineNum}: Segmento obrigatório não encontrado para "${esnLabel}".`;
+        addImportLog(entity, "error", msg);
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Segmento obrigatório não encontrado" });
+        processed++;
+        continue;
+      }
+      if (!rowRole) {
+        errors++;
+        const msg = `Linha ${lineNum}: Nível/Função obrigatório não definido para "${esnLabel}".`;
+        addImportLog(entity, "error", msg);
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Nível/Função obrigatório não definido" });
+        processed++;
+        continue;
+      }
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Number(val) || 0;
@@ -1394,10 +1420,7 @@ export default function SmartImport() {
         if (existingId) {
           toUpdate.push({ id: existingId, amount });
         } else {
-          const insertData: any = { esn_id: esnId, year, month: m, amount, role: rowRole };
-          if (rowCategoryId) insertData.category_id = rowCategoryId;
-          if (rowSegmentId) insertData.segment_id = rowSegmentId;
-          toInsert.push({ ...insertData, _line: lineNum, _owner: esnLabel, _month: m });
+          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, _line: lineNum, _owner: esnLabel, _month: m });
         }
       }
 

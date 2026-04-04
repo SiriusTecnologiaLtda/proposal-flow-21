@@ -77,25 +77,20 @@ function formatCurrency(v: number): string {
   return `${k.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K`;
 }
 
-// ─── ESN Multi-Select Popover ─────────────────────────────────
-function EsnSelector({
-  esnMembers,
-  selectedIds,
+// ─── Role Filter Selector ─────────────────────────────────────
+const ROLE_OPTIONS = [
+  { value: "dsn", label: "DSN" },
+  { value: "gsn", label: "GSN" },
+  { value: "esn", label: "ESN" },
+] as const;
+
+function RoleSelector({
+  selectedRole,
   onChange,
 }: {
-  esnMembers: any[];
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
+  selectedRole: string;
+  onChange: (role: string) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const filtered = esnMembers.filter(
-    (m) =>
-      m.code.toLowerCase().includes(search.toLowerCase()) ||
-      m.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const toggle = (id: string) =>
-    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
-
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -103,70 +98,51 @@ function EsnSelector({
           variant="outline"
           className={cn(
             "h-9 gap-2 border-dashed text-xs font-normal",
-            selectedIds.length > 0 && "border-primary/40 bg-primary/5 text-primary"
+            selectedRole !== "all" && "border-primary/40 bg-primary/5 text-primary"
           )}
         >
           <Users className="h-3.5 w-3.5" />
-          {selectedIds.length === 0
-            ? "Todos os ESNs"
-            : `${selectedIds.length} ESN${selectedIds.length > 1 ? "s" : ""}`}
+          {selectedRole === "all"
+            ? "Todos os Níveis"
+            : ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="start">
-        <div className="border-b border-border p-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar vendedor..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-        </div>
-        <div className="max-h-56 overflow-auto p-1">
-          {filtered.map((m) => {
-            const selected = selectedIds.includes(m.id);
-            return (
-              <button
-                key={m.id}
-                onClick={() => toggle(m.id)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                  selected
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground hover:bg-accent"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground/30"
-                  )}
-                >
-                  {selected && <Check className="h-2.5 w-2.5" />}
-                </div>
-                <span className="font-medium">{m.code}</span>
-                <span className="truncate text-muted-foreground">{m.name}</span>
-              </button>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhum resultado</p>
+      <PopoverContent className="w-48 p-1" align="start">
+        <button
+          onClick={() => onChange("all")}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+            selectedRole === "all"
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-foreground hover:bg-accent"
           )}
-        </div>
-        {selectedIds.length > 0 && (
-          <div className="border-t border-border p-1.5">
+        >
+          Todos os Níveis
+        </button>
+        {ROLE_OPTIONS.map((r) => (
+          <button
+            key={r.value}
+            onClick={() => onChange(r.value)}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+              selectedRole === r.value
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-foreground hover:bg-accent"
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+        {selectedRole !== "all" && (
+          <div className="border-t border-border mt-1 pt-1">
             <Button
               variant="ghost"
               size="sm"
               className="h-7 w-full text-xs text-muted-foreground"
-              onClick={() => onChange([])}
+              onClick={() => onChange("all")}
             >
-              <X className="mr-1 h-3 w-3" /> Limpar seleção
+              <X className="mr-1 h-3 w-3" /> Limpar
             </Button>
           </div>
         )}

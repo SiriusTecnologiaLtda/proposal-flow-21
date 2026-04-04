@@ -147,9 +147,12 @@ async function createDbLog(run: ImportRun, userId?: string): Promise<string | un
   return data?.id;
 }
 
-async function updateDbLog(dbLogId: string, run: ImportRun) {
+async function updateDbLog(dbLogId: string, run: ImportRun & { error_details_extra?: string[] }) {
   const successRate = run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : "0";
   const summary = `${run.imported} inseridos, ${run.updated} atualizados, ${run.errors} erros, ${run.skipped} ignorados | Taxa: ${successRate}% | Tempo: ${formatDuration(run.durationMs || 0)}`;
+  
+  // Use explicit error details if provided, otherwise extract from logs
+  const errorDetailsArr = run.error_details_extra || run.logs.filter(l => l.status === "error").slice(0, 200).map(l => l.message);
   
   await supabase.from("import_logs").update({
     status: run.status,
@@ -161,7 +164,7 @@ async function updateDbLog(dbLogId: string, run: ImportRun) {
     finished_at: run.finishedAt ? new Date(run.finishedAt).toISOString() : null,
     duration_ms: run.durationMs || null,
     summary,
-    error_details: run.logs.filter(l => l.status === "error").slice(0, 50).map(l => l.message),
+    error_details: errorDetailsArr,
   } as any).eq("id", dbLogId);
 }
 

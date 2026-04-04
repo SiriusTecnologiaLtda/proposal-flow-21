@@ -256,6 +256,7 @@ interface UnifiedRevenueTabProps {
   mySalesTeamId: string | null;
   selectedRevenueFilter: string;
   selectedCategoryId: string;
+  selectedMemberId: string;
 }
 
 const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {

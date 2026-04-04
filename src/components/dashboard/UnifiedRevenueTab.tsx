@@ -390,7 +390,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     }
 
     return result;
-  }, [filteredSwProposals, filteredSvcProposals, clientUnitMap]);
+  }, [filteredSwProposals, filteredSvcProposals, clientUnitMap, selectedCategoryId]);
 
   // Compute Meta by revenue line and unit
   const metaData = useMemo(() => {

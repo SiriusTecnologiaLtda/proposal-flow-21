@@ -192,6 +192,7 @@ interface UnifiedRevenueTabProps {
   isArquiteto: boolean;
   mySalesTeamId: string | null;
   selectedRevenueFilter: string;
+  selectedCategoryId: string;
 }
 
 const REVENUE_FILTER_LINE_MAP: Record<string, string[]> = {

@@ -1057,6 +1057,77 @@ export default function Dashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Divider before Category */}
+            <div className="hidden h-16 w-px self-center bg-border md:block" />
+
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Tag className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Categoria</span>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 gap-2 border-dashed text-xs font-normal",
+                      selectedCategoryId !== "all" && "border-primary/40 bg-primary/5 text-primary"
+                    )}
+                  >
+                    <Tag className="h-3.5 w-3.5" />
+                    {selectedCategoryId === "all"
+                      ? "Todas as categorias"
+                      : categories.find((c) => c.id === selectedCategoryId)?.name || selectedCategoryId}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <div className="max-h-64 overflow-auto p-1">
+                    <button
+                      onClick={() => setSelectedCategoryId("all")}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                        selectedCategoryId === "all"
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {selectedCategoryId === "all" && <Check className="h-3.5 w-3.5" />}
+                      <span className="font-medium">Todas as categorias</span>
+                    </button>
+                    {categories.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCategoryId(c.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                          selectedCategoryId === c.id
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {selectedCategoryId === c.id && <Check className="h-3.5 w-3.5" />}
+                        <span className="font-medium">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedCategoryId !== "all" && (
+                    <div className="border-t border-border p-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full text-xs text-muted-foreground"
+                        onClick={() => setSelectedCategoryId("all")}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -138,8 +138,8 @@ function UnitBreakdownRow({
         </div>
 
         {/* Mini bars for each revenue line */}
-        <div className="flex-1 grid grid-cols-6 gap-3">
-          {REVENUE_LINES.map((rl) => {
+        <div className={cn("flex-1 grid gap-3", visibleLines.length <= 3 ? "grid-cols-3" : "grid-cols-6")}>
+          {visibleLines.map((rl) => {
             const data = lines[rl.key] || { meta: 0, realizado: 0 };
             const linePct = data.meta > 0 ? (data.realizado / data.meta) * 100 : 0;
             return (

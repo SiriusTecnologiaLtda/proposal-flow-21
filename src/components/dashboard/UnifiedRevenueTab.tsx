@@ -297,7 +297,14 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return new Set(hierarchyScopedIds);
   }, [roleFilteredIds, hierarchyScopedIds]);
 
-  // Apply period, hierarchy scope, and role filters to proposals
+  // Determine which revenue lines to show based on filter
+  const activeRevenueLines = useMemo(() => {
+    if (selectedRevenueFilter === "all") return REVENUE_LINES;
+    const allowedKeys = REVENUE_FILTER_LINE_MAP[selectedRevenueFilter] || [];
+    return REVENUE_LINES.filter((rl) => allowedKeys.includes(rl.key));
+  }, [selectedRevenueFilter]);
+
+
   const filteredSwProposals = useMemo(() => {
     return (softwareProposals as any[]).filter((sp) => {
       const pd = sp.proposal_date || "";

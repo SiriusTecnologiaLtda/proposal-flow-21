@@ -23,6 +23,69 @@ const REVENUE_LINES = [
   { key: "nrf", label: "NRF", color: "hsl(340, 45%, 50%)" },
 ] as const;
 
+type RevenueLineTotals = {
+  producao: number;
+  recorrente: number;
+  nao_recorrente: number;
+  servico: number;
+  rrf: number;
+  nrf: number;
+};
+
+const PRODUCTION_DIVISOR = 21.82;
+
+function createEmptyLineTotals(): RevenueLineTotals {
+  return { producao: 0, recorrente: 0, nao_recorrente: 0, servico: 0, rrf: 0, nrf: 0 };
+}
+
+function normalizeCategoryName(name?: string | null) {
+  return (name || "").trim().toUpperCase();
+}
+
+function addTargetAmountToLines(
+  lines: RevenueLineTotals,
+  amount: number,
+  category?: { name?: string | null; cost_classification?: string | null } | null,
+) {
+  const categoryName = normalizeCategoryName(category?.name);
+  const costClassification = category?.cost_classification || null;
+
+  if (categoryName === "SCS") {
+    lines.servico += amount;
+    return;
+  }
+
+  if (categoryName === "RRF") {
+    lines.rrf += amount;
+    lines.producao += amount;
+    return;
+  }
+
+  if (categoryName === "NRF" || categoryName === "RNF") {
+    lines.nrf += amount;
+    lines.producao += amount / PRODUCTION_DIVISOR;
+    return;
+  }
+
+  if (costClassification === "opex") {
+    lines.recorrente += amount;
+    lines.producao += amount;
+    return;
+  }
+
+  if (costClassification === "capex") {
+    lines.nao_recorrente += amount;
+    lines.producao += amount / PRODUCTION_DIVISOR;
+  }
+}
+
+function sumActiveLines(lines: RevenueLineTotals, activeKeys: Set<string>) {
+  return (Object.entries(lines) as [keyof RevenueLineTotals, number][]).reduce(
+    (sum, [key, value]) => sum + (activeKeys.has(key) ? value : 0),
+    0,
+  );
+}
+
 function formatCurrencyFull(v: number): string {
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
   if (Math.abs(v) >= 1_000) return `${(v / 1_000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}K`;
@@ -213,14 +276,24 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     },
   });
 
-  // Fetch revenue targets
-  const { data: revenueTargets = [] } = useQuery({
-    queryKey: ["revenue-targets", selectedYear],
+  // Fetch sales targets (same source used by tela de Metas)
+  const { data: salesTargets = [] } = useQuery({
+    queryKey: ["sales-targets-dashboard-unified", selectedYear],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("revenue_targets")
-        .select("*")
+        .from("sales_targets")
+        .select("id, esn_id, month, amount, category_id, role")
         .eq("year", selectedYear);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories-dashboard-unified"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("categories").select("id, name, cost_classification").order("name");
       if (error) throw error;
       return data || [];
     },
@@ -293,16 +366,39 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     return map;
   }, [catalogItems]);
 
+  const categoryById = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; cost_classification: string }>();
+    for (const category of categories as any[]) {
+      map.set(category.id, category);
+    }
+    return map;
+  }, [categories]);
+
+  const selectedCategoryName = useMemo(
+    () => (selectedCategoryId === "all" ? "" : normalizeCategoryName(categoryById.get(selectedCategoryId)?.name)),
+    [selectedCategoryId, categoryById],
+  );
+
+  const canIncludeServiceByCategory = selectedCategoryId === "all" || selectedCategoryName === "SCS";
+
   // Fetch sales team for role filtering
   const { data: salesTeamMembers = [] } = useQuery({
     queryKey: ["sales-team-role-filter"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase.from("sales_team").select("id, role").limit(2000);
+      const { data, error } = await supabase.from("sales_team").select("id, role, unit_id").limit(2000);
       if (error) throw error;
       return data || [];
     },
   });
+
+  const memberUnitMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const member of salesTeamMembers as any[]) {
+      if (member.unit_id) map.set(member.id, member.unit_id);
+    }
+    return map;
+  }, [salesTeamMembers]);
 
   const roleFilteredIds = useMemo(() => {
     if (selectedRoleFilter === "all") return null;
@@ -361,69 +457,109 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
 
     const ensureUnit = (unitId: string) => {
       if (!result[unitId]) {
-        result[unitId] = { producao: 0, recorrente: 0, nao_recorrente: 0, servico: 0, rrf: 0, nrf: 0 };
+        result[unitId] = createEmptyLineTotals();
       }
     };
 
-    // Software proposals → Recorrente, Não Recorrente, Produção
-    for (const sp of filteredSwProposals) {
-      const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id)) || "unknown";
-      ensureUnit(unitId);
+    const resolveMemberUnitId = (record: { esn_id?: string | null; gsn_id?: string | null }) => {
+      if (record.esn_id && memberUnitMap.has(record.esn_id)) return memberUnitMap.get(record.esn_id)!;
+      if (record.gsn_id && memberUnitMap.has(record.gsn_id)) return memberUnitMap.get(record.gsn_id)!;
+      return null;
+    };
 
-      const allItems = sp.software_proposal_items || [];
-      // Apply category filter at item level (via catalog_item_id → category_id)
-      const items = selectedCategoryId !== "all"
-        ? allItems.filter((item: any) => {
-            const catId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
-            return catId === selectedCategoryId;
-          })
-        : allItems;
+    const buildSoftwareLineTotals = (items: any[]): RevenueLineTotals => {
+      const totals = createEmptyLineTotals();
       let totalCapex = 0;
       let totalOpex = 0;
 
       for (const item of items) {
+        const categoryId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) ?? null : null;
+        if (selectedCategoryId !== "all" && categoryId !== selectedCategoryId) continue;
+
+        const category = categoryId ? categoryById.get(categoryId) : null;
+        const categoryName = normalizeCategoryName(category?.name);
+        const costClassification = item.cost_classification || category?.cost_classification || null;
         const price = Number(item.total_price) || 0;
-        const isRecurring = ["monthly", "annual"].includes(item.recurrence);
-        const isOneTime = item.recurrence === "one_time";
+        if (!price) continue;
 
-        if (item.cost_classification === "capex") totalCapex += price;
-        if (item.cost_classification === "opex") totalOpex += price;
+        if (costClassification === "capex") totalCapex += price;
+        if (costClassification === "opex") totalOpex += price;
 
-        if (isRecurring) {
-          result[unitId].recorrente += price;
-        } else if (isOneTime) {
-          result[unitId].nao_recorrente += price;
+        if (categoryName === "RRF") {
+          totals.rrf += price;
+          continue;
+        }
+
+        if (categoryName === "NRF" || categoryName === "RNF") {
+          totals.nrf += price;
+          continue;
+        }
+
+        if (["monthly", "annual"].includes(item.recurrence)) {
+          totals.recorrente += price;
+        } else if (item.recurrence === "one_time") {
+          totals.nao_recorrente += price;
         }
       }
 
-      result[unitId].producao += (totalCapex / 21.82) + totalOpex;
+      totals.producao += (totalCapex / PRODUCTION_DIVISOR) + totalOpex;
+      return totals;
+    };
+
+    // Software proposals → Recorrente, Não Recorrente, Produção
+    for (const sp of filteredSwProposals) {
+      const unitId = resolveMemberUnitId(sp) || "unknown";
+      ensureUnit(unitId);
+
+      const lines = buildSoftwareLineTotals(sp.software_proposal_items || []);
+      for (const [key, value] of Object.entries(lines) as [keyof RevenueLineTotals, number][]) {
+        result[unitId][key] += value;
+      }
     }
 
     // Service proposals → Serviço
-    for (const sp of filteredSvcProposals) {
-      const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id)) || "unknown";
-      ensureUnit(unitId);
+    if (canIncludeServiceByCategory) {
+      for (const sp of filteredSvcProposals) {
+        const unitId = resolveMemberUnitId(sp) || "unknown";
+        ensureUnit(unitId);
 
-      const serviceItems = sp.proposal_service_items || [];
-      const netValue = serviceItems.reduce((sum: number, item: any) =>
-        sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
-      result[unitId].servico += netValue;
+        const serviceItems = sp.proposal_service_items || [];
+        const netValue = serviceItems.reduce((sum: number, item: any) =>
+          sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+        result[unitId].servico += netValue;
+      }
     }
 
     return result;
-  }, [filteredSwProposals, filteredSvcProposals, clientUnitMap, selectedCategoryId, catalogCategoryMap]);
+  }, [filteredSwProposals, filteredSvcProposals, selectedCategoryId, catalogCategoryMap, categoryById, memberUnitMap, canIncludeServiceByCategory]);
 
-  // Compute Meta by revenue line and unit
+  // Compute Meta by revenue line and unit using sales_targets + unidade do membro
   const metaData = useMemo(() => {
     const result: Record<string, Record<string, number>> = {};
-    for (const t of revenueTargets as any[]) {
-      if (!result[t.unit_id]) {
-        result[t.unit_id] = { producao: 0, recorrente: 0, nao_recorrente: 0, servico: 0, rrf: 0, nrf: 0 };
+
+    const ensureUnit = (unitId: string) => {
+      if (!result[unitId]) {
+        result[unitId] = createEmptyLineTotals();
       }
-      result[t.unit_id][t.revenue_line] = (result[t.unit_id][t.revenue_line] || 0) + Number(t.amount);
+    };
+
+    for (const target of salesTargets as any[]) {
+      if (effectiveScopeIds && !effectiveScopeIds.has(target.esn_id)) continue;
+      if (selectedCategoryId !== "all" && target.category_id !== selectedCategoryId) continue;
+
+      const unitId = target.esn_id ? memberUnitMap.get(target.esn_id) : null;
+      if (!unitId) continue;
+
+      ensureUnit(unitId);
+      addTargetAmountToLines(
+        result[unitId] as RevenueLineTotals,
+        Number(target.amount) || 0,
+        target.category_id ? categoryById.get(target.category_id) : null,
+      );
     }
+
     return result;
-  }, [revenueTargets]);
+  }, [salesTargets, effectiveScopeIds, selectedCategoryId, memberUnitMap, categoryById]);
 
   // Consolidated totals
   const consolidated = useMemo(() => {
@@ -482,12 +618,23 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       let meta = 0;
       let realizado = 0;
 
-      // Meta from targets (filter by active revenue lines)
-      for (const t of revenueTargets as any[]) {
-        if (t.month !== month) continue;
-        if (selectedUnitId !== "all" && t.unit_id !== selectedUnitId) continue;
-        if (selectedRevenueFilter !== "all" && !activeKeys.has(t.revenue_line)) continue;
-        meta += Number(t.amount);
+        // Meta from sales targets (same source da tela de Metas)
+        for (const target of salesTargets as any[]) {
+          if (target.month !== month) continue;
+          if (effectiveScopeIds && !effectiveScopeIds.has(target.esn_id)) continue;
+          if (selectedCategoryId !== "all" && target.category_id !== selectedCategoryId) continue;
+
+          const unitId = target.esn_id ? memberUnitMap.get(target.esn_id) : null;
+          if (!unitId) continue;
+          if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
+
+          const lineTotals = createEmptyLineTotals();
+          addTargetAmountToLines(
+            lineTotals,
+            Number(target.amount) || 0,
+            target.category_id ? categoryById.get(target.category_id) : null,
+          );
+          meta += sumActiveLines(lineTotals, activeKeys);
       }
 
       // Realizado from software proposals
@@ -496,37 +643,74 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
           const pd = sp.proposal_date || "";
           const pMonth = Number(pd.substring(5, 7));
           if (pMonth !== month) continue;
-          const unitId = sp.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+            const unitId = (sp.esn_id && memberUnitMap.get(sp.esn_id)) || (sp.gsn_id && memberUnitMap.get(sp.gsn_id));
           if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-          const items = sp.software_proposal_items || [];
-          let capex = 0, opex = 0;
-          for (const item of items) {
-            if (item.cost_classification === "capex") capex += Number(item.total_price) || 0;
-            if (item.cost_classification === "opex") opex += Number(item.total_price) || 0;
-          }
-          realizado += (capex / 21.82) + opex;
+            const lineTotals = createEmptyLineTotals();
+            const softwareLines = (() => {
+              const totals = createEmptyLineTotals();
+              let totalCapex = 0;
+              let totalOpex = 0;
+
+              for (const item of sp.software_proposal_items || []) {
+                const categoryId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) ?? null : null;
+                if (selectedCategoryId !== "all" && categoryId !== selectedCategoryId) continue;
+
+                const category = categoryId ? categoryById.get(categoryId) : null;
+                const categoryName = normalizeCategoryName(category?.name);
+                const costClassification = item.cost_classification || category?.cost_classification || null;
+                const price = Number(item.total_price) || 0;
+                if (!price) continue;
+
+                if (costClassification === "capex") totalCapex += price;
+                if (costClassification === "opex") totalOpex += price;
+
+                if (categoryName === "RRF") {
+                  totals.rrf += price;
+                  continue;
+                }
+
+                if (categoryName === "NRF" || categoryName === "RNF") {
+                  totals.nrf += price;
+                  continue;
+                }
+
+                if (["monthly", "annual"].includes(item.recurrence)) {
+                  totals.recorrente += price;
+                } else if (item.recurrence === "one_time") {
+                  totals.nao_recorrente += price;
+                }
+              }
+
+              totals.producao += (totalCapex / PRODUCTION_DIVISOR) + totalOpex;
+              return totals;
+            })();
+            Object.assign(lineTotals, softwareLines);
+            realizado += sumActiveLines(lineTotals, activeKeys);
         }
       }
 
       // Realizado from service proposals
-      if (includeSvc) {
+        if (includeSvc && canIncludeServiceByCategory) {
         for (const sp of filteredSvcProposals) {
           const dateStr = sp.expected_close_date || "";
           const pMonth = Number(dateStr.substring(5, 7));
           if (pMonth !== month) continue;
-          const unitId = sp.clients?.unit_id || (sp.client_id && clientUnitMap.get(sp.client_id));
+            const unitId = (sp.esn_id && memberUnitMap.get(sp.esn_id)) || (sp.gsn_id && memberUnitMap.get(sp.gsn_id));
           if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
           const serviceItems = sp.proposal_service_items || [];
-          realizado += serviceItems.reduce((sum: number, item: any) =>
-            sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+            const serviceValue = serviceItems.reduce((sum: number, item: any) =>
+              sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
+            const lineTotals = createEmptyLineTotals();
+            lineTotals.servico = serviceValue;
+            realizado += sumActiveLines(lineTotals, activeKeys);
         }
       }
 
       return { label, meta, realizado };
     });
-  }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap, selectedRevenueFilter, activeKeys]);
+  }, [salesTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, selectedRevenueFilter, activeKeys, effectiveScopeIds, selectedCategoryId, memberUnitMap, categoryById, catalogCategoryMap, canIncludeServiceByCategory]);
 
   // Totals for summary (only from active revenue lines)
   const grandTotalMeta = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.meta, 0);

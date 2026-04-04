@@ -973,7 +973,7 @@ export default function Dashboard() {
 
         {/* ═══ TAB: Visão Unificada ═══ */}
         <TabsContent value="unificado">
-          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} />
+          <UnifiedRevenueTab selectedYear={targetYear} selectedUnitId={selectedUnitId} dateFrom={dateFrom} dateTo={dateTo} selectedRoleFilter={selectedRoleFilter} hierarchyScopedIds={hierarchyScopedIds} isArquiteto={isArquiteto && !isEffectiveAdmin} mySalesTeamId={mySalesTeamId} />
         </TabsContent>
 
         {/* ═══ TAB: Propostas ═══ */}

@@ -705,7 +705,7 @@ export default function Dashboard() {
     }
 
     return months;
-  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter, selectedCategoryId]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12

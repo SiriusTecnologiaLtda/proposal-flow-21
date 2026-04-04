@@ -485,14 +485,14 @@ export default function Dashboard() {
   // Effective ESN IDs for filtering data (combines role scope + manual selection)
   const effectiveEsnFilter = useMemo((): string[] | null => {
     if (role === "admin") {
-      return selectedEsnIds.length > 0 ? selectedEsnIds : null;
+      return filteredMembersByRole || null;
     }
     if (!myLinkedEsnIds || myLinkedEsnIds.length === 0) return [];
-    if (selectedEsnIds.length > 0) {
-      return selectedEsnIds.filter((id) => myLinkedEsnIds.includes(id));
+    if (filteredMembersByRole) {
+      return filteredMembersByRole.filter((id) => myLinkedEsnIds.includes(id));
     }
     return myLinkedEsnIds;
-  }, [role, myLinkedEsnIds, selectedEsnIds]);
+  }, [role, myLinkedEsnIds, filteredMembersByRole]);
 
   const isArquiteto = mySalesTeamMember?.role === "arquiteto";
 

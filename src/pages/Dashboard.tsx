@@ -852,7 +852,7 @@ export default function Dashboard() {
     return months;
   }, [salesTargets, proposals, softwareProposals, swProposalItems, catalogCategoryMap,
       combinedMemberFilter, unitScopedMemberIds, isArquiteto, isEffectiveAdmin, mySalesTeamId,
-      targetYear, selectedRevenueFilter, selectedCategoryId, selectedUnitId]);
+      targetYear, selectedRevenueFilter, selectedCategoryId, selectedUnitId, categories]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12

@@ -1315,7 +1315,7 @@ export default function SmartImport() {
       const existingId = catMap.get(key);
       if (existingId) return existingId;
       const { data: created, error } = await supabase
-        .from("categories").insert({ name: label.toUpperCase() } as any).select("id, name").single();
+        .from("categories").insert({ name: label.toUpperCase(), cost_classification: "opex" } as any).select("id, name").single();
       if (error || !created) return null;
       catMap.set(key, created.id);
       catMap.set(normalize(created.name || label), created.id);

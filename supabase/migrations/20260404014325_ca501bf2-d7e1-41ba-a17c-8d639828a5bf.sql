@@ -1,0 +1,1 @@
+ALTER TABLE public.categories ADD COLUMN cost_classification text NOT NULL DEFAULT 'opex';

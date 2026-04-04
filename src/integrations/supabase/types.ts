@@ -100,16 +100,19 @@ export type Database = {
       }
       categories: {
         Row: {
+          cost_classification: string
           created_at: string
           id: string
           name: string
         }
         Insert: {
+          cost_classification?: string
           created_at?: string
           id?: string
           name: string
         }
         Update: {
+          cost_classification?: string
           created_at?: string
           id?: string
           name?: string

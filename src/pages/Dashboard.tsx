@@ -885,12 +885,12 @@ export default function Dashboard() {
             </div>
 
             {/* Divider */}
-            {isAdminOrGsn && (
+            {showRoleFilter && (
               <div className="hidden h-16 w-px self-center bg-border md:block" />
             )}
 
             {/* Role Selector */}
-            {isAdminOrGsn && (
+            {showRoleFilter && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
@@ -899,6 +899,7 @@ export default function Dashboard() {
                 <RoleSelector
                   selectedRole={selectedRoleFilter}
                   onChange={setSelectedRoleFilter}
+                  allowedRoles={allowedRoleFilterOptions}
                 />
               </div>
             )}

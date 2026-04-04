@@ -509,8 +509,8 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
 
 
       {/* Revenue Line KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {REVENUE_LINES.map((rl, i) => (
+      <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-3", activeRevenueLines.length <= 3 ? "xl:grid-cols-3" : "xl:grid-cols-6")}>
+        {activeRevenueLines.map((rl, i) => (
           <RevenueKpiCard
             key={rl.key}
             label={rl.label}

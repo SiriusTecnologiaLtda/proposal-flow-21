@@ -401,6 +401,10 @@ export default function Dashboard() {
 
   const isAdminOrGsn = role === "admin" || role === "gsn";
   const esnMembers = salesTeam.filter((m) => m.role === "esn");
+  const filteredMembersByRole = useMemo(() => {
+    if (selectedRoleFilter === "all") return null;
+    return salesTeam.filter((m) => m.role === selectedRoleFilter).map((m) => m.id);
+  }, [salesTeam, selectedRoleFilter]);
 
   const handlePreset = (preset: string) => {
     setPeriodPreset(preset);

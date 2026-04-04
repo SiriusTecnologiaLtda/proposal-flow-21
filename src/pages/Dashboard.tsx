@@ -645,11 +645,16 @@ export default function Dashboard() {
     }));
 
     // Filter targets by hierarchy + role scope
-    const relevantTargets = isArquiteto && !isEffectiveAdmin
+    let relevantTargets = isArquiteto && !isEffectiveAdmin
       ? salesTargets.filter((t: any) => t.esn_id === mySalesTeamId)
       : effectiveEsnFilter === null
         ? salesTargets
         : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
+
+    // Category filter on targets
+    if (selectedCategoryId !== "all") {
+      relevantTargets = relevantTargets.filter((t: any) => t.category_id === selectedCategoryId);
+    }
 
     // When revenue filter is "scs", hide sales targets (they relate to software revenue)
     // When "recorrente" or "nao_recorrente", show only matching targets

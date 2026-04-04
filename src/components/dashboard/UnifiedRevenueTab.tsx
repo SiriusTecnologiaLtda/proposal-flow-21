@@ -653,6 +653,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
                 unitName={row.unitName}
                 lines={row.lines}
                 delay={i * 0.05}
+                visibleLines={activeRevenueLines}
               />
             ))
           ) : (

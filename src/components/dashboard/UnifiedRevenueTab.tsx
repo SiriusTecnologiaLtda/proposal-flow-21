@@ -371,9 +371,12 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       ensureUnit(unitId);
 
       const allItems = sp.software_proposal_items || [];
-      // Apply category filter at item level
+      // Apply category filter at item level (via catalog_item_id → category_id)
       const items = selectedCategoryId !== "all"
-        ? allItems.filter((item: any) => item.category_id === selectedCategoryId)
+        ? allItems.filter((item: any) => {
+            const catId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
+            return catId === selectedCategoryId;
+          })
         : allItems;
       let totalCapex = 0;
       let totalOpex = 0;

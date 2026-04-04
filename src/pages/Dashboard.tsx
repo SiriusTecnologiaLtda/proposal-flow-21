@@ -845,52 +845,17 @@ export default function Dashboard() {
               <div className="hidden h-16 w-px self-center bg-border md:block" />
             )}
 
-            {/* ESN Selector */}
+            {/* Role Selector */}
             {isAdminOrGsn && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
-                  <span className="text-[11px] font-medium uppercase tracking-wider">Vendedor</span>
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Nível</span>
                 </div>
-                <EsnSelector
-                  esnMembers={scopedEsnMembers}
-                  selectedIds={selectedEsnIds}
-                  onChange={setSelectedEsnIds}
+                <RoleSelector
+                  selectedRole={selectedRoleFilter}
+                  onChange={setSelectedRoleFilter}
                 />
-                {/* Selected chips */}
-                <AnimatePresence>
-                  {selectedEsnIds.length > 0 && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="flex flex-wrap gap-1 overflow-hidden"
-                    >
-                      {selectedEsnIds.map((id) => {
-                        const m = esnMembers.find((e) => e.id === id);
-                        return (
-                          <motion.span
-                            key={id}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary"
-                          >
-                            {m?.code}
-                            <button
-                              onClick={() =>
-                                setSelectedEsnIds((prev) => prev.filter((x) => x !== id))
-                              }
-                              className="rounded-full p-0.5 hover:bg-primary/10"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </motion.span>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             )}
 

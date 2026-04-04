@@ -78,7 +78,7 @@ function formatCurrency(v: number): string {
 }
 
 // ─── Role Filter Selector ─────────────────────────────────────
-const ROLE_OPTIONS = [
+const ALL_ROLE_OPTIONS = [
   { value: "dsn", label: "DSN" },
   { value: "gsn", label: "GSN" },
   { value: "esn", label: "ESN" },
@@ -87,10 +87,14 @@ const ROLE_OPTIONS = [
 function RoleSelector({
   selectedRole,
   onChange,
+  allowedRoles,
 }: {
   selectedRole: string;
   onChange: (role: string) => void;
+  allowedRoles: string[];
 }) {
+  const visibleOptions = ALL_ROLE_OPTIONS.filter((r) => allowedRoles.includes(r.value));
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -104,7 +108,7 @@ function RoleSelector({
           <Users className="h-3.5 w-3.5" />
           {selectedRole === "all"
             ? "Todos os Níveis"
-            : ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
+            : ALL_ROLE_OPTIONS.find((r) => r.value === selectedRole)?.label || selectedRole.toUpperCase()}
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -120,7 +124,7 @@ function RoleSelector({
         >
           Todos os Níveis
         </button>
-        {ROLE_OPTIONS.map((r) => (
+        {visibleOptions.map((r) => (
           <button
             key={r.value}
             onClick={() => onChange(r.value)}

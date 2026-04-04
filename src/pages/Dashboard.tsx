@@ -734,14 +734,35 @@ export default function Dashboard() {
       relevantTargets = relevantTargets.filter((t: any) => t.category_id === selectedCategoryId);
     }
 
-    // Revenue filter: when "scs" is selected, hide sales targets (they're SW-related)
-    const showTargets = selectedRevenueFilter === "all" || selectedRevenueFilter !== "scs";
+    // Revenue filter: map revenue filter to category IDs
+    // "scs" → only SCS category
+    // "recorrente" → opex categories excluding SCS
+    // "nao_recorrente" → capex categories
+    if (selectedRevenueFilter !== "all") {
+      const scsCategory = categories.find((c: any) => c.name === "SCS");
+      const scsCategoryId = scsCategory?.id;
 
-    if (showTargets) {
-      for (const t of relevantTargets) {
-        if (t.month >= 1 && t.month <= 12) {
-          months[t.month - 1].meta += Number(t.amount) || 0;
-        }
+      if (selectedRevenueFilter === "scs") {
+        // Only show targets for SCS category
+        relevantTargets = relevantTargets.filter((t: any) => t.category_id === scsCategoryId);
+      } else if (selectedRevenueFilter === "recorrente") {
+        // Opex categories excluding SCS (recurrent software)
+        const opexCatIds = categories
+          .filter((c: any) => c.cost_classification === "opex" && c.id !== scsCategoryId)
+          .map((c: any) => c.id);
+        relevantTargets = relevantTargets.filter((t: any) => opexCatIds.includes(t.category_id));
+      } else if (selectedRevenueFilter === "nao_recorrente") {
+        // Capex categories
+        const capexCatIds = categories
+          .filter((c: any) => c.cost_classification === "capex")
+          .map((c: any) => c.id);
+        relevantTargets = relevantTargets.filter((t: any) => capexCatIds.includes(t.category_id));
+      }
+    }
+
+    for (const t of relevantTargets) {
+      if (t.month >= 1 && t.month <= 12) {
+        months[t.month - 1].meta += Number(t.amount) || 0;
       }
     }
 

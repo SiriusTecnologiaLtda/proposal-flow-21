@@ -634,7 +634,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
               Resultado por Unidade
             </CardTitle>
             <div className="flex gap-3">
-              {REVENUE_LINES.map((rl) => (
+              {activeRevenueLines.map((rl) => (
                 <div key={rl.key} className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-sm" style={{ background: rl.color }} />
                   <span className="text-[10px] text-muted-foreground">{rl.label}</span>

@@ -157,7 +157,10 @@ export default function SalesTargetsPage() {
     return Array.from(y).sort();
   }, [targets, currentYear]);
 
-  const allEsns = esnList;
+  const allEsns = useMemo(() =>
+    fullSalesTeam.sort((a: any, b: any) => a.name.localeCompare(b.name)),
+    [fullSalesTeam]
+  );
 
   const addEsnMutation = useMutation({
     mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string> }) => {

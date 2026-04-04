@@ -634,12 +634,13 @@ function ImportCard({
   );
 }
 
-// ─── Sales Targets Import ───────────────────────────────────────
+// ─── Sales Targets Import (legacy - fixed-column layout) ────────
 
 async function runSalesTargetsImport(file: File, year: number, qc: any, userId?: string) {
   const entity: ImportEntity = "sales_targets";
   const run = startImportRun(entity, file.name, false);
   let dbLogId: string | undefined;
+  const errorDetails: string[] = [];
 
   addImportLog(entity, "info", `Lendo "${file.name}" — aba "BASE DE DADOS - Time Comercial"...`);
   try {
@@ -653,10 +654,8 @@ async function runSalesTargetsImport(file: File, year: number, qc: any, userId?:
     }
     const ws = wb.Sheets[sheetName];
     const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-    // Skip header rows (row 0 = instructions, row 1 = column names)
     const dataRows = rawRows.slice(2);
 
-    // Filter: Col G (index 6) = "ESN" AND Col J (index 9) = "SCS"
     const esnScsRows = dataRows.filter(r => {
       const level = String(r[6] || "").trim().toUpperCase();
       const revenue = String(r[9] || "").trim().toUpperCase();
@@ -675,79 +674,109 @@ async function runSalesTargetsImport(file: File, year: number, qc: any, userId?:
     run.totalRows = esnScsRows.length;
     dbLogId = await createDbLog(run, userId);
 
-    // Load ESN code -> id map
+    // Load ALL sales team members
     const { data: salesTeam } = await supabase.from("sales_team").select("id, code, role");
     const esnMap = new Map<string, string>();
     for (const s of (salesTeam || [])) {
       if (s.role === "esn") esnMap.set(s.code.trim().toLowerCase(), s.id);
     }
 
+    // Pre-load existing targets for this year
+    const existingTargets = new Map<string, string>();
+    let dbOffset = 0;
+    while (true) {
+      const { data: chunk } = await supabase.from("sales_targets")
+        .select("id, esn_id, month, role, category_id, segment_id")
+        .eq("year", year).range(dbOffset, dbOffset + 999);
+      if (!chunk || chunk.length === 0) break;
+      for (const t of chunk) {
+        const key = `${t.esn_id}|${t.month}|${t.role}|${t.category_id || ""}|${t.segment_id || ""}`;
+        existingTargets.set(key, t.id);
+      }
+      if (chunk.length < 1000) break;
+      dbOffset += 1000;
+    }
+
     let imported = 0, updated = 0, errors = 0, skipped = 0;
+    const toInsert: any[] = [];
+    const toUpdate: { id: string; amount: number }[] = [];
 
     for (let i = 0; i < esnScsRows.length; i++) {
       const r = esnScsRows[i];
-      const esnCode = String(r[5] || "").trim().toLowerCase(); // Col F (index 5)
+      const esnCode = String(r[5] || "").trim().toLowerCase();
       const esnId = esnMap.get(esnCode);
 
       if (!esnId) {
         errors++;
-        addImportLog(entity, "error", `ESN código "${r[5]}" (${r[4]}) não encontrado na base.`);
-        updateImportStats(entity, { imported, updated, errors, skipped });
+        const msg = `ESN código "${r[5]}" (${r[4]}) não encontrado na base.`;
+        addImportLog(entity, "error", msg);
+        errorDetails.push(msg);
         continue;
       }
 
-      // Process months: columns O-Z = index 14-25 = months 1-12
       for (let m = 0; m < 12; m++) {
         const colIdx = 14 + m;
         const rawVal = r[colIdx];
         const amount = Number(rawVal) || 0;
-
-        if (amount === 0) {
-          skipped++;
-          continue;
-        }
+        if (amount === 0) { skipped++; continue; }
 
         const month = m + 1;
+        const lookupKey = `${esnId}|${month}|esn||`;
+        const existingId = existingTargets.get(lookupKey);
 
-        // Upsert: try update first, then insert
-        const { data: existing } = await supabase
-          .from("sales_targets")
-          .select("id")
-          .eq("esn_id", esnId)
-          .eq("year", year)
-          .eq("month", month)
-          .maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("sales_targets")
-            .update({ amount })
-            .eq("id", existing.id);
-          if (error) { errors++; addImportLog(entity, "error", `${r[4]} mês ${month}: ${error.message}`); }
-          else { updated++; }
+        if (existingId) {
+          toUpdate.push({ id: existingId, amount });
         } else {
-          const { error } = await supabase
-            .from("sales_targets")
-            .insert({ esn_id: esnId, year, month, amount });
-          if (error) { errors++; addImportLog(entity, "error", `${r[4]} mês ${month}: ${error.message}`); }
-          else { imported++; }
+          toInsert.push({ esn_id: esnId, year, month, amount, role: "esn", _label: `${r[4]} mês ${month}` });
         }
       }
-
       updateImportStats(entity, { imported, updated, errors, skipped });
+    }
 
-      // Periodic DB persist
-      if (dbLogId && i % 10 === 0) {
-        const progressRun = { ...run, imported, updated, errors, skipped, status: "running" as const, durationMs: Date.now() - run.startedAt } as ImportRun;
-        await updateDbLog(dbLogId, progressRun).catch(() => {});
+    // Batch INSERT
+    if (toInsert.length > 0) {
+      const BATCH = 100;
+      for (let b = 0; b < toInsert.length; b += BATCH) {
+        const batch = toInsert.slice(b, b + BATCH);
+        const cleanBatch = batch.map(({ _label, ...rest }) => rest);
+        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
+        if (batchErr) {
+          for (let j = 0; j < cleanBatch.length; j++) {
+            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
+            if (error) {
+              errors++;
+              const msg = `${batch[j]._label}: ${error.message}`;
+              addImportLog(entity, "error", msg);
+              errorDetails.push(msg);
+            } else { imported++; }
+          }
+        } else { imported += cleanBatch.length; }
+        updateImportStats(entity, { imported, updated, errors, skipped });
+      }
+    }
+
+    // Batch UPDATE
+    if (toUpdate.length > 0) {
+      const BATCH = 50;
+      for (let b = 0; b < toUpdate.length; b += BATCH) {
+        const batch = toUpdate.slice(b, b + BATCH);
+        await Promise.all(batch.map(async (upd) => {
+          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount }).eq("id", upd.id);
+          if (error) { errors++; } else { updated++; }
+        }));
+        updateImportStats(entity, { imported, updated, errors, skipped });
       }
     }
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus);
     const finalRun = { ...run, imported, updated, errors, skipped, status: finalStatus as any, finishedAt: Date.now(), durationMs: Date.now() - run.startedAt };
-    addImportLog(entity, "ok", `✅ Concluído — ${esnScsRows.length} ESNs processados | Inseridos: ${imported} | Atualizados: ${updated} | Zerados/ignorados: ${skipped} | Erros: ${errors} | Tempo: ${formatDuration(finalRun.durationMs || 0)}`);
-    if (dbLogId) await updateDbLog(dbLogId, finalRun as ImportRun);
+    addImportLog(entity, "ok", `✅ Concluído — ${esnScsRows.length} ESNs | ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(finalRun.durationMs || 0)}`);
+    if (dbLogId) {
+      finalRun.logs = run.logs;
+      (finalRun as any).error_details_extra = errorDetails.slice(0, 200);
+      await updateDbLog(dbLogId, finalRun as ImportRun).catch(() => {});
+    }
   } catch (err: any) {
     addImportLog(entity, "error", `Erro fatal: ${err.message}`);
     finishImportRun(entity, "error");

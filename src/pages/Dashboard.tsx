@@ -589,8 +589,17 @@ export default function Dashboard() {
       }
     }
 
+    // Intersect with specific member filter
+    if (selectedMemberId !== "all") {
+      if (result === null) {
+        result = [selectedMemberId];
+      } else {
+        result = result.filter((id) => id === selectedMemberId);
+      }
+    }
+
     return result;
-  }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds]);
+  }, [hierarchyScopedIds, filteredMembersByRole, unitScopedMemberIds, selectedMemberId]);
 
   const handlePreset = (preset: string) => {
     setPeriodPreset(preset);

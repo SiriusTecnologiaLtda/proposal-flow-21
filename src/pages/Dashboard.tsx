@@ -648,47 +648,56 @@ export default function Dashboard() {
         ? salesTargets
         : salesTargets.filter((t: any) => effectiveEsnFilter.includes(t.esn_id));
 
-    for (const t of relevantTargets) {
-      if (t.month >= 1 && t.month <= 12) {
-        months[t.month - 1].meta += Number(t.amount) || 0;
+    // When revenue filter is "scs", hide sales targets (they relate to software revenue)
+    // When "recorrente" or "nao_recorrente", show only matching targets
+    const showTargets = selectedRevenueFilter === "all" || selectedRevenueFilter !== "scs";
+
+    if (showTargets) {
+      for (const t of relevantTargets) {
+        if (t.month >= 1 && t.month <= 12) {
+          months[t.month - 1].meta += Number(t.amount) || 0;
+        }
       }
     }
 
     // Realizado / Previsto: use hierarchy-scoped proposals
-    const relevantProposals = isArquiteto && !isEffectiveAdmin
-      ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
-      : effectiveEsnFilter === null
-        ? proposals
-        : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
+    // Service proposals only count for "all" or "scs"
+    const includeServiceProposals = selectedRevenueFilter === "all" || selectedRevenueFilter === "scs";
 
-    for (const p of relevantProposals as any[]) {
-      const value = computeNetValue(p) || 0;
-      if (value === 0) continue;
+    if (includeServiceProposals) {
+      const relevantProposals = isArquiteto && !isEffectiveAdmin
+        ? proposals.filter((p: any) => p.arquiteto_id === mySalesTeamId)
+        : effectiveEsnFilter === null
+          ? proposals
+          : proposals.filter((p: any) => effectiveEsnFilter.includes(p.esn_id) || effectiveEsnFilter.includes(p.gsn_id));
 
-      if (p.status === "ganha") {
-        // Realizado: use expected_close_date or fallback to updated_at
-        const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
-        if (!dateStr) continue;
-        const year = Number(dateStr.substring(0, 4));
-        const month = Number(dateStr.substring(5, 7));
-        if (year === targetYear && month >= 1 && month <= 12) {
-          months[month - 1].realizado += value;
-          months[month - 1].previsto += value;
-        }
-      } else if (p.status !== "cancelada") {
-        // Previsto (não ganha, não cancelada): use expected_close_date
-        const dateStr = p.expected_close_date || "";
-        if (!dateStr) continue;
-        const year = Number(dateStr.substring(0, 4));
-        const month = Number(dateStr.substring(5, 7));
-        if (year === targetYear && month >= 1 && month <= 12) {
-          months[month - 1].previsto += value;
+      for (const p of relevantProposals as any[]) {
+        const value = computeNetValue(p) || 0;
+        if (value === 0) continue;
+
+        if (p.status === "ganha") {
+          const dateStr = p.expected_close_date || (p.updated_at || "").substring(0, 10);
+          if (!dateStr) continue;
+          const year = Number(dateStr.substring(0, 4));
+          const month = Number(dateStr.substring(5, 7));
+          if (year === targetYear && month >= 1 && month <= 12) {
+            months[month - 1].realizado += value;
+            months[month - 1].previsto += value;
+          }
+        } else if (p.status !== "cancelada") {
+          const dateStr = p.expected_close_date || "";
+          if (!dateStr) continue;
+          const year = Number(dateStr.substring(0, 4));
+          const month = Number(dateStr.substring(5, 7));
+          if (year === targetYear && month >= 1 && month <= 12) {
+            months[month - 1].previsto += value;
+          }
         }
       }
     }
 
     return months;
-  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear]);
+  }, [salesTargets, proposals, effectiveEsnFilter, isArquiteto, mySalesTeamId, targetYear, selectedRevenueFilter]);
 
   const [resultadoMode, setResultadoMode] = useState<"anual" | "ytd">("anual");
   const currentMonth = new Date().getMonth() + 1; // 1-12

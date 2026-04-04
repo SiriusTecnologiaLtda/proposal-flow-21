@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
-  SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown,
+  SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown, Tag,
   BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";

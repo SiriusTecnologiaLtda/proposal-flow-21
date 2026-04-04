@@ -543,28 +543,18 @@ export default function Dashboard() {
   }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, filteredMembersByRole, hierarchyScopedIds]);
 
   const myClients = useMemo(() => {
-    // When ESN filter is active, scope clients to selected ESNs
+    // Effective admin or unrestricted → all clients (optionally narrowed by role filter)
+    if (isEffectiveAdmin && !effectiveEsnFilter) return clients;
+    
+    // When filter is active, scope clients
     if (effectiveEsnFilter && effectiveEsnFilter.length > 0) {
-      return clients.filter((c: any) => effectiveEsnFilter.includes(c.esn_id));
+      return clients.filter((c: any) =>
+        effectiveEsnFilter.includes(c.esn_id) || effectiveEsnFilter.includes(c.gsn_id)
+      );
     }
-    // No filter active
-    if (role === "admin" && !effectiveEsnFilter) return clients;
-    if (!mySalesTeamId) {
-      if (role === "admin") return clients;
-      return [];
-    }
-    const memberRole = mySalesTeamMember?.role;
 
-    if (memberRole === "esn") {
-      return clients.filter((c: any) => c.esn_id === mySalesTeamId);
-    }
-    if (memberRole === "gsn") {
-      const linkedEsnIds = salesTeam
-        .filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId)
-        .map((m) => m.id);
-      return clients.filter((c: any) => linkedEsnIds.includes(c.esn_id) || c.gsn_id === mySalesTeamId);
-    }
-    if (memberRole === "arquiteto") {
+    // EV: clients from proposals where they're involved
+    if (isArquiteto) {
       const clientIdsWithArquiteto = new Set(
         filteredProposals
           .filter((p: any) => p.arquiteto_id === mySalesTeamId)
@@ -572,8 +562,16 @@ export default function Dashboard() {
       );
       return clients.filter((c: any) => clientIdsWithArquiteto.has(c.id));
     }
+
+    // DSN/GSN/ESN: use hierarchy scope
+    if (hierarchyScopedIds) {
+      return clients.filter((c: any) =>
+        hierarchyScopedIds.includes(c.esn_id) || hierarchyScopedIds.includes(c.gsn_id)
+      );
+    }
+
     return [];
-  }, [mySalesTeamId, mySalesTeamMember, clients, salesTeam, filteredProposals, role, effectiveEsnFilter]);
+  }, [isEffectiveAdmin, isArquiteto, mySalesTeamId, clients, filteredProposals, effectiveEsnFilter, hierarchyScopedIds]);
 
   const myClientIds = useMemo(() => new Set(myClients.map((c: any) => c.id)), [myClients]);
 

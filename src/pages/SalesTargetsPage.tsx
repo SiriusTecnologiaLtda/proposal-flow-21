@@ -104,7 +104,8 @@ export default function SalesTargetsPage() {
     fullSalesTeam.filter((m: any) => m.role === "gsn").sort((a: any, b: any) => a.name.localeCompare(b.name)),
     [fullSalesTeam]
   );
-  const esnMap = useMemo(() => new Map(esnList.map((e: any) => [e.id, e])), [esnList]);
+  // Map ALL sales team members (ESN, GSN, DSN, EV) so any role resolves a name
+  const esnMap = useMemo(() => new Map(fullSalesTeam.map((e: any) => [e.id, e])), [fullSalesTeam]);
   const unitOptions = useMemo(() => units.map((u: any) => ({ value: u.id, label: u.name })), [units]);
   const gsnOptions = useMemo(() => gsnList.map((g: any) => ({ value: g.id, label: `${g.name} (${g.code})` })), [gsnList]);
   const categoryOptions = useMemo(() => categories.map((c: any) => ({ value: c.id, label: c.name })), [categories]);

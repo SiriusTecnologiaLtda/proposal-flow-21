@@ -1143,7 +1143,7 @@ export default function Dashboard() {
                       {selectedUnitId === "all" && <Check className="h-3.5 w-3.5" />}
                       <span className="font-medium">Todas as unidades</span>
                     </button>
-                    {units.map((u) => (
+                    {allowedUnits.map((u) => (
                       <button
                         key={u.id}
                         onClick={() => setSelectedUnitId(u.id)}

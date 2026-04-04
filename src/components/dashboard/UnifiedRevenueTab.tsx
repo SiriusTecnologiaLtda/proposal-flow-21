@@ -491,9 +491,10 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     });
   }, [revenueTargets, filteredSwProposals, filteredSvcProposals, selectedUnitId, clientUnitMap]);
 
-  // Totals for summary
-  const grandTotalMeta = Object.values(consolidated).reduce((s, l) => s + l.meta, 0);
-  const grandTotalReal = Object.values(consolidated).reduce((s, l) => s + l.realizado, 0);
+  // Totals for summary (only from active revenue lines)
+  const activeKeys = new Set(activeRevenueLines.map((rl) => rl.key));
+  const grandTotalMeta = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.meta, 0);
+  const grandTotalReal = Object.entries(consolidated).filter(([k]) => activeKeys.has(k)).reduce((s, [, l]) => s + l.realizado, 0);
   const grandPct = grandTotalMeta > 0 ? (grandTotalReal / grandTotalMeta) * 100 : 0;
   const grandGap = grandTotalMeta - grandTotalReal;
 

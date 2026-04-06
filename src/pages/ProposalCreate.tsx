@@ -437,6 +437,17 @@ export default function ProposalCreate() {
     }
   }, [user?.email, salesTeam, isEditing, isDuplicating, esnId]);
 
+  // Mark form as dirty when user changes scope, financial params, or general data after initial load
+  const initialLoadDoneRef = useRef(false);
+  useEffect(() => {
+    if (!loaded && !defaultsLoaded) return;
+    // Skip the first render after data is loaded (that's the hydration, not a user change)
+    if (!initialLoadDoneRef.current) {
+      initialLoadDoneRef.current = true;
+      return;
+    }
+    formDirtyRef.current = true;
+  }, [scopeProcesses, groupOrder, groupNotes, manualGroupNames, hourlyRate, gpPercentage, accompAnalyst, accompGP, travelLocalHours, travelTripHours, travelHourlyRate, additionalAnalystRate, additionalGpRate, proposalType, product, clientId, esnId, arquitetoId, description, expectedCloseDate, dateValidity, negotiation, numCompanies, scopeType]);
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);

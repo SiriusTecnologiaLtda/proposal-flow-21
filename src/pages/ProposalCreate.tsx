@@ -447,7 +447,7 @@ export default function ProposalCreate() {
       return;
     }
     formDirtyRef.current = true;
-  }, [scopeProcesses, groupOrder, groupNotes, manualGroupNames, hourlyRate, gpPercentage, accompAnalyst, accompGP, travelLocalHours, travelTripHours, travelHourlyRate, additionalAnalystRate, additionalGpRate, proposalType, product, clientId, esnId, arquitetoId, description, expectedCloseDate, dateValidity, negotiation, numCompanies, scopeType]);
+  }, [scopeProcesses, groupOrder, groupNotes, manualGroupNames, hourlyRate, gpPercentage, accompAnalyst, accompGP, travelLocalHours, travelTripHours, travelHourlyRate, additionalAnalystRate, additionalGpRate, proposalType, product, clientId, esnId, arquitetoId, description, expectedCloseDate, dateValidity, negotiation, scopeType]);
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);

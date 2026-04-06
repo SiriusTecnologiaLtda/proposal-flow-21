@@ -2836,7 +2836,7 @@ export default function ProposalCreate() {
                           setSolicitarEvDialogOpen(true);
                         }
                       }}
-                      disabled={isSaving || !clientId || !proposalNumber}
+                      disabled={isSaving || !clientId || !proposalNumber || !arquitetoId}
                     >
                       <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
                     </Button>

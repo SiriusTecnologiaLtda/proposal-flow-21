@@ -1311,7 +1311,7 @@ export default function ProposalCreate() {
       // Handle Solicitar EV flow after save
       if (status === "em_analise_ev" && savedId) {
         try {
-          // Update project status to em_revisao if project was auto-created
+          // Check if a project was already created (via scope auto-create)
           const { data: linkedProjects } = await supabase
             .from("projects")
             .select("id")
@@ -1319,6 +1319,21 @@ export default function ProposalCreate() {
           
           if (linkedProjects && linkedProjects.length > 0) {
             await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+          } else {
+            // No project exists (no scope was added) — create an empty project for the EV
+            const evProjectId = crypto.randomUUID();
+            const currentSession = (await supabase.auth.getSession()).data.session;
+            await supabase.from("projects").insert({
+              id: evProjectId,
+              client_id: clientId,
+              product,
+              description: description || "",
+              arquiteto_id: arquitetoId || null,
+              created_by: currentSession!.user.id,
+              status: "em_revisao",
+              proposal_id: savedId,
+              proposal_number: proposalNumber,
+            } as any);
           }
 
           // Send notification

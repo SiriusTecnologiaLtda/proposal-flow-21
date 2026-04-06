@@ -623,6 +623,7 @@ export default function ProposalCreate() {
    }, [clientProjects, addedProjectIds, isEditing, id]);
    const scopeLocked = hasLinkedProject || !!linkedProject;
    const proposalStatus = (existingProposal as any)?.status || "pendente";
+   const evAlreadyRequested = !!(existingProposal as any)?.ev_requested;
    const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
 
   // Round up to nearest multiple of rounding factor

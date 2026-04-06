@@ -2824,24 +2824,17 @@ export default function ProposalCreate() {
                 </Button>
               ) : (
                 <>
-                  {/* Solicitar Análise EV — visible on step 1 for new proposals */}
-                  {currentStep === 1 && !isConsulta && (
-                    <Button
-                      variant="outline"
-                      className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      onClick={() => {
-                        // If proposal not yet saved, save first then open dialog
-                        if (!isEditing) {
-                          handleSave("em_analise_ev");
-                        } else {
-                          setSolicitarEvDialogOpen(true);
-                        }
-                      }}
-                      disabled={isSaving || !clientId || !proposalNumber || !arquitetoId}
-                    >
-                      <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
-                    </Button>
-                  )}
+                   {/* Solicitar Análise EV — visible on step 1, hidden if already requested */}
+                   {currentStep === 1 && !isConsulta && !evAlreadyRequested && (
+                     <Button
+                       variant="outline"
+                       className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                       onClick={() => setSolicitarEvDialogOpen(true)}
+                       disabled={isSaving || !clientId || !proposalNumber || !arquitetoId}
+                     >
+                       <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
+                     </Button>
+                   )}
                   {currentStep === 4 && (
                     <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                       <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />

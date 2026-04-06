@@ -2680,14 +2680,35 @@ export default function ProposalCreate() {
             <Button
               disabled={solicitarEvSending}
               onClick={async () => {
-                if (!id || !linkedProject) return;
                 setSolicitarEvSending(true);
                 try {
-                  // Update proposal status to em_analise_ev
-                  await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", id);
+                  let proposalId = id;
 
-                  // Update project status to em_revisao
-                  await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+                  // If proposal not yet saved, save it first
+                  if (!isEditing) {
+                    const savedId = await handleSave("em_analise_ev");
+                    if (!savedId) {
+                      setSolicitarEvSending(false);
+                      return;
+                    }
+                    proposalId = savedId;
+                  } else {
+                    // Update existing proposal status
+                    await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", proposalId);
+
+                    // Update linked project status if exists
+                    if (linkedProject) {
+                      await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+                    } else {
+                      const { data: linkedProjects } = await supabase
+                        .from("projects")
+                        .select("id")
+                        .eq("proposal_id", proposalId!);
+                      if (linkedProjects && linkedProjects.length > 0) {
+                        await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+                      }
+                    }
+                  }
 
                   // Send notification
                   const session = (await supabase.auth.getSession()).data.session;
@@ -2701,10 +2722,10 @@ export default function ProposalCreate() {
                         Authorization: `Bearer ${session?.access_token}`,
                       },
                       body: JSON.stringify({
-                        proposalId: id,
+                        proposalId,
                         type: "solicitar_ajuste",
                         message: solicitarEvMessage || "Solicitação de revisão técnica do escopo.",
-                        proposalLink: `${window.location.origin}/propostas/${id}`,
+                        proposalLink: `${window.location.origin}/propostas/${proposalId}`,
                         _origin: window.location.origin,
                       }),
                     }

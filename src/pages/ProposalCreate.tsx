@@ -623,6 +623,7 @@ export default function ProposalCreate() {
    }, [clientProjects, addedProjectIds, isEditing, id]);
    const scopeLocked = hasLinkedProject || !!linkedProject;
    const proposalStatus = (existingProposal as any)?.status || "pendente";
+   const evAlreadyRequested = !!(existingProposal as any)?.ev_requested;
    const hideIncluirProjeto = isEditing && proposalStatus !== "pendente";
 
   // Round up to nearest multiple of rounding factor
@@ -1896,7 +1897,7 @@ export default function ProposalCreate() {
                 <Button size="sm" onClick={() => navigate(`/projetos/${linkedProject.id}?step=2`)}>
                   <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Editar Escopo
                 </Button>
-                {arquitetoId && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
+                {arquitetoId && !evAlreadyRequested && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
                   <Button variant="outline" size="sm" onClick={() => {
                     // Open notification dialog for Solicitar EV
                     setSolicitarEvDialogOpen(true);
@@ -2679,14 +2680,35 @@ export default function ProposalCreate() {
             <Button
               disabled={solicitarEvSending}
               onClick={async () => {
-                if (!id || !linkedProject) return;
                 setSolicitarEvSending(true);
                 try {
-                  // Update proposal status to em_analise_ev
-                  await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", id);
+                  let proposalId = id;
 
-                  // Update project status to em_revisao
-                  await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+                  // If proposal not yet saved, save it first
+                  if (!isEditing) {
+                    const savedId = await handleSave("em_analise_ev");
+                    if (!savedId) {
+                      setSolicitarEvSending(false);
+                      return;
+                    }
+                    proposalId = savedId;
+                  } else {
+                    // Update existing proposal status
+                    await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", proposalId);
+
+                    // Update linked project status if exists
+                    if (linkedProject) {
+                      await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
+                    } else {
+                      const { data: linkedProjects } = await supabase
+                        .from("projects")
+                        .select("id")
+                        .eq("proposal_id", proposalId!);
+                      if (linkedProjects && linkedProjects.length > 0) {
+                        await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+                      }
+                    }
+                  }
 
                   // Send notification
                   const session = (await supabase.auth.getSession()).data.session;
@@ -2700,10 +2722,10 @@ export default function ProposalCreate() {
                         Authorization: `Bearer ${session?.access_token}`,
                       },
                       body: JSON.stringify({
-                        proposalId: id,
+                        proposalId,
                         type: "solicitar_ajuste",
                         message: solicitarEvMessage || "Solicitação de revisão técnica do escopo.",
-                        proposalLink: `${window.location.origin}/propostas/${id}`,
+                        proposalLink: `${window.location.origin}/propostas/${proposalId}`,
                         _origin: window.location.origin,
                       }),
                     }
@@ -2823,24 +2845,17 @@ export default function ProposalCreate() {
                 </Button>
               ) : (
                 <>
-                  {/* Solicitar Análise EV — visible on step 1 for new proposals */}
-                  {currentStep === 1 && !isConsulta && (
-                    <Button
-                      variant="outline"
-                      className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                      onClick={() => {
-                        // If proposal not yet saved, save first then open dialog
-                        if (!isEditing) {
-                          handleSave("em_analise_ev");
-                        } else {
-                          setSolicitarEvDialogOpen(true);
-                        }
-                      }}
-                      disabled={isSaving || !clientId || !proposalNumber || !arquitetoId}
-                    >
-                      <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
-                    </Button>
-                  )}
+                   {/* Solicitar Análise EV — visible on step 1, hidden if already requested */}
+                   {currentStep === 1 && !isConsulta && !evAlreadyRequested && (
+                     <Button
+                       variant="outline"
+                       className="border-amber-500/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                       onClick={() => setSolicitarEvDialogOpen(true)}
+                       disabled={isSaving || !clientId || !proposalNumber || !arquitetoId}
+                     >
+                       <HardHat className="mr-2 h-4 w-4" />Solicitar Análise EV
+                     </Button>
+                   )}
                   {currentStep === 4 && (
                     <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
                       <Switch checked={generateOnSave} onCheckedChange={setGenerateOnSave} />

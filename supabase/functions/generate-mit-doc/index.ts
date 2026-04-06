@@ -462,6 +462,43 @@ Deno.serve(async (req) => {
       unitInfo = data;
     }
 
+    // ─── Find MIT template from proposal_types ──────────────────
+    log(logs, "Buscar template MIT", "info", `Buscando template MIT para tipo "${proposal.type}"...`);
+    const { data: proposalTypeRow } = await supabase
+      .from("proposal_types")
+      .select("mit_template_doc_id")
+      .eq("slug", proposal.type)
+      .maybeSingle();
+
+    const mitTemplateDocId = proposalTypeRow?.mit_template_doc_id;
+    if (!mitTemplateDocId) {
+      log(logs, "Buscar template MIT", "error", `Nenhum template MIT-065 configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.`);
+      return respondWithLogs(logs, { error: `Nenhum template MIT-065 configurado para o tipo "${proposal.type}". Configure em Tipos de Proposta.` }, 404);
+    }
+    log(logs, "Buscar template MIT", "ok", `Template MIT ID: ${mitTemplateDocId}`);
+
+    // ─── Check existing MIT versions ────────────────────────────
+    const client = proposal.clients;
+    const mitBaseName = `MIT-065 - ${proposal.number} - ${client?.name || "Cliente"}`;
+    const existingMitFiles = await listFilesInFolder(accessToken, outputFolderId, mitBaseName);
+    const version = existingMitFiles.length + 1;
+    const newFileName = `${mitBaseName} v${version}`;
+    log(logs, "Versionamento MIT", "ok", `Versão ${version} — Nome: "${newFileName}"`);
+
+    // ─── Check folder type (Shared Drive vs personal) ───────────
+    const folderInfo = await getFolderDriveInfo(accessToken, outputFolderId, logs);
+
+    // ─── Copy MIT template ──────────────────────────────────────
+    log(logs, "Copiar template MIT", "info", `Criando cópia do template no Drive...`);
+    let newDocId: string;
+    try {
+      newDocId = await copyFile(accessToken, mitTemplateDocId, newFileName, outputFolderId, folderInfo.driveId, logs);
+      log(logs, "Copiar template MIT", "ok", `Documento criado: ${newDocId}`);
+    } catch (e: any) {
+      log(logs, "Copiar template MIT", "error", `Falha ao copiar template: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
     // ─── Fetch proposal service items ───────────────────────────
     const { data: serviceItems = [] } = await supabase
       .from("proposal_service_items")

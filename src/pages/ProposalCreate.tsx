@@ -1897,7 +1897,7 @@ export default function ProposalCreate() {
                 <Button size="sm" onClick={() => navigate(`/projetos/${linkedProject.id}?step=2`)}>
                   <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Editar Escopo
                 </Button>
-                {arquitetoId && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
+                {arquitetoId && !evAlreadyRequested && (proposalStatus === "pendente" || proposalStatus === "proposta_gerada" || proposalStatus === "analise_ev_concluida") && (
                   <Button variant="outline" size="sm" onClick={() => {
                     // Open notification dialog for Solicitar EV
                     setSolicitarEvDialogOpen(true);

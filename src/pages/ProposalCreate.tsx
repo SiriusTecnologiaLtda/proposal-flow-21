@@ -1373,11 +1373,13 @@ export default function ProposalCreate() {
 
       // If stayOnPage, return savedId without navigating
       if (opts?.stayOnPage) {
+        formDirtyRef.current = false;
         // Refresh queries so linked project data is available
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         return savedId;
       }
+      formDirtyRef.current = false;
 
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -185,6 +185,9 @@ export default function ProposalCreate() {
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
+  // Track whether form has unsaved changes (to skip unnecessary auto-saves on step transitions)
+  const formDirtyRef = useRef(false);
+  const markDirty = useCallback(() => { formDirtyRef.current = true; }, []);
   // Solicitar EV dialog state
   const [solicitarEvDialogOpen, setSolicitarEvDialogOpen] = useState(false);
   const [solicitarEvMessage, setSolicitarEvMessage] = useState("");
@@ -434,6 +437,17 @@ export default function ProposalCreate() {
     }
   }, [user?.email, salesTeam, isEditing, isDuplicating, esnId]);
 
+  // Mark form as dirty when user changes scope, financial params, or general data after initial load
+  const initialLoadDoneRef = useRef(false);
+  useEffect(() => {
+    if (!loaded && !defaultsLoaded) return;
+    // Skip the first render after data is loaded (that's the hydration, not a user change)
+    if (!initialLoadDoneRef.current) {
+      initialLoadDoneRef.current = true;
+      return;
+    }
+    formDirtyRef.current = true;
+  }, [scopeProcesses, groupOrder, groupNotes, manualGroupNames, hourlyRate, gpPercentage, accompAnalyst, accompGP, travelLocalHours, travelTripHours, travelHourlyRate, additionalAnalystRate, additionalGpRate, proposalType, product, clientId, esnId, arquitetoId, description, expectedCloseDate, dateValidity, negotiation, scopeType]);
   const selectedEsn = salesTeam.find((m) => m.id === esnId);
   const autoGsn = selectedEsn?.linked_gsn_id ? salesTeam.find((m) => m.id === selectedEsn.linked_gsn_id) : null;
   const selectedClient = clients.find((c) => c.id === clientId);
@@ -1370,11 +1384,13 @@ export default function ProposalCreate() {
 
       // If stayOnPage, return savedId without navigating
       if (opts?.stayOnPage) {
+        formDirtyRef.current = false;
         // Refresh queries so linked project data is available
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         return savedId;
       }
+      formDirtyRef.current = false;
 
       // Navigate to list — if generating, pass query param so list opens the console dialog
       if (status === "proposta_gerada" && savedId) {
@@ -1414,7 +1430,7 @@ export default function ProposalCreate() {
   async function handleNext() {
     const next = Math.min(4, currentStep + 1);
 
-    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save
+    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save only if dirty
     if (currentStep === 2 && next === 3) {
       // Check if scope has items
       const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => 
@@ -1430,36 +1446,36 @@ export default function ProposalCreate() {
         return;
       }
 
-      // Auto-save the opportunity to create/update the project
-      setIsAutoSaving(true);
-      try {
-        const savedId = await handleSave("pendente", { stayOnPage: true });
-        if (!savedId) {
-          setIsAutoSaving(false);
-          return; // handleSave already showed error toast
-        }
+      // Only auto-save if there are unsaved changes or if this is a new proposal
+      if (formDirtyRef.current || !isEditing) {
+        setIsAutoSaving(true);
+        try {
+          const savedId = await handleSave("pendente", { stayOnPage: true });
+          if (!savedId) {
+            setIsAutoSaving(false);
+            return;
+          }
 
-        // If this was a new proposal, redirect to edit mode so subsequent saves work correctly
-        if (!isEditing) {
-          navigate(`/propostas/${savedId}?step=3`, { replace: true });
+          if (!isEditing) {
+            navigate(`/propostas/${savedId}?step=3`, { replace: true });
+            setIsAutoSaving(false);
+            return;
+          }
+
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
+            queryClient.refetchQueries({ queryKey: ["projects"] }),
+            queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
+          ]);
+
+          toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
+        } catch (err: any) {
+          toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
           setIsAutoSaving(false);
           return;
         }
-
-        // Refresh data to get the linked project and service items
-        await Promise.all([
-          queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
-          queryClient.refetchQueries({ queryKey: ["projects"] }),
-          queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
-        ]);
-
-        toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
-      } catch (err: any) {
-        toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
         setIsAutoSaving(false);
-        return;
       }
-      setIsAutoSaving(false);
     }
 
     setMaxUnlockedStep((prev) => Math.max(prev, next));

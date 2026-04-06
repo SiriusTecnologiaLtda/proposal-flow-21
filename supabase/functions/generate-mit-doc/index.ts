@@ -400,6 +400,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Google Auth ────────────────────────────────────────────
+    log(logs, "Autenticação Google", "info", `Obtendo token de acesso (${authType})...`);
+    let accessToken: string;
+    try {
+      if (authType === "oauth2") {
+        accessToken = await getAccessTokenOAuth2(oauthClientId, oauthClientSecret, oauthRefreshToken);
+      } else {
+        accessToken = await getAccessTokenServiceAccount(serviceAccountKey);
+      }
+      log(logs, "Autenticação Google", "ok", "Token obtido com sucesso");
+    } catch (e: any) {
+      log(logs, "Autenticação Google", "error", `Falha na autenticação: ${e.message}`);
+      return respondWithLogs(logs, { error: e.message }, 500);
+    }
+
     // ─── Fetch proposal data ────────────────────────────────────
     log(logs, "Buscar proposta", "info", `Buscando proposta ${proposalId}...`);
     const { data: proposal, error: propError } = await supabase

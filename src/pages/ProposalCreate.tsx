@@ -185,6 +185,9 @@ export default function ProposalCreate() {
   const [manualGroupNames, setManualGroupNames] = useState<Record<string, string>>({});
   const [groupNotes, setGroupNotes] = useState<Record<string, string>>({});
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
+  // Track whether form has unsaved changes (to skip unnecessary auto-saves on step transitions)
+  const formDirtyRef = useRef(false);
+  const markDirty = useCallback(() => { formDirtyRef.current = true; }, []);
   // Solicitar EV dialog state
   const [solicitarEvDialogOpen, setSolicitarEvDialogOpen] = useState(false);
   const [solicitarEvMessage, setSolicitarEvMessage] = useState("");

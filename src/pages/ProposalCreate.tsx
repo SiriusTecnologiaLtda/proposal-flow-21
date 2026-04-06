@@ -1417,7 +1417,7 @@ export default function ProposalCreate() {
   async function handleNext() {
     const next = Math.min(4, currentStep + 1);
 
-    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save
+    // When going from Escopo (2) to Financeiro (3), validate scope and auto-save only if dirty
     if (currentStep === 2 && next === 3) {
       // Check if scope has items
       const hasScope = scopeProcesses.length > 0 && scopeProcesses.some(p => 
@@ -1433,36 +1433,36 @@ export default function ProposalCreate() {
         return;
       }
 
-      // Auto-save the opportunity to create/update the project
-      setIsAutoSaving(true);
-      try {
-        const savedId = await handleSave("pendente", { stayOnPage: true });
-        if (!savedId) {
-          setIsAutoSaving(false);
-          return; // handleSave already showed error toast
-        }
+      // Only auto-save if there are unsaved changes or if this is a new proposal
+      if (formDirtyRef.current || !isEditing) {
+        setIsAutoSaving(true);
+        try {
+          const savedId = await handleSave("pendente", { stayOnPage: true });
+          if (!savedId) {
+            setIsAutoSaving(false);
+            return;
+          }
 
-        // If this was a new proposal, redirect to edit mode so subsequent saves work correctly
-        if (!isEditing) {
-          navigate(`/propostas/${savedId}?step=3`, { replace: true });
+          if (!isEditing) {
+            navigate(`/propostas/${savedId}?step=3`, { replace: true });
+            setIsAutoSaving(false);
+            return;
+          }
+
+          await Promise.all([
+            queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
+            queryClient.refetchQueries({ queryKey: ["projects"] }),
+            queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
+          ]);
+
+          toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
+        } catch (err: any) {
+          toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
           setIsAutoSaving(false);
           return;
         }
-
-        // Refresh data to get the linked project and service items
-        await Promise.all([
-          queryClient.refetchQueries({ queryKey: ["proposal", savedId] }),
-          queryClient.refetchQueries({ queryKey: ["projects"] }),
-          queryClient.refetchQueries({ queryKey: ["proposal-service-items", savedId] }),
-        ]);
-
-        toast({ title: "Oportunidade salva", description: "Prosseguindo para o Financeiro..." });
-      } catch (err: any) {
-        toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
         setIsAutoSaving(false);
-        return;
       }
-      setIsAutoSaving(false);
     }
 
     setMaxUnlockedStep((prev) => Math.max(prev, next));

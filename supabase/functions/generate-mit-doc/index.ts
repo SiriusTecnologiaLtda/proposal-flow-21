@@ -588,7 +588,7 @@ Deno.serve(async (req) => {
     const taxFactor = unitInfo?.tax_factor || 0;
     const totalValueGross = taxFactor > 0 ? totalValueNet / taxFactor : totalValueNet;
 
-    const client = proposal.clients;
+    // client already declared above
     const esn = proposal.esn;
     const gsn = proposal.gsn;
     const arq = proposal.arquiteto;

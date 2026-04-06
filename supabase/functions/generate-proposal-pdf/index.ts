@@ -597,9 +597,10 @@ async function buildOrderedGroups(
   const processGroupMap: Record<string, string> = groupNotes?._process_group_map || {};
   const groupOrder: string[] = Array.isArray(groupNotes?._group_order) ? groupNotes._group_order : [];
 
-  const includedItems = scopeItems.filter((i: any) => i.included);
-  const parentItems = includedItems.filter((i: any) => !i.parent_id);
-  const childItems = includedItems.filter((i: any) => i.parent_id);
+  // Include ALL items (enabled + disabled) so disabled ones appear with strikethrough styling
+  const allItems = scopeItems;
+  const parentItems = allItems.filter((i: any) => !i.parent_id);
+  const childItems = allItems.filter((i: any) => i.parent_id);
 
   // Build children lookup
   const childrenByParent: Record<string, any[]> = {};

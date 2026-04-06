@@ -2711,7 +2711,7 @@ export default function ProposalCreate() {
                     // Update existing proposal status
                     await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", proposalId);
 
-                    // Update linked project status if exists
+                    // Update linked project status if exists, or create one
                     if (linkedProject) {
                       await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProject.id);
                     } else {
@@ -2721,6 +2721,21 @@ export default function ProposalCreate() {
                         .eq("proposal_id", proposalId!);
                       if (linkedProjects && linkedProjects.length > 0) {
                         await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+                      } else {
+                        // No project exists — create an empty project for the EV
+                        const evProjectId = crypto.randomUUID();
+                        const currentSession = (await supabase.auth.getSession()).data.session;
+                        await supabase.from("projects").insert({
+                          id: evProjectId,
+                          client_id: clientId,
+                          product,
+                          description: description || "",
+                          arquiteto_id: arquitetoId || null,
+                          created_by: currentSession!.user.id,
+                          status: "em_revisao",
+                          proposal_id: proposalId,
+                          proposal_number: proposalNumber,
+                        } as any);
                       }
                     }
                   }

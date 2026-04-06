@@ -2431,11 +2431,25 @@ export default function ProposalCreate() {
             {goLiveItems.length > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-xs font-semibold text-muted-foreground mb-1.5">Acompanhamento Pós Go-Live</p>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {goLiveItems.map((item) => (
-                    <div key={`golive-${item.id}`} className="flex justify-between text-xs text-muted-foreground">
-                      <span>{item.label} ({item.golive_pct}%)</span>
-                      <span>{item.golive_hours}h</span>
+                    <div key={`golive-${item.id}`} className="flex items-center justify-between text-xs text-muted-foreground gap-2">
+                      <span className="flex-1">{item.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={item.golive_pct}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.min(100, Number(e.target.value)));
+                            updateServiceItem(item.id, { golive_pct: val });
+                          }}
+                          className="w-14 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-center text-foreground"
+                        />
+                        <span className="text-muted-foreground">%</span>
+                        <span className="ml-2 w-12 text-right font-medium">{item.golive_hours}h</span>
+                      </div>
                     </div>
                   ))}
                 </div>

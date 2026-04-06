@@ -947,15 +947,39 @@ export default function ProposalsList() {
     if (!deleteId) return;
     setDeleteLoading(true);
     try {
-      // Delete linked projects first
+      // 1. Fetch all Google Drive documents linked to this proposal
+      const { data: docs } = await supabase
+        .from("proposal_documents")
+        .select("doc_id")
+        .eq("proposal_id", deleteId);
+
+      const docIds = (docs || []).map(d => d.doc_id).filter(Boolean);
+
+      // 2. Delete documents from Google Drive (best-effort, don't block deletion)
+      if (docIds.length > 0) {
+        try {
+          await supabase.functions.invoke("delete-drive-documents", {
+            body: { doc_ids: docIds },
+          });
+        } catch (driveErr: any) {
+          console.warn("Falha ao excluir documentos do Drive:", driveErr.message);
+        }
+      }
+
+      // 3. Delete linked projects first
       for (const proj of linkedProjects) {
         await supabase.from("project_scope_items").delete().eq("project_id", proj.id);
         await supabase.from("project_attachments").delete().eq("project_id", proj.id);
         await supabase.from("projects").delete().eq("id", proj.id);
       }
+
+      // 4. Delete the proposal (cascade handles proposal_documents, service_items, etc.)
       await deleteProposal.mutateAsync(deleteId);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      toast({ title: "Oportunidade excluída", description: linkedProjects.length > 0 ? `${linkedProjects.length} projeto(s) vinculado(s) também removido(s).` : undefined });
+
+      const driveMsg = docIds.length > 0 ? ` ${docIds.length} documento(s) removido(s) do Drive.` : "";
+      const projMsg = linkedProjects.length > 0 ? `${linkedProjects.length} projeto(s) vinculado(s) também removido(s).` : "";
+      toast({ title: "Oportunidade excluída", description: (projMsg + driveMsg).trim() || undefined });
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
     }

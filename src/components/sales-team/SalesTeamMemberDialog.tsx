@@ -70,7 +70,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
       .order("code");
     setLoadingCrm(false);
     if (!error && data) {
-      setCrmCodes(data.map((d: any) => ({ id: d.id, code: d.code, description: d.description })));
+      setCrmCodes(data.map((d: any) => ({ id: d.id, code: d.code, description: d.description, unit_id: d.unit_id || "" })));
     }
   };
 

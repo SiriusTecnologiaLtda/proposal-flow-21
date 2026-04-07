@@ -225,24 +225,30 @@ export default function SalesTargetsPage() {
 
   async function saveEditDialog() {
     if (!editRow) return;
+    if (!editUnitId) {
+      toast({ title: "Selecione uma unidade", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       for (let m = 1; m <= 12; m++) {
         const newAmount = Number(editMonthValues[m]) || 0;
         const existing = editRow.months[m];
         if (existing) {
-          if (existing.amount !== newAmount) {
-            const { error } = await supabase.from("sales_targets").update({ amount: newAmount }).eq("id", existing.id);
+          const updates: any = {};
+          if (existing.amount !== newAmount) updates.amount = newAmount;
+          if (existing.unit_id !== editUnitId) updates.unit_id = editUnitId;
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from("sales_targets").update(updates).eq("id", existing.id);
             if (error) throw error;
           }
         } else if (newAmount > 0) {
-          const member = esnMap.get(editRow.esn_id);
           const insertData: any = {
             esn_id: editRow.esn_id,
             year: Number(yearFilter),
             month: m,
             amount: newAmount,
-            unit_id: member?.unit_id || editRow.unit_id,
+            unit_id: editUnitId,
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;

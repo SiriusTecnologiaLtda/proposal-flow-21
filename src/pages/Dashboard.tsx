@@ -997,7 +997,11 @@ export default function Dashboard() {
 
       {/* ─── Filter Bar ──────────────────────────────────────── */}
       <Card className="overflow-hidden">
-        <div className="flex items-center gap-3 border-b border-border bg-accent/30 px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          className="flex w-full items-center gap-3 border-b border-border bg-accent/30 px-4 py-2.5 text-left transition-colors hover:bg-accent/50"
+        >
           <div className="flex items-center gap-2 text-muted-foreground">
             <SlidersHorizontal className="h-4 w-4" />
             <span className="text-xs font-semibold uppercase tracking-wider">Filtros</span>
@@ -1017,7 +1021,8 @@ export default function Dashboard() {
               variant="ghost"
               size="sm"
               className="h-7 text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 handlePreset("this_year");
                 setSelectedRoleFilter("all");
                 setSelectedUnitId("all");
@@ -1030,8 +1035,18 @@ export default function Dashboard() {
               Limpar tudo
             </Button>
           )}
-        </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", filtersOpen && "rotate-180")} />
+        </button>
 
+        <AnimatePresence initial={false}>
+          {filtersOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
         <CardContent className="p-4">
           <div className="flex flex-wrap items-start gap-4">
             {/* Period */}

@@ -1528,7 +1528,6 @@ export default function ProposalCreate() {
 
   console.log("[ProposalCreate] Render:", { currentStep, isEditing, loaded, clientId, esnId, proposalType, scopeProcessesCount: scopeProcesses.length });
 
-  try {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       {/* ─── Hero Header ─────────────────────────────────────────── */}

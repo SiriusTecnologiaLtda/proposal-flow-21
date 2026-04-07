@@ -159,73 +159,13 @@ export default function SalesTeamPage() {
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Membro" : "Novo Membro"}</DialogTitle>
-            <DialogDescription>Preencha os dados do membro do time de vendas.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1">
-              <Label className="text-xs">Nome *</Label>
-              <Input placeholder="Nome completo" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Código *</Label>
-              <Input placeholder="Ex: ESN001" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">E-mail</Label>
-              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Celular (WhatsApp)</Label>
-              <Input type="tel" placeholder="+5511999999999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Função *</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
-                  <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
-                  <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-                  <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Unidade</Label>
-              <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.role === "esn" && (
-              <div className="grid gap-1">
-                <Label className="text-xs">GSN vinculado</Label>
-                <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                  <SelectContent>
-                    {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {(form.role === "esn" || form.role === "arquiteto") && (
-              <div className="grid gap-1">
-                <Label className="text-xs">% Comissão</Label>
-                <Input type="number" step="0.01" min="0" max="100" placeholder={form.role === "arquiteto" ? "1.31" : "3"} value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
-              </div>
-            )}
-            <Button className="mt-2" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SalesTeamMemberDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        member={editingMember}
+        units={units}
+        gsnMembers={gsnMembers}
+      />
 
       {(["gsn", "esn", "arquiteto"] as const).map((role) => {
         const members = grouped[role] || [];

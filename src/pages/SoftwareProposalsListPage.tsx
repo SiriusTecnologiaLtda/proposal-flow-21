@@ -367,6 +367,8 @@ export default function SoftwareProposalsListPage() {
                 e.stopPropagation();
                 setStatusFilter([]);
                 setOriginFilter([]);
+                setUnitFilter([]);
+                setMemberFilter([]);
                 setPeriodFilter("este_ano");
                 setCustomStart("");
                 setCustomEnd("");

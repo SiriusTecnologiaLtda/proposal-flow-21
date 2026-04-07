@@ -283,7 +283,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_targets")
-        .select("id, esn_id, month, amount, category_id, role")
+        .select("id, esn_id, month, amount, category_id, role, unit_id")
         .eq("year", selectedYear);
       if (error) throw error;
       return data || [];

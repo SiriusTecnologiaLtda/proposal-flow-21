@@ -1904,6 +1904,7 @@ export type Database = {
           month: number
           role: Database["public"]["Enums"]["sales_role"]
           segment_id: string
+          unit_id: string
           updated_at: string
           year: number
         }
@@ -1916,6 +1917,7 @@ export type Database = {
           month: number
           role?: Database["public"]["Enums"]["sales_role"]
           segment_id: string
+          unit_id: string
           updated_at?: string
           year: number
         }
@@ -1928,6 +1930,7 @@ export type Database = {
           month?: number
           role?: Database["public"]["Enums"]["sales_role"]
           segment_id?: string
+          unit_id?: string
           updated_at?: string
           year?: number
         }
@@ -1951,6 +1954,13 @@ export type Database = {
             columns: ["segment_id"]
             isOneToOne: false
             referencedRelation: "software_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_targets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
             referencedColumns: ["id"]
           },
         ]

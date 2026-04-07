@@ -2012,6 +2012,41 @@ export type Database = {
           },
         ]
       }
+      sales_team_crm_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          id: string
+          sales_team_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string
+          id?: string
+          sales_team_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          id?: string
+          sales_team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_team_crm_codes_sales_team_id_fkey"
+            columns: ["sales_team_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scope_template_items: {
         Row: {
           default_hours: number

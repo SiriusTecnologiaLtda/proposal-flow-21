@@ -5,13 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import BatchCommissionDialog from "@/components/sales-team/BatchCommissionDialog";
 import TransferAccountsDialog from "@/components/sales-team/TransferAccountsDialog";
 import TransferGsnDialog from "@/components/sales-team/TransferGsnDialog";
+import SalesTeamMemberDialog from "@/components/sales-team/SalesTeamMemberDialog";
 import { useSalesTeam, useUnits } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,8 +27,6 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "" };
-
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
   const [search, setSearch] = useState("");
@@ -41,9 +37,7 @@ export default function SalesTeamPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<any>(null);
   const [transferMember, setTransferMember] = useState<any>(null);
   const [transferGsnMember, setTransferGsnMember] = useState<any>(null);
   const [batchCommissionOpen, setBatchCommissionOpen] = useState(false);
@@ -51,55 +45,13 @@ export default function SalesTeamPage() {
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
   const openNew = () => {
-    setEditingId(null);
-    setForm(emptyForm);
+    setEditingMember(null);
     setDialogOpen(true);
   };
 
   const openEdit = (member: any) => {
-    setEditingId(member.id);
-    setForm({
-      name: member.name || "",
-      code: member.code || "",
-      email: member.email || "",
-      phone: (member as any).phone || "",
-      role: member.role || "",
-      unit_id: member.unit_id || "",
-      linked_gsn_id: member.linked_gsn_id || "",
-      commission_pct: String((member as any).commission_pct ?? 3),
-    });
+    setEditingMember(member);
     setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!form.name || !form.code || !form.role) {
-      toast({ title: "Preencha Nome, Código e Função", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    const payload: any = {
-      name: form.name,
-      code: form.code,
-      email: form.email || null,
-      phone: form.phone || null,
-      role: form.role as any,
-      unit_id: form.unit_id || null,
-      linked_gsn_id: form.linked_gsn_id || null,
-      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : form.role === "arquiteto" ? parseFloat(form.commission_pct) || 1.31 : 0,
-    };
-    const { error } = editingId
-      ? await supabase.from("sales_team").update(payload).eq("id", editingId)
-      : await supabase.from("sales_team").insert(payload);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: editingId ? "Membro atualizado!" : "Membro adicionado!" });
-      qc.invalidateQueries({ queryKey: ["sales_team"] });
-      setDialogOpen(false);
-      setForm(emptyForm);
-      setEditingId(null);
-    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -207,73 +159,13 @@ export default function SalesTeamPage() {
         </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar Membro" : "Novo Membro"}</DialogTitle>
-            <DialogDescription>Preencha os dados do membro do time de vendas.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1">
-              <Label className="text-xs">Nome *</Label>
-              <Input placeholder="Nome completo" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Código *</Label>
-              <Input placeholder="Ex: ESN001" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">E-mail</Label>
-              <Input type="email" placeholder="email@exemplo.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Celular (WhatsApp)</Label>
-              <Input type="tel" placeholder="+5511999999999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Função *</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dsn">Diretor de Vendas (DSN)</SelectItem>
-                  <SelectItem value="esn">Executivo de Vendas (ESN)</SelectItem>
-                  <SelectItem value="gsn">Gerente de Vendas (GSN)</SelectItem>
-                  <SelectItem value="arquiteto">Engenheiro de Valor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs">Unidade</Label>
-              <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.role === "esn" && (
-              <div className="grid gap-1">
-                <Label className="text-xs">GSN vinculado</Label>
-                <Select value={form.linked_gsn_id} onValueChange={(v) => setForm((f) => ({ ...f, linked_gsn_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o GSN" /></SelectTrigger>
-                  <SelectContent>
-                    {gsnMembers.map((m) => (<SelectItem key={m.id} value={m.id}>{m.code} - {m.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {(form.role === "esn" || form.role === "arquiteto") && (
-              <div className="grid gap-1">
-                <Label className="text-xs">% Comissão</Label>
-                <Input type="number" step="0.01" min="0" max="100" placeholder={form.role === "arquiteto" ? "1.31" : "3"} value={form.commission_pct} onChange={(e) => setForm((f) => ({ ...f, commission_pct: e.target.value }))} className="w-32" />
-              </div>
-            )}
-            <Button className="mt-2" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SalesTeamMemberDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        member={editingMember}
+        units={units}
+        gsnMembers={gsnMembers}
+      />
 
       {(["gsn", "esn", "arquiteto"] as const).map((role) => {
         const members = grouped[role] || [];

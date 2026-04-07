@@ -280,13 +280,24 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-[1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                    <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                      <span>Unidade</span>
                       <span>Código</span>
                       <span>Descrição</span>
                       <span className="w-8" />
                     </div>
                     {crmCodes.map((crm, index) => (
-                      <div key={crm.id || `new-${index}`} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                      <div key={crm.id || `new-${index}`} className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 items-center">
+                        <Select value={crm.unit_id} onValueChange={(v) => updateCrmCode(index, "unit_id", v)}>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Unidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>{u.code || u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           placeholder="Código"
                           value={crm.code}

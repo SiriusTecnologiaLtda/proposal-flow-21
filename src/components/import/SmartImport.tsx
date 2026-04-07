@@ -1276,13 +1276,13 @@ export default function SmartImport() {
     }
 
     // Load all sales team members
-    const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role");
-    const memberMap = new Map<string, { id: string; role: string }>();
+    const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role, unit_id");
+    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
-      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role });
-      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role });
+      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id });
+      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id });
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
@@ -1373,6 +1373,7 @@ export default function SmartImport() {
       const memberByName = memberMap.get(esnName);
       const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
+      const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
 
       if (!esnId) {
         errors++;
@@ -1443,7 +1444,7 @@ export default function SmartImport() {
         if (existingId) {
           toUpdate.push({ id: existingId, amount });
         } else {
-          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, _line: lineNum, _owner: esnLabel, _month: m });
+          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: memberUnitId, _line: lineNum, _owner: esnLabel, _month: m });
         }
       }
 

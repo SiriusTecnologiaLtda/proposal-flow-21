@@ -283,7 +283,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_targets")
-        .select("id, esn_id, month, amount, category_id, role")
+        .select("id, esn_id, month, amount, category_id, role, unit_id")
         .eq("year", selectedYear);
       if (error) throw error;
       return data || [];
@@ -562,7 +562,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       if (effectiveScopeIds && !effectiveScopeIds.has(target.esn_id)) continue;
       if (selectedCategoryId !== "all" && target.category_id !== selectedCategoryId) continue;
 
-      const unitId = target.esn_id ? memberUnitMap.get(target.esn_id) : null;
+      const unitId = target.unit_id || (target.esn_id ? memberUnitMap.get(target.esn_id) : null);
       if (!unitId) continue;
 
       ensureUnit(unitId);

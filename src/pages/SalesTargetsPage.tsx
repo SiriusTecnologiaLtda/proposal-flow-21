@@ -45,7 +45,7 @@ type GroupedRow = {
   code: string;
   unit_id: string | null;
   linked_gsn_id: string | null;
-  months: Record<number, { id: string; amount: number }>;
+  months: Record<number, { id: string; amount: number; unit_id?: string }>;
 };
 
 export default function SalesTargetsPage() {
@@ -133,7 +133,7 @@ export default function SalesTargetsPage() {
           months: {},
         });
       }
-      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount };
+      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount, unit_id: (t as any).unit_id };
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, esnMap]);
@@ -167,6 +167,9 @@ export default function SalesTargetsPage() {
 
   const addEsnMutation = useMutation({
     mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string> }) => {
+      const member = esnMap.get(esn_id);
+      const memberUnitId = member?.unit_id;
+      if (!memberUnitId) throw new Error("Membro sem unidade vinculada. Vincule uma unidade ao membro antes de criar metas.");
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
@@ -175,6 +178,7 @@ export default function SalesTargetsPage() {
         category_id,
         segment_id,
         role,
+        unit_id: memberUnitId,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
@@ -230,11 +234,13 @@ export default function SalesTargetsPage() {
             if (error) throw error;
           }
         } else if (newAmount > 0) {
+          const member = esnMap.get(editRow.esn_id);
           const insertData: any = {
             esn_id: editRow.esn_id,
             year: Number(yearFilter),
             month: m,
             amount: newAmount,
+            unit_id: member?.unit_id || editRow.unit_id,
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;

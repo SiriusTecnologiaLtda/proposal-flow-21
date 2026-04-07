@@ -45,7 +45,7 @@ type GroupedRow = {
   code: string;
   unit_id: string | null;
   linked_gsn_id: string | null;
-  months: Record<number, { id: string; amount: number }>;
+  months: Record<number, { id: string; amount: number; unit_id?: string }>;
 };
 
 export default function SalesTargetsPage() {

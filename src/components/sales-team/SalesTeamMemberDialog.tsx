@@ -14,6 +14,7 @@ interface CrmCode {
   id?: string;
   code: string;
   description: string;
+  unit_id: string;
   isNew?: boolean;
 }
 
@@ -69,7 +70,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
       .order("code");
     setLoadingCrm(false);
     if (!error && data) {
-      setCrmCodes(data.map((d: any) => ({ id: d.id, code: d.code, description: d.description })));
+      setCrmCodes(data.map((d: any) => ({ id: d.id, code: d.code, description: d.description, unit_id: d.unit_id || "" })));
     }
   };
 
@@ -104,14 +105,14 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
 
   // CRM codes management
   const addCrmCode = () => {
-    setCrmCodes((prev) => [...prev, { code: "", description: "", isNew: true }]);
+    setCrmCodes((prev) => [...prev, { code: "", description: "", unit_id: "", isNew: true }]);
   };
 
   const removeCrmCode = (index: number) => {
     setCrmCodes((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateCrmCode = (index: number, field: "code" | "description", value: string) => {
+  const updateCrmCode = (index: number, field: "code" | "description" | "unit_id", value: string) => {
     setCrmCodes((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
   };
 
@@ -129,6 +130,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
           sales_team_id: member.id,
           code: c.code.trim(),
           description: c.description.trim(),
+          unit_id: c.unit_id || null,
         }))
       );
       if (error) {
@@ -278,13 +280,24 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-[1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                    <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                      <span>Unidade</span>
                       <span>Código</span>
                       <span>Descrição</span>
                       <span className="w-8" />
                     </div>
                     {crmCodes.map((crm, index) => (
-                      <div key={crm.id || `new-${index}`} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                      <div key={crm.id || `new-${index}`} className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 items-center">
+                        <Select value={crm.unit_id} onValueChange={(v) => updateCrmCode(index, "unit_id", v)}>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Unidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>{u.code || u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           placeholder="Código"
                           value={crm.code}

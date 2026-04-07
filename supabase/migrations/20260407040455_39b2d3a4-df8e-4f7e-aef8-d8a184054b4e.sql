@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_team_crm_codes ADD COLUMN unit_id uuid REFERENCES public.unit_info(id) ON DELETE SET NULL;

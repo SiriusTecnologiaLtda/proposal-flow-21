@@ -266,7 +266,22 @@ export default function SoftwareProposalsListPage() {
   const activeFilterCount =
     (statusFilter.length > 0 ? 1 : 0) +
     (originFilter.length > 0 ? 1 : 0) +
+    (unitFilter.length > 0 ? 1 : 0) +
+    (memberFilter.length > 0 ? 1 : 0) +
     (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+
+  const filteredUnits = useMemo(() => {
+    if (!unitSearch.trim()) return units;
+    const q = unitSearch.toLowerCase();
+    return units.filter((u: any) => u.name?.toLowerCase().includes(q));
+  }, [units, unitSearch]);
+
+  const filteredMembers = useMemo(() => {
+    const all = salesTeam || [];
+    if (!memberSearch.trim()) return all;
+    const q = memberSearch.toLowerCase();
+    return all.filter((m: any) => m.name?.toLowerCase().includes(q) || m.code?.toLowerCase().includes(q));
+  }, [salesTeam, memberSearch]);
 
   return (
     <div className="space-y-4">

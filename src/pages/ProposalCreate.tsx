@@ -1429,6 +1429,7 @@ export default function ProposalCreate() {
 
   async function handleNext() {
     const next = Math.min(4, currentStep + 1);
+    console.log("[ProposalCreate] handleNext called:", { currentStep, next, isEditing, loaded });
 
     // When going from Escopo (2) to Financeiro (3), validate scope and auto-save only if dirty
     if (currentStep === 2 && next === 3) {
@@ -1478,6 +1479,7 @@ export default function ProposalCreate() {
       }
     }
 
+    console.log("[ProposalCreate] Setting step to:", next);
     setMaxUnlockedStep((prev) => Math.max(prev, next));
     setCurrentStep(next);
   }
@@ -1523,6 +1525,8 @@ export default function ProposalCreate() {
   if (isEditing && !loaded && !loadingProposal && !existingProposal && !proposalError) {
     console.warn("[ProposalCreate] Proposta não encontrada (sem erro):", { id, loadingProposal, proposalError });
   }
+
+  console.log("[ProposalCreate] Render:", { currentStep, isEditing, loaded, clientId, esnId, proposalType, scopeProcessesCount: scopeProcesses.length });
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">

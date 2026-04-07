@@ -1398,6 +1398,9 @@ export default function Dashboard() {
             </div>
           </div>
         </CardContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
 
       {/* ─── Tabs ────────────────────────────────────────────── */}

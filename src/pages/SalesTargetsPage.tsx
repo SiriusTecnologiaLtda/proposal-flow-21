@@ -785,8 +785,8 @@ export default function SalesTargetsPage() {
             </Button>
             {isCreateMode ? (
               <Button
-                onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues })}
-                disabled={!newEsnId || !newCategoryId || !newSegmentId || addEsnMutation.isPending}
+                onClick={() => newEsnId && newCategoryId && newSegmentId && newUnitId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues, unit_id: newUnitId })}
+                disabled={!newEsnId || !newCategoryId || !newSegmentId || !newUnitId || addEsnMutation.isPending}
                 className="h-9"
               >
                 {addEsnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}

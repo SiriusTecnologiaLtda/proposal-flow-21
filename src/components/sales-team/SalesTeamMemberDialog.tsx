@@ -14,6 +14,7 @@ interface CrmCode {
   id?: string;
   code: string;
   description: string;
+  unit_id: string;
   isNew?: boolean;
 }
 

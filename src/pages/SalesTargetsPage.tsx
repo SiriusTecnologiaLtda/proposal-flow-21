@@ -66,6 +66,7 @@ export default function SalesTargetsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
   const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
+  const [editUnitId, setEditUnitId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [isCreateMode, setIsCreateMode] = useState(false);
@@ -73,6 +74,7 @@ export default function SalesTargetsPage() {
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");
   const [newRole, setNewRole] = useState("esn");
+  const [newUnitId, setNewUnitId] = useState("");
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);

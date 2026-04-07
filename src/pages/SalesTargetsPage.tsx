@@ -133,7 +133,7 @@ export default function SalesTargetsPage() {
           months: {},
         });
       }
-      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount };
+      map.get(key)!.months[t.month] = { id: t.id, amount: t.amount, unit_id: (t as any).unit_id };
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, esnMap]);

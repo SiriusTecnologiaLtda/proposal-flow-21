@@ -95,13 +95,13 @@ export default function TransferAccountsDialog({ member, open, onOpenChange }: P
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] overflow-hidden">
+      <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" />
             Transferir Contas
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-words">
             Transferir clientes de <strong>{member.code} - {member.name}</strong> para outro ESN.
           </DialogDescription>
         </DialogHeader>

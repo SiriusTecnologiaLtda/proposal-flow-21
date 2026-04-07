@@ -102,6 +102,10 @@ export default function SoftwareProposalsListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [originFilter, setOriginFilter] = useState<string[]>([]);
+  const [unitFilter, setUnitFilter] = useState<string[]>([]);
+  const [memberFilter, setMemberFilter] = useState<string[]>([]);
+  const [unitSearch, setUnitSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
@@ -109,6 +113,18 @@ export default function SoftwareProposalsListPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
+
+  // Fetch units
+  const { data: units = [] } = useQuery({
+    queryKey: ["units-list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("unit_info").select("id, name").order("name");
+      return data || [];
+    },
+  });
+
+  // Fetch sales team
+  const { data: salesTeam = [] } = useSalesTeam();
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
       setExtractingIds((prev) => new Set(prev).add(proposalId));

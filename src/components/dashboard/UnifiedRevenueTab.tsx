@@ -562,7 +562,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       if (effectiveScopeIds && !effectiveScopeIds.has(target.esn_id)) continue;
       if (selectedCategoryId !== "all" && target.category_id !== selectedCategoryId) continue;
 
-      const unitId = target.esn_id ? memberUnitMap.get(target.esn_id) : null;
+      const unitId = target.unit_id || (target.esn_id ? memberUnitMap.get(target.esn_id) : null);
       if (!unitId) continue;
 
       ensureUnit(unitId);

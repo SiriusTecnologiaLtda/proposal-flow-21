@@ -244,6 +244,9 @@ export default function SalesTargetsPage() {
           const updates: any = {};
           if (existing.amount !== newAmount) updates.amount = newAmount;
           if (existing.unit_id !== editUnitId) updates.unit_id = editUnitId;
+          if (editRole !== editRow.role) updates.role = editRole;
+          if (editCategoryId !== editRow.category_id) updates.category_id = editCategoryId;
+          if (editSegmentId !== editRow.segment_id) updates.segment_id = editSegmentId;
           if (Object.keys(updates).length > 0) {
             const { error } = await supabase.from("sales_targets").update(updates).eq("id", existing.id);
             if (error) throw error;
@@ -255,10 +258,10 @@ export default function SalesTargetsPage() {
             month: m,
             amount: newAmount,
             unit_id: editUnitId,
+            category_id: editCategoryId,
+            segment_id: editSegmentId,
+            role: editRole,
           };
-          if (editRow.category_id) insertData.category_id = editRow.category_id;
-          if (editRow.segment_id) insertData.segment_id = editRow.segment_id;
-          if (editRow.role) insertData.role = editRow.role;
           const { error } = await supabase.from("sales_targets").insert(insertData);
           if (error) throw error;
         }

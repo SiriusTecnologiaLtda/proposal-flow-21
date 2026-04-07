@@ -354,7 +354,9 @@ export default function SalesTargetsPage() {
               <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={() => {
                 setIsCreateMode(true);
                 setEditRow(null);
-                setNewEsnId(allEsns[0]?.id || "");
+                const firstEsn = allEsns[0];
+                setNewEsnId(firstEsn?.id || "");
+                setNewUnitId(firstEsn?.unit_id || "");
                 setNewCategoryId("");
                 setNewSegmentId("");
                 setNewRole("esn");

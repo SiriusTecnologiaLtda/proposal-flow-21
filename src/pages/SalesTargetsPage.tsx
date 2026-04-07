@@ -66,6 +66,7 @@ export default function SalesTargetsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
   const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
+  const [editUnitId, setEditUnitId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [isCreateMode, setIsCreateMode] = useState(false);
@@ -73,6 +74,7 @@ export default function SalesTargetsPage() {
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newSegmentId, setNewSegmentId] = useState("");
   const [newRole, setNewRole] = useState("esn");
+  const [newUnitId, setNewUnitId] = useState("");
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -128,7 +130,7 @@ export default function SalesTargetsPage() {
           role: tRole,
           name: esn?.name || "—",
           code: esn?.code || "—",
-          unit_id: esn?.unit_id || null,
+          unit_id: (t as any).unit_id || esn?.unit_id || null,
           linked_gsn_id: esn?.linked_gsn_id || null,
           months: {},
         });
@@ -166,10 +168,8 @@ export default function SalesTargetsPage() {
   );
 
   const addEsnMutation = useMutation({
-    mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string> }) => {
-      const member = esnMap.get(esn_id);
-      const memberUnitId = member?.unit_id;
-      if (!memberUnitId) throw new Error("Membro sem unidade vinculada. Vincule uma unidade ao membro antes de criar metas.");
+    mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues, unit_id }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string>; unit_id: string }) => {
+      if (!unit_id) throw new Error("Selecione uma unidade para a meta.");
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
@@ -178,7 +178,7 @@ export default function SalesTargetsPage() {
         category_id,
         segment_id,
         role,
-        unit_id: memberUnitId,
+        unit_id,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;
@@ -191,6 +191,7 @@ export default function SalesTargetsPage() {
       setNewCategoryId("");
       setNewSegmentId("");
       setNewRole("esn");
+      setNewUnitId("");
       toast({ title: "Meta adicionada com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -218,29 +219,36 @@ export default function SalesTargetsPage() {
       values[m] = String(row.months[m]?.amount || 0);
     }
     setEditMonthValues(values);
+    setEditUnitId(row.unit_id || "");
     setEditDialogOpen(true);
   }
 
   async function saveEditDialog() {
     if (!editRow) return;
+    if (!editUnitId) {
+      toast({ title: "Selecione uma unidade", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       for (let m = 1; m <= 12; m++) {
         const newAmount = Number(editMonthValues[m]) || 0;
         const existing = editRow.months[m];
         if (existing) {
-          if (existing.amount !== newAmount) {
-            const { error } = await supabase.from("sales_targets").update({ amount: newAmount }).eq("id", existing.id);
+          const updates: any = {};
+          if (existing.amount !== newAmount) updates.amount = newAmount;
+          if (existing.unit_id !== editUnitId) updates.unit_id = editUnitId;
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.from("sales_targets").update(updates).eq("id", existing.id);
             if (error) throw error;
           }
         } else if (newAmount > 0) {
-          const member = esnMap.get(editRow.esn_id);
           const insertData: any = {
             esn_id: editRow.esn_id,
             year: Number(yearFilter),
             month: m,
             amount: newAmount,
-            unit_id: member?.unit_id || editRow.unit_id,
+            unit_id: editUnitId,
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;
@@ -346,7 +354,9 @@ export default function SalesTargetsPage() {
               <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={() => {
                 setIsCreateMode(true);
                 setEditRow(null);
-                setNewEsnId(allEsns[0]?.id || "");
+                const firstEsn = allEsns[0];
+                setNewEsnId(firstEsn?.id || "");
+                setNewUnitId(firstEsn?.unit_id || "");
                 setNewCategoryId("");
                 setNewSegmentId("");
                 setNewRole("esn");
@@ -662,7 +672,11 @@ export default function SalesTargetsPage() {
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Membro da Equipe</Label>
-                    <Select value={newEsnId} onValueChange={setNewEsnId}>
+                    <Select value={newEsnId} onValueChange={(val) => {
+                      setNewEsnId(val);
+                      const member = esnMap.get(val);
+                      if (member?.unit_id) setNewUnitId(member.unit_id);
+                    }}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                       <SelectContent>
                         {allEsns.map((e: any) => (
@@ -671,7 +685,7 @@ export default function SalesTargetsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Nível de Meta</Label>
                       <Select value={newRole} onValueChange={setNewRole}>
@@ -679,6 +693,17 @@ export default function SalesTargetsPage() {
                         <SelectContent>
                           {ROLE_OPTIONS.map(r => (
                             <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Unidade</Label>
+                      <Select value={newUnitId} onValueChange={setNewUnitId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -708,27 +733,40 @@ export default function SalesTargetsPage() {
                   </div>
                 </div>
               ) : editRow ? (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
-                    <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
+                      <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Nível</Label>
+                      <Badge className="text-xs mt-1 bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[editRow.role] || editRow.role.toUpperCase()}</Badge>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>
+                      <p className="text-sm font-medium text-foreground mt-0.5">{yearFilter}</p>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Categoria</Label>
+                      <Badge variant="outline" className="text-xs mt-1">{getCategoryName(editRow.category_id)}</Badge>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Segmento</Label>
+                      <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
+                    </div>
                   </div>
                   <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Nível</Label>
-                    <Badge className="text-xs mt-1 bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[editRow.role] || editRow.role.toUpperCase()}</Badge>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>
-                    <p className="text-sm font-medium text-foreground mt-0.5">{yearFilter}</p>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Categoria</Label>
-                    <Badge variant="outline" className="text-xs mt-1">{getCategoryName(editRow.category_id)}</Badge>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Segmento</Label>
-                    <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
+                    <Label className="text-xs font-medium">Unidade</Label>
+                    <Select value={editUnitId} onValueChange={setEditUnitId}>
+                      <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+                      <SelectContent>
+                        {units.map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               ) : null}
@@ -777,8 +815,8 @@ export default function SalesTargetsPage() {
             </Button>
             {isCreateMode ? (
               <Button
-                onClick={() => newEsnId && newCategoryId && newSegmentId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues })}
-                disabled={!newEsnId || !newCategoryId || !newSegmentId || addEsnMutation.isPending}
+                onClick={() => newEsnId && newCategoryId && newSegmentId && newUnitId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues, unit_id: newUnitId })}
+                disabled={!newEsnId || !newCategoryId || !newSegmentId || !newUnitId || addEsnMutation.isPending}
                 className="h-9"
               >
                 {addEsnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}

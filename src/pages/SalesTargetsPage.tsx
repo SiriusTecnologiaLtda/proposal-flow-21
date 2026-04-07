@@ -176,7 +176,7 @@ export default function SalesTargetsPage() {
       if (!unit_id) throw new Error("Selecione uma unidade para a meta.");
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
-        year: Number(yearFilter),
+        year: Number(newYear),
         month: i + 1,
         amount: Number(monthValues[i + 1]) || 0,
         category_id,

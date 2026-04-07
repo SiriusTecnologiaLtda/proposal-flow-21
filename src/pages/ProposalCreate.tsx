@@ -1867,16 +1867,9 @@ export default function ProposalCreate() {
                         <CommandEmpty>Nenhum Eng. Valor encontrado.</CommandEmpty>
                         <CommandGroup>
                           {(() => {
-                            const clientUnitId = selectedClient?.unit_id;
-                            const loggedUserMember = salesTeam.find(
-                              (m) => m.email && user?.email && m.email.toLowerCase() === user.email.toLowerCase()
-                            );
-                            const filterUnitId = clientUnitId || loggedUserMember?.unit_id || null;
-                            
                             const filtered = salesTeam.filter((m) => {
                               if (m.role !== "arquiteto") return false;
                               if (!(`${m.code} ${m.name} ${m.email || ""}`).toLowerCase().includes(arquitetoSearch.toLowerCase())) return false;
-                              if (filterUnitId && m.unit_id) return m.unit_id === filterUnitId;
                               return true;
                             });
                             

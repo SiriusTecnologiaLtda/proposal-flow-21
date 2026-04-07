@@ -150,7 +150,7 @@ export default function ProfilePage() {
     if (!file || !user?.id) return;
 
     const ext = file.name.split(".").pop();
-    const path = `avatars/${user.id}.${ext}`;
+    const path = `${user.id}/avatar.${ext}`;
 
     const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
     if (upErr) {

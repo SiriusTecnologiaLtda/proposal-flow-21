@@ -670,7 +670,11 @@ export default function SalesTargetsPage() {
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Membro da Equipe</Label>
-                    <Select value={newEsnId} onValueChange={setNewEsnId}>
+                    <Select value={newEsnId} onValueChange={(val) => {
+                      setNewEsnId(val);
+                      const member = esnMap.get(val);
+                      if (member?.unit_id) setNewUnitId(member.unit_id);
+                    }}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                       <SelectContent>
                         {allEsns.map((e: any) => (

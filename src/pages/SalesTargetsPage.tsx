@@ -371,6 +371,7 @@ export default function SalesTargetsPage() {
                 setNewCategoryId("");
                 setNewSegmentId("");
                 setNewRole("esn");
+                setNewYear(yearFilter);
                 const emptyMonths: Record<number, string> = {};
                 for (let m = 1; m <= 12; m++) emptyMonths[m] = "0";
                 setEditMonthValues(emptyMonths);

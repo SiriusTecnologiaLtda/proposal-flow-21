@@ -196,6 +196,7 @@ export default function SalesTargetsPage() {
       setNewSegmentId("");
       setNewRole("esn");
       setNewUnitId("");
+      setNewYear(yearFilter);
       toast({ title: "Meta adicionada com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),

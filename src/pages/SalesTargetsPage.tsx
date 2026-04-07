@@ -167,6 +167,9 @@ export default function SalesTargetsPage() {
 
   const addEsnMutation = useMutation({
     mutationFn: async ({ esn_id, category_id, segment_id, role, monthValues }: { esn_id: string; category_id: string; segment_id: string; role: string; monthValues: Record<number, string> }) => {
+      const member = esnMap.get(esn_id);
+      const memberUnitId = member?.unit_id;
+      if (!memberUnitId) throw new Error("Membro sem unidade vinculada. Vincule uma unidade ao membro antes de criar metas.");
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
         year: Number(yearFilter),
@@ -175,6 +178,7 @@ export default function SalesTargetsPage() {
         category_id,
         segment_id,
         role,
+        unit_id: memberUnitId,
       }));
       const { error } = await supabase.from("sales_targets").insert(rows as any);
       if (error) throw error;

@@ -743,39 +743,60 @@ export default function SalesTargetsPage() {
                 </div>
               ) : editRow ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
-                      <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Nível</Label>
-                      <Badge className="text-xs mt-1 bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[editRow.role] || editRow.role.toUpperCase()}</Badge>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ano</Label>
-                      <p className="text-sm font-medium text-foreground mt-0.5">{yearFilter}</p>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Categoria</Label>
-                      <Badge variant="outline" className="text-xs mt-1">{getCategoryName(editRow.category_id)}</Badge>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Segmento</Label>
-                      <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
-                    </div>
-                  </div>
                   <div>
-                    <Label className="text-xs font-medium">Unidade</Label>
-                    <Select value={editUnitId} onValueChange={setEditUnitId}>
-                      <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-                      <SelectContent>
-                        {units.map((u: any) => (
-                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
+                    <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Nível</Label>
+                      <Select value={editRole} onValueChange={setEditRole}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {ROLE_OPTIONS.map(r => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Ano</Label>
+                      <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Unidade</Label>
+                      <Select value={editUnitId} onValueChange={setEditUnitId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Categoria</Label>
+                      <Select value={editCategoryId} onValueChange={setEditCategoryId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Segmento</Label>
+                      <Select value={editSegmentId} onValueChange={setEditSegmentId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {segments.map((s: any) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               ) : null}

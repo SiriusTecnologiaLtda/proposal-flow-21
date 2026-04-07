@@ -228,6 +228,11 @@ export default function SoftwareProposalsListPage() {
     return allProposals.filter((p: any) => {
       if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
       if (originFilter.length > 0 && !originFilter.includes(p.origin)) return false;
+      if (unitFilter.length > 0 && !unitFilter.includes(p.unit_id)) return false;
+      if (memberFilter.length > 0) {
+        const matchesMember = memberFilter.includes(p.esn_id) || memberFilter.includes(p.gsn_id) || memberFilter.includes(p.arquiteto_id);
+        if (!matchesMember) return false;
+      }
       if (periodRange) {
         const created = p.created_at;
         if (!created) return false;
@@ -238,7 +243,7 @@ export default function SoftwareProposalsListPage() {
       }
       return true;
     });
-  }, [allProposals, statusFilter, originFilter, periodRange]);
+  }, [allProposals, statusFilter, originFilter, unitFilter, memberFilter, periodRange]);
 
   const visibleProposals = useMemo(() => proposals.slice(0, visibleCount), [proposals, visibleCount]);
   const hasMore = visibleCount < proposals.length;

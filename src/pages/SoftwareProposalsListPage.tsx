@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import PdfPreviewDialog from "@/components/software-proposal/PdfPreviewDialog";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useSalesTeam } from "@/hooks/useSupabaseData";
 import {
   FileSearch,
   Upload,
@@ -24,6 +25,9 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Building2,
+  Users,
+  Check,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -98,6 +102,10 @@ export default function SoftwareProposalsListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [originFilter, setOriginFilter] = useState<string[]>([]);
+  const [unitFilter, setUnitFilter] = useState<string[]>([]);
+  const [memberFilter, setMemberFilter] = useState<string[]>([]);
+  const [unitSearch, setUnitSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
   const [customStart, setCustomStart] = useState("");
@@ -105,6 +113,18 @@ export default function SoftwareProposalsListPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
+
+  // Fetch units
+  const { data: units = [] } = useQuery({
+    queryKey: ["units-list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("unit_info").select("id, name").order("name");
+      return data || [];
+    },
+  });
+
+  // Fetch sales team
+  const { data: salesTeam = [] } = useSalesTeam();
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
       setExtractingIds((prev) => new Set(prev).add(proposalId));
@@ -208,6 +228,11 @@ export default function SoftwareProposalsListPage() {
     return allProposals.filter((p: any) => {
       if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
       if (originFilter.length > 0 && !originFilter.includes(p.origin)) return false;
+      if (unitFilter.length > 0 && !unitFilter.includes(p.unit_id)) return false;
+      if (memberFilter.length > 0) {
+        const matchesMember = memberFilter.includes(p.esn_id) || memberFilter.includes(p.gsn_id) || memberFilter.includes(p.arquiteto_id);
+        if (!matchesMember) return false;
+      }
       if (periodRange) {
         const created = p.created_at;
         if (!created) return false;
@@ -218,7 +243,7 @@ export default function SoftwareProposalsListPage() {
       }
       return true;
     });
-  }, [allProposals, statusFilter, originFilter, periodRange]);
+  }, [allProposals, statusFilter, originFilter, unitFilter, memberFilter, periodRange]);
 
   const visibleProposals = useMemo(() => proposals.slice(0, visibleCount), [proposals, visibleCount]);
   const hasMore = visibleCount < proposals.length;
@@ -241,7 +266,22 @@ export default function SoftwareProposalsListPage() {
   const activeFilterCount =
     (statusFilter.length > 0 ? 1 : 0) +
     (originFilter.length > 0 ? 1 : 0) +
+    (unitFilter.length > 0 ? 1 : 0) +
+    (memberFilter.length > 0 ? 1 : 0) +
     (periodFilter && periodFilter !== "este_ano" ? 1 : 0);
+
+  const filteredUnits = useMemo(() => {
+    if (!unitSearch.trim()) return units;
+    const q = unitSearch.toLowerCase();
+    return units.filter((u: any) => u.name?.toLowerCase().includes(q));
+  }, [units, unitSearch]);
+
+  const filteredMembers = useMemo(() => {
+    const all = salesTeam || [];
+    if (!memberSearch.trim()) return all;
+    const q = memberSearch.toLowerCase();
+    return all.filter((m: any) => m.name?.toLowerCase().includes(q) || m.code?.toLowerCase().includes(q));
+  }, [salesTeam, memberSearch]);
 
   return (
     <div className="space-y-4">
@@ -327,6 +367,8 @@ export default function SoftwareProposalsListPage() {
                 e.stopPropagation();
                 setStatusFilter([]);
                 setOriginFilter([]);
+                setUnitFilter([]);
+                setMemberFilter([]);
                 setPeriodFilter("este_ano");
                 setCustomStart("");
                 setCustomEnd("");
@@ -444,6 +486,111 @@ export default function SoftwareProposalsListPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Unit Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Unidade</span>
+                {unitFilter.length > 0 && (
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {unitFilter.length}
+                  </span>
+                )}
+              </div>
+              <div className="w-56 rounded-md border border-border bg-background">
+                <div className="relative border-b border-border">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar unidade..."
+                    value={unitSearch}
+                    onChange={(e) => setUnitSearch(e.target.value)}
+                    className="h-8 w-full bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div className="max-h-40 overflow-auto p-1">
+                  {filteredUnits.map((u: any) => {
+                    const active = unitFilter.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() =>
+                          setUnitFilter((prev) =>
+                            active ? prev.filter((id) => id !== u.id) : [...prev, u.id]
+                          )
+                        }
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                          active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {active && <Check className="h-3 w-3 shrink-0" />}
+                        <span className="truncate">{u.name}</span>
+                      </button>
+                    );
+                  })}
+                  {filteredUnits.length === 0 && (
+                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhuma unidade encontrada</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden h-16 w-px self-center bg-border sm:block" />
+
+            {/* Member Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                <span className="text-[11px] font-medium uppercase tracking-wider">Membro</span>
+                {memberFilter.length > 0 && (
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {memberFilter.length}
+                  </span>
+                )}
+              </div>
+              <div className="w-64 rounded-md border border-border bg-background">
+                <div className="relative border-b border-border">
+                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome ou código..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    className="h-8 w-full bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div className="max-h-40 overflow-auto p-1">
+                  {filteredMembers.map((m: any) => {
+                    const active = memberFilter.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() =>
+                          setMemberFilter((prev) =>
+                            active ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          )
+                        }
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                          active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {active && <Check className="h-3 w-3 shrink-0" />}
+                        <span className="truncate">{m.name}</span>
+                        <span className="ml-auto text-muted-foreground shrink-0">{m.role?.toUpperCase()}</span>
+                      </button>
+                    );
+                  })}
+                  {filteredMembers.length === 0 && (
+                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhum membro encontrado</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -765,7 +765,16 @@ export default function SalesTargetsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs font-medium">Ano</Label>
-                      <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
+                      {isCreateMode ? (
+                        <Select value={newYear} onValueChange={setNewYear}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Ano" /></SelectTrigger>
+                          <SelectContent>
+                            {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs font-medium">Unidade</Label>

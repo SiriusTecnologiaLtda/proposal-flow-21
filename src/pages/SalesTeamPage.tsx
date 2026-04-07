@@ -27,8 +27,6 @@ const roleColors: Record<string, string> = {
   arquiteto: "bg-warning/15 text-warning",
 };
 
-const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id: "", linked_gsn_id: "", commission_pct: "" };
-
 export default function SalesTeamPage() {
   const { data: salesTeam = [] } = useSalesTeam();
   const [search, setSearch] = useState("");
@@ -39,9 +37,7 @@ export default function SalesTeamPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<any>(null);
   const [transferMember, setTransferMember] = useState<any>(null);
   const [transferGsnMember, setTransferGsnMember] = useState<any>(null);
   const [batchCommissionOpen, setBatchCommissionOpen] = useState(false);
@@ -49,55 +45,13 @@ export default function SalesTeamPage() {
   const gsnMembers = salesTeam.filter((m) => m.role === "gsn");
 
   const openNew = () => {
-    setEditingId(null);
-    setForm(emptyForm);
+    setEditingMember(null);
     setDialogOpen(true);
   };
 
   const openEdit = (member: any) => {
-    setEditingId(member.id);
-    setForm({
-      name: member.name || "",
-      code: member.code || "",
-      email: member.email || "",
-      phone: (member as any).phone || "",
-      role: member.role || "",
-      unit_id: member.unit_id || "",
-      linked_gsn_id: member.linked_gsn_id || "",
-      commission_pct: String((member as any).commission_pct ?? 3),
-    });
+    setEditingMember(member);
     setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!form.name || !form.code || !form.role) {
-      toast({ title: "Preencha Nome, Código e Função", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    const payload: any = {
-      name: form.name,
-      code: form.code,
-      email: form.email || null,
-      phone: form.phone || null,
-      role: form.role as any,
-      unit_id: form.unit_id || null,
-      linked_gsn_id: form.linked_gsn_id || null,
-      commission_pct: form.role === "esn" ? parseFloat(form.commission_pct) || 3 : form.role === "arquiteto" ? parseFloat(form.commission_pct) || 1.31 : 0,
-    };
-    const { error } = editingId
-      ? await supabase.from("sales_team").update(payload).eq("id", editingId)
-      : await supabase.from("sales_team").insert(payload);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: editingId ? "Membro atualizado!" : "Membro adicionado!" });
-      qc.invalidateQueries({ queryKey: ["sales_team"] });
-      setDialogOpen(false);
-      setForm(emptyForm);
-      setEditingId(null);
-    }
   };
 
   const handleDelete = async (id: string, name: string) => {

@@ -754,6 +754,17 @@ export default function SalesTargetsPage() {
                     <Badge variant="secondary" className="text-xs mt-1">{getSegmentName(editRow.segment_id)}</Badge>
                   </div>
                 </div>
+                <div className="mt-3">
+                  <Label className="text-xs font-medium">Unidade</Label>
+                  <Select value={editUnitId} onValueChange={setEditUnitId}>
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
+                    <SelectContent>
+                      {units.map((u: any) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ) : null}
             </div>
 

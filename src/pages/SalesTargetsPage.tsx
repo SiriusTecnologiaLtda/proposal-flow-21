@@ -234,11 +234,13 @@ export default function SalesTargetsPage() {
             if (error) throw error;
           }
         } else if (newAmount > 0) {
+          const member = esnMap.get(editRow.esn_id);
           const insertData: any = {
             esn_id: editRow.esn_id,
             year: Number(yearFilter),
             month: m,
             amount: newAmount,
+            unit_id: member?.unit_id || editRow.unit_id,
           };
           if (editRow.category_id) insertData.category_id = editRow.category_id;
           if (editRow.segment_id) insertData.segment_id = editRow.segment_id;

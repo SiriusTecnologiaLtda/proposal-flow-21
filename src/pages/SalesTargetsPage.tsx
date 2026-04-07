@@ -130,7 +130,7 @@ export default function SalesTargetsPage() {
           role: tRole,
           name: esn?.name || "—",
           code: esn?.code || "—",
-          unit_id: esn?.unit_id || null,
+          unit_id: (t as any).unit_id || esn?.unit_id || null,
           linked_gsn_id: esn?.linked_gsn_id || null,
           months: {},
         });

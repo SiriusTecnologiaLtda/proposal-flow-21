@@ -2019,6 +2019,7 @@ export type Database = {
           description: string
           id: string
           sales_team_id: string
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2027,6 +2028,7 @@ export type Database = {
           description?: string
           id?: string
           sales_team_id: string
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2035,6 +2037,7 @@ export type Database = {
           description?: string
           id?: string
           sales_team_id?: string
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2043,6 +2046,13 @@ export type Database = {
             columns: ["sales_team_id"]
             isOneToOne: false
             referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_team_crm_codes_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
             referencedColumns: ["id"]
           },
         ]

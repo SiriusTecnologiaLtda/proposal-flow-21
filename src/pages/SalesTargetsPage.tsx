@@ -220,6 +220,7 @@ export default function SalesTargetsPage() {
       values[m] = String(row.months[m]?.amount || 0);
     }
     setEditMonthValues(values);
+    setEditUnitId(row.unit_id || "");
     setEditDialogOpen(true);
   }
 

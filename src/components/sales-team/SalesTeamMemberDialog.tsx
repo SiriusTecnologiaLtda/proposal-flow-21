@@ -130,6 +130,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
           sales_team_id: member.id,
           code: c.code.trim(),
           description: c.description.trim(),
+          unit_id: c.unit_id || null,
         }))
       );
       if (error) {

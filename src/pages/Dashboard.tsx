@@ -356,6 +356,7 @@ export default function Dashboard() {
   });
 
   // Filters
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [periodPreset, setPeriodPreset] = useState("this_year");
   const [dateFrom, setDateFrom] = useState(() => getPresetDates("this_year").from);
   const [dateTo, setDateTo] = useState(() => getPresetDates("this_year").to);

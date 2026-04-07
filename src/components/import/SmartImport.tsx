@@ -1373,6 +1373,7 @@ export default function SmartImport() {
       const memberByName = memberMap.get(esnName);
       const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
+      const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
 
       if (!esnId) {
         errors++;

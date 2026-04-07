@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowRightLeft, Search } from "lucide-react";
+import { ArrowRightLeft, Search, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSalesTeam } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,8 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
   const [transferring, setTransferring] = useState(false);
   const [searchTarget, setSearchTarget] = useState("");
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [searchClient, setSearchClient] = useState("");
+  const [searchEsn, setSearchEsn] = useState("");
 
   const otherGsns = salesTeam.filter((m) => m.role === "gsn" && m.id !== member.id);
 
@@ -40,10 +42,7 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
     if (!searchTarget.trim()) return otherGsns;
     const q = searchTarget.toLowerCase();
     return otherGsns.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.code.toLowerCase().includes(q) ||
-        (m.email && m.email.toLowerCase().includes(q))
+      (m) => m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || (m.email && m.email.toLowerCase().includes(q))
     );
   }, [otherGsns, searchTarget]);
 
@@ -53,9 +52,10 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
     if (!open) return;
     setTargetGsnId("");
     setSearchTarget("");
+    setSearchClient("");
+    setSearchEsn("");
     setLoading(true);
 
-    // Filter ESNs by same unit as GSN
     const linkedEsns = salesTeam.filter(
       (m) => m.role === "esn" && m.linked_gsn_id === member.id &&
         (!member.unit_id || m.unit_id === member.unit_id)
@@ -63,7 +63,6 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
     setEsnMembers(linkedEsns.map((m) => ({ id: m.id, name: m.name, code: m.code })));
     setSelectedEsns(new Set(linkedEsns.map((m) => m.id)));
 
-    // Filter clients by same unit as GSN
     let query = supabase
       .from("clients")
       .select("id, name, code, cnpj")
@@ -80,8 +79,20 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
       const list = data || [];
       setClients(list);
       setSelectedClients(new Set(list.map((c) => c.id)));
-      });
+    });
   }, [open, member.id, salesTeam]);
+
+  const filteredClients = useMemo(() => {
+    if (!searchClient.trim()) return clients;
+    const q = searchClient.toLowerCase();
+    return clients.filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || c.cnpj.includes(q));
+  }, [clients, searchClient]);
+
+  const filteredEsnMembers = useMemo(() => {
+    if (!searchEsn.trim()) return esnMembers;
+    const q = searchEsn.toLowerCase();
+    return esnMembers.filter((e) => e.name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q));
+  }, [esnMembers, searchEsn]);
 
   const toggleAllClients = (checked: boolean) => {
     setSelectedClients(checked ? new Set(clients.map((c) => c.id)) : new Set());
@@ -151,55 +162,79 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
     }
   };
 
+  const hasContent = clients.length > 0 || esnMembers.length > 0;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-4 w-4" />
-            Transferir Contas e ESNs
-          </DialogTitle>
-          <DialogDescription>
-            Transferir clientes e ESNs de <strong>{member.code} - {member.name}</strong> para outro GSN.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col p-0 gap-0">
+        {/* Header */}
+        <SheetHeader className="shrink-0 px-6 pt-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <ArrowRightLeft className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <SheetTitle className="text-base">Transferir Contas e ESNs</SheetTitle>
+              <SheetDescription className="text-xs mt-0.5">
+                Transferir clientes e ESNs de <strong className="text-foreground">{member.code} — {member.name}</strong> para outro GSN.
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
 
-        {loading ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Carregando...</p>
-        ) : clients.length === 0 && esnMembers.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Nenhum cliente ou ESN vinculado a este GSN.</p>
-        ) : (
-          <div className="space-y-4">
-            <Tabs defaultValue="clients" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="clients">Clientes ({clients.length})</TabsTrigger>
-                <TabsTrigger value="esns">ESNs ({esnMembers.length})</TabsTrigger>
-              </TabsList>
+        {/* Content */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {loading ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Carregando...</p>
+          ) : !hasContent ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">Nenhum cliente ou ESN vinculado a este GSN.</p>
+          ) : (
+            <Tabs defaultValue="clients" className="flex-1 flex flex-col overflow-hidden">
+              <div className="shrink-0 px-6 pt-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="clients">Clientes ({clients.length})</TabsTrigger>
+                  <TabsTrigger value="esns">ESNs ({esnMembers.length})</TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="clients" className="space-y-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">
-                    {selectedClients.size} de {clients.length} selecionado(s)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={clients.length > 0 && selectedClients.size === clients.length}
-                      onCheckedChange={(v) => toggleAllClients(!!v)}
-                      id="select-all-clients"
+              <TabsContent value="clients" className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=inactive]:hidden">
+                {/* Controls */}
+                <div className="shrink-0 px-6 py-3 border-b border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">
+                      <Users className="inline h-3.5 w-3.5 mr-1" />
+                      {selectedClients.size} de {clients.length} selecionado(s)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={clients.length > 0 && selectedClients.size === clients.length}
+                        onCheckedChange={(v) => toggleAllClients(!!v)}
+                        id="select-all-clients-gsn"
+                      />
+                      <label htmlFor="select-all-clients-gsn" className="text-xs cursor-pointer select-none">Selecionar todos</label>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar clientes..."
+                      value={searchClient}
+                      onChange={(e) => setSearchClient(e.target.value)}
+                      className="pl-9 h-8 text-sm"
                     />
-                    <label htmlFor="select-all-clients" className="text-xs cursor-pointer">Selecionar todos</label>
                   </div>
                 </div>
-                <ScrollArea className="h-44 rounded-md border border-border">
+                {/* List */}
+                <ScrollArea className="flex-1 min-h-0">
                   <div className="divide-y divide-border">
-                    {clients.length === 0 && (
-                      <p className="p-3 text-xs text-muted-foreground text-center">Nenhum cliente vinculado.</p>
+                    {filteredClients.length === 0 && (
+                      <p className="p-6 text-xs text-muted-foreground text-center">Nenhum cliente encontrado.</p>
                     )}
-                    {clients.map((c) => (
-                      <label key={c.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50">
-                        <Checkbox checked={selectedClients.has(c.id)} onCheckedChange={() => toggleClient(c.id)} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
+                    {filteredClients.map((c) => (
+                      <label key={c.id} className="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-muted/50">
+                        <Checkbox checked={selectedClients.has(c.id)} onCheckedChange={() => toggleClient(c.id)} className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground break-words">{c.name}</p>
                           <p className="text-xs text-muted-foreground">{c.code} · {c.cnpj}</p>
                         </div>
                       </label>
@@ -208,30 +243,44 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="esns" className="space-y-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">
-                    {selectedEsns.size} de {esnMembers.length} selecionado(s)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={esnMembers.length > 0 && selectedEsns.size === esnMembers.length}
-                      onCheckedChange={(v) => toggleAllEsns(!!v)}
-                      id="select-all-esns"
+              <TabsContent value="esns" className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=inactive]:hidden">
+                {/* Controls */}
+                <div className="shrink-0 px-6 py-3 border-b border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">
+                      <Users className="inline h-3.5 w-3.5 mr-1" />
+                      {selectedEsns.size} de {esnMembers.length} selecionado(s)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={esnMembers.length > 0 && selectedEsns.size === esnMembers.length}
+                        onCheckedChange={(v) => toggleAllEsns(!!v)}
+                        id="select-all-esns-gsn"
+                      />
+                      <label htmlFor="select-all-esns-gsn" className="text-xs cursor-pointer select-none">Selecionar todos</label>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar ESNs..."
+                      value={searchEsn}
+                      onChange={(e) => setSearchEsn(e.target.value)}
+                      className="pl-9 h-8 text-sm"
                     />
-                    <label htmlFor="select-all-esns" className="text-xs cursor-pointer">Selecionar todos</label>
                   </div>
                 </div>
-                <ScrollArea className="h-44 rounded-md border border-border">
+                {/* List */}
+                <ScrollArea className="flex-1 min-h-0">
                   <div className="divide-y divide-border">
-                    {esnMembers.length === 0 && (
-                      <p className="p-3 text-xs text-muted-foreground text-center">Nenhum ESN vinculado.</p>
+                    {filteredEsnMembers.length === 0 && (
+                      <p className="p-6 text-xs text-muted-foreground text-center">Nenhum ESN encontrado.</p>
                     )}
-                    {esnMembers.map((e) => (
-                      <label key={e.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50">
-                        <Checkbox checked={selectedEsns.has(e.id)} onCheckedChange={() => toggleEsn(e.id)} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{e.name}</p>
+                    {filteredEsnMembers.map((e) => (
+                      <label key={e.id} className="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-muted/50">
+                        <Checkbox checked={selectedEsns.has(e.id)} onCheckedChange={() => toggleEsn(e.id)} className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground break-words">{e.name}</p>
                           <p className="text-xs text-muted-foreground">{e.code}</p>
                         </div>
                       </label>
@@ -240,25 +289,30 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
                 </ScrollArea>
               </TabsContent>
             </Tabs>
+          )}
+        </div>
 
-            <div className="grid gap-1">
-              <Label className="text-xs">GSN de destino *</Label>
+        {/* Sticky footer */}
+        {!loading && hasContent && (
+          <div className="shrink-0 border-t border-border px-6 py-4 space-y-3 bg-background">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">GSN de destino *</Label>
               <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <Button variant="outline" className="w-full justify-start font-normal h-9 text-sm">
                     {selectedTarget
-                      ? `${selectedTarget.code} - ${selectedTarget.name}`
+                      ? `${selectedTarget.code} — ${selectedTarget.name}`
                       : <span className="text-muted-foreground">Pesquisar GSN de destino...</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" side="top">
                   <div className="flex items-center gap-2 border-b border-border px-3 py-2">
                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                     <Input
                       placeholder="Buscar por nome, código ou e-mail..."
                       value={searchTarget}
                       onChange={(e) => setSearchTarget(e.target.value)}
-                      className="border-0 p-0 h-auto shadow-none focus-visible:ring-0"
+                      className="border-0 p-0 h-auto shadow-none focus-visible:ring-0 text-sm"
                     />
                   </div>
                   <ScrollArea className="max-h-48">
@@ -275,8 +329,8 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
                             setSearchTarget("");
                           }}
                         >
-                          <div>
-                            <p className="font-medium text-foreground">{m.code} - {m.name}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{m.code} — {m.name}</p>
                             {m.email && <p className="text-xs text-muted-foreground">{m.email}</p>}
                           </div>
                         </button>
@@ -296,7 +350,7 @@ export default function TransferGsnDialog({ member, open, onOpenChange }: Props)
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

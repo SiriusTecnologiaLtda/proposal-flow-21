@@ -78,6 +78,7 @@ export default function SalesTargetsPage() {
   const [newSegmentId, setNewSegmentId] = useState("");
   const [newRole, setNewRole] = useState("esn");
   const [newUnitId, setNewUnitId] = useState("");
+  const [newYear, setNewYear] = useState(String(currentYear));
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -175,7 +176,7 @@ export default function SalesTargetsPage() {
       if (!unit_id) throw new Error("Selecione uma unidade para a meta.");
       const rows = Array.from({ length: 12 }, (_, i) => ({
         esn_id,
-        year: Number(yearFilter),
+        year: Number(newYear),
         month: i + 1,
         amount: Number(monthValues[i + 1]) || 0,
         category_id,
@@ -195,6 +196,7 @@ export default function SalesTargetsPage() {
       setNewSegmentId("");
       setNewRole("esn");
       setNewUnitId("");
+      setNewYear(yearFilter);
       toast({ title: "Meta adicionada com sucesso!" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -369,6 +371,7 @@ export default function SalesTargetsPage() {
                 setNewCategoryId("");
                 setNewSegmentId("");
                 setNewRole("esn");
+                setNewYear(yearFilter);
                 const emptyMonths: Record<number, string> = {};
                 for (let m = 1; m <= 12; m++) emptyMonths[m] = "0";
                 setEditMonthValues(emptyMonths);
@@ -762,7 +765,16 @@ export default function SalesTargetsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs font-medium">Ano</Label>
-                      <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
+                      {isCreateMode ? (
+                        <Select value={newYear} onValueChange={setNewYear}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="Ano" /></SelectTrigger>
+                          <SelectContent>
+                            {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs font-medium">Unidade</Label>

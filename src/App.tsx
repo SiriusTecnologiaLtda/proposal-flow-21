@@ -51,6 +51,40 @@ import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
 import SegmentsPage from "@/pages/SegmentsPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
+import React from "react";
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[ErrorBoundary] Render crash:", error, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center">
+          <h2 className="text-lg font-semibold text-destructive">Ocorreu um erro inesperado</h2>
+          <p className="text-sm text-muted-foreground max-w-md">{this.state.error?.message}</p>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = "/"; }}
+            className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+          >
+            Voltar ao início
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -104,9 +104,9 @@ export function useUpdateClient() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
-      const { data, error } = await supabase.from("clients").update(updates).eq("id", id).select().single();
+      const { data, error } = await supabase.from("clients").update(updates).eq("id", id).select();
       if (error) throw error;
-      return data;
+      return data?.[0] ?? null;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["clients"] }),
   });

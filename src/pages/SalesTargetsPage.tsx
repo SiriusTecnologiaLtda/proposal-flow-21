@@ -679,7 +679,7 @@ export default function SalesTargetsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Nível de Meta</Label>
                       <Select value={newRole} onValueChange={setNewRole}>
@@ -687,6 +687,17 @@ export default function SalesTargetsPage() {
                         <SelectContent>
                           {ROLE_OPTIONS.map(r => (
                             <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Unidade</Label>
+                      <Select value={newUnitId} onValueChange={setNewUnitId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          {units.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

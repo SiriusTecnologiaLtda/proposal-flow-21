@@ -78,6 +78,7 @@ export default function SalesTargetsPage() {
   const [newSegmentId, setNewSegmentId] = useState("");
   const [newRole, setNewRole] = useState("esn");
   const [newUnitId, setNewUnitId] = useState("");
+  const [newYear, setNewYear] = useState(String(currentYear));
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);

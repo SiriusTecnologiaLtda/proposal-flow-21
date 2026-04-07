@@ -223,6 +223,9 @@ export default function SalesTargetsPage() {
     }
     setEditMonthValues(values);
     setEditUnitId(row.unit_id || "");
+    setEditRole(row.role || "esn");
+    setEditCategoryId(row.category_id || "");
+    setEditSegmentId(row.segment_id || "");
     setEditDialogOpen(true);
   }
 

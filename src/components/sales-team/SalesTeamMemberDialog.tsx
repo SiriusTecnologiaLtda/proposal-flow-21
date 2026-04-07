@@ -105,7 +105,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
 
   // CRM codes management
   const addCrmCode = () => {
-    setCrmCodes((prev) => [...prev, { code: "", description: "", isNew: true }]);
+    setCrmCodes((prev) => [...prev, { code: "", description: "", unit_id: "", isNew: true }]);
   };
 
   const removeCrmCode = (index: number) => {

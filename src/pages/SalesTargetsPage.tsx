@@ -697,7 +697,16 @@ export default function SalesTargetsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Ano</Label>
+                      <Select value={newYear} onValueChange={setNewYear}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Ano" /></SelectTrigger>
+                        <SelectContent>
+                          {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Nível de Meta</Label>
                       <Select value={newRole} onValueChange={setNewRole}>

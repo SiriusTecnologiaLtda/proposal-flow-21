@@ -112,7 +112,7 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
     setCrmCodes((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateCrmCode = (index: number, field: "code" | "description", value: string) => {
+  const updateCrmCode = (index: number, field: "code" | "description" | "unit_id", value: string) => {
     setCrmCodes((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
   };
 

@@ -1194,14 +1194,23 @@ Return ONLY valid JSON with this exact structure:
         }
 
         // Issue: Catalog item was auto-created (no previous match)
+        // Only create an issue if the auto-created item is MISSING classification fields
+        // (product_id or category_id). If both were successfully inferred, the item is
+        // considered fully matched and no human review is needed.
         if (wasAutoCreatedCatalog) {
-          issuesToInsert.push({
-            software_proposal_id,
-            field_name: `item_catalog: ${desc.substring(0, 60)}`,
-            issue_type: "low_confidence",
-            extracted_value: `Item de catálogo criado automaticamente — verificar correspondência`,
-            status: ISSUE_STATUS_OPEN,
-          });
+          const inferred = inferCatalogClassification(desc, val(header.vendor_name));
+          const missingClassification = !inferred.product_id || !inferred.category_id;
+          if (missingClassification) {
+            issuesToInsert.push({
+              software_proposal_id,
+              field_name: `item_catalog: ${desc.substring(0, 60)}`,
+              issue_type: "low_confidence",
+              extracted_value: `Item de catálogo criado automaticamente — verificar correspondência${!inferred.product_id ? ' (produto não inferido)' : ''}${!inferred.category_id ? ' (categoria não inferida)' : ''}`,
+              status: ISSUE_STATUS_OPEN,
+            });
+          } else {
+            console.log(`[CATALOG] Auto-created "${desc.substring(0, 60)}" with full classification — no issue created`);
+          }
         }
 
         itemRows.push(itemRow);

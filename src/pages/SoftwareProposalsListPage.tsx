@@ -600,12 +600,13 @@ export default function SoftwareProposalsListPage() {
       {/* List — Grid-based like ProjectsPage */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Grid Header */}
-        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:gap-3 md:items-center">
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:gap-3 md:items-center">
           <span className="text-xs font-medium text-muted-foreground"></span>
           <span className="text-xs font-medium text-muted-foreground">Arquivo</span>
           <span className="text-xs font-medium text-muted-foreground">Nº Proposta</span>
           <span className="text-xs font-medium text-muted-foreground">Fornecedor</span>
           <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+          <span className="text-xs font-medium text-muted-foreground">Unidade</span>
           <span className="text-xs font-medium text-muted-foreground">Origem</span>
           <span className="text-xs font-medium text-muted-foreground text-right">Capex</span>
           <span className="text-xs font-medium text-muted-foreground text-right">Opex</span>
@@ -639,7 +640,7 @@ export default function SoftwareProposalsListPage() {
             visibleProposals.map((p: any) => (
               <div
                 key={p.id}
-                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 cursor-pointer md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:items-center md:gap-3"
+                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 cursor-pointer md:grid md:grid-cols-[40px_2fr_1fr_1fr_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:items-center md:gap-3"
                 onClick={() => navigate(`/propostas-software/${p.id}`)}
               >
                 {/* PDF */}
@@ -664,6 +665,8 @@ export default function SoftwareProposalsListPage() {
                 <p className="text-sm text-muted-foreground truncate min-w-0">{p.vendor_name || "—"}</p>
                 {/* Cliente */}
                 <p className="text-sm text-muted-foreground truncate min-w-0">{p.client_name || "—"}</p>
+                {/* Unidade */}
+                <p className="text-sm text-muted-foreground truncate min-w-0">{units.find((u: any) => u.id === p.unit_id)?.name || "—"}</p>
                 {/* Origem */}
                 <div>
                   <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">

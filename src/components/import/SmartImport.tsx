@@ -1577,21 +1577,51 @@ export default function SmartImport() {
       supabase.from("sales_team").select("id, code, name, role, unit_id"),
       loadCrmCodes(),
     ]);
-    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" }>();
-    // Index CRM codes FIRST (primary match source)
-    for (const crm of crmCodes) {
-      const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
-      if (member && !memberMap.has(crm.code)) {
-        memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id, source: "crm" });
-      }
-    }
-    // Then index by sales_team.code and name (fallback)
+    type ResolvedMember = { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" };
+    const salesTeamById = new Map((salesTeam || []).map((member) => [member.id, member]));
+    const salesTeamCodeMap = new Map<string, ResolvedMember>();
+    const salesTeamNameMap = new Map<string, ResolvedMember>();
+    const crmMembersByCode = new Map<string, ResolvedMember[]>();
+
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
-      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "code" });
-      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "name" });
+      if (!salesTeamCodeMap.has(codeLower)) salesTeamCodeMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "code" });
+      if (!salesTeamNameMap.has(nameLower)) salesTeamNameMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "name" });
     }
+
+    for (const crm of crmCodes) {
+      const member = salesTeamById.get(crm.sales_team_id);
+      if (!member) continue;
+      const key = crm.code.trim().toLowerCase();
+      const current = crmMembersByCode.get(key) || [];
+      if (!current.some((entry) => entry.id === member.id && entry.role === member.role && entry.unit_id === (crm.unit_id || member.unit_id))) {
+        current.push({ id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id, source: "crm" });
+        crmMembersByCode.set(key, current);
+      }
+    }
+
+    const resolveCrmMember = (codeLower: string, rowUnitId: string | null, rowRoleHint: string | null): ResolvedMember | null => {
+      const matches = crmMembersByCode.get(codeLower) || [];
+      if (matches.length === 0) return null;
+
+      const pickSingle = (items: ResolvedMember[]) => items.length === 1 ? items[0] : null;
+
+      if (rowUnitId) {
+        const unitMatches = matches.filter((entry) => entry.unit_id === rowUnitId);
+        const unitRoleMatches = rowRoleHint ? unitMatches.filter((entry) => entry.role === rowRoleHint) : unitMatches;
+        const picked = pickSingle(unitRoleMatches) || pickSingle(unitMatches);
+        if (picked) return picked;
+      }
+
+      if (rowRoleHint) {
+        const roleMatches = matches.filter((entry) => entry.role === rowRoleHint);
+        const picked = pickSingle(roleMatches);
+        if (picked) return picked;
+      }
+
+      return pickSingle(matches);
+    };
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
@@ -1605,17 +1635,17 @@ export default function SmartImport() {
 
     // Pre-load ALL existing targets for this year to avoid per-row queries
     addImportLog(entity, "info", "Carregando metas existentes do ano...");
-    const existingTargets = new Map<string, string>(); // "esnId|month|role|catId|segId" -> id
+    const existingTargets = new Map<string, { id: string; unit_id: string | null }>(); // "esnId|month|role|catId|segId" -> row
     let dbOffset = 0;
     while (true) {
       const { data: chunk } = await supabase.from("sales_targets")
-        .select("id, esn_id, month, role, category_id, segment_id")
+        .select("id, esn_id, month, role, category_id, segment_id, unit_id")
         .eq("year", year)
         .range(dbOffset, dbOffset + 999);
       if (!chunk || chunk.length === 0) break;
       for (const t of chunk) {
         const key = `${t.esn_id}|${t.month}|${t.role}|${t.category_id || ""}|${t.segment_id || ""}`;
-        existingTargets.set(key, t.id);
+        existingTargets.set(key, { id: t.id, unit_id: (t as any).unit_id || null });
       }
       if (chunk.length < 1000) break;
       dbOffset += 1000;
@@ -1673,7 +1703,18 @@ export default function SmartImport() {
 
     // Prepare all records to insert/update in bulk
     const toInsert: any[] = [];
-    const toUpdate: { id: string; amount: number }[] = [];
+    const toUpdate: { id: string; amount: number; unit_id: string | null }[] = [];
+    const aggregatedTargets = new Map<string, {
+      esn_id: string;
+      role: string;
+      category_id: string;
+      segment_id: string;
+      unit_id: string;
+      months: Record<number, number>;
+      lines: number[];
+      owners: string[];
+    }>();
+    let consolidatedSourceRows = 0;
 
     for (let i = 0; i < dataRows.length; i++) {
       if (cancelSignal?.aborted) { interrupted = true; addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário."); break; }
@@ -1683,13 +1724,8 @@ export default function SmartImport() {
       const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
       const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
       const esnLabel = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
-
-      const memberByCode = memberMap.get(esnCode);
-      const memberByName = memberMap.get(esnName);
-      const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
-      const detectedMemberRole = memberByCode?.role || memberByName?.role;
-      const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
-      const resolvedSource = memberByCode?.source || memberByName?.source || (esnId ? "name" : undefined);
+      const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
+      const rowRoleHint = roleVal ? (roleMap[roleVal] || null) : null;
 
       // Resolve unit_id from file values first; only fall back to member unit when the row has no unit info.
       const unitAliasKey = getAliasKey(entity, "unit_code");
@@ -1706,9 +1742,21 @@ export default function SmartImport() {
       }
 
       if (!rowUnitId && !hasExplicitUnitInput) {
-        rowUnitId = memberUnitId;
       } else if (!rowUnitId && hasExplicitUnitInput) {
         addImportLog(entity, "warning", `Linha ${lineNum}: Unidade informada (${unitCandidates.join(" / ")}) não encontrada; sem fallback automático para evitar gravar a meta na unidade errada.`, "relation");
+      }
+
+      const memberByCode = salesTeamCodeMap.get(esnCode);
+      const memberByCrm = !memberByCode && esnCode ? resolveCrmMember(esnCode, rowUnitId, rowRoleHint) : null;
+      const memberByName = salesTeamNameMap.get(esnName);
+      const resolvedMember = memberByCode || memberByCrm || memberByName || null;
+      const esnId = resolvedMember?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
+      const detectedMemberRole = resolvedMember?.role;
+      const memberUnitId = resolvedMember?.unit_id || null;
+      const resolvedSource = resolvedMember?.source || (esnId ? "name" : undefined);
+
+      if (!rowUnitId && !hasExplicitUnitInput) {
+        rowUnitId = memberUnitId;
       }
 
       if (!esnId) {
@@ -1746,8 +1794,7 @@ export default function SmartImport() {
 
       // If spreadsheet has role_name column and member's role differs, track for update
       if (hasRoleCol && esnId) {
-        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
-        const mappedRole = roleVal ? (roleMap[roleVal] || null) : null;
+        const mappedRole = rowRoleHint;
         if (mappedRole && detectedMemberRole && mappedRole !== detectedMemberRole) {
           memberRoleUpdates.set(esnId, mappedRole);
         }
@@ -1781,8 +1828,7 @@ export default function SmartImport() {
       // Resolve role
       let rowRole = targetRole || "esn";
       if (hasRoleCol) {
-        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
-        if (roleVal) { rowRole = roleMap[roleVal] || targetRole || "esn"; }
+        if (roleVal) { rowRole = rowRoleHint || targetRole || "esn"; }
       } else if (detectedMemberRole) {
         rowRole = detectedMemberRole;
       }
@@ -1821,20 +1867,40 @@ export default function SmartImport() {
         continue;
       }
 
+      const aggregateKey = `${esnId}|${rowRole}|${rowCategoryId || ""}|${rowSegmentId || ""}`;
+      const existingAggregate = aggregatedTargets.get(aggregateKey);
+      if (existingAggregate && existingAggregate.unit_id !== rowUnitId) {
+        errors++;
+        const msg = `Linha ${lineNum}: a chave lógica de meta para "${esnLabel}" apareceu com unidades diferentes no mesmo arquivo; registro bloqueado para evitar sobrescrita incorreta.`;
+        addImportLog(entity, "error", msg, "validation");
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Mesma chave lógica encontrada com unidades diferentes" });
+        processed++;
+        continue;
+      }
+
+      const aggregate = existingAggregate || {
+        esn_id: esnId,
+        role: rowRole,
+        category_id: rowCategoryId,
+        segment_id: rowSegmentId,
+        unit_id: rowUnitId,
+        months: {},
+        lines: [],
+        owners: [],
+      };
+
+      if (existingAggregate) consolidatedSourceRows++;
+      aggregate.lines.push(lineNum);
+      if (!aggregate.owners.includes(String(esnLabel))) aggregate.owners.push(String(esnLabel));
+
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Math.round((Number(val) || 0) * 100) / 100;
         if (amount === 0) { skipped++; continue; }
-
-        const lookupKey = `${esnId}|${m}|${rowRole}|${rowCategoryId || ""}|${rowSegmentId || ""}`;
-        const existingId = existingTargets.get(lookupKey);
-
-        if (existingId) {
-          toUpdate.push({ id: existingId, amount });
-        } else {
-          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: rowUnitId, _line: lineNum, _owner: esnLabel, _month: m });
-        }
+        aggregate.months[m] = Math.round(((aggregate.months[m] || 0) + amount) * 100) / 100;
       }
+
+      aggregatedTargets.set(aggregateKey, aggregate);
 
       processed++;
       // Update stats every 10 rows
@@ -1843,10 +1909,41 @@ export default function SmartImport() {
       }
     }
 
+    for (const aggregate of aggregatedTargets.values()) {
+      for (let m = 1; m <= 12; m++) {
+        const amount = Math.round((aggregate.months[m] || 0) * 100) / 100;
+        if (amount === 0) continue;
+
+        const lookupKey = `${aggregate.esn_id}|${m}|${aggregate.role}|${aggregate.category_id || ""}|${aggregate.segment_id || ""}`;
+        const existing = existingTargets.get(lookupKey);
+
+        if (existing) {
+          toUpdate.push({ id: existing.id, amount, unit_id: aggregate.unit_id });
+        } else {
+          toInsert.push({
+            esn_id: aggregate.esn_id,
+            year,
+            month: m,
+            amount,
+            role: aggregate.role,
+            category_id: aggregate.category_id,
+            segment_id: aggregate.segment_id,
+            unit_id: aggregate.unit_id,
+            _line: aggregate.lines.join(", "),
+            _owner: aggregate.owners.join(" / "),
+            _month: m,
+          });
+        }
+      }
+    }
+
     // Recalculate totalRows to reflect the real work: scanned rows + batch records to persist
     const totalWork = processed + toInsert.length + toUpdate.length;
     updateImportStats(entity, { totalRows: totalWork, processed, imported, updated, errors, skipped });
     addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções + ${toUpdate.length} atualizações pendentes`, "system");
+    if (consolidatedSourceRows > 0) {
+      addImportLog(entity, "info", `🧮 ${consolidatedSourceRows} linha(s) duplicadas da planilha foram consolidadas por chave lógica antes da gravação.`, "system");
+    }
 
     // Batch UPSERT (onConflict on composite key)
     if (toInsert.length > 0 && !interrupted) {
@@ -1886,7 +1983,7 @@ export default function SmartImport() {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toUpdate.slice(b, b + BATCH);
         await Promise.all(batch.map(async (upd) => {
-          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount }).eq("id", upd.id);
+          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount, unit_id: upd.unit_id }).eq("id", upd.id);
           if (error) { errors++; } else { updated++; }
         }));
         processed += batch.length;

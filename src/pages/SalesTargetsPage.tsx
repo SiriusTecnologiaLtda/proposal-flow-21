@@ -189,7 +189,7 @@ export default function SalesTargetsPage() {
         esn_id,
         year: Number(newYear),
         month: i + 1,
-        amount: Number(monthValues[i + 1]) || 0,
+        amount: Math.round((Number(monthValues[i + 1]) || 0) * 100) / 100,
         category_id,
         segment_id,
         role,

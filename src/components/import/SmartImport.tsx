@@ -1677,7 +1677,7 @@ export default function SmartImport() {
 
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
-        const amount = Number(val) || 0;
+        const amount = Math.round((Number(val) || 0) * 100) / 100;
         if (amount === 0) { skipped++; continue; }
 
         const lookupKey = `${esnId}|${m}|${rowRole}|${rowCategoryId || ""}|${rowSegmentId || ""}`;

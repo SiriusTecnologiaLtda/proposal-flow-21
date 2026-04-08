@@ -330,14 +330,22 @@ export default function SalesTargetsPage() {
           Object.values(row.months).forEach(m => idsToDelete.push(m.id));
         }
       }
+      let deletedCount = 0;
       // Delete in batches of 100
       for (let i = 0; i < idsToDelete.length; i += 100) {
         const batch = idsToDelete.slice(i, i + 100);
-        const { error } = await supabase.from("sales_targets").delete().in("id", batch);
+        const { error, count } = await supabase.from("sales_targets").delete({ count: "exact" }).in("id", batch);
         if (error) throw error;
+        deletedCount += count || 0;
       }
-      qc.invalidateQueries({ queryKey: ["sales-targets"] });
-      toast({ title: `${selectedKeys.size} meta(s) excluída(s) com sucesso!` });
+      await qc.invalidateQueries({ queryKey: ["sales-targets"] });
+      if (deletedCount === 0) {
+        toast({ title: "Nenhuma meta foi excluída", description: "Verifique suas permissões.", variant: "destructive" });
+      } else if (deletedCount < idsToDelete.length) {
+        toast({ title: `${deletedCount} de ${idsToDelete.length} registro(s) excluído(s)`, description: "Alguns registros não puderam ser removidos." });
+      } else {
+        toast({ title: `${deletedCount} registro(s) excluído(s) com sucesso!` });
+      }
       setSelectedKeys(new Set());
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });

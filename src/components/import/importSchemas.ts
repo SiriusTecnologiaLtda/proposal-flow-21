@@ -247,8 +247,25 @@ export function autoMapColumns(headers: string[], fields: DbField[]): Record<num
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
 
+  // Pass 0: META YYYY - MM pattern → month_N (for sales_targets)
+  const metaMonthRegex = /^meta\s*\d{4}\s*[-–_]\s*(\d{1,2})$/i;
+  for (let i = 0; i < headers.length; i++) {
+    const raw = (headers[i] || "").trim();
+    const m = raw.match(metaMonthRegex);
+    if (m) {
+      const monthNum = parseInt(m[1], 10);
+      const fieldKey = `month_${monthNum}`;
+      const field = fields.find(f => f.key === fieldKey);
+      if (field && !usedFields.has(fieldKey)) {
+        mapping[i] = fieldKey;
+        usedFields.add(fieldKey);
+      }
+    }
+  }
+
   // Pass 1: exact matches
   for (let i = 0; i < headers.length; i++) {
+    if (mapping[i]) continue;
     const h = normalize(headers[i] || "");
     if (!h) continue;
     for (const field of fields) {

@@ -144,7 +144,7 @@ export default function SalesTargetsPage() {
       const segId = (t as any).segment_id || "none";
       const key = `${t.esn_id}__${segId}`;
       if (!map.has(key)) {
-        const esn = esnMap.get(t.esn_id);
+      const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
           segment_id: (t as any).segment_id || null,

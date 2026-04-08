@@ -247,6 +247,32 @@ export function autoMapColumns(headers: string[], fields: DbField[]): Record<num
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
 
+  const isSalesTargetsSchema = fields.some(field => field.key === "month_1");
+  const unitCodeField = isSalesTargetsSchema ? fields.find(field => field.key === "unit_code") : undefined;
+  if (unitCodeField && !usedFields.has(unitCodeField.key)) {
+    const unitHeaderPriority = new Map<string, number>([
+      ["codunidade", 0],
+      ["codigounidade", 0],
+      ["nomeunidade", 1],
+      ["unidade", 2],
+      ["unit", 3],
+    ]);
+
+    const preferredUnitHeader = headers
+      .map((header, index) => ({ index, normalized: normalize(header || "") }))
+      .filter(({ normalized }) => unitHeaderPriority.has(normalized))
+      .sort((a, b) => {
+        const aPriority = unitHeaderPriority.get(a.normalized) ?? Number.MAX_SAFE_INTEGER;
+        const bPriority = unitHeaderPriority.get(b.normalized) ?? Number.MAX_SAFE_INTEGER;
+        return aPriority - bPriority || a.index - b.index;
+      })[0];
+
+    if (preferredUnitHeader) {
+      mapping[preferredUnitHeader.index] = unitCodeField.key;
+      usedFields.add(unitCodeField.key);
+    }
+  }
+
   // Pass 0: META YYYY - MM pattern → month_N (for sales_targets)
   const metaMonthRegex = /^meta\s*\d{4}\s*[-–_]\s*(\d{1,2})$/i;
   for (let i = 0; i < headers.length; i++) {

@@ -355,6 +355,67 @@ export default function SmartImport() {
       }
     }
 
+    // ── Sales Targets: cross-resolve esn_code ↔ esn_name pairs ──
+    // If esn_code resolves but esn_name doesn't (or vice-versa), and they
+    // appear on the same row, remove the unresolved one since the resolved
+    // partner already identifies the member.
+    if (detectedEntity === "sales_targets") {
+      const esnCodeResolved = new Map<string, string>(); // rowKey -> resolved ID
+      const esnNameResolved = new Map<string, string>();
+      const esnCodeAliasKey = getAliasKey("sales_targets", "esn_code");
+      const esnNameAliasKey = getAliasKey("sales_targets", "esn_name");
+
+      // Build map of code→name and name→code from same rows
+      const rowPairs = new Map<string, Set<string>>(); // code_lower → set of name_lowers
+      const nameToCodes = new Map<string, Set<string>>();
+      for (const row of allDataRows) {
+        const codeVal = extractValue(row, "esn_code", fieldToCol)?.trim().toLowerCase() || "";
+        const nameVal = extractValue(row, "esn_name", fieldToCol)?.trim().toLowerCase() || "";
+        if (codeVal && nameVal) {
+          if (!rowPairs.has(codeVal)) rowPairs.set(codeVal, new Set());
+          rowPairs.get(codeVal)!.add(nameVal);
+          if (!nameToCodes.has(nameVal)) nameToCodes.set(nameVal, new Set());
+          nameToCodes.get(nameVal)!.add(codeVal);
+        }
+      }
+
+      // Check which esn_code values are resolved
+      const unresolvedCodes = new Set(unresolved.filter(u => u.fieldKey === "esn_code").map(u => u.valueLower));
+      const unresolvedNames = new Set(unresolved.filter(u => u.fieldKey === "esn_name").map(u => u.valueLower));
+
+      // Remove unresolved names whose paired code IS resolved (not in unresolved)
+      const toRemove = new Set<string>();
+      for (const nameVal of unresolvedNames) {
+        const pairedCodes = nameToCodes.get(nameVal);
+        if (pairedCodes) {
+          for (const code of pairedCodes) {
+            if (!unresolvedCodes.has(code)) {
+              // The code resolved, so the name doesn't need separate resolution
+              toRemove.add(`esn_name:${nameVal}`);
+            }
+          }
+        }
+      }
+      // Remove unresolved codes whose paired name IS resolved
+      for (const codeVal of unresolvedCodes) {
+        const pairedNames = rowPairs.get(codeVal);
+        if (pairedNames) {
+          for (const name of pairedNames) {
+            if (!unresolvedNames.has(name)) {
+              toRemove.add(`esn_code:${codeVal}`);
+            }
+          }
+        }
+      }
+
+      // Filter out cross-resolved items
+      if (toRemove.size > 0) {
+        const filtered = unresolved.filter(u => !toRemove.has(`${u.fieldKey}:${u.valueLower}`));
+        unresolved.length = 0;
+        unresolved.push(...filtered);
+      }
+    }
+
     setScanningRelations(false);
 
     if (unresolved.length === 0) return true; // all resolved
@@ -371,6 +432,24 @@ export default function SmartImport() {
     const newAliases = { ...aliasStore };
     let savedCount = 0;
     let createdCount = 0;
+    const alreadyCreatedForPair = new Map<string, string>(); // track created IDs for paired fields
+
+    // For sales_targets, build row-level pairs: code↔name
+    const rowPairMap = new Map<string, string>(); // "esn_code:<lower>" → esn_name value, and vice-versa
+    if (detectedEntity === "sales_targets") {
+      const fieldToCol: Record<string, number> = {};
+      for (const [colStr, field] of Object.entries(mapping)) {
+        fieldToCol[field] = Number(colStr);
+      }
+      for (const row of allDataRows) {
+        const codeVal = extractValue(row, "esn_code", fieldToCol)?.trim() || "";
+        const nameVal = extractValue(row, "esn_name", fieldToCol)?.trim() || "";
+        if (codeVal && nameVal) {
+          rowPairMap.set(`esn_code:${codeVal.toLowerCase()}`, nameVal);
+          rowPairMap.set(`esn_name:${nameVal.toLowerCase()}`, codeVal);
+        }
+      }
+    }
 
     for (const item of unresolvedItems) {
       const selectionKey = `${item.fieldKey}:${item.valueLower}`;
@@ -379,11 +458,47 @@ export default function SmartImport() {
 
       // Handle "create new" for sales_team members
       if (selectedId === "__create__") {
+        // Check if the paired field already created this member
+        const pairKey = rowPairMap.get(`${item.fieldKey}:${item.valueLower}`);
+        const pairedFieldKey = item.fieldKey === "esn_code" ? "esn_name" : item.fieldKey === "esn_name" ? "esn_code" : "";
+        const pairedCreatedId = pairedFieldKey && pairKey
+          ? alreadyCreatedForPair.get(`${pairedFieldKey}:${pairKey.toLowerCase()}`)
+          : undefined;
+
+        if (pairedCreatedId) {
+          // Partner already created this member — just alias this field to the same ID
+          const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
+          if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
+          newAliases[aliasKey][item.valueLower] = pairedCreatedId;
+
+          // Also update the created member with the missing field
+          const isCode = item.fieldKey.includes("code");
+          if (isCode) {
+            await supabase.from("sales_team").update({ code: item.value.toUpperCase() }).eq("id", pairedCreatedId);
+          } else {
+            await supabase.from("sales_team").update({ name: item.value.toUpperCase() }).eq("id", pairedCreatedId);
+          }
+          // Update lookup cache entry
+          setLookupListsCache(prev => ({
+            ...prev,
+            salesTeamList: prev.salesTeamList.map(e => e.id === pairedCreatedId
+              ? { ...e, ...(isCode ? { code: item.value.toLowerCase() } : { name: item.value.toLowerCase() }) }
+              : e),
+            esnList: prev.esnList.map(e => e.id === pairedCreatedId
+              ? { ...e, ...(isCode ? { code: item.value.toLowerCase() } : { name: item.value.toLowerCase() }) }
+              : e),
+          }));
+          savedCount++;
+          continue;
+        }
+
+        // Build consolidated insert using paired row data
         const isCode = item.fieldKey.includes("code");
+        const pairedValue = pairKey || "";
         const insertData: any = {
-          name: isCode ? item.value.toUpperCase() : item.value.toUpperCase(),
-          code: isCode ? item.value.toUpperCase() : `AUTO_${Date.now()}`,
-          role: "esn" as any, // default role, will be refined during import
+          name: isCode ? (pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
+          code: isCode ? item.value.toUpperCase() : (pairedValue || `AUTO_${Date.now()}`).toUpperCase(),
+          role: "esn" as any,
           commission_pct: 0,
         };
         const { data: created, error } = await supabase.from("sales_team").insert(insertData).select("id").single();
@@ -391,7 +506,17 @@ export default function SmartImport() {
           const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
           if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
           newAliases[aliasKey][item.valueLower] = created.id;
-          // Also update lookup cache
+
+          // Also alias the paired field if it exists
+          if (pairedFieldKey && pairedValue) {
+            const pairedAliasKey = getAliasKey(detectedEntity, pairedFieldKey);
+            if (!newAliases[pairedAliasKey]) newAliases[pairedAliasKey] = {};
+            newAliases[pairedAliasKey][pairedValue.toLowerCase()] = created.id;
+          }
+
+          // Track for dedup
+          alreadyCreatedForPair.set(selectionKey, created.id);
+
           const newEntry = { id: created.id, code: insertData.code.toLowerCase(), name: insertData.name.toLowerCase() };
           setLookupListsCache(prev => ({
             ...prev,
@@ -406,9 +531,22 @@ export default function SmartImport() {
         continue;
       }
 
+      // Regular alias mapping — also alias paired field for sales_targets
       const aliasKey = getAliasKey(detectedEntity, item.fieldKey);
       if (!newAliases[aliasKey]) newAliases[aliasKey] = {};
       newAliases[aliasKey][item.valueLower] = selectedId;
+
+      // If user selected an existing member for esn_code, also alias esn_name (and vice-versa)
+      if (detectedEntity === "sales_targets" && (item.fieldKey === "esn_code" || item.fieldKey === "esn_name")) {
+        const pairedFieldKey = item.fieldKey === "esn_code" ? "esn_name" : "esn_code";
+        const pairKey = rowPairMap.get(`${item.fieldKey}:${item.valueLower}`);
+        if (pairKey) {
+          const pairedAliasKey = getAliasKey(detectedEntity, pairedFieldKey);
+          if (!newAliases[pairedAliasKey]) newAliases[pairedAliasKey] = {};
+          newAliases[pairedAliasKey][pairKey.toLowerCase()] = selectedId;
+        }
+      }
+
       savedCount++;
     }
 
@@ -428,7 +566,7 @@ export default function SmartImport() {
 
     // Now proceed with import
     executeImport(newAliases);
-  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast, qc]);
+  }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, mapping, allDataRows, extractValue, toast, qc]);
 
   // ── Dry-run simulation ──────────────────────────────────────────
   const runDryRun = useCallback(async () => {

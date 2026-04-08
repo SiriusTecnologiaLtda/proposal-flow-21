@@ -455,65 +455,138 @@ export default function SoftwareProposalsListPage() {
 
             {/* Row 2: Status + Origin + Unit + Member in a compact grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Status */}
+              {/* Status — Popover dropdown */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
                   <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                    const active = statusFilter.includes(value);
-                    const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
-                    return (
-                      <button
-                        key={value}
-                        onClick={() =>
-                          setStatusFilter((prev) =>
-                            active ? prev.filter((s) => s !== value) : [...prev, value]
-                          )
-                        }
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
-                          active
-                            ? `${badgeClass} border-current ring-1 ring-current/30`
-                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-xs transition-colors",
+                      statusFilter.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    )}>
+                      <span className="truncate">
+                        {statusFilter.length === 0
+                          ? "Todos os status"
+                          : statusFilter.length === 1
+                            ? STATUS_LABELS[statusFilter[0]] || statusFilter[0]
+                            : `${statusFilter.length} selecionados`}
+                      </span>
+                      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0" align="start">
+                    <div className="max-h-48 overflow-auto p-1">
+                      {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                        const active = statusFilter.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            onClick={() =>
+                              setStatusFilter((prev) =>
+                                active ? prev.filter((s) => s !== value) : [...prev, value]
+                              )
+                            }
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                              active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                            )}>
+                              {active && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="truncate">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {statusFilter.length > 0 && (
+                      <div className="border-t border-border p-1">
+                        <button
+                          onClick={() => setStatusFilter([])}
+                          className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Limpar seleção
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              {/* Origin */}
+              {/* Origin — Popover dropdown */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <FileSearch className="h-3.5 w-3.5" />
                   <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                    const active = originFilter.includes(value);
-                    return (
-                      <button
-                        key={value}
-                        onClick={() =>
-                          setOriginFilter((prev) =>
-                            active ? prev.filter((s) => s !== value) : [...prev, value]
-                          )
-                        }
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
-                          active
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-xs transition-colors",
+                      originFilter.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    )}>
+                      <span className="truncate">
+                        {originFilter.length === 0
+                          ? "Todas as origens"
+                          : originFilter.length === 1
+                            ? ORIGIN_LABELS[originFilter[0]] || originFilter[0]
+                            : `${originFilter.length} selecionadas`}
+                      </span>
+                      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0" align="start">
+                    <div className="max-h-48 overflow-auto p-1">
+                      {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                        const active = originFilter.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            onClick={() =>
+                              setOriginFilter((prev) =>
+                                active ? prev.filter((s) => s !== value) : [...prev, value]
+                              )
+                            }
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                              active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                            )}>
+                              {active && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="truncate">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {originFilter.length > 0 && (
+                      <div className="border-t border-border p-1">
+                        <button
+                          onClick={() => setOriginFilter([])}
+                          className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Limpar seleção
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Unit — Popover dropdown */}

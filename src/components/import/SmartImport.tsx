@@ -1446,6 +1446,8 @@ export default function SmartImport() {
     const crmCodesPendingCreation = new Map<string, { code: string; sales_team_id: string; unit_id: string | null }>();
     // Track which members need unit_id update
     const memberUnitUpdates = new Map<string, string>(); // member_id -> unit_id
+    // Track which members need role update
+    const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
     // Pre-load ALL existing targets for this year to avoid per-row queries
     addImportLog(entity, "info", "Carregando metas existentes do ano...");

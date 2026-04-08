@@ -546,7 +546,7 @@ export default function SmartImport() {
         }
 
         const insertData: any = {
-          name: isCode ? (pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
+          name: isCode ? (item.pairedName || pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
           code: isCode ? item.value.toUpperCase() : (pairedValue || `AUTO_${Date.now()}`).toUpperCase(),
           role: memberRole as any,
           commission_pct: 0,

@@ -1361,18 +1361,29 @@ export default function SmartImport() {
         continue;
       }
 
-      // Resolve category
+      // Resolve category (by name or code)
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
-        const rawCat = (ev(row, "category_name") || "").trim();
-        if (rawCat) { rowCategoryId = catMap.get(normalize(rawCat)) || null; }
+        const rawCatName = (ev(row, "category_name") || "").trim();
+        const rawCatCode = (ev(row, "category_code") || "").trim();
+        if (rawCatName) { rowCategoryId = catMap.get(normalize(rawCatName)) || null; }
+        if (!rowCategoryId && rawCatCode) {
+          // Try to find category by normalized code
+          const found = (allCategories || []).find(c => normalize(c.name) === normalize(rawCatCode) || c.id === rawCatCode);
+          if (found) rowCategoryId = found.id;
+        }
       }
 
-      // Resolve segment
+      // Resolve segment (by name or code)
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
-        const rawSeg = (ev(row, "segment_name") || "").trim();
-        if (rawSeg) { rowSegmentId = segMap.get(normalize(rawSeg)) || null; }
+        const rawSegName = (ev(row, "segment_name") || "").trim();
+        const rawSegCode = (ev(row, "segment_code") || "").trim();
+        if (rawSegName) { rowSegmentId = segMap.get(normalize(rawSegName)) || null; }
+        if (!rowSegmentId && rawSegCode) {
+          const found = (allSegments || []).find(s => normalize(s.name) === normalize(rawSegCode) || s.id === rawSegCode);
+          if (found) rowSegmentId = found.id;
+        }
       }
 
       // Resolve role

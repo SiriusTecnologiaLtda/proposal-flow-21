@@ -745,43 +745,110 @@ export default function SmartImport() {
       return null;
     }
 
+    // Pre-load existing sales_team by code for dedup
+    const existingByCode = new Map<string, string>();
+    const { data: allExisting } = await supabase.from("sales_team").select("id, code");
+    for (const t of (allExisting || [])) existingByCode.set(t.code.trim().toLowerCase(), t.id);
+
+    // Pre-load existing CRM codes for dedup: "code|sales_team_id" -> true
+    const existingCrmSet = new Set<string>();
+    const { data: allCrmCodes } = await supabase.from("sales_team_crm_codes").select("code, sales_team_id");
+    for (const c of (allCrmCodes || [])) existingCrmSet.add(`${c.code.trim().toLowerCase()}|${c.sales_team_id}`);
+
     let imported = 0, updated = 0, errors = 0;
     const insertedCodeMap = new Map<string, string>();
     const cancelSignal = getCancelSignal(entity);
+    const hasCrmCodesCol = "crm_codes" in fieldToCol;
 
-    for (let i = 0; i < dataRows.length; i++) {
+    // Collect CRM codes to upsert after main loop
+    const crmCodesToInsert: { code: string; sales_team_id: string; unit_id: string | null; description: string }[] = [];
+
+    const BATCH = 50;
+    for (let b = 0; b < dataRows.length; b += BATCH) {
       if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Interrompido."); break; }
-      const row = dataRows[i];
-      const code = ev(row, "code")!;
-      const name = ev(row, "name")!;
-      const roleText = ev(row, "role_text") || "";
-      const email = ev(row, "email");
-      const phone = ev(row, "phone");
-      const unitVal = ev(row, "unit_code");
-      const commissionVal = ev(row, "commission_pct");
+      const batch = dataRows.slice(b, b + BATCH);
 
-      const role = parseRole(roleText);
-      if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido. Valores aceitos: ESN, GSN, Arquiteto/Engenheiro de Valor.`); updateImportStats(entity, { errors }); continue; }
+      for (let j = 0; j < batch.length; j++) {
+        const i = b + j;
+        const row = batch[j];
+        const code = ev(row, "code")!;
+        const name = ev(row, "name")!;
+        const roleText = ev(row, "role_text") || "";
+        const email = ev(row, "email");
+        const phone = ev(row, "phone");
+        const unitVal = ev(row, "unit_code");
+        const commissionVal = ev(row, "commission_pct");
 
-      const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
-      if (unitVal && !unit_id) {
-        addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`);
+        const role = parseRole(roleText);
+        if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`); updateImportStats(entity, { errors }); continue; }
+
+        const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
+        if (unitVal && !unit_id) {
+          addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`);
+        }
+
+        const payload: any = { code, name, role, email, phone, unit_id };
+        if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
+
+        const existingId = existingByCode.get(code.trim().toLowerCase());
+        let memberId: string | undefined;
+
+        if (existingId) {
+          const { error } = await supabase.from("sales_team").update(payload).eq("id", existingId);
+          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
+          else { memberId = existingId; updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
+        } else {
+          const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
+          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
+          else if (ins) { memberId = ins.id; existingByCode.set(code.trim().toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
+        }
+
+        if (memberId) {
+          insertedCodeMap.set(code.toLowerCase(), memberId);
+
+          // Auto-sync: sempre gravar o código principal como CRM code
+          const mainCrmKey = `${code.trim().toLowerCase()}|${memberId}`;
+          if (!existingCrmSet.has(mainCrmKey)) {
+            crmCodesToInsert.push({ code: code.trim(), sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
+            existingCrmSet.add(mainCrmKey);
+          }
+
+          // CRM codes adicionais da coluna dedicada
+          if (hasCrmCodesCol) {
+            const rawCrm = ev(row, "crm_codes") || "";
+            if (rawCrm) {
+              const codes = rawCrm.split(/[;,]/).map((c: string) => c.trim()).filter(Boolean);
+              for (const crmCode of codes) {
+                const crmKey = `${crmCode.toLowerCase()}|${memberId}`;
+                if (!existingCrmSet.has(crmKey)) {
+                  crmCodesToInsert.push({ code: crmCode, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
+                  existingCrmSet.add(crmKey);
+                }
+              }
+            }
+          }
+        }
+
+        updateImportStats(entity, { imported, updated, errors });
       }
+    }
 
-      const payload: any = { code, name, role, email, phone, unit_id };
-      if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
-
-      const { data: existing } = await supabase.from("sales_team").select("id").eq("code", code).maybeSingle();
-      if (existing) {
-        const { error } = await supabase.from("sales_team").update(payload).eq("id", existing.id);
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
-        else { insertedCodeMap.set(code.toLowerCase(), existing.id); updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
-      } else {
-        const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
-        if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
-        else if (ins) { insertedCodeMap.set(code.toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
+    // Batch insert CRM codes
+    if (crmCodesToInsert.length > 0) {
+      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`);
+      const CRM_BATCH = 100;
+      for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
+        const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);
+        const { error } = await supabase.from("sales_team_crm_codes").insert(batch);
+        if (error) {
+          // Fallback row-by-row
+          for (const item of batch) {
+            const { error: rowErr } = await supabase.from("sales_team_crm_codes").insert(item);
+            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`);
+          }
+        }
       }
-      updateImportStats(entity, { imported, updated, errors });
+      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`);
     }
 
     // Link GSNs
@@ -793,7 +860,6 @@ export default function SmartImport() {
       teamMap.set(t.name.trim().toLowerCase(), t.id);
     }
 
-    // Also consider GSN aliases
     const gsnCodeAliasKey = getAliasKey(entity, "gsn_code");
     const gsnNameAliasKey = getAliasKey(entity, "gsn_name");
     const gsnCodeAliases = currentAliases[gsnCodeAliasKey] || {};
@@ -821,12 +887,12 @@ export default function SmartImport() {
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
+    addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`);
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
     if (dbLogId) await supabase.from("import_logs").update({
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros`,
+      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${crmCodesToInsert.length} CRM codes`,
     } as any).eq("id", dbLogId);
   }
 

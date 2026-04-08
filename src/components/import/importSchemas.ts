@@ -43,6 +43,7 @@ export const SALES_TEAM_DB_FIELDS: DbField[] = [
   { key: "email", label: "E-mail", required: false, aliases: ["email", "e-mail", "e_mail"], format: "email" },
   { key: "phone", label: "Telefone", required: false, aliases: ["telefone", "fone", "tel", "phone", "celular"] },
   { key: "commission_pct", label: "Comissão (%)", required: false, aliases: ["comissão", "comissao", "% comissão", "pct comissao"], format: "numeric" },
+  { key: "crm_codes", label: "Códigos CRM (separados por ; ou ,)", required: false, aliases: ["crm", "crm codes", "códigos crm", "codigos crm", "cod crm", "código crm", "crm code"] },
 ];
 
 export const TEMPLATE_DB_FIELDS: DbField[] = [

@@ -1623,12 +1623,17 @@ export default function SmartImport() {
           {/* ── STEP: Upload ───────────────────────────────────── */}
           {step === "upload" && (
             <div
-              className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group"
               onClick={() => fileRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("border-primary", "bg-primary/5"); }}
+              onDragLeave={e => { e.currentTarget.classList.remove("border-primary", "bg-primary/5"); }}
+              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("border-primary", "bg-primary/5"); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
             >
-              <Upload className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-              <p className="text-sm font-medium">Clique para selecionar ou arraste um arquivo</p>
-              <p className="text-xs text-muted-foreground mt-1">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
+              <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-primary/10 mb-4 group-hover:bg-primary/15 transition-colors">
+                <Upload className="h-7 w-7 text-primary/60 group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-sm font-medium">Arraste uma planilha ou clique para selecionar</p>
+              <p className="text-xs text-muted-foreground mt-1.5">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);

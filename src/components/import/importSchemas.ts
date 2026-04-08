@@ -141,6 +141,7 @@ export const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
   ],
   templates: [],
   sales_targets: [
+    { fieldKey: "unit_code", label: "Unidade", listType: "units" },
     { fieldKey: "esn_code", label: "Dono da Meta (código)", listType: "sales_team" },
     { fieldKey: "esn_name", label: "Dono da Meta (nome)", listType: "sales_team" },
   ],

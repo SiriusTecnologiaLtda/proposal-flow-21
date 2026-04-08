@@ -612,9 +612,6 @@ export default function SalesTargetsPage() {
                         {cat.name}
                       </th>
                     ))}
-                    <th className="text-center px-3 py-3 font-semibold text-muted-foreground text-[11px] uppercase tracking-wider min-w-[120px] border-b border-l border-border/60 bg-muted">
-                      Total Geral
-                    </th>
                     {isAdmin && (
                       <th className="text-center px-2 py-3 w-[44px] border-b border-l border-border/60 bg-muted" />
                     )}
@@ -669,9 +666,6 @@ export default function SalesTargetsPage() {
                             </td>
                           );
                         })}
-                        <td className="text-center px-3 py-2.5 font-semibold tabular-nums text-xs border-l border-border/40 bg-muted/20" onClick={() => isAdmin && openEditDialog(row)}>
-                          {formatCurrency(row.grandTotal)}
-                        </td>
                         {isAdmin && (
                           <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20" onClick={() => openEditDialog(row)}>
                             <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors mx-auto" />
@@ -695,9 +689,6 @@ export default function SalesTargetsPage() {
                         </td>
                       );
                     })}
-                    <td className="text-center px-3 py-3 text-sm tabular-nums font-bold border-l border-border/60 text-primary">
-                      {formatCurrency(grandTotal)}
-                    </td>
                     {isAdmin && <td className="border-l border-border/60" />}
                   </tr>
                 </tfoot>

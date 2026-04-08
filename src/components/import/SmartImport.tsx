@@ -1633,24 +1633,7 @@ export default function SmartImport() {
     // Track which members need role update
     const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
-    // Pre-load ALL existing targets for this year to avoid per-row queries
-    addImportLog(entity, "info", "Carregando metas existentes do ano...");
-    const existingTargets = new Map<string, { id: string; unit_id: string | null }>(); // "esnId|month|role|catId|segId" -> row
-    let dbOffset = 0;
-    while (true) {
-      const { data: chunk } = await supabase.from("sales_targets")
-        .select("id, esn_id, month, role, category_id, segment_id, unit_id")
-        .eq("year", year)
-        .range(dbOffset, dbOffset + 999);
-      if (!chunk || chunk.length === 0) break;
-      for (const t of chunk) {
-        const key = `${t.esn_id}|${t.month}|${t.role}|${t.category_id || ""}|${t.segment_id || ""}`;
-        existingTargets.set(key, { id: t.id, unit_id: (t as any).unit_id || null });
-      }
-      if (chunk.length < 1000) break;
-      dbOffset += 1000;
-    }
-    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`, "system");
+    // No pre-load of existing targets needed — each row is inserted independently
 
     // Helper: ensure category exists
     const ensureCategoryId = async (rawValue: string): Promise<string | null> => {

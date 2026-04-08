@@ -1095,7 +1095,7 @@ export default function SmartImport() {
           }).select("id").single();
           if (tplErr || !tpl) {
             errors++;
-            addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`);
+            addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`, "batch_error");
             updateImportStats(entity, { errors });
             continue;
           }

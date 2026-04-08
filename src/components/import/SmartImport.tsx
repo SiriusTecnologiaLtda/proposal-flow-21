@@ -425,8 +425,24 @@ function formatDuration(ms: number): string {
   return `${Math.floor(s / 60)}min ${s % 60}s`;
 }
 
+// ─── CRM codes cache (loaded once per session) ─────────────────
+let _crmCodesCache: { code: string; sales_team_id: string; unit_id: string | null }[] | null = null;
+
+async function loadCrmCodes(): Promise<{ code: string; sales_team_id: string; unit_id: string | null }[]> {
+  if (_crmCodesCache) return _crmCodesCache;
+  const { data } = await supabase.from("sales_team_crm_codes").select("code, sales_team_id, unit_id");
+  _crmCodesCache = (data || []).map(c => ({
+    code: c.code.trim().toLowerCase(),
+    sales_team_id: c.sales_team_id,
+    unit_id: c.unit_id,
+  }));
+  return _crmCodesCache;
+}
+
+function invalidateCrmCache() { _crmCodesCache = null; }
+
 // ─── Lookup helpers ─────────────────────────────────────────────
-function findInList(list: { id: string; code: string; name: string }[], search: string): string | null {
+function findInList(list: { id: string; code: string; name: string }[], search: string, crmCodes?: { code: string; sales_team_id: string }[]): string | null {
   if (!search) return null;
   const s = search.trim().toLowerCase();
   const byCode = list.find(u => u.code === s);
@@ -438,11 +454,106 @@ function findInList(list: { id: string; code: string; name: string }[], search: 
     const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
     if (byPaddedCode) return byPaddedCode.id;
   }
+  // Check CRM codes for sales team lookups
+  if (crmCodes) {
+    const byCrm = crmCodes.find(c => c.code === s);
+    if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) return byCrm.sales_team_id;
+    if (sNum) {
+      const byCrmPadded = crmCodes.find(c => c.code.replace(/^0+/, "") === sNum);
+      if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
+    }
+  }
   const partial = list.find(u =>
     (u.code && (u.code.includes(s) || s.includes(u.code))) ||
     (u.name && (u.name.includes(s) || s.includes(u.name)))
   );
   return partial ? partial.id : null;
+}
+
+// ─── Dynamic structural validation ─────────────────────────────
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+function validateImportStructure(
+  entity: ImportEntity,
+  mapping: Record<number, string>,
+  headers: string[],
+  dbFields: DbField[],
+  dataRows: any[][],
+): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const fieldToCol: Record<string, number> = {};
+  for (const [colStr, field] of Object.entries(mapping)) fieldToCol[field] = Number(colStr);
+
+  // 1. Required fields check
+  const missingRequired = dbFields.filter(f => f.required && !(f.key in fieldToCol));
+  if (missingRequired.length > 0) {
+    errors.push(`Campos obrigatórios não mapeados: ${missingRequired.map(f => f.label).join(", ")}`);
+  }
+
+  // 2. Sample data type validation (first 20 rows)
+  const sampleSize = Math.min(dataRows.length, 20);
+  let emptyRequiredCount = 0;
+  for (let i = 0; i < sampleSize; i++) {
+    const row = dataRows[i];
+    for (const f of dbFields.filter(ff => ff.required)) {
+      const colIdx = fieldToCol[f.key];
+      if (colIdx == null) continue;
+      const val = String(row[colIdx] ?? "").trim();
+      if (!val) emptyRequiredCount++;
+    }
+  }
+  if (emptyRequiredCount > 0) {
+    warnings.push(`${emptyRequiredCount} célula(s) obrigatória(s) vazia(s) nas primeiras ${sampleSize} linhas — linhas serão ignoradas.`);
+  }
+
+  // 3. CNPJ format check for clients
+  if (entity === "clients" && fieldToCol["cnpj"] != null) {
+    let invalidCnpj = 0;
+    for (let i = 0; i < sampleSize; i++) {
+      const val = String(dataRows[i][fieldToCol["cnpj"]] ?? "").replace(/\D/g, "");
+      if (val && val.length !== 11 && val.length !== 14) invalidCnpj++;
+    }
+    if (invalidCnpj > 0) warnings.push(`${invalidCnpj} CNPJ/CPF com formato inválido nas primeiras ${sampleSize} linhas.`);
+  }
+
+  // 4. Email format check
+  const emailCol = fieldToCol["email"];
+  if (emailCol != null) {
+    let invalidEmail = 0;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (let i = 0; i < sampleSize; i++) {
+      const val = String(dataRows[i][emailCol] ?? "").trim();
+      if (val && !emailRegex.test(val)) invalidEmail++;
+    }
+    if (invalidEmail > 0) warnings.push(`${invalidEmail} e-mail(s) com formato inválido nas primeiras ${sampleSize} linhas.`);
+  }
+
+  // 5. Numeric month columns for sales_targets
+  if (entity === "sales_targets") {
+    let nonNumericMonths = 0;
+    for (let m = 1; m <= 12; m++) {
+      const col = fieldToCol[`month_${m}`];
+      if (col == null) continue;
+      for (let i = 0; i < sampleSize; i++) {
+        const val = String(dataRows[i][col] ?? "").trim();
+        if (val && isNaN(Number(val.replace(/[.,]/g, "")))) nonNumericMonths++;
+      }
+    }
+    if (nonNumericMonths > 0) warnings.push(`${nonNumericMonths} valor(es) de meta não numérico(s) detectado(s).`);
+  }
+
+  // 6. Unmapped columns warning
+  const unmappedCols = headers.filter((_, i) => !mapping[i] && headers[i]?.trim());
+  if (unmappedCols.length > 0) {
+    warnings.push(`${unmappedCols.length} coluna(s) não mapeada(s): ${unmappedCols.slice(0, 5).join(", ")}${unmappedCols.length > 5 ? "..." : ""}`);
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 // ─── Unresolved relation types ──────────────────────────────────

@@ -400,8 +400,11 @@ export default function SalesTargetsPage() {
                 setNewSegmentId("");
                 setNewRole("esn");
                 setNewYear(yearFilter);
-                const emptyMonths: Record<number, string> = {};
-                for (let m = 1; m <= 12; m++) emptyMonths[m] = "0";
+                const emptyMonths: Record<string, string> = {};
+                // Initialize all category×month combos with "0"
+                for (const cat of categories) {
+                  for (let m = 1; m <= 12; m++) emptyMonths[`${cat.id}_${m}`] = "0";
+                }
                 setEditMonthValues(emptyMonths);
                 setEditDialogOpen(true);
               }}>

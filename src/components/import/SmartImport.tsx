@@ -600,14 +600,44 @@ export default function SmartImport() {
           if (!hasVal) { result.toSkip++; result.details.push({ line: lineNum, action: "skip", reason: "Sem valores mensais" }); }
           else { result.toInsert++; result.details.push({ line: lineNum, action: "insert", reason: "Metas com valores" }); }
         }
-      } else if (detectedEntity === "templates") {
+     } else if (detectedEntity === "templates") {
         const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
         result.invalidRows = allDataRows.length - dataRows.length;
         result.validRows = dataRows.length;
-        const tplNames = new Set<string>();
-        for (const row of dataRows) tplNames.add(ev(row, "template_name")!);
-        result.toInsert = tplNames.size;
-        result.details.push({ line: 0, action: "insert", reason: `${tplNames.size} template(s) com ${dataRows.length} itens` });
+        // Group by template name
+        const tplGroups = new Map<string, { items: any[] }>();
+        for (const row of dataRows) {
+          const tplName = ev(row, "template_name")!;
+          if (!tplGroups.has(tplName)) tplGroups.set(tplName, { items: [] });
+          tplGroups.get(tplName)!.items.push(row);
+        }
+        // Check existing templates
+        const { data: existingTpls } = await supabase.from("scope_templates").select("id, name");
+        const existingNames = new Set((existingTpls || []).map(t => t.name.trim().toLowerCase()));
+        let toInsert = 0, toUpdate = 0, toSkip = 0;
+        for (const [tplName, group] of tplGroups) {
+          const exists = existingNames.has(tplName.trim().toLowerCase());
+          if (exists) {
+            toUpdate++;
+            result.details.push({ line: 0, action: "update", reason: `"${tplName}" já existe — itens serão substituídos (${group.items.length} linhas)` });
+          } else {
+            toInsert++;
+            result.details.push({ line: 0, action: "insert", reason: `"${tplName}" — novo template (${group.items.length} linhas)` });
+          }
+          // Validate parent references for sub-items
+          const processes = group.items.filter(r => (ev(r, "item_type") || "").toUpperCase() === "P");
+          const processDescs = new Set(processes.map(r => (ev(r, "description") || "").toLowerCase()));
+          const subs = group.items.filter(r => (ev(r, "item_type") || "").toUpperCase() === "S");
+          for (const sub of subs) {
+            const parentDesc = (ev(sub, "parent_desc") || "").toLowerCase();
+            if (parentDesc && !processDescs.has(parentDesc)) {
+              result.warnings.push(`Sub-item "${ev(sub, "description")}" referencia pai "${ev(sub, "parent_desc")}" não encontrado em "${tplName}"`);
+            }
+          }
+        }
+        result.toInsert = toInsert;
+        result.toUpdate = toUpdate;
+        result.toSkip = toSkip;
       }
 
       result.unresolvedRelations = Array.from(unresolvedMap.values());

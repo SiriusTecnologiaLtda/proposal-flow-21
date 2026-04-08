@@ -1460,6 +1460,11 @@ export default function SmartImport() {
       }
     }
 
+    // Recalculate totalRows to reflect the real work: scanned rows + batch records to persist
+    const totalWork = processed + toInsert.length + toUpdate.length;
+    updateImportStats(entity, { totalRows: totalWork, processed, imported, updated, errors, skipped });
+    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções + ${toUpdate.length} atualizações pendentes`, "system");
+
     // Batch UPSERT (onConflict on composite key)
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
@@ -1485,7 +1490,8 @@ export default function SmartImport() {
         } else {
           imported += cleanBatch.length;
         }
-        updateImportStats(entity, { imported, updated, errors, skipped });
+        processed += cleanBatch.length;
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }
 
@@ -1496,12 +1502,12 @@ export default function SmartImport() {
       for (let b = 0; b < toUpdate.length; b += BATCH) {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toUpdate.slice(b, b + BATCH);
-        // Updates must be done individually since each has a different amount
         await Promise.all(batch.map(async (upd) => {
           const { error } = await supabase.from("sales_targets").update({ amount: upd.amount }).eq("id", upd.id);
           if (error) { errors++; } else { updated++; }
         }));
-        updateImportStats(entity, { imported, updated, errors, skipped });
+        processed += batch.length;
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }
 
@@ -1511,7 +1517,7 @@ export default function SmartImport() {
     addImportLog(
       entity,
       finalStatus === "interrupted" ? "info" : "ok",
-      `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
+      `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${dataRows.length} linhas → ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
     );
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_targets"] });
 
@@ -1521,9 +1527,9 @@ export default function SmartImport() {
         `L${e.line} ${e.owner}${e.month ? ` mês ${e.month}` : ""}: ${e.message}`
       );
       await supabase.from("import_logs").update({
-        status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
+        status: finalStatus, total_rows: totalWork, imported, updated, errors, skipped,
         finished_at: new Date().toISOString(), duration_ms: dur,
-        summary: `${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
+        summary: `${dataRows.length} linhas → ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
         error_details: truncatedErrors,
       } as any).eq("id", dbLogId);
     }

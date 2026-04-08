@@ -65,6 +65,8 @@ import {
   normalize,
   findInList,
   findInListWithAlias,
+  parseRole,
+  buildClientPayload,
 } from "./importSchemas";
 
 // ─── CRM codes cache (loaded once per session) ─────────────────

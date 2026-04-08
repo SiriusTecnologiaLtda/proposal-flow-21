@@ -183,6 +183,7 @@ function findInListWithAlias(
   search: string,
   aliasKey: string,
   aliases: AliasStore,
+  crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
   if (!search) return null;
   // Check alias first
@@ -191,7 +192,7 @@ function findInListWithAlias(
     const aliasId = aliasMap[search.trim().toLowerCase()];
     if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
   }
-  return findInList(list, search);
+  return findInList(list, search, crmCodes);
 }
 
 // ─── Filter rule types ─────────────────────────────────────────

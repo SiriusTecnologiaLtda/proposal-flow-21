@@ -1722,6 +1722,8 @@ export default function SmartImport() {
     setDetectionResults([]);
     setUnresolvedItems([]);
     setResolutionSelections({});
+    setValidationResult(null);
+    invalidateCrmCache();
   };
 
   // ── Helper to get lookup list for a relational field ──────────

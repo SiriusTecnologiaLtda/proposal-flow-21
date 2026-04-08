@@ -1449,7 +1449,7 @@ export default function SmartImport() {
         if (existingId) {
           toUpdate.push({ id: existingId, amount });
         } else {
-          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: memberUnitId, _line: lineNum, _owner: esnLabel, _month: m });
+          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: rowUnitId, _line: lineNum, _owner: esnLabel, _month: m });
         }
       }
 

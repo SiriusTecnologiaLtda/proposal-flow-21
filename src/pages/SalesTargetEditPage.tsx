@@ -97,12 +97,11 @@ export default function SalesTargetEditPage() {
       const firstEsn = allEsns[0];
       if (!editEsnId && firstEsn) setEditEsnId(firstEsn.id);
       if (!editUnitId && firstEsn?.unit_id) setEditUnitId(firstEsn.unit_id);
+      if (!editSegId && segments[0]) setEditSegId(segments[0].id);
 
-      const firstSeg = segments[0];
       const rows = sortedCategories.map((c: any) => ({
-        key: `${c.id}__${firstSeg?.id || ""}`,
+        key: c.id,
         catId: c.id,
-        segId: firstSeg?.id || "",
       }));
       const values: Record<string, Record<number, string>> = {};
       for (const r of rows) {
@@ -118,16 +117,17 @@ export default function SalesTargetEditPage() {
         setEditUnitId(esn.unit_id || "");
         setEditRole(targets[0]?.role || "esn");
       }
+      // Use segment from first target
+      if (!editSegId && targets[0]?.segment_id) setEditSegId(targets[0].segment_id);
 
-      const rowMap = new Map<string, { catId: string; segId: string }>();
+      const rowMap = new Map<string, { catId: string }>();
       const values: Record<string, Record<number, string>> = {};
 
       for (const t of targets) {
         const catId = t.category_id || "";
-        const segId = t.segment_id || "";
         if (!catId) continue;
-        const key = `${catId}__${segId}`;
-        if (!rowMap.has(key)) rowMap.set(key, { catId, segId });
+        const key = catId;
+        if (!rowMap.has(key)) rowMap.set(key, { catId });
         if (!values[key]) values[key] = {};
         const current = Number(values[key][t.month] || "0");
         values[key][t.month] = String(current + (t.amount || 0));
@@ -144,17 +144,16 @@ export default function SalesTargetEditPage() {
       setGridRows(rows);
       setGridValues(values);
     } else if (!isCreateMode && editEsnIdParam) {
-      // No targets yet for this member - show blank grid
       const esn = esnMap.get(editEsnIdParam);
       if (esn) {
         setEditEsnId(esn.id);
         setEditUnitId(esn.unit_id || "");
       }
-      const firstSeg = segments[0];
+      if (!editSegId && segments[0]) setEditSegId(segments[0].id);
+
       const rows = sortedCategories.map((c: any) => ({
-        key: `${c.id}__${firstSeg?.id || ""}`,
+        key: c.id,
         catId: c.id,
-        segId: firstSeg?.id || "",
       }));
       const values: Record<string, Record<number, string>> = {};
       for (const r of rows) {

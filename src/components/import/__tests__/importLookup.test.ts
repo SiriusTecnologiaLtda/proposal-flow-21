@@ -105,8 +105,9 @@ describe("findInListWithAlias", () => {
     expect(findInListWithAlias(salesTeam, "crm001", "clients:esn_code", aliases, crmCodes)).toBe("id-joao");
   });
 
-  it("returns null for empty search", () => {
+  it("returns null for empty and whitespace search", () => {
     expect(findInListWithAlias(salesTeam, "", "clients:esn_code", aliases)).toBeNull();
+    expect(findInListWithAlias(salesTeam, "   ", "clients:esn_code", aliases)).toBeNull();
   });
 });
 

@@ -631,7 +631,6 @@ export default function SalesTargetsPage() {
                     const rowKey = getRowKey(row);
                     const isSelected = selectedKeys.has(rowKey);
                     const unitName = getUnitName(row.unit_id);
-                    const segName = getSegmentName(row.segment_id);
                     return (
                       <tr key={rowKey} className={cn("group transition-colors hover:bg-accent/40", isAdmin && "cursor-pointer", isSelected && "bg-primary/5")}>
                         {isAdmin && (
@@ -650,12 +649,6 @@ export default function SalesTargetsPage() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
-                              {row.segment_id && (
-                                <>
-                                  <span className="text-muted-foreground/30">•</span>
-                                  <span className="text-[10px] text-muted-foreground font-medium">{segName}</span>
-                                </>
-                              )}
                               {unitName && (
                                 <>
                                   <span className="text-muted-foreground/30">•</span>

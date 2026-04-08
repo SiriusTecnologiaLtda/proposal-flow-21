@@ -495,11 +495,39 @@ export default function SmartImport() {
         // Build consolidated insert using paired row data
         const isCode = item.fieldKey.includes("code");
         const pairedValue = pairKey || "";
+
+        // Resolve unit_id and role from the row data for the new member
+        const fieldToColLocal: Record<string, number> = {};
+        for (const [colStr, field] of Object.entries(mapping)) fieldToColLocal[field] = Number(colStr);
+        let memberUnitId: string | null = null;
+        let memberRole: string = "esn";
+        // Find the first row with this member to extract unit and role
+        for (const row of allDataRows) {
+          const rowCode = (extractValue(row, "esn_code", fieldToColLocal) || "").trim().toLowerCase();
+          const rowName = (extractValue(row, "esn_name", fieldToColLocal) || "").trim().toLowerCase();
+          if ((isCode && rowCode === item.valueLower) || (!isCode && rowName === item.valueLower)) {
+            // Resolve unit
+            const rawUnit = (extractValue(row, "unit_code", fieldToColLocal) || "").trim();
+            if (rawUnit) {
+              const unitAliasKey = getAliasKey(detectedEntity, "unit_code");
+              memberUnitId = findInListWithAlias(lookupListsCache.unitList, rawUnit, unitAliasKey, newAliases);
+            }
+            // Resolve role
+            const rawRole = (extractValue(row, "role_name", fieldToColLocal) || "").trim().toLowerCase();
+            if (rawRole) {
+              const r = parseRole(rawRole);
+              if (r) memberRole = r;
+            }
+            break;
+          }
+        }
+
         const insertData: any = {
           name: isCode ? (pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
           code: isCode ? item.value.toUpperCase() : (pairedValue || `AUTO_${Date.now()}`).toUpperCase(),
-          role: "esn" as any,
+          role: memberRole as any,
           commission_pct: 0,
+          unit_id: memberUnitId,
         };
         const { data: created, error } = await supabase.from("sales_team").insert(insertData).select("id").single();
         if (created && !error) {

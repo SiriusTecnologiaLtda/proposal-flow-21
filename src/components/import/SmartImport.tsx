@@ -1737,25 +1737,44 @@ export default function SmartImport() {
         }
       }
 
-      // Resolve category (by name or code)
+      // Resolve category (by name or code, including aliases from pre-scan)
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
         const rawCatName = (ev(row, "category_name") || "").trim();
         const rawCatCode = (ev(row, "category_code") || "").trim();
-        if (rawCatName) { rowCategoryId = catMap.get(normalize(rawCatName)) || null; }
+        if (rawCatName) {
+          rowCategoryId = catMap.get(normalize(rawCatName)) || null;
+          // Check aliases from pre-scan resolution
+          if (!rowCategoryId) {
+            const catAliasKey = getAliasKey(entity, "category_name");
+            const catAliases = currentAliases[catAliasKey];
+            if (catAliases && catAliases[normalize(rawCatName)]) {
+              rowCategoryId = catAliases[normalize(rawCatName)];
+            }
+          }
+        }
         if (!rowCategoryId && rawCatCode) {
-          // Try to find category by normalized code
           const found = (allCategories || []).find(c => normalize(c.name) === normalize(rawCatCode) || c.id === rawCatCode);
           if (found) rowCategoryId = found.id;
         }
       }
 
-      // Resolve segment (by name or code)
+      // Resolve segment (by name or code, including aliases from pre-scan)
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
         const rawSegName = (ev(row, "segment_name") || "").trim();
         const rawSegCode = (ev(row, "segment_code") || "").trim();
-        if (rawSegName) { rowSegmentId = segMap.get(normalize(rawSegName)) || null; }
+        if (rawSegName) {
+          rowSegmentId = segMap.get(normalize(rawSegName)) || null;
+          // Check aliases from pre-scan resolution
+          if (!rowSegmentId) {
+            const segAliasKey = getAliasKey(entity, "segment_name");
+            const segAliases = currentAliases[segAliasKey];
+            if (segAliases && segAliases[normalize(rawSegName)]) {
+              rowSegmentId = segAliases[normalize(rawSegName)];
+            }
+          }
+        }
         if (!rowSegmentId && rawSegCode) {
           const found = (allSegments || []).find(s => normalize(s.name) === normalize(rawSegCode) || s.id === rawSegCode);
           if (found) rowSegmentId = found.id;

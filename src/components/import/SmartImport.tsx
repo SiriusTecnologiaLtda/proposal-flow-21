@@ -1123,7 +1123,7 @@ export default function SmartImport() {
             .insert(processRows)
             .select("id, description");
           if (procErr) {
-            addImportLog(entity, "error", `Processos de "${tplName}": ${procErr.message}`);
+            addImportLog(entity, "error", `Processos de "${tplName}": ${procErr.message}`, "batch_error");
           } else if (insertedProcs) {
             for (const p of insertedProcs) {
               processIdMap.set(p.description.toLowerCase(), p.id);
@@ -1137,7 +1137,7 @@ export default function SmartImport() {
           for (const sub of subItems) {
             const parentId = processIdMap.get(sub.parentDesc.toLowerCase());
             if (!parentId) {
-              addImportLog(entity, "error", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado em "${tplName}".`);
+              addImportLog(entity, "warning", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado em "${tplName}".`, "relation");
               continue;
             }
             subRows.push({
@@ -1150,35 +1150,38 @@ export default function SmartImport() {
           }
           if (subRows.length > 0) {
             const { error: subErr } = await supabase.from("scope_template_items").insert(subRows);
-            if (subErr) addImportLog(entity, "error", `Sub-itens de "${tplName}": ${subErr.message}`);
+            if (subErr) addImportLog(entity, "error", `Sub-itens de "${tplName}": ${subErr.message}`, "batch_error");
           }
         }
 
         if (isUpdate) {
           updated++;
           updateImportStats(entity, { updated });
-          addImportLog(entity, "ok", `Template "${tplName}" atualizado (${processes.length} processos, ${subItems.length} sub-itens).`);
+          addImportLog(entity, "ok", `Template "${tplName}" atualizado (${processes.length} processos, ${subItems.length} sub-itens)`, "update");
         } else {
           imported++;
           updateImportStats(entity, { imported });
-          addImportLog(entity, "ok", `Template "${tplName}" importado (${processes.length} processos, ${subItems.length} sub-itens).`);
+          addImportLog(entity, "ok", `Template "${tplName}" importado (${processes.length} processos, ${subItems.length} sub-itens)`, "insert");
         }
       } catch (err: any) {
         errors++;
         updateImportStats(entity, { errors });
-        addImportLog(entity, "error", `Template "${tplName}": ${err.message}`);
+        addImportLog(entity, "error", `Template "${tplName}": ${err.message}`, "batch_error");
       }
     }
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} novos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
+    addImportLog(entity, finalStatus === "error" ? "error" : "ok",
+      `${finalStatus === "error" ? "❌ Falhou" : "✅ Concluído"} — ${imported} novos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["scope_templates"] }); qc.invalidateQueries({ queryKey: ["scope_template_items"] }); }
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) await supabase.from("import_logs").update({
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
       summary: `${imported} novos, ${updated} atualizados, ${errors} erros`,
+      error_details: errorMsgs,
     } as any).eq("id", dbLogId);
   }
 

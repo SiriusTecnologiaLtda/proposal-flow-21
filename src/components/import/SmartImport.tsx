@@ -2022,12 +2022,14 @@ export default function SmartImport() {
   };
 
   // ── Helper to get lookup list for a relational field ──────────
-  function getListForType(listType: "units" | "esn" | "gsn" | "sales_team") {
+  function getListForType(listType: "units" | "esn" | "gsn" | "sales_team" | "categories" | "segments") {
     switch (listType) {
       case "units": return lookupListsCache.unitList;
       case "esn": return lookupListsCache.esnList;
       case "gsn": return lookupListsCache.gsnList;
       case "sales_team": return lookupListsCache.salesTeamList;
+      case "categories": return lookupListsCache.categoryList;
+      case "segments": return lookupListsCache.segmentList;
     }
   }
 

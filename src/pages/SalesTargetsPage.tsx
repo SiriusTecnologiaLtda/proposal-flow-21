@@ -522,7 +522,7 @@ export default function SalesTargetsPage() {
                       </th>
                     )}
                     <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
-                      Executivo de Negócios
+                      Time de Vendas
                     </th>
                     {MONTH_NAMES.map((m, i) => (
                       <th key={i} className="text-center px-1.5 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[80px] border-b border-border/60">

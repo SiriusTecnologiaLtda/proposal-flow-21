@@ -1744,7 +1744,7 @@ export default function SmartImport() {
     if (memberRoleUpdates.size > 0 && !interrupted) {
       addImportLog(entity, "info", `Atualizando função/nível de ${memberRoleUpdates.size} membro(s) do time...`, "system");
       for (const [memberId, newRole] of memberRoleUpdates) {
-        await supabase.from("sales_team").update({ role: newRole }).eq("id", memberId);
+        await supabase.from("sales_team").update({ role: newRole as any }).eq("id", memberId);
       }
       addImportLog(entity, "ok", `${memberRoleUpdates.size} membro(s) com função atualizada.`, "update");
     }

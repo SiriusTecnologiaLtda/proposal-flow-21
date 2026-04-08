@@ -776,7 +776,7 @@ export default function SmartImport() {
         const rowLabel = `Cliente ${code}`;
         unresolvedWarnings.length = 0;
         const payload = buildPayload(row, allMappedKeys, rowLabel);
-        for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
+        for (const w of unresolvedWarnings) addImportLog(entity, "warning", w, "relation");
         payload.code = payload.code || code;
         payload.name = payload.name || ev(row, "name");
         payload.cnpj = ev(row, "cnpj") || "";

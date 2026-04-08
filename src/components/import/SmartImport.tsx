@@ -2269,6 +2269,15 @@ export default function SmartImport() {
                 </div>
               )}
 
+              {dryRunResult.blockers.length > 0 ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-destructive">
+                    <XCircle className="h-4 w-4" />
+                    Importação bloqueada — corrija os erros listados acima antes de prosseguir.
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex gap-2 justify-between">
                 <Button variant="outline" size="sm" onClick={() => { setStep("options"); setDryRunResult(null); }}>
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar às Opções
@@ -2277,17 +2286,11 @@ export default function SmartImport() {
                   size="sm"
                   onClick={runImport}
                   disabled={dryRunResult.blockers.length > 0}
+                  className={dryRunResult.blockers.length === 0 ? "bg-success hover:bg-success/90 text-success-foreground" : ""}
                 >
                   <Play className="mr-1.5 h-3.5 w-3.5" /> Confirmar e Importar
                 </Button>
               </div>
-            </div>
-          )}
-
-          {/* ── STEP: Running / Done ───────────────────────────── */}
-          {(step === "running" || step === "done") && run && (
-            <RunningView run={run} onReset={reset} isDone={step === "done"} />
-          )}
         </CardContent>
       </Card>
 

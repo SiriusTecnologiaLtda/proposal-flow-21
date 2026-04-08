@@ -764,7 +764,7 @@ export default function SmartImport() {
     const cancelSignal = getCancelSignal("clients");
     const BATCH = 50;
 
-    addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...");
+    addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...", "system");
 
     for (let b = 0; b < filteredRows.length; b += BATCH) {
       if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida."); break; }

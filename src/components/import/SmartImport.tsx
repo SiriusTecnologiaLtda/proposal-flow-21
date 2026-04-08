@@ -1243,10 +1243,12 @@ export default function SmartImport() {
     }
 
     // Load all sales team members + CRM codes
-    const [{ data: salesTeam }, crmCodes] = await Promise.all([
+    const [{ data: salesTeam }, crmCodes, { data: units }] = await Promise.all([
       supabase.from("sales_team").select("id, code, name, role, unit_id"),
       loadCrmCodes(),
+      supabase.from("unit_info").select("id, code, name"),
     ]);
+    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();

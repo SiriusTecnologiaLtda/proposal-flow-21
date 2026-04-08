@@ -1553,12 +1553,13 @@ export default function SmartImport() {
 
           {/* Step indicators */}
           <div className="flex items-center gap-1 mt-3">
-            {(["upload", "confirm", "mapping", "options", "running"] as Step[]).map((s, i) => {
-              const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Importação"];
-              const icons = [Upload, Eye, Settings2, Filter, Play];
+            {(["upload", "confirm", "mapping", "options", "preview", "running"] as Step[]).map((s, i) => {
+              const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Simulação", "Importação"];
+              const icons = [Upload, Eye, Settings2, Filter, Target, Play];
               const Icon = icons[i];
+              const allSteps = ["upload", "confirm", "mapping", "options", "preview", "running"];
               const isActive = step === s || (step === "done" && s === "running");
-              const isPast = ["upload", "confirm", "mapping", "options", "running"].indexOf(step) > i || step === "done";
+              const isPast = allSteps.indexOf(step) > i || step === "done";
               return (
                 <div key={s} className="flex items-center gap-1 flex-1">
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors w-full justify-center
@@ -1566,7 +1567,7 @@ export default function SmartImport() {
                     <Icon className="h-3 w-3 shrink-0" />
                     <span className="hidden sm:inline truncate">{labels[i]}</span>
                   </div>
-                  {i < 4 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  {i < 5 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
                 </div>
               );
             })}

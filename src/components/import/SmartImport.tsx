@@ -68,6 +68,10 @@ import {
   parseRole,
   buildClientPayload,
 } from "./importSchemas";
+import {
+  collectSalesTargetUnitCandidates,
+  getSalesTargetCrmAssociationDecision,
+} from "./salesTargetsImportUtils";
 
 // ─── CRM codes cache (loaded once per session) ─────────────────
 let _crmCodesCache: { code: string; sales_team_id: string; unit_id: string | null }[] | null = null;
@@ -326,11 +330,27 @@ export default function SmartImport() {
         : salesTeamList;
 
       const aliasKey = getAliasKey(detectedEntity, rf.fieldKey);
+      const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
       const valueCountMap = new Map<string, { original: string; count: number }>();
 
       for (const row of allDataRows) {
-        const val = extractValue(row, rf.fieldKey, fieldToCol);
-        if (!val) continue;
+        const candidateValues = detectedEntity === "sales_targets" && rf.fieldKey === "unit_code"
+          ? collectSalesTargetUnitCandidates(row, headers, fieldToCol)
+          : (() => {
+              const value = extractValue(row, rf.fieldKey, fieldToCol);
+              return value ? [value] : [];
+            })();
+
+        if (candidateValues.length === 0) continue;
+
+        if (detectedEntity === "sales_targets" && rf.fieldKey === "unit_code") {
+          const hasResolvedCandidate = candidateValues.some((candidate) =>
+            !!findInListWithAlias(listForField, candidate, aliasKey, currentAliases, crmForField),
+          );
+          if (hasResolvedCandidate) continue;
+        }
+
+        const val = candidateValues[0];
         const lower = val.trim().toLowerCase();
         const existing = valueCountMap.get(lower);
         if (existing) { existing.count++; }
@@ -339,7 +359,6 @@ export default function SmartImport() {
 
       for (const [lower, { original, count }] of valueCountMap) {
         // Check if resolved by normal lookup, alias, or CRM code
-        const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
         const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases, crmForField);
         if (resolved) continue;
 
@@ -448,7 +467,7 @@ export default function SmartImport() {
     setResolutionSelections({});
     setShowResolutionDialog(true);
     return false; // don't proceed yet
-  }, [detectedEntity, mapping, allDataRows, extractValue]);
+  }, [detectedEntity, mapping, allDataRows, extractValue, headers]);
 
   // ── Save resolutions and proceed ──────────────────────────────
   const handleSaveResolutions = useCallback(async () => {
@@ -1558,21 +1577,26 @@ export default function SmartImport() {
       const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
       const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
-      const resolvedSource = memberByCode?.source || memberByName?.source;
+      const resolvedSource = memberByCode?.source || memberByName?.source || (esnId ? "name" : undefined);
 
-      // Resolve unit_id from file column if available, otherwise use member's unit
-      let rowUnitId = memberUnitId;
-      if (hasUnitCol) {
-        const rawUnit = (ev(row, "unit_code") || "").trim();
-        if (rawUnit) {
-          const unitAliasKey = getAliasKey(entity, "unit_code");
-          const resolved = findInListWithAlias(unitList, rawUnit, unitAliasKey, currentAliases);
-          if (resolved) {
-            rowUnitId = resolved;
-          } else {
-            addImportLog(entity, "warning", `Linha ${lineNum}: Unidade "${rawUnit}" não encontrada, usando unidade do membro.`, "relation");
-          }
+      // Resolve unit_id from file values first; only fall back to member unit when the row has no unit info.
+      const unitAliasKey = getAliasKey(entity, "unit_code");
+      const unitCandidates = hasUnitCol ? collectSalesTargetUnitCandidates(row, headers, fieldToCol) : [];
+      const hasExplicitUnitInput = unitCandidates.length > 0;
+      let rowUnitId: string | null = null;
+
+      for (const candidate of unitCandidates) {
+        const resolved = findInListWithAlias(unitList, candidate, unitAliasKey, currentAliases);
+        if (resolved) {
+          rowUnitId = resolved;
+          break;
         }
+      }
+
+      if (!rowUnitId && !hasExplicitUnitInput) {
+        rowUnitId = memberUnitId;
+      } else if (!rowUnitId && hasExplicitUnitInput) {
+        addImportLog(entity, "warning", `Linha ${lineNum}: Unidade informada (${unitCandidates.join(" / ")}) não encontrada; sem fallback automático para evitar gravar a meta na unidade errada.`, "relation");
       }
 
       if (!esnId) {
@@ -1584,8 +1608,18 @@ export default function SmartImport() {
         continue;
       }
 
-      // If member was resolved via sales_team.code (fallback), create CRM code entry
-      if (esnCode && resolvedSource === "code" && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
+      const crmAssociationDecision = getSalesTargetCrmAssociationDecision({
+        incomingCode: esnCode,
+        resolvedMemberId: esnId,
+        resolvedSource,
+        crmCodes,
+      });
+
+      if (crmAssociationDecision.hasConflict) {
+        addImportLog(entity, "warning", `Linha ${lineNum}: código CRM "${esnCode}" já pertence a outro membro do Time de Vendas; associação automática não realizada.`, "relation");
+      }
+
+      if (esnCode && crmAssociationDecision.shouldCreate && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
         crmCodesPendingCreation.set(`${esnCode}|${esnId}`, {
           code: esnCode.trim(),
           sales_team_id: esnId,

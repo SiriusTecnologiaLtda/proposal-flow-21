@@ -848,7 +848,7 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro válido.");
+      addImportLog(entity, "error", "Nenhum registro válido.", "validation");
       finishImportRun(entity, "error");
       return;
     }

@@ -993,9 +993,10 @@ export default function SmartImport() {
       return;
     }
 
-    const [{ data: units }, { data: salesTeam }] = await Promise.all([
+    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      loadCrmCodes(),
     ]);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));

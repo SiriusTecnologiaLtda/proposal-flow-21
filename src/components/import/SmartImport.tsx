@@ -2801,7 +2801,8 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
 
   const filteredLogs = logFilter === "all" ? run.logs : run.logs.filter(l => l.status === logFilter);
 
-  const successRate = run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100) : 0;
+  const handledRows = run.imported + run.updated + run.skipped;
+  const successRate = run.totalRows > 0 ? (handledRows / run.totalRows * 100) : 0;
 
   const entityConfig = ENTITY_CONFIGS[run.entity];
   const EntityIcon = entityConfig.icon;

@@ -1623,12 +1623,17 @@ export default function SmartImport() {
           {/* ── STEP: Upload ───────────────────────────────────── */}
           {step === "upload" && (
             <div
-              className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group"
               onClick={() => fileRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("border-primary", "bg-primary/5"); }}
+              onDragLeave={e => { e.currentTarget.classList.remove("border-primary", "bg-primary/5"); }}
+              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("border-primary", "bg-primary/5"); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
             >
-              <Upload className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-              <p className="text-sm font-medium">Clique para selecionar ou arraste um arquivo</p>
-              <p className="text-xs text-muted-foreground mt-1">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
+              <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-primary/10 mb-4 group-hover:bg-primary/15 transition-colors">
+                <Upload className="h-7 w-7 text-primary/60 group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-sm font-medium">Arraste uma planilha ou clique para selecionar</p>
+              <p className="text-xs text-muted-foreground mt-1.5">.xlsx ou .xls — Clientes, Time de Vendas, Templates ou Metas</p>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => {
                 const f = e.target.files?.[0];
                 if (f) handleFile(f);
@@ -2161,38 +2166,34 @@ export default function SmartImport() {
           {/* ── STEP: Preview (Dry-Run) ────────────────────────── */}
           {step === "preview" && dryRunResult && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Resultado da Simulação</span>
-                  <Badge variant="outline" className="text-xs">Nenhum dado foi gravado</Badge>
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                      <Target className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold">Resultado da Simulação</span>
+                      <p className="text-[11px] text-muted-foreground">Nenhum dado foi gravado no banco</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Dry-run</Badge>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-foreground">{dryRunResult.totalRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Linhas lidas</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-foreground">{dryRunResult.validRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Válidas</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-destructive">{dryRunResult.invalidRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Inválidas</div>
-                  </div>
-                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-center">
-                    <div className="text-2xl font-bold text-success">{dryRunResult.toInsert}</div>
-                    <div className="text-[11px] text-muted-foreground">Inserções</div>
-                  </div>
-                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center">
-                    <div className="text-2xl font-bold text-primary">{dryRunResult.toUpdate}</div>
-                    <div className="text-[11px] text-muted-foreground">Atualizações</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-muted-foreground">{dryRunResult.toSkip}</div>
-                    <div className="text-[11px] text-muted-foreground">Ignorados</div>
-                  </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { label: "Lidas", value: dryRunResult.totalRows, color: "border-border bg-background", textColor: "text-foreground" },
+                    { label: "Válidas", value: dryRunResult.validRows, color: "border-border bg-background", textColor: "text-foreground" },
+                    { label: "Inválidas", value: dryRunResult.invalidRows, color: "border-destructive/20 bg-destructive/5", textColor: "text-destructive" },
+                    { label: "Inserções", value: dryRunResult.toInsert, color: "border-success/20 bg-success/5", textColor: "text-success" },
+                    { label: "Atualizações", value: dryRunResult.toUpdate, color: "border-primary/20 bg-primary/5", textColor: "text-primary" },
+                    { label: "Ignorados", value: dryRunResult.toSkip, color: "border-border bg-background", textColor: "text-muted-foreground" },
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg border p-2.5 text-center ${s.color}`}>
+                      <div className={`text-xl font-bold tabular-nums ${s.textColor}`}>{s.value}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -2268,6 +2269,15 @@ export default function SmartImport() {
                 </div>
               )}
 
+              {dryRunResult.blockers.length > 0 ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-destructive">
+                    <XCircle className="h-4 w-4" />
+                    Importação bloqueada — corrija os erros listados acima antes de prosseguir.
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex gap-2 justify-between">
                 <Button variant="outline" size="sm" onClick={() => { setStep("options"); setDryRunResult(null); }}>
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar às Opções
@@ -2276,6 +2286,7 @@ export default function SmartImport() {
                   size="sm"
                   onClick={runImport}
                   disabled={dryRunResult.blockers.length > 0}
+                  className={dryRunResult.blockers.length === 0 ? "bg-success hover:bg-success/90 text-success-foreground" : ""}
                 >
                   <Play className="mr-1.5 h-3.5 w-3.5" /> Confirmar e Importar
                 </Button>
@@ -2393,7 +2404,7 @@ export default function SmartImport() {
 
 // ── Running/Done sub-component ──────────────────────────────────
 function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => void; isDone: boolean }) {
-  const [showLog, setShowLog] = useState(true);
+  const [showLog, setShowLog] = useState(false);
   const [logFilter, setLogFilter] = useState<"all" | "error" | "warning" | "ok">("all");
   const isRunning = run.status === "running";
   const processedCount = run.totalRows > 0
@@ -2407,144 +2418,241 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
 
   const filteredLogs = logFilter === "all" ? run.logs : run.logs.filter(l => l.status === logFilter);
 
-  const statusBanner = run.status === "success" && run.errors === 0
-    ? { icon: <CheckCircle2 className="h-4 w-4" />, label: "Importação concluída com sucesso", cls: "border-success/30 bg-success/5 text-success" }
+  const successRate = run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100) : 0;
+
+  const entityConfig = ENTITY_CONFIGS[run.entity];
+  const EntityIcon = entityConfig.icon;
+
+  // Export errors as text
+  const exportErrors = useCallback(() => {
+    const errorLogs = run.logs.filter(l => l.status === "error" || l.status === "warning");
+    if (errorLogs.length === 0) return;
+    const lines = errorLogs.map(l => `[${l.status.toUpperCase()}]${l.category ? ` [${l.category}]` : ""} ${l.message}`);
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `import-report-${run.entity}-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [run]);
+
+  // Status config
+  const statusConfig = run.status === "success" && run.errors === 0
+    ? { icon: <CheckCircle2 className="h-5 w-5" />, label: "Importação concluída com sucesso", cls: "border-success/30 bg-success/5 text-success", ringColor: "text-success" }
     : run.status === "success" && run.errors > 0
-    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação concluída com erros parciais", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    ? { icon: <AlertTriangle className="h-5 w-5" />, label: "Concluída com alertas", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400", ringColor: "text-yellow-500" }
     : run.status === "interrupted"
-    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação interrompida", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    ? { icon: <AlertTriangle className="h-5 w-5" />, label: "Importação interrompida", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400", ringColor: "text-yellow-500" }
     : run.status === "error"
-    ? { icon: <XCircle className="h-4 w-4" />, label: "Importação falhou", cls: "border-destructive/30 bg-destructive/5 text-destructive" }
+    ? { icon: <XCircle className="h-5 w-5" />, label: "Importação falhou", cls: "border-destructive/30 bg-destructive/5 text-destructive", ringColor: "text-destructive" }
     : null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* ── Running state ── */}
       {isRunning && (
-        <div className="space-y-2">
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{processedCount} / {run.totalRows} registros</span>
-              <span>{progress.toFixed(0)}%</span>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </div>
-            <Progress value={progress} className="h-2" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Importando {entityConfig.label}</span>
+                <Badge variant="outline" className="text-[10px] animate-pulse">Em andamento</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground truncate">{run.fileName}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-2xl font-bold text-primary tabular-nums">{progress.toFixed(0)}%</div>
+            </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Progress value={progress} className="h-2.5" />
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>{processedCount.toLocaleString("pt-BR")} de {run.totalRows.toLocaleString("pt-BR")} registros</span>
+              <span className="tabular-nums">{formatDuration(Date.now() - run.startedAt)}</span>
+            </div>
+          </div>
+
+          {/* Live mini-stats */}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "Inseridos", value: run.imported, color: "text-success" },
+              { label: "Atualizados", value: run.updated, color: "text-primary" },
+              { label: "Erros", value: run.errors, color: "text-destructive" },
+              { label: "Ignorados", value: run.skipped, color: "text-muted-foreground" },
+            ].map(s => (
+              <div key={s.label} className="rounded-md border border-border bg-muted/20 p-2 text-center">
+                <div className={`text-lg font-bold tabular-nums ${s.color}`}>{s.value}</div>
+                <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
           <Button variant="destructive" size="sm" className="w-full" onClick={() => requestCancelImport(run.entity)}>
             <XCircle className="mr-1.5 h-3.5 w-3.5" /> Interromper Importação
           </Button>
         </div>
       )}
 
-      {!isRunning && (
-        <div className="space-y-3">
-          {/* Status banner */}
-          {statusBanner && (
-            <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${statusBanner.cls}`}>
-              {statusBanner.icon}
-              {statusBanner.label}
+      {/* ── Done state ── */}
+      {!isRunning && statusConfig && (
+        <div className="space-y-4">
+          {/* Hero banner */}
+          <div className={`flex items-center gap-3 rounded-lg border p-4 ${statusConfig.cls}`}>
+            {statusConfig.icon}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold">{statusConfig.label}</div>
+              <div className="text-xs opacity-80">{entityConfig.label} — {run.fileName}</div>
             </div>
-          )}
-
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-success" />
-                <span className="text-muted-foreground">Inseridos:</span>
-                <span className="font-medium">{run.imported}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <span className="text-muted-foreground">Atualizados:</span>
-                <span className="font-medium">{run.updated}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-destructive" />
-                <span className="text-muted-foreground">Erros:</span>
-                <span className="font-medium">{run.errors}</span>
-              </div>
-              {warningCount > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                  <span className="text-muted-foreground">Alertas:</span>
-                  <span className="font-medium">{warningCount}</span>
-                </div>
-              )}
-              {run.skipped > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Ignorados:</span>
-                  <span className="font-medium">{run.skipped}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Tempo:</span>
-                <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Taxa de êxito</span>
-              <div className="flex items-center gap-2">
-                <Progress value={run.totalRows > 0 ? (run.imported + run.updated) / run.totalRows * 100 : 0} className="h-1.5 w-20" />
-                <span className="font-semibold">{run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : 0}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {run.logs.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between">
-            <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              Log ({run.logs.length} entradas)
-            </button>
-            {showLog && (
-              <div className="flex items-center gap-1">
-                <button onClick={() => setLogFilter("all")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
-                {errorCount > 0 && <button onClick={() => setLogFilter("error")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "error" ? "bg-destructive text-destructive-foreground" : "text-destructive hover:text-destructive/80"}`}>Erros ({errorCount})</button>}
-                {warningCount > 0 && <button onClick={() => setLogFilter("warning")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "warning" ? "bg-yellow-500 text-yellow-950" : "text-yellow-600 dark:text-yellow-400 hover:text-yellow-700"}`}>Alertas ({warningCount})</button>}
-                {okCount > 0 && <button onClick={() => setLogFilter("ok")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "ok" ? "bg-success text-success-foreground" : "text-success hover:text-success/80"}`}>Sucesso ({okCount})</button>}
+            {run.durationMs && (
+              <div className="flex items-center gap-1 text-xs opacity-70 shrink-0">
+                <Clock className="h-3 w-3" />
+                {formatDuration(run.durationMs)}
               </div>
             )}
           </div>
-          {showLog && (
-            <ScrollArea className="mt-2 h-48 rounded-md border border-border bg-muted/20 p-2">
-              <div className="space-y-0.5 font-mono text-[11px]">
-                {filteredLogs.map((entry, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
-                    {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
-                    {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
-                    {entry.status === "warning" && <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />}
-                    {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                    <span className={
-                      entry.status === "ok" ? "text-success" :
-                      entry.status === "error" ? "text-destructive" :
-                      entry.status === "warning" ? "text-yellow-600 dark:text-yellow-400" :
-                      "text-muted-foreground"
-                    }>
-                      {entry.category && <span className="text-muted-foreground/60">[{entry.category}] </span>}
-                      {entry.message}
-                    </span>
-                  </div>
-                ))}
-                {isRunning && (
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Processando...
-                  </div>
-                )}
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: "Inseridos", value: run.imported, color: "border-success/30 bg-success/5", textColor: "text-success" },
+              { label: "Atualizados", value: run.updated, color: "border-primary/30 bg-primary/5", textColor: "text-primary" },
+              { label: "Erros", value: run.errors, color: "border-destructive/30 bg-destructive/5", textColor: "text-destructive" },
+              { label: "Ignorados", value: run.skipped, color: "border-border bg-muted/20", textColor: "text-muted-foreground" },
+            ].map(s => (
+              <div key={s.label} className={`rounded-lg border p-3 text-center ${s.color}`}>
+                <div className={`text-2xl font-bold tabular-nums ${s.textColor}`}>{s.value}</div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
               </div>
-            </ScrollArea>
-          )}
+            ))}
+          </div>
+
+          {/* Success rate + warnings summary */}
+          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">Taxa de êxito</span>
+              <div className="flex items-center gap-2">
+                <Progress value={successRate} className="h-2 w-24" />
+                <span className="text-sm font-bold tabular-nums">{successRate.toFixed(1)}%</span>
+              </div>
+            </div>
+            {(warningCount > 0 || errorCount > 0) && (
+              <>
+                <Separator />
+                <div className="flex items-center gap-3 text-xs">
+                  {errorCount > 0 && (
+                    <div className="flex items-center gap-1 text-destructive">
+                      <XCircle className="h-3 w-3" />
+                      <span>{errorCount} erro(s) no log</span>
+                    </div>
+                  )}
+                  {warningCount > 0 && (
+                    <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{warningCount} alerta(s)</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={onReset}>
+              <Upload className="mr-1.5 h-3.5 w-3.5" /> Nova Importação
+            </Button>
+            {(errorCount > 0 || warningCount > 0) && (
+              <Button variant="outline" size="sm" onClick={exportErrors}>
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" /> Exportar Relatório
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
-      {isDone && (
-        <Button variant="outline" size="sm" onClick={onReset} className="w-full">
-          Nova Importação
-        </Button>
+      {/* ── Log area (both states) ── */}
+      {run.logs.length > 0 && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setShowLog(!showLog)}
+            className="flex items-center justify-between w-full px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Log de execução ({run.logs.length} {run.logs.length === 1 ? "entrada" : "entradas"})
+            </div>
+            <div className="flex items-center gap-2">
+              {!showLog && errorCount > 0 && (
+                <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{errorCount}</Badge>
+              )}
+              {!showLog && warningCount > 0 && (
+                <Badge className="text-[10px] h-4 px-1.5 bg-yellow-500/80 text-yellow-950 border-0">{warningCount}</Badge>
+              )}
+              {showLog ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            </div>
+          </button>
+
+          {showLog && (
+            <>
+              {/* Filter tabs */}
+              <div className="flex items-center gap-1 px-3 py-1.5 border-t border-b border-border bg-background">
+                {[
+                  { key: "all" as const, label: "Todos", count: run.logs.length },
+                  ...(errorCount > 0 ? [{ key: "error" as const, label: "Erros", count: errorCount }] : []),
+                  ...(warningCount > 0 ? [{ key: "warning" as const, label: "Alertas", count: warningCount }] : []),
+                  ...(okCount > 0 ? [{ key: "ok" as const, label: "Sucesso", count: okCount }] : []),
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setLogFilter(tab.key)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      logFilter === tab.key
+                        ? tab.key === "error" ? "bg-destructive text-destructive-foreground"
+                          : tab.key === "warning" ? "bg-yellow-500 text-yellow-950"
+                          : tab.key === "ok" ? "bg-success text-success-foreground"
+                          : "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {tab.label} ({tab.count})
+                  </button>
+                ))}
+              </div>
+
+              <ScrollArea className="h-48 px-3 py-2">
+                <div className="space-y-0.5 font-mono text-[11px]">
+                  {filteredLogs.map((entry, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
+                      {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                      {entry.status === "warning" && <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />}
+                      {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
+                      <span className={
+                        entry.status === "ok" ? "text-success" :
+                        entry.status === "error" ? "text-destructive" :
+                        entry.status === "warning" ? "text-yellow-600 dark:text-yellow-400" :
+                        "text-muted-foreground"
+                      }>
+                        {entry.category && <span className="text-muted-foreground/60">[{entry.category}] </span>}
+                        {entry.message}
+                      </span>
+                    </div>
+                  ))}
+                  {isRunning && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processando...
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

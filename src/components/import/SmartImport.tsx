@@ -896,6 +896,21 @@ export default function SmartImport() {
 
   // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {
+    // Dynamic structural validation
+    const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
+    setValidationResult(validation);
+
+    if (!validation.valid) {
+      toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
+      return;
+    }
+
+    if (validation.warnings.length > 0) {
+      for (const w of validation.warnings) {
+        addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+      }
+    }
+
     if (!layoutSaved && headers.length > 0) {
       saveLayout({
         id: crypto.randomUUID(),

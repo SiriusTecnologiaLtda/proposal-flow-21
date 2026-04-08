@@ -1517,7 +1517,7 @@ export default function SmartImport() {
     addImportLog(
       entity,
       finalStatus === "interrupted" ? "info" : "ok",
-      `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
+      `${finalStatus === "interrupted" ? "⛔ Interrompido" : "✅ Concluído"} — ${dataRows.length} linhas → ${imported} inseridos, ${updated} atualizados, ${skipped} ignorados, ${errors} erros | Tempo: ${formatDuration(dur)}`,
     );
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_targets"] });
 
@@ -1527,9 +1527,9 @@ export default function SmartImport() {
         `L${e.line} ${e.owner}${e.month ? ` mês ${e.month}` : ""}: ${e.message}`
       );
       await supabase.from("import_logs").update({
-        status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
+        status: finalStatus, total_rows: totalWork, imported, updated, errors, skipped,
         finished_at: new Date().toISOString(), duration_ms: dur,
-        summary: `${processed}/${dataRows.length} linhas | ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
+        summary: `${dataRows.length} linhas → ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
         error_details: truncatedErrors,
       } as any).eq("id", dbLogId);
     }

@@ -1740,6 +1740,15 @@ export default function SmartImport() {
       addImportLog(entity, "ok", `${memberUnitUpdates.size} membro(s) com unidade atualizada.`, "update");
     }
 
+    // Post-processing: update member role where spreadsheet differs from stored value
+    if (memberRoleUpdates.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Atualizando função/nível de ${memberRoleUpdates.size} membro(s) do time...`, "system");
+      for (const [memberId, newRole] of memberRoleUpdates) {
+        await supabase.from("sales_team").update({ role: newRole }).eq("id", memberId);
+      }
+      addImportLog(entity, "ok", `${memberRoleUpdates.size} membro(s) com função atualizada.`, "update");
+    }
+
     const finalStatus = interrupted ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
     const dur = Date.now() - importRun.startedAt;

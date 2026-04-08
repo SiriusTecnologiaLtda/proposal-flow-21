@@ -171,7 +171,21 @@ export default function SalesTargetsPage() {
     }
     if (filterUnitIds.length > 0) result = result.filter(g => g.unit_id && filterUnitIds.includes(g.unit_id));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
-    if (filterSegmentIds.length > 0) result = result.filter(g => g.segment_id && filterSegmentIds.includes(g.segment_id));
+    if (filterSegmentIds.length > 0) {
+      // Filter by checking if the member has ANY target with the selected segment
+      const memberSegments = new Map<string, Set<string>>();
+      for (const t of targets) {
+        const segId = (t as any).segment_id;
+        if (segId) {
+          if (!memberSegments.has(t.esn_id)) memberSegments.set(t.esn_id, new Set());
+          memberSegments.get(t.esn_id)!.add(segId);
+        }
+      }
+      result = result.filter(g => {
+        const segs = memberSegments.get(g.esn_id);
+        return segs && filterSegmentIds.some(sid => segs.has(sid));
+      });
+    }
     if (filterRoles.length > 0) result = result.filter(g => filterRoles.includes(g.role));
     if (filterCategoryIds.length > 0) {
       result = result.filter(g => filterCategoryIds.some(cid => (g.categoryTotals[cid] || 0) > 0));

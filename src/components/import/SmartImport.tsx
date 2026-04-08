@@ -1876,7 +1876,7 @@ export default function SmartImport() {
     if (crmCodesPendingCreation.size > 0 && !interrupted) {
       addImportLog(entity, "info", `Criando ${crmCodesPendingCreation.size} código(s) CRM para membros resolvidos por fallback...`, "system");
       const crmBatch = Array.from(crmCodesPendingCreation.values()).map(c => ({
-        code: c.code, sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
+        code: c.code.trim().toUpperCase(), sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
       }));
       for (let b = 0; b < crmBatch.length; b += 100) {
         const batch = crmBatch.slice(b, b + 100);

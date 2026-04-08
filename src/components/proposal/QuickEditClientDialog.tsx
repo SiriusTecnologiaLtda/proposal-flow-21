@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function QuickEditClientDialog({ client, open, onOpenChange, onSaved }: Props) {
-  const { data: units = [] } = useUnits();
+  const [unitDisplayName, setUnitDisplayName] = useState("");
   const { data: salesTeam = [] } = useSalesTeam();
   const updateClient = useUpdateClient();
   const { toast } = useToast();

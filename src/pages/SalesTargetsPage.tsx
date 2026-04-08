@@ -280,38 +280,36 @@ export default function SalesTargetsPage() {
     setEditEsnId(row.esn_id);
     setEditUnitId(row.unit_id || "");
     setEditRole(row.role);
-    setEditSegmentId("");
     setEditYear(yearFilter);
 
-    // Find all targets for this member to populate the grid
     const relevantTargets = targets.filter((t: any) => t.esn_id === row.esn_id);
 
-    // Build grid values and existing IDs
-    const catIds = new Set<string>();
+    const rowMap = new Map<string, { catId: string; segId: string }>();
     const values: Record<string, Record<number, string>> = {};
     const ids: Record<string, string> = {};
 
     for (const t of relevantTargets) {
       const catId = (t as any).category_id || "";
+      const segId = (t as any).segment_id || "";
       if (!catId) continue;
-      catIds.add(catId);
-      if (!values[catId]) values[catId] = {};
-      // Sum values for same category+month (since we removed unique constraints)
-      const current = Number(values[catId][t.month] || "0");
-      values[catId][t.month] = String(current + (t.amount || 0));
-      // Store IDs (may have multiple per cat+month, store comma-separated)
-      const idKey = `${catId}_${t.month}`;
+      const key = `${catId}__${segId}`;
+      if (!rowMap.has(key)) rowMap.set(key, { catId, segId });
+      if (!values[key]) values[key] = {};
+      const current = Number(values[key][t.month] || "0");
+      values[key][t.month] = String(current + (t.amount || 0));
+      const idKey = `${key}_${t.month}`;
       ids[idKey] = ids[idKey] ? `${ids[idKey]},${t.id}` : t.id;
     }
 
-    // Fill empty months with "0"
-    for (const catId of catIds) {
+    const rows = Array.from(rowMap.entries()).map(([key, r]) => ({ key, ...r }));
+    for (const r of rows) {
+      if (!values[r.key]) values[r.key] = {};
       for (let m = 1; m <= 12; m++) {
-        if (!values[catId][m]) values[catId][m] = "0";
+        if (!values[r.key][m]) values[r.key][m] = "0";
       }
     }
 
-    setGridCategoryIds(Array.from(catIds));
+    setGridRows(rows);
     setGridValues(values);
     setExistingIds(ids);
     setEditDialogOpen(true);
@@ -324,89 +322,101 @@ export default function SalesTargetsPage() {
     setEditEsnId(firstEsn?.id || "");
     setEditUnitId(firstEsn?.unit_id || "");
     setEditRole("esn");
-    setEditSegmentId("");
     setEditYear(yearFilter);
 
-    // Start with all categories
-    const catIds = sortedCategories.map((c: any) => c.id);
+    const firstSeg = segments[0];
+    const rows = sortedCategories.map((c: any) => ({
+      key: `${c.id}__${firstSeg?.id || ""}`,
+      catId: c.id,
+      segId: firstSeg?.id || "",
+    }));
     const values: Record<string, Record<number, string>> = {};
-    for (const catId of catIds) {
-      values[catId] = {};
-      for (let m = 1; m <= 12; m++) values[catId][m] = "0";
+    for (const r of rows) {
+      values[r.key] = {};
+      for (let m = 1; m <= 12; m++) values[r.key][m] = "0";
     }
-    setGridCategoryIds(catIds);
+    setGridRows(rows);
     setGridValues(values);
     setExistingIds({});
     setEditDialogOpen(true);
   }
 
-  /* ── Add category row to grid ── */
-  function addCategoryRow() {
-    // Find categories not yet in the grid
-    const available = sortedCategories.filter((c: any) => !gridCategoryIds.includes(c.id));
-    if (available.length === 0) {
-      toast({ title: "Todas as categorias já estão na grade" });
-      return;
+  /* ── Add row to grid ── */
+  function addGridRow() {
+    const firstCat = sortedCategories[0];
+    const firstSeg = segments[0];
+    if (!firstCat || !firstSeg) return;
+    const baseKey = `${firstCat.id}__${firstSeg.id}`;
+    let key = baseKey;
+    let counter = 0;
+    while (gridRows.some(r => r.key === key)) {
+      counter++;
+      key = `${baseKey}__${counter}`;
     }
-    const newCatId = available[0].id;
-    setGridCategoryIds(prev => [...prev, newCatId]);
+    setGridRows(prev => [...prev, { key, catId: firstCat.id, segId: firstSeg.id }]);
     setGridValues(prev => {
       const row: Record<number, string> = {};
       for (let m = 1; m <= 12; m++) row[m] = "0";
-      return { ...prev, [newCatId]: row };
+      return { ...prev, [key]: row };
     });
   }
 
-  /* ── Change category for a row ── */
-  function changeCategoryForRow(oldCatId: string, newCatId: string) {
-    if (oldCatId === newCatId) return;
-    setGridCategoryIds(prev => prev.map(id => id === oldCatId ? newCatId : id));
-    setGridValues(prev => {
-      const updated = { ...prev };
-      updated[newCatId] = updated[oldCatId] || {};
-      for (let m = 1; m <= 12; m++) {
-        if (!updated[newCatId][m]) updated[newCatId][m] = "0";
-      }
-      delete updated[oldCatId];
-      return updated;
+  /* ── Update category or segment for a grid row ── */
+  function updateGridRowField(rowKey: string, field: "catId" | "segId", newValue: string) {
+    setGridRows(prev => {
+      const idx = prev.findIndex(r => r.key === rowKey);
+      if (idx === -1) return prev;
+      const old = prev[idx];
+      const updated = { ...old, [field]: newValue };
+      const newKey = `${updated.catId}__${updated.segId}`;
+      const result = [...prev];
+      result[idx] = { ...updated, key: newKey };
+      // Move values
+      setGridValues(gv => {
+        const vals = { ...gv };
+        if (newKey !== rowKey) {
+          vals[newKey] = vals[rowKey] || {};
+          delete vals[rowKey];
+        }
+        return vals;
+      });
+      return result;
     });
   }
 
-  /* ── Remove category row ── */
-  function removeCategoryRow(catId: string) {
-    setGridCategoryIds(prev => prev.filter(id => id !== catId));
+  /* ── Remove grid row ── */
+  function removeGridRow(rowKey: string) {
+    setGridRows(prev => prev.filter(r => r.key !== rowKey));
     setGridValues(prev => {
       const updated = { ...prev };
-      delete updated[catId];
+      delete updated[rowKey];
       return updated;
     });
   }
 
   /* ── Save ── */
   async function handleSave() {
-    if (!editEsnId || !editSegmentId || !editUnitId) {
-      toast({ title: "Preencha todos os campos de contexto", variant: "destructive" });
+    if (!editEsnId || !editUnitId) {
+      toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
+      return;
+    }
+    const missingSegment = gridRows.some(r => !r.segId);
+    if (missingSegment) {
+      toast({ title: "Preencha o Segmento em todas as linhas", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
       if (isCreateMode) {
-        // Insert all non-zero values
         const rows: any[] = [];
-        for (const catId of gridCategoryIds) {
+        for (const gr of gridRows) {
           for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[catId]?.[m] || "0");
+            const val = Number(gridValues[gr.key]?.[m] || "0");
             const amount = Math.round(val * 100) / 100;
             if (amount === 0) continue;
             rows.push({
-              esn_id: editEsnId,
-              year: Number(editYear),
-              month: m,
-              amount,
-              category_id: catId,
-              segment_id: editSegmentId,
-              role: editRole,
-              unit_id: editUnitId,
+              esn_id: editEsnId, year: Number(editYear), month: m, amount,
+              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
             });
           }
         }
@@ -419,35 +429,24 @@ export default function SalesTargetsPage() {
         if (error) throw error;
         toast({ title: "Metas adicionadas com sucesso!" });
       } else {
-        // Edit mode: delete all existing records for this member+year, then re-insert
         const existingTargetIds: string[] = [];
         for (const t of targets) {
-          if (t.esn_id === editEsnId) {
-            existingTargetIds.push(t.id);
-          }
+          if (t.esn_id === editEsnId) existingTargetIds.push(t.id);
         }
-        // Delete in batches
         for (let i = 0; i < existingTargetIds.length; i += 100) {
           const batch = existingTargetIds.slice(i, i + 100);
           const { error } = await supabase.from("sales_targets").delete().in("id", batch);
           if (error) throw error;
         }
-        // Insert new values
         const rows: any[] = [];
-        for (const catId of gridCategoryIds) {
+        for (const gr of gridRows) {
           for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[catId]?.[m] || "0");
+            const val = Number(gridValues[gr.key]?.[m] || "0");
             const amount = Math.round(val * 100) / 100;
             if (amount === 0) continue;
             rows.push({
-              esn_id: editEsnId,
-              year: Number(editYear),
-              month: m,
-              amount,
-              category_id: catId,
-              segment_id: editSegmentId,
-              role: editRole,
-              unit_id: editUnitId,
+              esn_id: editEsnId, year: Number(editYear), month: m, amount,
+              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
             });
           }
         }
@@ -468,17 +467,14 @@ export default function SalesTargetsPage() {
   }
 
   /* ── Grid totals ── */
-  const getRowTotal = (catId: string) => {
-    const vals = gridValues[catId] || {};
+  const getRowTotal = (key: string) => {
+    const vals = gridValues[key] || {};
     return Object.values(vals).reduce((s, v) => s + (Number(v) || 0), 0);
   };
   const getColTotal = (month: number) => {
-    return gridCategoryIds.reduce((s, catId) => s + (Number(gridValues[catId]?.[month] || "0") || 0), 0);
+    return gridRows.reduce((s, r) => s + (Number(gridValues[r.key]?.[month] || "0") || 0), 0);
   };
-  const getGridGrandTotal = () => gridCategoryIds.reduce((s, catId) => s + getRowTotal(catId), 0);
-
-  // Categories available to add (not yet in grid)
-  const availableCatsToAdd = useMemo(() => sortedCategories.filter((c: any) => !gridCategoryIds.includes(c.id)), [sortedCategories, gridCategoryIds]);
+  const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r.key), 0);
 
   return (
     <div className="space-y-5">

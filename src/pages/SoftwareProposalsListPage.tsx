@@ -28,12 +28,14 @@ import {
   Building2,
   Users,
   Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -359,6 +361,33 @@ export default function SoftwareProposalsListPage() {
               {activeFilterCount}
             </span>
           )}
+          {/* Active filter summary chips (visible when collapsed) */}
+          {!filtersOpen && activeFilterCount > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
+              {unitFilter.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  <Building2 className="h-3 w-3" />
+                  {unitFilter.length} {unitFilter.length === 1 ? "unidade" : "unidades"}
+                </span>
+              )}
+              {memberFilter.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  <Users className="h-3 w-3" />
+                  {memberFilter.length} {memberFilter.length === 1 ? "membro" : "membros"}
+                </span>
+              )}
+              {statusFilter.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  {statusFilter.length} status
+                </span>
+              )}
+              {originFilter.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  {originFilter.length} {originFilter.length === 1 ? "origem" : "origens"}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex-1" />
           {activeFilterCount > 0 && (
             <span
@@ -376,7 +405,7 @@ export default function SoftwareProposalsListPage() {
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
             >
               <X className="h-3 w-3" />
-              Limpar tudo
+              Limpar
             </span>
           )}
           {filtersOpen ? (
@@ -387,14 +416,14 @@ export default function SoftwareProposalsListPage() {
         </button>
 
         {filtersOpen && (
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-start">
-            {/* Period */}
+          <div className="p-4 space-y-4">
+            {/* Row 1: Period chips */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <CalendarRange className="h-3.5 w-3.5" />
                 <span className="text-[11px] font-medium uppercase tracking-wider">Período</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {([
                   { key: "este_mes", label: "Este mês" },
                   { key: "ultimo_mes", label: "Último mês" },
@@ -414,183 +443,240 @@ export default function SoftwareProposalsListPage() {
                     {label}
                   </button>
                 ))}
-              </div>
-              {periodFilter === "personalizado" && (
-                <div className="flex items-center gap-2 pt-1">
-                  <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
-                  <span className="text-xs text-muted-foreground">até</span>
-                  <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
-                </div>
-              )}
-            </div>
-
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Status */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <FileText className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                  const active = statusFilter.includes(value);
-                  const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
-                  return (
-                    <button
-                      key={value}
-                      onClick={() =>
-                        setStatusFilter((prev) =>
-                          active ? prev.filter((s) => s !== value) : [...prev, value]
-                        )
-                      }
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                        active
-                          ? `${badgeClass} border-current ring-1 ring-current/30`
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Origin */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <FileSearch className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
-                  const active = originFilter.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      onClick={() =>
-                        setOriginFilter((prev) =>
-                          active ? prev.filter((s) => s !== value) : [...prev, value]
-                        )
-                      }
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                        active
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Unit Filter */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Building2 className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Unidade</span>
-                {unitFilter.length > 0 && (
-                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    {unitFilter.length}
-                  </span>
+                {periodFilter === "personalizado" && (
+                  <div className="flex items-center gap-2">
+                    <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-7 w-36 text-xs" />
+                    <span className="text-xs text-muted-foreground">até</span>
+                    <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-7 w-36 text-xs" />
+                  </div>
                 )}
               </div>
-              <div className="w-56 rounded-md border border-border bg-background">
-                <div className="relative border-b border-border">
-                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar unidade..."
-                    value={unitSearch}
-                    onChange={(e) => setUnitSearch(e.target.value)}
-                    className="h-8 w-full bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground"
-                  />
+            </div>
+
+            {/* Row 2: Status + Origin + Unit + Member in a compact grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Status</span>
                 </div>
-                <div className="max-h-40 overflow-auto p-1">
-                  {filteredUnits.map((u: any) => {
-                    const active = unitFilter.includes(u.id);
+                <div className="flex flex-wrap gap-1">
+                  {STATUS_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                    const active = statusFilter.includes(value);
+                    const badgeClass = STATUS_BADGE_VARIANT[value] || "bg-muted text-muted-foreground";
                     return (
                       <button
-                        key={u.id}
+                        key={value}
                         onClick={() =>
-                          setUnitFilter((prev) =>
-                            active ? prev.filter((id) => id !== u.id) : [...prev, u.id]
+                          setStatusFilter((prev) =>
+                            active ? prev.filter((s) => s !== value) : [...prev, value]
                           )
                         }
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                          active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
-                        )}
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                          active
+                            ? `${badgeClass} border-current ring-1 ring-current/30`
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
                       >
-                        {active && <Check className="h-3 w-3 shrink-0" />}
-                        <span className="truncate">{u.name}</span>
+                        {label}
                       </button>
                     );
                   })}
-                  {filteredUnits.length === 0 && (
-                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhuma unidade encontrada</p>
-                  )}
                 </div>
               </div>
-            </div>
 
-            <div className="hidden h-16 w-px self-center bg-border sm:block" />
-
-            {/* Member Filter */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">Membro</span>
-                {memberFilter.length > 0 && (
-                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    {memberFilter.length}
-                  </span>
-                )}
-              </div>
-              <div className="w-64 rounded-md border border-border bg-background">
-                <div className="relative border-b border-border">
-                  <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome ou código..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="h-8 w-full bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground"
-                  />
+              {/* Origin */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <FileSearch className="h-3.5 w-3.5" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Origem</span>
                 </div>
-                <div className="max-h-40 overflow-auto p-1">
-                  {filteredMembers.map((m: any) => {
-                    const active = memberFilter.includes(m.id);
+                <div className="flex flex-wrap gap-1">
+                  {ORIGIN_OPTIONS.filter(o => o.value !== "all").map(({ value, label }) => {
+                    const active = originFilter.includes(value);
                     return (
                       <button
-                        key={m.id}
+                        key={value}
                         onClick={() =>
-                          setMemberFilter((prev) =>
-                            active ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          setOriginFilter((prev) =>
+                            active ? prev.filter((s) => s !== value) : [...prev, value]
                           )
                         }
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                          active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
-                        )}
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                          active
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
                       >
-                        {active && <Check className="h-3 w-3 shrink-0" />}
-                        <span className="truncate">{m.name}</span>
-                        <span className="ml-auto text-muted-foreground shrink-0">{m.role?.toUpperCase()}</span>
+                        {label}
                       </button>
                     );
                   })}
-                  {filteredMembers.length === 0 && (
-                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhum membro encontrado</p>
-                  )}
                 </div>
+              </div>
+
+              {/* Unit — Popover dropdown */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Unidade</span>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-xs transition-colors",
+                      unitFilter.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    )}>
+                      <span className="truncate">
+                        {unitFilter.length === 0
+                          ? "Todas as unidades"
+                          : unitFilter.length === 1
+                            ? units.find((u: any) => u.id === unitFilter[0])?.name || "1 selecionada"
+                            : `${unitFilter.length} selecionadas`}
+                      </span>
+                      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60 p-0" align="start">
+                    <div className="relative border-b border-border">
+                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Buscar unidade..."
+                        value={unitSearch}
+                        onChange={(e) => setUnitSearch(e.target.value)}
+                        className="h-9 w-full bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-auto p-1">
+                      {filteredUnits.map((u: any) => {
+                        const active = unitFilter.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() =>
+                              setUnitFilter((prev) =>
+                                active ? prev.filter((id) => id !== u.id) : [...prev, u.id]
+                              )
+                            }
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                              active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                            )}>
+                              {active && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="truncate">{u.name}</span>
+                          </button>
+                        );
+                      })}
+                      {filteredUnits.length === 0 && (
+                        <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhuma unidade encontrada</p>
+                      )}
+                    </div>
+                    {unitFilter.length > 0 && (
+                      <div className="border-t border-border p-1">
+                        <button
+                          onClick={() => setUnitFilter([])}
+                          className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Limpar seleção
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Member — Popover dropdown */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider">Membro</span>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className={cn(
+                      "flex w-full items-center justify-between rounded-md border px-3 py-1.5 text-xs transition-colors",
+                      memberFilter.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    )}>
+                      <span className="truncate">
+                        {memberFilter.length === 0
+                          ? "Todos os membros"
+                          : memberFilter.length === 1
+                            ? (salesTeam || []).find((m: any) => m.id === memberFilter[0])?.name || "1 selecionado"
+                            : `${memberFilter.length} selecionados`}
+                      </span>
+                      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="start">
+                    <div className="relative border-b border-border">
+                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome ou código..."
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        className="h-9 w-full bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-auto p-1">
+                      {filteredMembers.map((m: any) => {
+                        const active = memberFilter.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() =>
+                              setMemberFilter((prev) =>
+                                active ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                              )
+                            }
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-accent"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                              active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                            )}>
+                              {active && <Check className="h-3 w-3" />}
+                            </div>
+                            <span className="truncate">{m.name}</span>
+                            <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shrink-0">
+                              {m.role?.toUpperCase()}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {filteredMembers.length === 0 && (
+                        <p className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhum membro encontrado</p>
+                      )}
+                    </div>
+                    {memberFilter.length > 0 && (
+                      <div className="border-t border-border p-1">
+                        <button
+                          onClick={() => setMemberFilter([])}
+                          className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Limpar seleção
+                        </button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

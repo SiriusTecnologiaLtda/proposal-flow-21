@@ -2291,6 +2291,13 @@ export default function SmartImport() {
                   <Play className="mr-1.5 h-3.5 w-3.5" /> Confirmar e Importar
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* ── STEP: Running / Done ───────────────────────────── */}
+          {(step === "running" || step === "done") && run && (
+            <RunningView run={run} onReset={reset} isDone={step === "done"} />
+          )}
         </CardContent>
       </Card>
 

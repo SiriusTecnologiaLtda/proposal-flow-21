@@ -843,10 +843,6 @@ export default function SmartImport() {
           imported += upsertData?.length || upsertRows.length;
         }
       }
-      }
-
-      const totalSkipped = skipped + invalidRows + unitFilteredCount + customFilteredCount;
-      updateImportStats(entity, { imported, updated, errors, skipped: totalSkipped });
     }
 
     const totalSkipped = skipped + invalidRows + unitFilteredCount + customFilteredCount;

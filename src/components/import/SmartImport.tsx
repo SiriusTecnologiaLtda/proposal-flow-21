@@ -468,39 +468,175 @@ export default function SmartImport() {
     executeImport(newAliases);
   }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast, qc]);
 
-  // ── Run import (entry point) ──────────────────────────────────
-  const runImport = useCallback(async () => {
-    // Dynamic structural validation
+  // ── Dry-run simulation ──────────────────────────────────────────
+  const runDryRun = useCallback(async () => {
     const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
     setValidationResult(validation);
-
     if (!validation.valid) {
       toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
       return;
     }
 
-    if (validation.warnings.length > 0) {
-      for (const w of validation.warnings) {
-        addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+    setDryRunLoading(true);
+    try {
+      const fieldToCol: Record<string, number> = {};
+      for (const [colStr, field] of Object.entries(mapping)) fieldToCol[field] = Number(colStr);
+      const ev = (row: any[], key: string) => extractValue(row, key, fieldToCol);
+
+      const result: DryRunResult = {
+        totalRows: allDataRows.length,
+        validRows: 0, invalidRows: 0,
+        toInsert: 0, toUpdate: 0, toSkip: 0,
+        blockers: [...validation.errors],
+        warnings: [...validation.warnings],
+        unresolvedRelations: [],
+        details: [],
+      };
+
+      const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
+        supabase.from("unit_info").select("id, code, name"),
+        supabase.from("sales_team").select("id, code, name, role, unit_id"),
+        loadCrmCodes(),
+      ]);
+      const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+      const allSalesTeam = (salesTeam || []).map(s => ({ id: s.id, code: s.code.trim().toLowerCase(), name: s.name.trim().toLowerCase(), role: s.role, unit_id: s.unit_id }));
+      const esnList = allSalesTeam.filter(s => s.role === "esn");
+      const gsnList = allSalesTeam.filter(s => s.role === "gsn");
+      const currentAliases = aliasStore;
+      const unresolvedMap = new Map<string, { field: string; value: string; count: number }>();
+
+      if (detectedEntity === "clients") {
+        const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name") && ev(r, "cnpj"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const existingMap = new Map<string, string>();
+        let dbOff = 0;
+        while (true) {
+          const { data: chunk } = await supabase.from("clients").select("id, code, store_code").range(dbOff, dbOff + 999);
+          if (!chunk || chunk.length === 0) break;
+          for (const c of chunk) existingMap.set(`${(c.code || "").trim()}|${(c.store_code || "").trim()}`, c.id);
+          if (chunk.length < 1000) break;
+          dbOff += 1000;
+        }
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const code = ev(row, "code")!;
+          const storeCode = ev(row, "store_code") || "";
+          const lineNum = i + 2;
+          for (const { key: fk, list, label } of [
+            { key: "unit_code", list: unitList, label: "Unidade" },
+            { key: "esn_code", list: esnList, label: "ESN" },
+            { key: "gsn_code", list: gsnList, label: "GSN" },
+          ]) {
+            const val = ev(row, fk);
+            if (val && !findInListWithAlias(list, val, getAliasKey("clients", fk), currentAliases, crmCodes)) {
+              const uKey = `${fk}:${val.toLowerCase()}`;
+              const ex = unresolvedMap.get(uKey);
+              if (ex) ex.count++; else unresolvedMap.set(uKey, { field: label, value: val, count: 1 });
+            }
+          }
+          if (existingMap.has(`${code}|${storeCode}`)) {
+            result.toUpdate++;
+            result.details.push({ line: lineNum, action: "update", reason: `${code} já existe` });
+          } else {
+            result.toInsert++;
+            result.details.push({ line: lineNum, action: "insert", reason: `Novo ${code}` });
+          }
+        }
+      } else if (detectedEntity === "sales_team") {
+        const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const { data: existing } = await supabase.from("sales_team").select("id, code");
+        const existingCodes = new Set((existing || []).map(e => e.code.trim().toLowerCase()));
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const code = ev(row, "code")!;
+          const roleText = ev(row, "role_text") || "";
+          const lineNum = i + 2;
+          const c = roleText.toLowerCase().trim();
+          const validRole = ["esn","gsn","dsn","arquiteto","engenheiro de valor","ev","executivo","vendedor","gerente","diretor"].some(k => c.includes(k));
+          if (!validRole) {
+            result.details.push({ line: lineNum, action: "error", reason: `Cargo "${roleText}" não reconhecido` });
+            result.invalidRows++; result.validRows--; continue;
+          }
+          const unitVal = ev(row, "unit_code");
+          if (unitVal && !findInListWithAlias(unitList, unitVal, getAliasKey("sales_team", "unit_code"), currentAliases)) {
+            const uKey = `unit_code:${unitVal.toLowerCase()}`;
+            const ex = unresolvedMap.get(uKey);
+            if (ex) ex.count++; else unresolvedMap.set(uKey, { field: "Unidade", value: unitVal, count: 1 });
+          }
+          if (existingCodes.has(code.trim().toLowerCase())) {
+            result.toUpdate++;
+            result.details.push({ line: lineNum, action: "update", reason: `${code} já existe` });
+          } else {
+            result.toInsert++;
+            result.details.push({ line: lineNum, action: "insert", reason: `Novo ${code}` });
+          }
+        }
+      } else if (detectedEntity === "sales_targets") {
+        const year = Number(targetYear);
+        const dataRows = allDataRows.filter(r => ev(r, "esn_code") || ev(r, "esn_name"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const memberMap = new Map<string, boolean>();
+        for (const s of allSalesTeam) { memberMap.set(s.code, true); memberMap.set(s.name, true); }
+        for (const crm of crmCodes) memberMap.set(crm.code, true);
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
+          const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
+          const label = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
+          const lineNum = i + 2;
+          if (!memberMap.has(esnCode) && !memberMap.has(esnName)) {
+            const uKey = `esn:${esnCode || esnName}`;
+            const ex = unresolvedMap.get(uKey);
+            if (ex) ex.count++; else unresolvedMap.set(uKey, { field: "Dono da Meta", value: label, count: 1 });
+            result.details.push({ line: lineNum, action: "error", reason: `"${label}" não encontrado` });
+            continue;
+          }
+          let hasVal = false;
+          for (let m = 1; m <= 12; m++) { if (Number(ev(row, `month_${m}`)) > 0) { hasVal = true; break; } }
+          if (!hasVal) { result.toSkip++; result.details.push({ line: lineNum, action: "skip", reason: "Sem valores mensais" }); }
+          else { result.toInsert++; result.details.push({ line: lineNum, action: "insert", reason: "Metas com valores" }); }
+        }
+      } else if (detectedEntity === "templates") {
+        const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const tplNames = new Set<string>();
+        for (const row of dataRows) tplNames.add(ev(row, "template_name")!);
+        result.toInsert = tplNames.size;
+        result.details.push({ line: 0, action: "insert", reason: `${tplNames.size} template(s) com ${dataRows.length} itens` });
       }
-    }
 
+      result.unresolvedRelations = Array.from(unresolvedMap.values());
+      if (result.unresolvedRelations.length > 0) {
+        result.warnings.push(`${result.unresolvedRelations.length} vínculo(s) relacional(is) não resolvido(s)`);
+      }
+      setDryRunResult(result);
+      setStep("preview");
+    } finally {
+      setDryRunLoading(false);
+    }
+  }, [detectedEntity, mapping, headers, dbFields, allDataRows, extractValue, aliasStore, targetYear, toast]);
+
+  // ── Run import (entry point) ──────────────────────────────────
+  const runImport = useCallback(async () => {
+    const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
+    setValidationResult(validation);
+    if (!validation.valid) {
+      toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      for (const w of validation.warnings) addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+    }
     if (!layoutSaved && headers.length > 0) {
-      saveLayout({
-        id: crypto.randomUUID(),
-        name: file?.name || "Layout",
-        entity: detectedEntity,
-        headerSignature: getHeaderSignature(headers),
-        mapping,
-        headerNames: headers,
-        createdAt: Date.now(),
-      });
+      saveLayout({ id: crypto.randomUUID(), name: file?.name || "Layout", entity: detectedEntity, headerSignature: getHeaderSignature(headers), mapping, headerNames: headers, createdAt: Date.now() });
     }
-
-    // Pre-scan relational fields
     const allResolved = await preScanRelations();
-    if (!allResolved) return; // dialog will be shown, import will proceed after resolution
-
+    if (!allResolved) return;
     executeImport(aliasStore);
   }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules, detectedEntity, dbFields, extractValue, targetYear, preScanRelations, aliasStore]);
 

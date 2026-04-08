@@ -974,7 +974,7 @@ export default function SmartImport() {
           }
         }
       }
-      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`);
+      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`, "insert");
     }
 
     // Link GSNs

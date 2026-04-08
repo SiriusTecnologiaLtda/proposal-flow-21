@@ -373,10 +373,12 @@ export default function SmartImport() {
       const listForField = rf.listType === "units" ? unitList
         : rf.listType === "esn" ? esnList
         : rf.listType === "gsn" ? gsnList
+        : rf.listType === "categories" ? categoryList
+        : rf.listType === "segments" ? segmentList
         : salesTeamList;
 
       const aliasKey = getAliasKey(detectedEntity, rf.fieldKey);
-      const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
+      const crmForField = (rf.listType !== "units" && rf.listType !== "categories" && rf.listType !== "segments") ? crmCodes : undefined;
       const valueCountMap = new Map<string, { original: string; count: number }>();
 
       for (const row of allDataRows) {

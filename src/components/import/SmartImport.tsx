@@ -1510,6 +1510,7 @@ export default function SmartImport() {
     setUnresolvedItems([]);
     setResolutionSelections({});
     setValidationResult(null);
+    setDryRunResult(null);
     invalidateCrmCache();
   };
 

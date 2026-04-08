@@ -63,6 +63,8 @@ import {
   getAliasKey,
   formatDuration,
   normalize,
+  findInList,
+  findInListWithAlias,
 } from "./importSchemas";
 
 // ─── CRM codes cache (loaded once per session) ─────────────────
@@ -81,49 +83,7 @@ async function loadCrmCodes(): Promise<{ code: string; sales_team_id: string; un
 
 function invalidateCrmCache() { _crmCodesCache = null; }
 
-// ─── Lookup helpers ─────────────────────────────────────────────
-function findInList(list: { id: string; code: string; name: string }[], search: string, crmCodes?: { code: string; sales_team_id: string }[]): string | null {
-  if (!search) return null;
-  const s = search.trim().toLowerCase();
-  const byCode = list.find(u => u.code === s);
-  if (byCode) return byCode.id;
-  const byName = list.find(u => u.name === s);
-  if (byName) return byName.id;
-  const sNum = s.replace(/^0+/, "");
-  if (sNum) {
-    const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
-    if (byPaddedCode) return byPaddedCode.id;
-  }
-  if (crmCodes) {
-    const byCrm = crmCodes.find(c => c.code === s);
-    if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) return byCrm.sales_team_id;
-    if (sNum) {
-      const byCrmPadded = crmCodes.find(c => c.code.replace(/^0+/, "") === sNum);
-      if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
-    }
-  }
-  const partial = list.find(u =>
-    (u.code && (u.code.includes(s) || s.includes(u.code))) ||
-    (u.name && (u.name.includes(s) || s.includes(u.name)))
-  );
-  return partial ? partial.id : null;
-}
-
-function findInListWithAlias(
-  list: { id: string; code: string; name: string }[],
-  search: string,
-  aliasKey: string,
-  aliases: AliasStore,
-  crmCodes?: { code: string; sales_team_id: string }[],
-): string | null {
-  if (!search) return null;
-  const aliasMap = aliases[aliasKey];
-  if (aliasMap) {
-    const aliasId = aliasMap[search.trim().toLowerCase()];
-    if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
-  }
-  return findInList(list, search, crmCodes);
-}
+// Lookup helpers are now imported from importSchemas.ts
 
 // ─── Steps ──────────────────────────────────────────────────────
 type Step = "upload" | "confirm" | "mapping" | "options" | "preview" | "running" | "done";

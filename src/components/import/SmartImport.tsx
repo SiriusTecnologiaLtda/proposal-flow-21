@@ -1509,31 +1509,54 @@ export default function SmartImport() {
       dbLogId = data?.id;
     } catch {}
 
-    // Clear existing targets for the year if requested
+    // Load units early (needed for clear scoping and later processing)
+    const { data: units } = await supabase.from("unit_info").select("id, code, name");
+    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+
+    // Clear existing targets for the year if requested — SCOPED to units found in the spreadsheet
     if (clearExistingTargets) {
-      addImportLog(entity, "info", `🗑️ Removendo metas existentes do ano ${year}...`);
-      let deletedCount = 0;
-      let deleteError = false;
-      // Delete in batches to avoid timeouts
-      while (true) {
-        const { data: batch } = await supabase.from("sales_targets")
-          .select("id")
-          .eq("year", year)
-          .limit(500);
-        if (!batch || batch.length === 0) break;
-        const ids = batch.map(r => r.id);
-        const { error, count } = await supabase.from("sales_targets")
-          .delete({ count: "exact" })
-          .in("id", ids);
-        if (error) {
-          addImportLog(entity, "error", `Erro ao limpar metas: ${error.message}`);
-          deleteError = true;
-          break;
+      const unitAliasKeyForClear = getAliasKey(entity, "unit_code");
+      const spreadsheetUnitIds = new Set<string>();
+      for (const row of dataRows) {
+        const candidates = hasUnitCol ? collectSalesTargetUnitCandidates(row, headers, fieldToCol) : [];
+        for (const candidate of candidates) {
+          const resolved = findInListWithAlias(unitList, candidate, unitAliasKeyForClear, currentAliases);
+          if (resolved) { spreadsheetUnitIds.add(resolved); break; }
         }
-        deletedCount += count || ids.length;
       }
-      if (!deleteError) {
-        addImportLog(entity, "ok", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year}.`);
+
+      if (spreadsheetUnitIds.size === 0) {
+        addImportLog(entity, "warning", `⚠️ Nenhuma unidade identificada na planilha para escopo da limpeza. Limpeza não executada para evitar apagar dados de outras unidades.`, "system");
+      } else {
+        const unitNames = Array.from(spreadsheetUnitIds).map(uid => {
+          const u = unitList.find(u => u.id === uid);
+          return u ? `${u.code} (${u.name})`.toUpperCase() : uid;
+        });
+        addImportLog(entity, "info", `🗑️ Removendo metas existentes do ano ${year} para: ${unitNames.join(", ")}...`);
+        let deletedCount = 0;
+        let deleteError = false;
+        const unitIdsArray = Array.from(spreadsheetUnitIds);
+        while (true) {
+          const { data: batch } = await supabase.from("sales_targets")
+            .select("id")
+            .eq("year", year)
+            .in("unit_id", unitIdsArray)
+            .limit(500);
+          if (!batch || batch.length === 0) break;
+          const ids = batch.map(r => r.id);
+          const { error, count } = await supabase.from("sales_targets")
+            .delete({ count: "exact" })
+            .in("id", ids);
+          if (error) {
+            addImportLog(entity, "error", `Erro ao limpar metas: ${error.message}`);
+            deleteError = true;
+            break;
+          }
+          deletedCount += count || ids.length;
+        }
+        if (!deleteError) {
+          addImportLog(entity, "ok", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year} (escopo: ${unitNames.join(", ")}).`);
+        }
       }
     }
 
@@ -1550,12 +1573,10 @@ export default function SmartImport() {
     }
 
     // Load all sales team members + CRM codes
-    const [{ data: salesTeam }, crmCodes, { data: units }] = await Promise.all([
+    const [{ data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("sales_team").select("id, code, name, role, unit_id"),
       loadCrmCodes(),
-      supabase.from("unit_info").select("id, code, name"),
     ]);
-    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" }>();
     // Index CRM codes FIRST (primary match source)
     for (const crm of crmCodes) {

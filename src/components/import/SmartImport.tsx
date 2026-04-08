@@ -643,7 +643,7 @@ export default function SmartImport() {
 
     const missing = dbFields.filter(f => f.required && !(f.key in fieldToCol));
     if (missing.length > 0) {
-      addImportLog(detectedEntity, "error", `Campos obrigatórios não mapeados: ${missing.map(f => f.label).join(", ")}`);
+      addImportLog(detectedEntity, "error", `Campos obrigatórios não mapeados: ${missing.map(f => f.label).join(", ")}`, "validation");
       finishImportRun(detectedEntity, "error");
       setStep("done");
       return;

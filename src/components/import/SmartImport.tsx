@@ -649,7 +649,7 @@ export default function SmartImport() {
           alreadyCreatedForPair.set(selectionKey, created.id);
 
           // Create CRM code entry for the new member
-          const crmCode = insertData.code.trim();
+          const crmCode = insertData.code.trim().toUpperCase();
           if (crmCode && !crmCode.startsWith("AUTO_")) {
             await supabase.from("sales_team_crm_codes").upsert({
               code: crmCode, sales_team_id: created.id, unit_id: memberUnitId, description: "Criado via importação",

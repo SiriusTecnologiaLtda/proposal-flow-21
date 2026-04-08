@@ -189,6 +189,9 @@ export default function SmartImport() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [aliasStore, setAliasStore] = useState<AliasStore>(loadAliasStore);
 
+  const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
   const dbFields = entityConfig.dbFields;
 

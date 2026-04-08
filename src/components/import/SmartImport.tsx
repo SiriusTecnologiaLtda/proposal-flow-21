@@ -799,8 +799,9 @@ export default function SmartImport() {
       }
 
       for (const [lower, { original, count }] of valueCountMap) {
-        // Check if resolved by normal lookup or alias
-        const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases);
+        // Check if resolved by normal lookup, alias, or CRM code
+        const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
+        const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases, crmForField);
         if (resolved) continue;
 
         const uniqueKey = `${rf.fieldKey}:${lower}`;

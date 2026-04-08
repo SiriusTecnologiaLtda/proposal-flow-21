@@ -62,26 +62,10 @@ export default function SalesTargetsPage() {
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
 
-  // Edit dialog state
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [isCreateMode, setIsCreateMode] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // Context fields (shared create/edit)
-  const [editEsnId, setEditEsnId] = useState("");
-  const [editUnitId, setEditUnitId] = useState("");
-  const [editRole, setEditRole] = useState("esn");
-  const [editYear, setEditYear] = useState(String(currentYear));
-
-  // Grid rows: each row is a catId__segId composite key
-  // gridRows: array of { key, catId, segId }
-  const [gridRows, setGridRows] = useState<{ key: string; catId: string; segId: string }[]>([]);
-  // Grid values: key → month → value string
-  const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
-  // Existing record IDs for edit: key_month → id(s)
-  const [existingIds, setExistingIds] = useState<Record<string, string>>({});
-
   // Selection / delete
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);

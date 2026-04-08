@@ -341,7 +341,7 @@ export default function SalesTargetEditPage() {
             <Users className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
             {isCreateMode ? (
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
                 <Label className="text-xs text-muted-foreground font-medium">Membro</Label>

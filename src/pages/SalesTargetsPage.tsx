@@ -612,9 +612,6 @@ export default function SalesTargetsPage() {
                         {cat.name}
                       </th>
                     ))}
-                    <th className="text-center px-3 py-3 font-semibold text-muted-foreground text-[11px] uppercase tracking-wider min-w-[120px] border-b border-l border-border/60 bg-muted">
-                      Total Geral
-                    </th>
                     {isAdmin && (
                       <th className="text-center px-2 py-3 w-[44px] border-b border-l border-border/60 bg-muted" />
                     )}

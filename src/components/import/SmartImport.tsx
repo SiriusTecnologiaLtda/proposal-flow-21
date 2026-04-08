@@ -915,6 +915,7 @@ export default function SmartImport() {
           .single();
 
         if (upsertErr) {
+          errors++;
           addImportLog(entity, "error", `Linha ${i + 2} (${code}): ${upsertErr.message}`, "batch_error");
           updateImportStats(entity, { errors });
         } else if (upsertResult) {

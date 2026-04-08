@@ -1641,11 +1641,11 @@ export default function SmartImport() {
         rowRole = detectedMemberRole;
       }
 
-      // Validação obrigatória: nunca inserir meta sem dono, categoria, segmento ou nível
+      // Validação obrigatória: nunca inserir meta sem dono, categoria, segmento, nível ou unidade
       if (!rowCategoryId) {
         errors++;
         const msg = `Linha ${lineNum}: Categoria obrigatória não encontrada para "${esnLabel}".`;
-        addImportLog(entity, "error", msg);
+        addImportLog(entity, "error", msg, "validation");
         errorDetails.push({ line: lineNum, owner: esnLabel, message: "Categoria obrigatória não encontrada" });
         processed++;
         continue;
@@ -1653,7 +1653,7 @@ export default function SmartImport() {
       if (!rowSegmentId) {
         errors++;
         const msg = `Linha ${lineNum}: Segmento obrigatório não encontrado para "${esnLabel}".`;
-        addImportLog(entity, "error", msg);
+        addImportLog(entity, "error", msg, "validation");
         errorDetails.push({ line: lineNum, owner: esnLabel, message: "Segmento obrigatório não encontrado" });
         processed++;
         continue;
@@ -1661,8 +1661,16 @@ export default function SmartImport() {
       if (!rowRole) {
         errors++;
         const msg = `Linha ${lineNum}: Nível/Função obrigatório não definido para "${esnLabel}".`;
-        addImportLog(entity, "error", msg);
+        addImportLog(entity, "error", msg, "validation");
         errorDetails.push({ line: lineNum, owner: esnLabel, message: "Nível/Função obrigatório não definido" });
+        processed++;
+        continue;
+      }
+      if (!rowUnitId) {
+        errors++;
+        const msg = `Linha ${lineNum}: Unidade obrigatória não resolvida para "${esnLabel}" — registro não será enviado ao banco.`;
+        addImportLog(entity, "error", msg, "validation");
+        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Unidade obrigatória não resolvida (FK unit_id)" });
         processed++;
         continue;
       }

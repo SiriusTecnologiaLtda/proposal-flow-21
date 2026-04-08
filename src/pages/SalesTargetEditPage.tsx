@@ -177,16 +177,14 @@ export default function SalesTargetEditPage() {
   /* ── Grid helpers ── */
   function addGridRow() {
     const firstCat = sortedCategories[0];
-    const firstSeg = segments[0];
-    if (!firstCat || !firstSeg) return;
-    const baseKey = `${firstCat.id}__${firstSeg.id}`;
-    let key = baseKey;
+    if (!firstCat) return;
+    let key = firstCat.id;
     let counter = 0;
     while (gridRows.some(r => r.key === key)) {
       counter++;
-      key = `${baseKey}__${counter}`;
+      key = `${firstCat.id}__${counter}`;
     }
-    setGridRows(prev => [...prev, { key, catId: firstCat.id, segId: firstSeg.id }]);
+    setGridRows(prev => [...prev, { key, catId: firstCat.id }]);
     setGridValues(prev => {
       const row: Record<number, string> = {};
       for (let m = 1; m <= 12; m++) row[m] = "0";
@@ -194,13 +192,13 @@ export default function SalesTargetEditPage() {
     });
   }
 
-  function updateGridRowField(rowKey: string, field: "catId" | "segId", newValue: string) {
+  function updateGridRowField(rowKey: string, field: "catId", newValue: string) {
     setGridRows(prev => {
       const idx = prev.findIndex(r => r.key === rowKey);
       if (idx === -1) return prev;
       const old = prev[idx];
       const updated = { ...old, [field]: newValue };
-      const newKey = `${updated.catId}__${updated.segId}`;
+      const newKey = updated.catId;
       const result = [...prev];
       result[idx] = { ...updated, key: newKey };
       setGridValues(gv => {

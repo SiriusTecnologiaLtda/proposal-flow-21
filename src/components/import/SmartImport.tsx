@@ -2166,38 +2166,34 @@ export default function SmartImport() {
           {/* ── STEP: Preview (Dry-Run) ────────────────────────── */}
           {step === "preview" && dryRunResult && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Resultado da Simulação</span>
-                  <Badge variant="outline" className="text-xs">Nenhum dado foi gravado</Badge>
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                      <Target className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold">Resultado da Simulação</span>
+                      <p className="text-[11px] text-muted-foreground">Nenhum dado foi gravado no banco</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Dry-run</Badge>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-foreground">{dryRunResult.totalRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Linhas lidas</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-foreground">{dryRunResult.validRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Válidas</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-destructive">{dryRunResult.invalidRows}</div>
-                    <div className="text-[11px] text-muted-foreground">Inválidas</div>
-                  </div>
-                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-center">
-                    <div className="text-2xl font-bold text-success">{dryRunResult.toInsert}</div>
-                    <div className="text-[11px] text-muted-foreground">Inserções</div>
-                  </div>
-                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center">
-                    <div className="text-2xl font-bold text-primary">{dryRunResult.toUpdate}</div>
-                    <div className="text-[11px] text-muted-foreground">Atualizações</div>
-                  </div>
-                  <div className="rounded-md border border-border bg-background p-3 text-center">
-                    <div className="text-2xl font-bold text-muted-foreground">{dryRunResult.toSkip}</div>
-                    <div className="text-[11px] text-muted-foreground">Ignorados</div>
-                  </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { label: "Lidas", value: dryRunResult.totalRows, color: "border-border bg-background", textColor: "text-foreground" },
+                    { label: "Válidas", value: dryRunResult.validRows, color: "border-border bg-background", textColor: "text-foreground" },
+                    { label: "Inválidas", value: dryRunResult.invalidRows, color: "border-destructive/20 bg-destructive/5", textColor: "text-destructive" },
+                    { label: "Inserções", value: dryRunResult.toInsert, color: "border-success/20 bg-success/5", textColor: "text-success" },
+                    { label: "Atualizações", value: dryRunResult.toUpdate, color: "border-primary/20 bg-primary/5", textColor: "text-primary" },
+                    { label: "Ignorados", value: dryRunResult.toSkip, color: "border-border bg-background", textColor: "text-muted-foreground" },
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-lg border p-2.5 text-center ${s.color}`}>
+                      <div className={`text-xl font-bold tabular-nums ${s.textColor}`}>{s.value}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

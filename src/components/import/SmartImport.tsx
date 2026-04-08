@@ -1460,6 +1460,11 @@ export default function SmartImport() {
       }
     }
 
+    // Recalculate totalRows to reflect the real work: scanned rows + batch records to persist
+    const totalWork = processed + toInsert.length + toUpdate.length;
+    updateImportStats(entity, { totalRows: totalWork, processed, imported, updated, errors, skipped });
+    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções + ${toUpdate.length} atualizações pendentes`, "system");
+
     // Batch UPSERT (onConflict on composite key)
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
@@ -1485,7 +1490,8 @@ export default function SmartImport() {
         } else {
           imported += cleanBatch.length;
         }
-        updateImportStats(entity, { imported, updated, errors, skipped });
+        processed += cleanBatch.length;
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }
 
@@ -1496,12 +1502,12 @@ export default function SmartImport() {
       for (let b = 0; b < toUpdate.length; b += BATCH) {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toUpdate.slice(b, b + BATCH);
-        // Updates must be done individually since each has a different amount
         await Promise.all(batch.map(async (upd) => {
           const { error } = await supabase.from("sales_targets").update({ amount: upd.amount }).eq("id", upd.id);
           if (error) { errors++; } else { updated++; }
         }));
-        updateImportStats(entity, { imported, updated, errors, skipped });
+        processed += batch.length;
+        updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }
 

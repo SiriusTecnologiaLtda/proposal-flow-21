@@ -579,10 +579,14 @@ export function findInList(
     const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
     if (byPaddedCode) return byPaddedCode.id;
   }
-  // CRM code match
+  // CRM code match — but skip if the CRM code is another member's direct sales_team.code
   if (crmCodes) {
     const byCrm = crmCodes.find(c => c.code === s);
-    if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) return byCrm.sales_team_id;
+    if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) {
+      // Guard: don't resolve via CRM if this code is a direct code of a DIFFERENT member
+      const directOwner = list.find(l => l.code === s);
+      if (!directOwner || directOwner.id === byCrm.sales_team_id) return byCrm.sales_team_id;
+    }
     if (sNum) {
       const byCrmPadded = crmCodes.find(c => c.code.replace(/^0+/, "") === sNum);
       if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
@@ -603,11 +607,19 @@ export function findInListWithAlias(
   crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
   if (!search || !search.trim()) return null;
+  const s = search.trim().toLowerCase();
+  // Priority 1: direct code/name match always wins over aliases and CRM codes
+  const byCode = list.find(u => u.code === s);
+  if (byCode) return byCode.id;
+  const byName = list.find(u => u.name === s);
+  if (byName) return byName.id;
+  // Priority 2: session alias
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {
-    const aliasId = aliasMap[search.trim().toLowerCase()];
+    const aliasId = aliasMap[s];
     if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
   }
+  // Priority 3: padded code, then CRM codes (via findInList which skips the exact checks already done)
   return findInList(list, search, crmCodes);
 }
 

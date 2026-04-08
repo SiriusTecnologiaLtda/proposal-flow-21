@@ -1034,7 +1034,7 @@ export default function SmartImport() {
 
     const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} linhas de dados.`);
+    addImportLog(entity, "info", `📊 ${allDataRows.length} linhas lidas | ${dataRows.length} válidas`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;

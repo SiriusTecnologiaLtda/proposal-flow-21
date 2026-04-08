@@ -759,11 +759,13 @@ export default function SmartImport() {
 
     setScanningRelations(true);
 
-    // Load lookup lists
-    const [{ data: units }, { data: salesTeam }] = await Promise.all([
+    // Load lookup lists + CRM codes
+    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      loadCrmCodes(),
     ]);
+    setCrmCodesCache(crmCodes);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const allSalesTeam = (salesTeam || []).map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase(), role: s.role }));
     const esnList = allSalesTeam.filter(s => s.role === "esn").map(({ role, ...r }) => r);

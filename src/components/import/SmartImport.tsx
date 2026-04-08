@@ -126,7 +126,21 @@ function findInListWithAlias(
 }
 
 // ─── Steps ──────────────────────────────────────────────────────
-type Step = "upload" | "confirm" | "mapping" | "options" | "running" | "done";
+type Step = "upload" | "confirm" | "mapping" | "options" | "preview" | "running" | "done";
+
+// ─── Dry-run result ─────────────────────────────────────────────
+export interface DryRunResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  toInsert: number;
+  toUpdate: number;
+  toSkip: number;
+  blockers: string[];
+  warnings: string[];
+  unresolvedRelations: { field: string; value: string; count: number }[];
+  details: { line: number; action: "insert" | "update" | "skip" | "error"; reason: string }[];
+}
 
 export default function SmartImport() {
   const [step, setStep] = useState<Step>("upload");
@@ -174,6 +188,9 @@ export default function SmartImport() {
   const [scanningRelations, setScanningRelations] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [aliasStore, setAliasStore] = useState<AliasStore>(loadAliasStore);
+
+  const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
 
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
   const dbFields = entityConfig.dbFields;
@@ -451,39 +468,175 @@ export default function SmartImport() {
     executeImport(newAliases);
   }, [unresolvedItems, resolutionSelections, aliasStore, detectedEntity, toast, qc]);
 
-  // ── Run import (entry point) ──────────────────────────────────
-  const runImport = useCallback(async () => {
-    // Dynamic structural validation
+  // ── Dry-run simulation ──────────────────────────────────────────
+  const runDryRun = useCallback(async () => {
     const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
     setValidationResult(validation);
-
     if (!validation.valid) {
       toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
       return;
     }
 
-    if (validation.warnings.length > 0) {
-      for (const w of validation.warnings) {
-        addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+    setDryRunLoading(true);
+    try {
+      const fieldToCol: Record<string, number> = {};
+      for (const [colStr, field] of Object.entries(mapping)) fieldToCol[field] = Number(colStr);
+      const ev = (row: any[], key: string) => extractValue(row, key, fieldToCol);
+
+      const result: DryRunResult = {
+        totalRows: allDataRows.length,
+        validRows: 0, invalidRows: 0,
+        toInsert: 0, toUpdate: 0, toSkip: 0,
+        blockers: [...validation.errors],
+        warnings: [...validation.warnings],
+        unresolvedRelations: [],
+        details: [],
+      };
+
+      const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
+        supabase.from("unit_info").select("id, code, name"),
+        supabase.from("sales_team").select("id, code, name, role, unit_id"),
+        loadCrmCodes(),
+      ]);
+      const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+      const allSalesTeam = (salesTeam || []).map(s => ({ id: s.id, code: s.code.trim().toLowerCase(), name: s.name.trim().toLowerCase(), role: s.role, unit_id: s.unit_id }));
+      const esnList = allSalesTeam.filter(s => s.role === "esn");
+      const gsnList = allSalesTeam.filter(s => s.role === "gsn");
+      const currentAliases = aliasStore;
+      const unresolvedMap = new Map<string, { field: string; value: string; count: number }>();
+
+      if (detectedEntity === "clients") {
+        const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name") && ev(r, "cnpj"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const existingMap = new Map<string, string>();
+        let dbOff = 0;
+        while (true) {
+          const { data: chunk } = await supabase.from("clients").select("id, code, store_code").range(dbOff, dbOff + 999);
+          if (!chunk || chunk.length === 0) break;
+          for (const c of chunk) existingMap.set(`${(c.code || "").trim()}|${(c.store_code || "").trim()}`, c.id);
+          if (chunk.length < 1000) break;
+          dbOff += 1000;
+        }
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const code = ev(row, "code")!;
+          const storeCode = ev(row, "store_code") || "";
+          const lineNum = i + 2;
+          for (const { key: fk, list, label } of [
+            { key: "unit_code", list: unitList, label: "Unidade" },
+            { key: "esn_code", list: esnList, label: "ESN" },
+            { key: "gsn_code", list: gsnList, label: "GSN" },
+          ]) {
+            const val = ev(row, fk);
+            if (val && !findInListWithAlias(list, val, getAliasKey("clients", fk), currentAliases, crmCodes)) {
+              const uKey = `${fk}:${val.toLowerCase()}`;
+              const ex = unresolvedMap.get(uKey);
+              if (ex) ex.count++; else unresolvedMap.set(uKey, { field: label, value: val, count: 1 });
+            }
+          }
+          if (existingMap.has(`${code}|${storeCode}`)) {
+            result.toUpdate++;
+            result.details.push({ line: lineNum, action: "update", reason: `${code} já existe` });
+          } else {
+            result.toInsert++;
+            result.details.push({ line: lineNum, action: "insert", reason: `Novo ${code}` });
+          }
+        }
+      } else if (detectedEntity === "sales_team") {
+        const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const { data: existing } = await supabase.from("sales_team").select("id, code");
+        const existingCodes = new Set((existing || []).map(e => e.code.trim().toLowerCase()));
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const code = ev(row, "code")!;
+          const roleText = ev(row, "role_text") || "";
+          const lineNum = i + 2;
+          const c = roleText.toLowerCase().trim();
+          const validRole = ["esn","gsn","dsn","arquiteto","engenheiro de valor","ev","executivo","vendedor","gerente","diretor"].some(k => c.includes(k));
+          if (!validRole) {
+            result.details.push({ line: lineNum, action: "error", reason: `Cargo "${roleText}" não reconhecido` });
+            result.invalidRows++; result.validRows--; continue;
+          }
+          const unitVal = ev(row, "unit_code");
+          if (unitVal && !findInListWithAlias(unitList, unitVal, getAliasKey("sales_team", "unit_code"), currentAliases)) {
+            const uKey = `unit_code:${unitVal.toLowerCase()}`;
+            const ex = unresolvedMap.get(uKey);
+            if (ex) ex.count++; else unresolvedMap.set(uKey, { field: "Unidade", value: unitVal, count: 1 });
+          }
+          if (existingCodes.has(code.trim().toLowerCase())) {
+            result.toUpdate++;
+            result.details.push({ line: lineNum, action: "update", reason: `${code} já existe` });
+          } else {
+            result.toInsert++;
+            result.details.push({ line: lineNum, action: "insert", reason: `Novo ${code}` });
+          }
+        }
+      } else if (detectedEntity === "sales_targets") {
+        const year = Number(targetYear);
+        const dataRows = allDataRows.filter(r => ev(r, "esn_code") || ev(r, "esn_name"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const memberMap = new Map<string, boolean>();
+        for (const s of allSalesTeam) { memberMap.set(s.code, true); memberMap.set(s.name, true); }
+        for (const crm of crmCodes) memberMap.set(crm.code, true);
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const esnCode = (ev(row, "esn_code") || "").trim().toLowerCase();
+          const esnName = (ev(row, "esn_name") || "").trim().toLowerCase();
+          const label = ev(row, "esn_code") || ev(row, "esn_name") || "(vazio)";
+          const lineNum = i + 2;
+          if (!memberMap.has(esnCode) && !memberMap.has(esnName)) {
+            const uKey = `esn:${esnCode || esnName}`;
+            const ex = unresolvedMap.get(uKey);
+            if (ex) ex.count++; else unresolvedMap.set(uKey, { field: "Dono da Meta", value: label, count: 1 });
+            result.details.push({ line: lineNum, action: "error", reason: `"${label}" não encontrado` });
+            continue;
+          }
+          let hasVal = false;
+          for (let m = 1; m <= 12; m++) { if (Number(ev(row, `month_${m}`)) > 0) { hasVal = true; break; } }
+          if (!hasVal) { result.toSkip++; result.details.push({ line: lineNum, action: "skip", reason: "Sem valores mensais" }); }
+          else { result.toInsert++; result.details.push({ line: lineNum, action: "insert", reason: "Metas com valores" }); }
+        }
+      } else if (detectedEntity === "templates") {
+        const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
+        result.invalidRows = allDataRows.length - dataRows.length;
+        result.validRows = dataRows.length;
+        const tplNames = new Set<string>();
+        for (const row of dataRows) tplNames.add(ev(row, "template_name")!);
+        result.toInsert = tplNames.size;
+        result.details.push({ line: 0, action: "insert", reason: `${tplNames.size} template(s) com ${dataRows.length} itens` });
       }
-    }
 
+      result.unresolvedRelations = Array.from(unresolvedMap.values());
+      if (result.unresolvedRelations.length > 0) {
+        result.warnings.push(`${result.unresolvedRelations.length} vínculo(s) relacional(is) não resolvido(s)`);
+      }
+      setDryRunResult(result);
+      setStep("preview");
+    } finally {
+      setDryRunLoading(false);
+    }
+  }, [detectedEntity, mapping, headers, dbFields, allDataRows, extractValue, aliasStore, targetYear, toast]);
+
+  // ── Run import (entry point) ──────────────────────────────────
+  const runImport = useCallback(async () => {
+    const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
+    setValidationResult(validation);
+    if (!validation.valid) {
+      toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      for (const w of validation.warnings) addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+    }
     if (!layoutSaved && headers.length > 0) {
-      saveLayout({
-        id: crypto.randomUUID(),
-        name: file?.name || "Layout",
-        entity: detectedEntity,
-        headerSignature: getHeaderSignature(headers),
-        mapping,
-        headerNames: headers,
-        createdAt: Date.now(),
-      });
+      saveLayout({ id: crypto.randomUUID(), name: file?.name || "Layout", entity: detectedEntity, headerSignature: getHeaderSignature(headers), mapping, headerNames: headers, createdAt: Date.now() });
     }
-
-    // Pre-scan relational fields
     const allResolved = await preScanRelations();
-    if (!allResolved) return; // dialog will be shown, import will proceed after resolution
-
+    if (!allResolved) return;
     executeImport(aliasStore);
   }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, layoutSaved, filterRules, detectedEntity, dbFields, extractValue, targetYear, preScanRelations, aliasStore]);
 
@@ -1357,6 +1510,7 @@ export default function SmartImport() {
     setUnresolvedItems([]);
     setResolutionSelections({});
     setValidationResult(null);
+    setDryRunResult(null);
     invalidateCrmCache();
   };
 
@@ -1399,12 +1553,13 @@ export default function SmartImport() {
 
           {/* Step indicators */}
           <div className="flex items-center gap-1 mt-3">
-            {(["upload", "confirm", "mapping", "options", "running"] as Step[]).map((s, i) => {
-              const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Importação"];
-              const icons = [Upload, Eye, Settings2, Filter, Play];
+            {(["upload", "confirm", "mapping", "options", "preview", "running"] as Step[]).map((s, i) => {
+              const labels = ["Arquivo", "Tipo", "Mapeamento", "Opções", "Simulação", "Importação"];
+              const icons = [Upload, Eye, Settings2, Filter, Target, Play];
               const Icon = icons[i];
+              const allSteps = ["upload", "confirm", "mapping", "options", "preview", "running"];
               const isActive = step === s || (step === "done" && s === "running");
-              const isPast = ["upload", "confirm", "mapping", "options", "running"].indexOf(step) > i || step === "done";
+              const isPast = allSteps.indexOf(step) > i || step === "done";
               return (
                 <div key={s} className="flex items-center gap-1 flex-1">
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors w-full justify-center
@@ -1412,7 +1567,7 @@ export default function SmartImport() {
                     <Icon className="h-3 w-3 shrink-0" />
                     <span className="hidden sm:inline truncate">{labels[i]}</span>
                   </div>
-                  {i < 4 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  {i < 5 && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
                 </div>
               );
             })}
@@ -1938,15 +2093,149 @@ export default function SmartImport() {
                 <Button variant="outline" size="sm" onClick={() => { setStep("mapping"); setValidationResult(null); }}>
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
                 </Button>
-                <Button size="sm" onClick={runImport} disabled={scanningRelations}>
-                  {scanningRelations ? (
-                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verificando vínculos...</>
-                  ) : (
-                    <><Play className="mr-1.5 h-3.5 w-3.5" /> Iniciar Importação</>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={runDryRun} disabled={dryRunLoading || scanningRelations}>
+                    {dryRunLoading ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Simulando...</>
+                    ) : (
+                      <><Eye className="mr-1.5 h-3.5 w-3.5" /> Simular</>
+                    )}
+                  </Button>
+                  <Button size="sm" onClick={runImport} disabled={scanningRelations || dryRunLoading}>
+                    {scanningRelations ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verificando vínculos...</>
+                    ) : (
+                      <><Play className="mr-1.5 h-3.5 w-3.5" /> Importar Direto</>
+                    )}
+                  </Button>
+                </div>
               </div>
             </>
+          )}
+
+          {/* ── STEP: Preview (Dry-Run) ────────────────────────── */}
+          {step === "preview" && dryRunResult && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Resultado da Simulação</span>
+                  <Badge variant="outline" className="text-xs">Nenhum dado foi gravado</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{dryRunResult.totalRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Linhas lidas</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{dryRunResult.validRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Válidas</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-destructive">{dryRunResult.invalidRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Inválidas</div>
+                  </div>
+                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-center">
+                    <div className="text-2xl font-bold text-success">{dryRunResult.toInsert}</div>
+                    <div className="text-[11px] text-muted-foreground">Inserções</div>
+                  </div>
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center">
+                    <div className="text-2xl font-bold text-primary">{dryRunResult.toUpdate}</div>
+                    <div className="text-[11px] text-muted-foreground">Atualizações</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-muted-foreground">{dryRunResult.toSkip}</div>
+                    <div className="text-[11px] text-muted-foreground">Ignorados</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Blockers */}
+              {dryRunResult.blockers.length > 0 && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
+                    <XCircle className="h-3.5 w-3.5" /> Erros bloqueantes ({dryRunResult.blockers.length})
+                  </div>
+                  {dryRunResult.blockers.map((b, i) => (
+                    <div key={i} className="text-xs text-destructive pl-5">• {b}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Unresolved relations */}
+              {dryRunResult.unresolvedRelations.length > 0 && (
+                <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Vínculos não resolvidos ({dryRunResult.unresolvedRelations.length})
+                  </div>
+                  {dryRunResult.unresolvedRelations.map((ur, i) => (
+                    <div key={i} className="text-xs text-muted-foreground pl-5">
+                      • <span className="font-medium">{ur.field}:</span> "{ur.value}" — {ur.count} ocorrência(s)
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Warnings */}
+              {dryRunResult.warnings.length > 0 && (
+                <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Alertas ({dryRunResult.warnings.length})
+                  </div>
+                  {dryRunResult.warnings.map((w, i) => (
+                    <div key={i} className="text-xs text-muted-foreground pl-5">• {w}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Detail log (collapsible) */}
+              {dryRunResult.details.length > 0 && dryRunResult.details.length <= 200 && (
+                <details className="rounded-md border border-border">
+                  <summary className="px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    Detalhes linha a linha ({dryRunResult.details.length} registros)
+                  </summary>
+                  <ScrollArea className="h-40 px-3 pb-2">
+                    <div className="space-y-0.5 font-mono text-[11px]">
+                      {dryRunResult.details.map((d, i) => (
+                        <div key={i} className="flex items-start gap-1.5">
+                          {d.action === "insert" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
+                          {d.action === "update" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
+                          {d.action === "skip" && <Clock className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />}
+                          {d.action === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                          <span className={
+                            d.action === "error" ? "text-destructive" :
+                            d.action === "insert" ? "text-success" :
+                            d.action === "update" ? "text-primary" : "text-muted-foreground"
+                          }>
+                            {d.line > 0 ? `L${d.line}: ` : ""}{d.reason}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </details>
+              )}
+              {dryRunResult.details.length > 200 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  {dryRunResult.details.length} detalhes — exibição resumida para performance.
+                  Erros: {dryRunResult.details.filter(d => d.action === "error").length}
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-between">
+                <Button variant="outline" size="sm" onClick={() => { setStep("options"); setDryRunResult(null); }}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar às Opções
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={runImport}
+                  disabled={dryRunResult.blockers.length > 0}
+                >
+                  <Play className="mr-1.5 h-3.5 w-3.5" /> Confirmar e Importar
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* ── STEP: Running / Done ───────────────────────────── */}

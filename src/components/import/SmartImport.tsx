@@ -894,7 +894,7 @@ export default function SmartImport() {
         const commissionVal = ev(row, "commission_pct");
 
         const role = parseRole(roleText);
-        if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`); updateImportStats(entity, { errors }); continue; }
+        if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`, "validation"); updateImportStats(entity, { errors }); continue; }
 
         const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
         if (unitVal && !unit_id) {

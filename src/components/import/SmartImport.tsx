@@ -835,7 +835,7 @@ export default function SmartImport() {
 
     const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} registros válidos.`);
+    addImportLog(entity, "info", `📊 ${allDataRows.length} linhas lidas | ${dataRows.length} válidas | ${allDataRows.length - dataRows.length} sem campos obrigatórios`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;

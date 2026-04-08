@@ -1408,14 +1408,24 @@ export default function SmartImport() {
       return;
     }
 
-    // Load all sales team members
-    const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role, unit_id");
+    // Load all sales team members + CRM codes
+    const [{ data: salesTeam }, crmCodes] = await Promise.all([
+      supabase.from("sales_team").select("id, code, name, role, unit_id"),
+      loadCrmCodes(),
+    ]);
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
       if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id });
       if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id });
+    }
+    // Also index CRM codes into memberMap
+    for (const crm of crmCodes) {
+      if (!memberMap.has(crm.code)) {
+        const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
+        if (member) memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id });
+      }
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};

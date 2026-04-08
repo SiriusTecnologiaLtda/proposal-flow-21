@@ -1575,6 +1575,15 @@ export default function SmartImport() {
         memberUnitUpdates.set(esnId, rowUnitId);
       }
 
+      // If spreadsheet has role_name column and member's role differs, track for update
+      if (hasRoleCol && esnId) {
+        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
+        const mappedRole = roleVal ? (roleMap[roleVal] || null) : null;
+        if (mappedRole && detectedMemberRole && mappedRole !== detectedMemberRole) {
+          memberRoleUpdates.set(esnId, mappedRole);
+        }
+      }
+
       // Resolve category (by name or code)
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {

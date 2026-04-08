@@ -1217,7 +1217,7 @@ export default function SmartImport() {
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
     const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
-    addImportLog(entity, "info", `${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    addImportLog(entity, "info", `📊 ${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;

@@ -978,7 +978,7 @@ export default function SmartImport() {
     }
 
     // Link GSNs
-    addImportLog(entity, "info", "Vinculando GSNs...");
+    addImportLog(entity, "info", "Vinculando GSNs...", "relation");
     const { data: allTeam } = await supabase.from("sales_team").select("id, code, name");
     const teamMap = new Map<string, string>();
     for (const t of (allTeam || [])) {

@@ -168,7 +168,7 @@ export default function SalesTeamPage() {
         gsnMembers={gsnMembers}
       />
 
-      {(["gsn", "esn", "arquiteto"] as const).map((role) => {
+      {(["dsn", "gsn", "esn", "arquiteto"] as const).map((role) => {
         const members = grouped[role] || [];
         return (
           <div key={role}>

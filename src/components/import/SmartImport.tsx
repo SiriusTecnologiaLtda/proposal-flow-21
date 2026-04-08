@@ -1779,7 +1779,9 @@ export default function SmartImport() {
         addImportLog(entity, "warning", `Linha ${lineNum}: código CRM "${esnCode}" já pertence a outro membro do Time de Vendas; associação automática não realizada.`, "relation");
       }
 
-      if (esnCode && crmAssociationDecision.shouldCreate && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
+      // Guard: don't create CRM code if this code is already a direct sales_team.code of another member
+      const codeIsDirectOwned = salesTeamCodeMap.has(esnCode) && salesTeamCodeMap.get(esnCode)!.id !== esnId;
+      if (esnCode && crmAssociationDecision.shouldCreate && !codeIsDirectOwned && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
         crmCodesPendingCreation.set(`${esnCode}|${esnId}`, {
           code: esnCode.trim(),
           sales_team_id: esnId,

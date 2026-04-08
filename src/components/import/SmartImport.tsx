@@ -622,7 +622,7 @@ export default function SmartImport() {
       return;
     }
     if (validation.warnings.length > 0) {
-      for (const w of validation.warnings) addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+      for (const w of validation.warnings) addImportLog(detectedEntity, "warning", `Validação: ${w}`, "validation");
     }
     if (!layoutSaved && headers.length > 0) {
       saveLayout({ id: crypto.randomUUID(), name: file?.name || "Layout", entity: detectedEntity, headerSignature: getHeaderSignature(headers), mapping, headerNames: headers, createdAt: Date.now() });
@@ -643,7 +643,7 @@ export default function SmartImport() {
 
     const missing = dbFields.filter(f => f.required && !(f.key in fieldToCol));
     if (missing.length > 0) {
-      addImportLog(detectedEntity, "error", `Campos obrigatórios não mapeados: ${missing.map(f => f.label).join(", ")}`);
+      addImportLog(detectedEntity, "error", `Campos obrigatórios não mapeados: ${missing.map(f => f.label).join(", ")}`, "validation");
       finishImportRun(detectedEntity, "error");
       setStep("done");
       return;
@@ -678,7 +678,7 @@ export default function SmartImport() {
     const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name") && ev(r, "cnpj"));
     const invalidRows = allDataRows.length - dataRows.length;
     updateImportStats(entity, { totalRows: allDataRows.length });
-    addImportLog(entity, "info", `${allDataRows.length} linhas, ${dataRows.length} válidas, ${invalidRows} sem campos obrigatórios.`);
+    addImportLog(entity, "info", `📊 ${allDataRows.length} linhas lidas | ${dataRows.length} válidas | ${invalidRows} sem campos obrigatórios`, "validation");
 
     importRun.totalRows = allDataRows.length;
     let dbLogId: string | undefined;
@@ -691,7 +691,7 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro válido encontrado.");
+      addImportLog(entity, "error", "Nenhum registro válido encontrado.", "validation");
       finishImportRun(entity, "error");
       return;
     }
@@ -720,7 +720,7 @@ export default function SmartImport() {
         return !!findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases);
       });
       unitFilteredCount = dataRows.length - filteredRows.length;
-      if (unitFilteredCount > 0) addImportLog(entity, "error", `⚠ ${unitFilteredCount} registros descartados por Unidade inválida.`);
+      if (unitFilteredCount > 0) addImportLog(entity, "warning", `${unitFilteredCount} registros descartados por Unidade inválida`, "filter");
     }
 
     // Custom filter rules
@@ -730,11 +730,11 @@ export default function SmartImport() {
       const before = filteredRows.length;
       filteredRows = filteredRows.filter(row => filterRules.every(rule => evaluateFilterRule(rule, row, fieldToCol, lookupLists, findInList)));
       customFilteredCount = before - filteredRows.length;
-      if (customFilteredCount > 0) addImportLog(entity, "info", `🔍 ${customFilteredCount} registros removidos por filtros.`);
+      if (customFilteredCount > 0) addImportLog(entity, "info", `${customFilteredCount} registros removidos por filtros personalizados`, "filter");
     }
 
     if (filteredRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro após filtros.");
+      addImportLog(entity, "error", "Nenhum registro após filtros.", "filter");
       finishImportRun(entity, "error");
       return;
     }
@@ -748,13 +748,13 @@ export default function SmartImport() {
         const val = ev(row, key);
         if (key === "unit_code") {
           p.unit_id = findInListWithAlias(unitList, val || "", unitAliasKey, currentAliases);
-          if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
+          if (val && !p.unit_id) { unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`); }
         } else if (key === "esn_code") {
           p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, currentAliases, crmCodes);
-          if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
+          if (val && !p.esn_id) { unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`); }
         } else if (key === "gsn_code") {
           p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, currentAliases, crmCodes);
-          if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
+          if (val && !p.gsn_id) { unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`); }
         } else p[key] = val;
       }
       return p;
@@ -764,10 +764,10 @@ export default function SmartImport() {
     const cancelSignal = getCancelSignal("clients");
     const BATCH = 50;
 
-    addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...");
+    addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...", "system");
 
     for (let b = 0; b < filteredRows.length; b += BATCH) {
-      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida."); break; }
+      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida.", "system"); break; }
       const batch = filteredRows.slice(b, b + BATCH);
       const upsertRows: any[] = [];
 
@@ -776,7 +776,7 @@ export default function SmartImport() {
         const rowLabel = `Cliente ${code}`;
         unresolvedWarnings.length = 0;
         const payload = buildPayload(row, allMappedKeys, rowLabel);
-        for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
+        for (const w of unresolvedWarnings) addImportLog(entity, "warning", w, "relation");
         payload.code = payload.code || code;
         payload.name = payload.name || ev(row, "name");
         payload.cnpj = ev(row, "cnpj") || "";
@@ -795,10 +795,10 @@ export default function SmartImport() {
           .select("id");
 
         if (batchErr) {
-          // Fallback: row-by-row
+          addImportLog(entity, "warning", `Lote falhou, tentando registro a registro (${upsertRows.length} itens)...`, "fallback");
           for (const row of upsertRows) {
             const { error } = await supabase.from("clients").upsert(row, { onConflict: "code" });
-            if (error) { errors++; addImportLog(entity, "error", `(${row.code}): ${error.message}`); }
+            if (error) { errors++; addImportLog(entity, "error", `(${row.code}): ${error.message}`, "batch_error"); }
             else imported++;
           }
         } else {
@@ -811,14 +811,19 @@ export default function SmartImport() {
     const wasCancelled = cancelSignal?.aborted;
     const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
-    addImportLog(entity, "ok", `✅ Concluído — ${allDataRows.length} linhas | Inseridos: ${imported} | Atualizados: ${updated} | Ignorados: ${totalSkipped} | Erros: ${errors} | Tempo: ${formatDuration(Date.now() - importRun.startedAt)}`);
+    const dur = Date.now() - importRun.startedAt;
+    const warningCount = unresolvedWarnings.length;
+    addImportLog(entity, finalStatus === "error" ? "error" : "ok",
+      `${wasCancelled ? "⛔ Interrompido" : "✅ Concluído"} — ${allDataRows.length} linhas | Inseridos: ${imported} | Atualizados: ${updated} | Ignorados: ${totalSkipped} | Erros: ${errors}${warningCount > 0 ? ` | Alertas: ${warningCount}` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["clients"] });
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) {
       await supabase.from("import_logs").update({
         status: finalStatus, total_rows: allDataRows.length, imported, updated, errors,
         skipped: totalSkipped, finished_at: new Date().toISOString(),
-        duration_ms: Date.now() - importRun.startedAt,
-        summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados`,
+        duration_ms: dur,
+        summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados${warningCount > 0 ? `, ${warningCount} alertas` : ""}`,
+        error_details: errorMsgs,
       } as any).eq("id", dbLogId);
     }
   }
@@ -830,7 +835,7 @@ export default function SmartImport() {
 
     const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} registros válidos.`);
+    addImportLog(entity, "info", `📊 ${allDataRows.length} linhas lidas | ${dataRows.length} válidas | ${allDataRows.length - dataRows.length} sem campos obrigatórios`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -843,7 +848,7 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro válido.");
+      addImportLog(entity, "error", "Nenhum registro válido.", "validation");
       finishImportRun(entity, "error");
       return;
     }
@@ -874,7 +879,7 @@ export default function SmartImport() {
 
     const BATCH = 50;
     for (let b = 0; b < dataRows.length; b += BATCH) {
-      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Interrompido."); break; }
+      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Interrompido.", "system"); break; }
       const batch = dataRows.slice(b, b + BATCH);
 
       for (let j = 0; j < batch.length; j++) {
@@ -889,11 +894,11 @@ export default function SmartImport() {
         const commissionVal = ev(row, "commission_pct");
 
         const role = parseRole(roleText);
-        if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`); updateImportStats(entity, { errors }); continue; }
+        if (!role) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Cargo "${roleText}" não reconhecido.`, "validation"); updateImportStats(entity, { errors }); continue; }
 
         const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
         if (unitVal && !unit_id) {
-          addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`);
+          addImportLog(entity, "warning", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`, "relation");
         }
 
         const payload: any = { code, name, role, email, phone, unit_id };
@@ -911,7 +916,7 @@ export default function SmartImport() {
 
         if (upsertErr) {
           errors++;
-          addImportLog(entity, "error", `Linha ${i + 2} (${code}): ${upsertErr.message}`);
+          addImportLog(entity, "error", `Linha ${i + 2} (${code}): ${upsertErr.message}`, "batch_error");
           updateImportStats(entity, { errors });
         } else if (upsertResult) {
           memberId = upsertResult.id;
@@ -957,7 +962,7 @@ export default function SmartImport() {
 
     // Batch upsert CRM codes (onConflict on code+sales_team_id)
     if (crmCodesToInsert.length > 0) {
-      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`);
+      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`, "system");
       const CRM_BATCH = 100;
       for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
         const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);
@@ -965,15 +970,15 @@ export default function SmartImport() {
         if (error) {
           for (const item of batch) {
             const { error: rowErr } = await supabase.from("sales_team_crm_codes").upsert(item, { onConflict: "code,sales_team_id" });
-            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`);
+            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`, "batch_error");
           }
         }
       }
-      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`);
+      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`, "insert");
     }
 
     // Link GSNs
-    addImportLog(entity, "info", "Vinculando GSNs...");
+    addImportLog(entity, "info", "Vinculando GSNs...", "relation");
     const { data: allTeam } = await supabase.from("sales_team").select("id, code, name");
     const teamMap = new Map<string, string>();
     for (const t of (allTeam || [])) {
@@ -1000,20 +1005,25 @@ export default function SmartImport() {
         linked++;
       } else if (memberId && !gsnId) {
         gsnNotFound++;
-        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}".`);
+        addImportLog(entity, "warning", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}".`, "relation");
       }
     }
-    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`);
+    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`, "relation");
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
-    finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
+    const actualStatus = cancelSignal?.aborted ? "interrupted" : finalStatus;
+    finishImportRun(entity, actualStatus as any);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`);
+    const warningCount = run?.logs.filter(l => l.status === "warning").length || 0;
+    addImportLog(entity, actualStatus === "error" ? "error" : "ok",
+      `${cancelSignal?.aborted ? "⛔ Interrompido" : "✅ Concluído"} — ${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) await supabase.from("import_logs").update({
-      status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
+      status: actualStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${crmCodesToInsert.length} CRM codes`,
+      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}, ${crmCodesToInsert.length} CRM codes`,
+      error_details: errorMsgs,
     } as any).eq("id", dbLogId);
   }
 
@@ -1024,7 +1034,7 @@ export default function SmartImport() {
 
     const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
     updateImportStats(entity, { totalRows: dataRows.length });
-    addImportLog(entity, "info", `${dataRows.length} linhas de dados.`);
+    addImportLog(entity, "info", `📊 ${allDataRows.length} linhas lidas | ${dataRows.length} válidas`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1037,7 +1047,7 @@ export default function SmartImport() {
     } catch {}
 
     if (dataRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro válido.");
+      addImportLog(entity, "error", "Nenhum registro válido.", "validation");
       finishImportRun(entity, "error");
       return;
     }
@@ -1085,7 +1095,7 @@ export default function SmartImport() {
           }).select("id").single();
           if (tplErr || !tpl) {
             errors++;
-            addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`);
+            addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`, "batch_error");
             updateImportStats(entity, { errors });
             continue;
           }
@@ -1113,7 +1123,7 @@ export default function SmartImport() {
             .insert(processRows)
             .select("id, description");
           if (procErr) {
-            addImportLog(entity, "error", `Processos de "${tplName}": ${procErr.message}`);
+            addImportLog(entity, "error", `Processos de "${tplName}": ${procErr.message}`, "batch_error");
           } else if (insertedProcs) {
             for (const p of insertedProcs) {
               processIdMap.set(p.description.toLowerCase(), p.id);
@@ -1127,7 +1137,7 @@ export default function SmartImport() {
           for (const sub of subItems) {
             const parentId = processIdMap.get(sub.parentDesc.toLowerCase());
             if (!parentId) {
-              addImportLog(entity, "error", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado em "${tplName}".`);
+              addImportLog(entity, "warning", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado em "${tplName}".`, "relation");
               continue;
             }
             subRows.push({
@@ -1140,35 +1150,38 @@ export default function SmartImport() {
           }
           if (subRows.length > 0) {
             const { error: subErr } = await supabase.from("scope_template_items").insert(subRows);
-            if (subErr) addImportLog(entity, "error", `Sub-itens de "${tplName}": ${subErr.message}`);
+            if (subErr) addImportLog(entity, "error", `Sub-itens de "${tplName}": ${subErr.message}`, "batch_error");
           }
         }
 
         if (isUpdate) {
           updated++;
           updateImportStats(entity, { updated });
-          addImportLog(entity, "ok", `Template "${tplName}" atualizado (${processes.length} processos, ${subItems.length} sub-itens).`);
+          addImportLog(entity, "ok", `Template "${tplName}" atualizado (${processes.length} processos, ${subItems.length} sub-itens)`, "update");
         } else {
           imported++;
           updateImportStats(entity, { imported });
-          addImportLog(entity, "ok", `Template "${tplName}" importado (${processes.length} processos, ${subItems.length} sub-itens).`);
+          addImportLog(entity, "ok", `Template "${tplName}" importado (${processes.length} processos, ${subItems.length} sub-itens)`, "insert");
         }
       } catch (err: any) {
         errors++;
         updateImportStats(entity, { errors });
-        addImportLog(entity, "error", `Template "${tplName}": ${err.message}`);
+        addImportLog(entity, "error", `Template "${tplName}": ${err.message}`, "batch_error");
       }
     }
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} novos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
+    addImportLog(entity, finalStatus === "error" ? "error" : "ok",
+      `${finalStatus === "error" ? "❌ Falhou" : "✅ Concluído"} — ${imported} novos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["scope_templates"] }); qc.invalidateQueries({ queryKey: ["scope_template_items"] }); }
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) await supabase.from("import_logs").update({
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
       summary: `${imported} novos, ${updated} atualizados, ${errors} erros`,
+      error_details: errorMsgs,
     } as any).eq("id", dbLogId);
   }
 
@@ -1204,7 +1217,7 @@ export default function SmartImport() {
     const catLabel = hasCategoryCol ? "por coluna" : categoriesList.find(c => c.id === targetCategoryId)?.name || "—";
     const segLabel = hasSegmentCol ? "por coluna" : segmentsList.find(s => s.id === targetSegmentId)?.name || "—";
     const roleLabel = hasRoleCol ? "por coluna" : targetRole.toUpperCase();
-    addImportLog(entity, "info", `${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`);
+    addImportLog(entity, "info", `📊 ${dataRows.length} linhas com dono da meta. Ano: ${year} | Nível: ${roleLabel} | Categoria: ${catLabel} | Segmento: ${segLabel}`, "validation");
 
     importRun.totalRows = dataRows.length;
     let dbLogId: string | undefined;
@@ -1268,7 +1281,7 @@ export default function SmartImport() {
       if (chunk.length < 1000) break;
       dbOffset += 1000;
     }
-    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`);
+    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`, "system");
 
     // Helper: ensure category exists
     const ensureCategoryId = async (rawValue: string): Promise<string | null> => {
@@ -2381,11 +2394,28 @@ export default function SmartImport() {
 // ── Running/Done sub-component ──────────────────────────────────
 function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => void; isDone: boolean }) {
   const [showLog, setShowLog] = useState(true);
+  const [logFilter, setLogFilter] = useState<"all" | "error" | "warning" | "ok">("all");
   const isRunning = run.status === "running";
   const processedCount = run.totalRows > 0
     ? Math.min(run.totalRows, Math.max(run.processed || 0, run.imported + run.updated + run.errors + run.skipped))
     : 0;
   const progress = run.totalRows > 0 ? (processedCount / run.totalRows * 100) : 0;
+
+  const warningCount = run.logs.filter(l => l.status === "warning").length;
+  const errorCount = run.logs.filter(l => l.status === "error").length;
+  const okCount = run.logs.filter(l => l.status === "ok").length;
+
+  const filteredLogs = logFilter === "all" ? run.logs : run.logs.filter(l => l.status === logFilter);
+
+  const statusBanner = run.status === "success" && run.errors === 0
+    ? { icon: <CheckCircle2 className="h-4 w-4" />, label: "Importação concluída com sucesso", cls: "border-success/30 bg-success/5 text-success" }
+    : run.status === "success" && run.errors > 0
+    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação concluída com erros parciais", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    : run.status === "interrupted"
+    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação interrompida", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    : run.status === "error"
+    ? { icon: <XCircle className="h-4 w-4" />, label: "Importação falhou", cls: "border-destructive/30 bg-destructive/5 text-destructive" }
+    : null;
 
   return (
     <div className="space-y-3">
@@ -2405,35 +2435,59 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
       )}
 
       {!isRunning && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-success" />
-              <span className="text-muted-foreground">Inseridos:</span>
-              <span className="font-medium">{run.imported}</span>
+        <div className="space-y-3">
+          {/* Status banner */}
+          {statusBanner && (
+            <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${statusBanner.cls}`}>
+              {statusBanner.icon}
+              {statusBanner.label}
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-primary" />
-              <span className="text-muted-foreground">Atualizados:</span>
-              <span className="font-medium">{run.updated}</span>
+          )}
+
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-success" />
+                <span className="text-muted-foreground">Inseridos:</span>
+                <span className="font-medium">{run.imported}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                <span className="text-muted-foreground">Atualizados:</span>
+                <span className="font-medium">{run.updated}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-destructive" />
+                <span className="text-muted-foreground">Erros:</span>
+                <span className="font-medium">{run.errors}</span>
+              </div>
+              {warningCount > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                  <span className="text-muted-foreground">Alertas:</span>
+                  <span className="font-medium">{warningCount}</span>
+                </div>
+              )}
+              {run.skipped > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Ignorados:</span>
+                  <span className="font-medium">{run.skipped}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Tempo:</span>
+                <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-destructive" />
-              <span className="text-muted-foreground">Erros:</span>
-              <span className="font-medium">{run.errors}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Tempo:</span>
-              <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Taxa de êxito</span>
-            <div className="flex items-center gap-2">
-              <Progress value={run.totalRows > 0 ? (run.imported + run.updated) / run.totalRows * 100 : 0} className="h-1.5 w-20" />
-              <span className="font-semibold">{run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : 0}%</span>
+            <Separator />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Taxa de êxito</span>
+              <div className="flex items-center gap-2">
+                <Progress value={run.totalRows > 0 ? (run.imported + run.updated) / run.totalRows * 100 : 0} className="h-1.5 w-20" />
+                <span className="font-semibold">{run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : 0}%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2441,20 +2495,37 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
 
       {run.logs.length > 0 && (
         <div>
-          <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
-            {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            Log ({run.logs.length} entradas)
-          </button>
+          <div className="flex items-center justify-between">
+            <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Log ({run.logs.length} entradas)
+            </button>
+            {showLog && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setLogFilter("all")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
+                {errorCount > 0 && <button onClick={() => setLogFilter("error")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "error" ? "bg-destructive text-destructive-foreground" : "text-destructive hover:text-destructive/80"}`}>Erros ({errorCount})</button>}
+                {warningCount > 0 && <button onClick={() => setLogFilter("warning")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "warning" ? "bg-yellow-500 text-yellow-950" : "text-yellow-600 dark:text-yellow-400 hover:text-yellow-700"}`}>Alertas ({warningCount})</button>}
+                {okCount > 0 && <button onClick={() => setLogFilter("ok")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "ok" ? "bg-success text-success-foreground" : "text-success hover:text-success/80"}`}>Sucesso ({okCount})</button>}
+              </div>
+            )}
+          </div>
           {showLog && (
-            <ScrollArea className="mt-2 h-40 rounded-md border border-border bg-muted/20 p-2">
+            <ScrollArea className="mt-2 h-48 rounded-md border border-border bg-muted/20 p-2">
               <div className="space-y-0.5 font-mono text-[11px]">
-                {run.logs.map((entry, i) => (
+                {filteredLogs.map((entry, i) => (
                   <div key={i} className="flex items-start gap-1.5">
                     {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
                     {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                    {entry.status === "warning" && <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />}
                     {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                    <span className={entry.status === "ok" ? "text-success" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                    <span className={
+                      entry.status === "ok" ? "text-success" :
+                      entry.status === "error" ? "text-destructive" :
+                      entry.status === "warning" ? "text-yellow-600 dark:text-yellow-400" :
+                      "text-muted-foreground"
+                    }>
+                      {entry.category && <span className="text-muted-foreground/60">[{entry.category}] </span>}
                       {entry.message}
                     </span>
                   </div>

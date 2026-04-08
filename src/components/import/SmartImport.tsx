@@ -790,17 +790,30 @@ export default function SmartImport() {
         const payload: any = { code, name, role, email, phone, unit_id };
         if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
 
-        const existingId = existingByCode.get(code.trim().toLowerCase());
         let memberId: string | undefined;
+        const existingId = existingByCode.get(code.trim().toLowerCase());
 
-        if (existingId) {
-          const { error } = await supabase.from("sales_team").update(payload).eq("id", existingId);
-          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
-          else { memberId = existingId; updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
-        } else {
-          const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
-          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
-          else if (ins) { memberId = ins.id; existingByCode.set(code.trim().toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
+        // Use upsert with onConflict on code constraint
+        const { data: upsertResult, error: upsertErr } = await supabase
+          .from("sales_team")
+          .upsert(payload, { onConflict: "code" })
+          .select("id")
+          .single();
+
+        if (upsertErr) {
+          errors++;
+          addImportLog(entity, "error", `Linha ${i + 2} (${code}): ${upsertErr.message}`);
+          updateImportStats(entity, { errors });
+        } else if (upsertResult) {
+          memberId = upsertResult.id;
+          if (existingId) {
+            updated++;
+            addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`);
+          } else {
+            existingByCode.set(code.trim().toLowerCase(), upsertResult.id);
+            imported++;
+            addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`);
+          }
         }
 
         if (memberId) {
@@ -833,17 +846,16 @@ export default function SmartImport() {
       }
     }
 
-    // Batch insert CRM codes
+    // Batch upsert CRM codes (onConflict on code+sales_team_id)
     if (crmCodesToInsert.length > 0) {
       addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`);
       const CRM_BATCH = 100;
       for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
         const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);
-        const { error } = await supabase.from("sales_team_crm_codes").insert(batch);
+        const { error } = await supabase.from("sales_team_crm_codes").upsert(batch, { onConflict: "code,sales_team_id" });
         if (error) {
-          // Fallback row-by-row
           for (const item of batch) {
-            const { error: rowErr } = await supabase.from("sales_team_crm_codes").insert(item);
+            const { error: rowErr } = await supabase.from("sales_team_crm_codes").upsert(item, { onConflict: "code,sales_team_id" });
             if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`);
           }
         }
@@ -1221,7 +1233,7 @@ export default function SmartImport() {
       }
     }
 
-    // Batch INSERT
+    // Batch UPSERT (onConflict on composite key)
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
       const BATCH = 100;
@@ -1229,11 +1241,10 @@ export default function SmartImport() {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toInsert.slice(b, b + BATCH);
         const cleanBatch = batch.map(({ _line, _owner, _month, ...rest }) => rest);
-        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
+        const { error: batchErr } = await supabase.from("sales_targets").upsert(cleanBatch, { onConflict: "esn_id,year,month,role,category_id,segment_id" });
         if (batchErr) {
-          // Fallback: insert one by one to identify which records fail
           for (let j = 0; j < cleanBatch.length; j++) {
-            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
+            const { error } = await supabase.from("sales_targets").upsert(cleanBatch[j], { onConflict: "esn_id,year,month,role,category_id,segment_id" });
             if (error) {
               errors++;
               const item = batch[j];

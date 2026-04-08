@@ -600,14 +600,44 @@ export default function SmartImport() {
           if (!hasVal) { result.toSkip++; result.details.push({ line: lineNum, action: "skip", reason: "Sem valores mensais" }); }
           else { result.toInsert++; result.details.push({ line: lineNum, action: "insert", reason: "Metas com valores" }); }
         }
-      } else if (detectedEntity === "templates") {
+     } else if (detectedEntity === "templates") {
         const dataRows = allDataRows.filter(r => ev(r, "template_name") && ev(r, "item_type") && ev(r, "description"));
         result.invalidRows = allDataRows.length - dataRows.length;
         result.validRows = dataRows.length;
-        const tplNames = new Set<string>();
-        for (const row of dataRows) tplNames.add(ev(row, "template_name")!);
-        result.toInsert = tplNames.size;
-        result.details.push({ line: 0, action: "insert", reason: `${tplNames.size} template(s) com ${dataRows.length} itens` });
+        // Group by template name
+        const tplGroups = new Map<string, { items: any[] }>();
+        for (const row of dataRows) {
+          const tplName = ev(row, "template_name")!;
+          if (!tplGroups.has(tplName)) tplGroups.set(tplName, { items: [] });
+          tplGroups.get(tplName)!.items.push(row);
+        }
+        // Check existing templates
+        const { data: existingTpls } = await supabase.from("scope_templates").select("id, name");
+        const existingNames = new Set((existingTpls || []).map(t => t.name.trim().toLowerCase()));
+        let toInsert = 0, toUpdate = 0, toSkip = 0;
+        for (const [tplName, group] of tplGroups) {
+          const exists = existingNames.has(tplName.trim().toLowerCase());
+          if (exists) {
+            toUpdate++;
+            result.details.push({ line: 0, action: "update", reason: `"${tplName}" já existe — itens serão substituídos (${group.items.length} linhas)` });
+          } else {
+            toInsert++;
+            result.details.push({ line: 0, action: "insert", reason: `"${tplName}" — novo template (${group.items.length} linhas)` });
+          }
+          // Validate parent references for sub-items
+          const processes = group.items.filter(r => (ev(r, "item_type") || "").toUpperCase() === "P");
+          const processDescs = new Set(processes.map(r => (ev(r, "description") || "").toLowerCase()));
+          const subs = group.items.filter(r => (ev(r, "item_type") || "").toUpperCase() === "S");
+          for (const sub of subs) {
+            const parentDesc = (ev(sub, "parent_desc") || "").toLowerCase();
+            if (parentDesc && !processDescs.has(parentDesc)) {
+              result.warnings.push(`Sub-item "${ev(sub, "description")}" referencia pai "${ev(sub, "parent_desc")}" não encontrado em "${tplName}"`);
+            }
+          }
+        }
+        result.toInsert = toInsert;
+        result.toUpdate = toUpdate;
+        result.toSkip = toSkip;
       }
 
       result.unresolvedRelations = Array.from(unresolvedMap.values());
@@ -1061,7 +1091,7 @@ export default function SmartImport() {
     } as any).eq("id", dbLogId);
   }
 
-  // ── TEMPLATE import with mapped columns ───────────────────────
+  // ── TEMPLATE import with mapped columns (BATCHED) ──────────────
   async function runTemplateImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any) {
     const entity: ImportEntity = "templates";
     const importRun = startImportRun(entity, file!.name, false);
@@ -1086,6 +1116,7 @@ export default function SmartImport() {
       return;
     }
 
+    // Group rows by template name
     const templateGroups = new Map<string, { product: string; category: string; items: any[] }>();
     for (const row of dataRows) {
       const tplName = ev(row, "template_name")!;
@@ -1099,44 +1130,119 @@ export default function SmartImport() {
       templateGroups.get(tplName)!.items.push({ tipo, desc, hours, parentDesc });
     }
 
-    let imported = 0, errors = 0;
-    for (const [tplName, group] of templateGroups) {
-      const { data: tpl, error: tplErr } = await supabase.from("scope_templates").insert({
-        name: tplName, product: group.product, category: group.category,
-      }).select("id").single();
-      if (tplErr || !tpl) { errors++; addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`); updateImportStats(entity, { errors }); continue; }
+    // Pre-load existing templates for upsert logic
+    const { data: existingTpls } = await supabase.from("scope_templates").select("id, name");
+    const existingTplMap = new Map((existingTpls || []).map(t => [t.name.trim().toLowerCase(), t.id]));
 
-      const processes = group.items.filter(i => i.tipo === "P");
-      const processIdMap = new Map<string, string>();
-      let sortOrder = 0;
-      for (const proc of processes) {
-        const { data: ins, error } = await supabase.from("scope_template_items").insert({
-          template_id: tpl.id, description: proc.desc, default_hours: proc.hours, sort_order: sortOrder++, parent_id: null,
-        }).select("id").single();
-        if (error) addImportLog(entity, "error", `Item "${proc.desc}": ${error.message}`);
-        else if (ins) processIdMap.set(proc.desc.toLowerCase(), ins.id);
+    let imported = 0, updated = 0, errors = 0;
+
+    for (const [tplName, group] of templateGroups) {
+      try {
+        const normalizedName = tplName.trim().toLowerCase();
+        let templateId: string;
+        let isUpdate = false;
+
+        if (existingTplMap.has(normalizedName)) {
+          // Update: reuse existing template, delete old items and re-insert
+          templateId = existingTplMap.get(normalizedName)!;
+          isUpdate = true;
+          // Update template metadata
+          await supabase.from("scope_templates").update({
+            product: group.product, category: group.category, status: "em_revisao",
+          }).eq("id", templateId);
+          // Delete old items in one call
+          await supabase.from("scope_template_items").delete().eq("template_id", templateId);
+        } else {
+          // Insert new template
+          const { data: tpl, error: tplErr } = await supabase.from("scope_templates").insert({
+            name: tplName, product: group.product, category: group.category,
+          }).select("id").single();
+          if (tplErr || !tpl) {
+            errors++;
+            addImportLog(entity, "error", `Template "${tplName}": ${tplErr?.message}`);
+            updateImportStats(entity, { errors });
+            continue;
+          }
+          templateId = tpl.id;
+        }
+
+        // Separate processes (P) and sub-items (S)
+        const processes = group.items.filter(i => i.tipo === "P");
+        const subItems = group.items.filter(i => i.tipo === "S");
+
+        // BATCH insert all processes at once
+        let sortOrder = 0;
+        const processIdMap = new Map<string, string>();
+
+        if (processes.length > 0) {
+          const processRows = processes.map(proc => ({
+            template_id: templateId,
+            description: proc.desc,
+            default_hours: proc.hours,
+            sort_order: sortOrder++,
+            parent_id: null,
+          }));
+          const { data: insertedProcs, error: procErr } = await supabase
+            .from("scope_template_items")
+            .insert(processRows)
+            .select("id, description");
+          if (procErr) {
+            addImportLog(entity, "error", `Processos de "${tplName}": ${procErr.message}`);
+          } else if (insertedProcs) {
+            for (const p of insertedProcs) {
+              processIdMap.set(p.description.toLowerCase(), p.id);
+            }
+          }
+        }
+
+        // BATCH insert all sub-items at once
+        if (subItems.length > 0) {
+          const subRows: any[] = [];
+          for (const sub of subItems) {
+            const parentId = processIdMap.get(sub.parentDesc.toLowerCase());
+            if (!parentId) {
+              addImportLog(entity, "error", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado em "${tplName}".`);
+              continue;
+            }
+            subRows.push({
+              template_id: templateId,
+              description: sub.desc,
+              default_hours: sub.hours,
+              sort_order: sortOrder++,
+              parent_id: parentId,
+            });
+          }
+          if (subRows.length > 0) {
+            const { error: subErr } = await supabase.from("scope_template_items").insert(subRows);
+            if (subErr) addImportLog(entity, "error", `Sub-itens de "${tplName}": ${subErr.message}`);
+          }
+        }
+
+        if (isUpdate) {
+          updated++;
+          updateImportStats(entity, { updated });
+          addImportLog(entity, "ok", `Template "${tplName}" atualizado (${processes.length} processos, ${subItems.length} sub-itens).`);
+        } else {
+          imported++;
+          updateImportStats(entity, { imported });
+          addImportLog(entity, "ok", `Template "${tplName}" importado (${processes.length} processos, ${subItems.length} sub-itens).`);
+        }
+      } catch (err: any) {
+        errors++;
+        updateImportStats(entity, { errors });
+        addImportLog(entity, "error", `Template "${tplName}": ${err.message}`);
       }
-      for (const sub of group.items.filter(i => i.tipo === "S")) {
-        const parentId = processIdMap.get(sub.parentDesc.toLowerCase());
-        if (!parentId) { addImportLog(entity, "error", `Sub-item "${sub.desc}": pai "${sub.parentDesc}" não encontrado.`); continue; }
-        await supabase.from("scope_template_items").insert({
-          template_id: tpl.id, description: sub.desc, default_hours: sub.hours, sort_order: sortOrder++, parent_id: parentId,
-        });
-      }
-      imported++;
-      updateImportStats(entity, { imported });
-      addImportLog(entity, "ok", `Template "${tplName}" importado.`);
     }
 
-    const finalStatus = errors > 0 && imported === 0 ? "error" : "success";
+    const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, finalStatus);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} templates, ${errors} erros | Tempo: ${formatDuration(dur)}`);
-    if (imported > 0) { qc.invalidateQueries({ queryKey: ["scope_templates"] }); qc.invalidateQueries({ queryKey: ["scope_template_items"] }); }
+    addImportLog(entity, "ok", `✅ Concluído — ${imported} novos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
+    if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["scope_templates"] }); qc.invalidateQueries({ queryKey: ["scope_template_items"] }); }
     if (dbLogId) await supabase.from("import_logs").update({
-      status: finalStatus, total_rows: dataRows.length, imported, errors,
+      status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} templates importados, ${errors} erros`,
+      summary: `${imported} novos, ${updated} atualizados, ${errors} erros`,
     } as any).eq("id", dbLogId);
   }
 

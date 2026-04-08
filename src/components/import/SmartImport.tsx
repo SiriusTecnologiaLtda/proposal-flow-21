@@ -720,7 +720,7 @@ export default function SmartImport() {
         return !!findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases);
       });
       unitFilteredCount = dataRows.length - filteredRows.length;
-      if (unitFilteredCount > 0) addImportLog(entity, "error", `⚠ ${unitFilteredCount} registros descartados por Unidade inválida.`);
+      if (unitFilteredCount > 0) addImportLog(entity, "warning", `${unitFilteredCount} registros descartados por Unidade inválida`, "filter");
     }
 
     // Custom filter rules

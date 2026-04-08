@@ -554,7 +554,7 @@ export interface UnresolvedRelation {
   value: string;
   valueLower: string;
   occurrences: number;
-  listType: "units" | "esn" | "gsn" | "sales_team";
+  listType: "units" | "esn" | "gsn" | "sales_team" | "categories" | "segments";
   resolvedId?: string;
   pairedName?: string;
 }

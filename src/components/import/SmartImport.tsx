@@ -1471,7 +1471,7 @@ export default function SmartImport() {
         deletedCount += count || ids.length;
       }
       if (!deleteError) {
-        addImportLog(entity, "success", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year}.`);
+        addImportLog(entity, "ok", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year}.`);
       }
     }
 

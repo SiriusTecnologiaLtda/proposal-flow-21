@@ -258,54 +258,27 @@ async function processSync(
 
     if (mapped.length === 0) return;
 
-    // Batch: get all existing codes in one query
-    const codes = mapped.map(r => r.code);
-    const { data: existingClients } = await admin.from("clients")
-      .select("id, code, store_code")
-      .in("code", codes);
+    // Business decision: clients.code is the sole unique key (store_code is NOT a uniqueness dimension)
+    // Use native upsert on code
+    const BATCH = 50;
+    for (let b = 0; b < mapped.length; b += BATCH) {
+      const batch = mapped.slice(b, b + BATCH);
+      const { error: upsertErr, data: upsertData } = await admin
+        .from("clients")
+        .upsert(batch, { onConflict: "code" })
+        .select("id");
 
-    const existingMap = new Map<string, string>();
-    if (existingClients) {
-      for (const c of existingClients) {
-        existingMap.set(`${c.code}|${c.store_code || ""}`, c.id);
-      }
-    }
-
-    const toInsert: any[] = [];
-    const toUpdate: { id: string; row: any }[] = [];
-
-    for (const row of mapped) {
-      const key = `${row.code}|${row.store_code || ""}`;
-      const existingId = existingMap.get(key);
-      if (existingId) {
-        toUpdate.push({ id: existingId, row });
-      } else {
-        toInsert.push(row);
-      }
-    }
-
-    // Batch insert
-    if (toInsert.length > 0) {
-      const { error: insErr, data: insData } = await admin.from("clients").insert(toInsert).select("id");
-      if (insErr) {
-        console.error("Batch insert error:", insErr.message);
-        for (const row of toInsert) {
-          try {
-            await admin.from("clients").insert(row);
-            inserted++;
-          } catch { errors++; }
+      if (upsertErr) {
+        console.error("Batch upsert error:", upsertErr.message);
+        // Fallback row-by-row
+        for (const row of batch) {
+          const { error } = await admin.from("clients").upsert(row, { onConflict: "code" });
+          if (error) { errors++; console.error(`Row error (${row.code}):`, error.message); }
+          else inserted++;
         }
       } else {
-        inserted += insData?.length || toInsert.length;
+        inserted += upsertData?.length || batch.length;
       }
-    }
-
-    // Batch update (must be one by one due to different where clauses)
-    for (const { id, row } of toUpdate) {
-      try {
-        await admin.from("clients").update(row).eq("id", id);
-        updated++;
-      } catch { errors++; }
     }
   };
 

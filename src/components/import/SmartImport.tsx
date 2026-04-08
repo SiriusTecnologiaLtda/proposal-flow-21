@@ -767,7 +767,7 @@ export default function SmartImport() {
     addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...", "system");
 
     for (let b = 0; b < filteredRows.length; b += BATCH) {
-      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida."); break; }
+      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida.", "system"); break; }
       const batch = filteredRows.slice(b, b + BATCH);
       const upsertRows: any[] = [];
 

@@ -611,7 +611,7 @@ export default function SalesTargetsPage() {
                       </th>
                     )}
                     <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
-                      Membro / Segmento
+                      Time de Vendas
                     </th>
                     {sortedCategories.map((cat: any) => (
                       <th key={cat.id} className="text-center px-2 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[100px] border-b border-border/60">

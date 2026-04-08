@@ -689,9 +689,6 @@ export default function SalesTargetsPage() {
                         </td>
                       );
                     })}
-                    <td className="text-center px-3 py-3 text-sm tabular-nums font-bold border-l border-border/60 text-primary">
-                      {formatCurrency(grandTotal)}
-                    </td>
                     {isAdmin && <td className="border-l border-border/60" />}
                   </tr>
                 </tfoot>

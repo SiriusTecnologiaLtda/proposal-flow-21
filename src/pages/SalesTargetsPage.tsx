@@ -1,33 +1,23 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
-import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Save, TrendingUp, Users, Calendar, Trash2, CheckSquare } from "lucide-react";
+import { ArrowLeft, Search, Plus, Loader2, Target, Pencil, Trash2, CheckSquare } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
 
-const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-const ROLE_LABELS: Record<string, string> = {
-  dsn: "DSN",
-  gsn: "GSN",
-  esn: "ESN",
-  arquiteto: "EV",
-};
-
+const ROLE_LABELS: Record<string, string> = { dsn: "DSN", gsn: "GSN", esn: "ESN", arquiteto: "EV" };
 const ROLE_OPTIONS = [
   { value: "esn", label: "Executivo de Vendas (ESN)" },
   { value: "gsn", label: "Gerente de Vendas (GSN)" },
@@ -35,7 +25,6 @@ const ROLE_OPTIONS = [
   { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
 ];
 
-/* ── Summary row: one per member ── */
 type SummaryRow = {
   esn_id: string;
   name: string;
@@ -43,7 +32,6 @@ type SummaryRow = {
   role: string;
   unit_id: string | null;
   linked_gsn_id: string | null;
-  /** category_id → total amount */
   categoryTotals: Record<string, number>;
   grandTotal: number;
 };
@@ -63,26 +51,6 @@ export default function SalesTargetsPage() {
   const [filterSegmentIds, setFilterSegmentIds] = useState<string[]>([]);
   const [filterRoles, setFilterRoles] = useState<string[]>([]);
 
-  // Edit dialog state
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [isCreateMode, setIsCreateMode] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // Context fields (shared create/edit)
-  const [editEsnId, setEditEsnId] = useState("");
-  const [editUnitId, setEditUnitId] = useState("");
-  const [editRole, setEditRole] = useState("esn");
-  const [editYear, setEditYear] = useState(String(currentYear));
-
-  // Grid rows: each row is a catId__segId composite key
-  // gridRows: array of { key, catId, segId }
-  const [gridRows, setGridRows] = useState<{ key: string; catId: string; segId: string }[]>([]);
-  // Grid values: key → month → value string
-  const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
-  // Existing record IDs for edit: key_month → id(s)
-  const [existingIds, setExistingIds] = useState<Record<string, string>>({});
-
-  // Selection / delete
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -119,7 +87,6 @@ export default function SalesTargetsPage() {
   });
 
   const esnMap = useMemo(() => new Map(fullSalesTeam.map((e: any) => [e.id, e])), [fullSalesTeam]);
-  const allEsns = useMemo(() => fullSalesTeam.sort((a: any, b: any) => a.name.localeCompare(b.name)), [fullSalesTeam]);
   const gsnList = useMemo(() => fullSalesTeam.filter((m: any) => m.role === "gsn").sort((a: any, b: any) => a.name.localeCompare(b.name)), [fullSalesTeam]);
 
   const unitOptions = useMemo(() => units.map((u: any) => ({ value: u.id, label: u.name })), [units]);
@@ -133,16 +100,14 @@ export default function SalesTargetsPage() {
     return Array.from(y).sort();
   }, [targets, currentYear]);
 
-  // Sort categories for consistent column order
   const sortedCategories = useMemo(() => [...categories].sort((a: any, b: any) => a.name.localeCompare(b.name)), [categories]);
 
-  /* ── Build summary rows: group by esn_id + segment_id ── */
   const summaryRows: SummaryRow[] = useMemo(() => {
     const map = new Map<string, SummaryRow>();
     for (const t of targets) {
       const key = t.esn_id;
       if (!map.has(key)) {
-      const esn: any = esnMap.get(t.esn_id);
+        const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
           name: esn?.name || "—",
@@ -162,7 +127,6 @@ export default function SalesTargetsPage() {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [targets, esnMap]);
 
-  /* ── Filter summary rows ── */
   const filtered = useMemo(() => {
     let result = summaryRows;
     if (search.trim()) {
@@ -172,7 +136,6 @@ export default function SalesTargetsPage() {
     if (filterUnitIds.length > 0) result = result.filter(g => g.unit_id && filterUnitIds.includes(g.unit_id));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     if (filterSegmentIds.length > 0) {
-      // Filter by checking if the member has ANY target with the selected segment
       const memberSegments = new Map<string, Set<string>>();
       for (const t of targets) {
         const segId = (t as any).segment_id;
@@ -191,13 +154,10 @@ export default function SalesTargetsPage() {
       result = result.filter(g => filterCategoryIds.some(cid => (g.categoryTotals[cid] || 0) > 0));
     }
     return result;
-  }, [summaryRows, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles]);
+  }, [summaryRows, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles, targets]);
 
   const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0) + (filterRoles.length > 0 ? 1 : 0);
 
-  const grandTotal = useMemo(() => filtered.reduce((s, r) => s + r.grandTotal, 0), [filtered]);
-
-  // KPI cards: total by category from filtered data
   const categoryKpiTotals = useMemo(() => {
     const map = new Map<string, { name: string; total: number }>();
     for (const row of filtered) {
@@ -217,10 +177,7 @@ export default function SalesTargetsPage() {
     return String(Math.round(v));
   };
 
-  const getCategoryName = (id: string | null) => id ? categories.find((c: any) => c.id === id)?.name || "—" : "—";
-  const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
-
   const getRowKey = (row: SummaryRow) => row.esn_id;
 
   /* ── Selection ── */
@@ -246,9 +203,7 @@ export default function SalesTargetsPage() {
       const idsToDelete: string[] = [];
       for (const esnId of selectedKeys) {
         for (const t of targets) {
-          if (t.esn_id === esnId) {
-            idsToDelete.push(t.id);
-          }
+          if (t.esn_id === esnId) idsToDelete.push(t.id);
         }
       }
       let deletedCount = 0;
@@ -273,208 +228,15 @@ export default function SalesTargetsPage() {
     }
   }
 
-  /* ── Open Edit Dialog ── */
-  function openEditDialog(row: SummaryRow) {
+  /* ── Navigation helpers ── */
+  function openEdit(row: SummaryRow) {
     if (!isAdmin) return;
-    setIsCreateMode(false);
-    setEditEsnId(row.esn_id);
-    setEditUnitId(row.unit_id || "");
-    setEditRole(row.role);
-    setEditYear(yearFilter);
-
-    const relevantTargets = targets.filter((t: any) => t.esn_id === row.esn_id);
-
-    const rowMap = new Map<string, { catId: string; segId: string }>();
-    const values: Record<string, Record<number, string>> = {};
-    const ids: Record<string, string> = {};
-
-    for (const t of relevantTargets) {
-      const catId = (t as any).category_id || "";
-      const segId = (t as any).segment_id || "";
-      if (!catId) continue;
-      const key = `${catId}__${segId}`;
-      if (!rowMap.has(key)) rowMap.set(key, { catId, segId });
-      if (!values[key]) values[key] = {};
-      const current = Number(values[key][t.month] || "0");
-      values[key][t.month] = String(current + (t.amount || 0));
-      const idKey = `${key}_${t.month}`;
-      ids[idKey] = ids[idKey] ? `${ids[idKey]},${t.id}` : t.id;
-    }
-
-    const rows = Array.from(rowMap.entries()).map(([key, r]) => ({ key, ...r }));
-    for (const r of rows) {
-      if (!values[r.key]) values[r.key] = {};
-      for (let m = 1; m <= 12; m++) {
-        if (!values[r.key][m]) values[r.key][m] = "0";
-      }
-    }
-
-    setGridRows(rows);
-    setGridValues(values);
-    setExistingIds(ids);
-    setEditDialogOpen(true);
+    navigate(`/cadastros/metas/editar?esn_id=${row.esn_id}&ano=${yearFilter}`);
   }
 
-  /* ── Open Create Dialog ── */
-  function openCreateDialog() {
-    setIsCreateMode(true);
-    const firstEsn = allEsns[0];
-    setEditEsnId(firstEsn?.id || "");
-    setEditUnitId(firstEsn?.unit_id || "");
-    setEditRole("esn");
-    setEditYear(yearFilter);
-
-    const firstSeg = segments[0];
-    const rows = sortedCategories.map((c: any) => ({
-      key: `${c.id}__${firstSeg?.id || ""}`,
-      catId: c.id,
-      segId: firstSeg?.id || "",
-    }));
-    const values: Record<string, Record<number, string>> = {};
-    for (const r of rows) {
-      values[r.key] = {};
-      for (let m = 1; m <= 12; m++) values[r.key][m] = "0";
-    }
-    setGridRows(rows);
-    setGridValues(values);
-    setExistingIds({});
-    setEditDialogOpen(true);
+  function openCreate() {
+    navigate(`/cadastros/metas/editar?modo=novo&ano=${yearFilter}`);
   }
-
-  /* ── Add row to grid ── */
-  function addGridRow() {
-    const firstCat = sortedCategories[0];
-    const firstSeg = segments[0];
-    if (!firstCat || !firstSeg) return;
-    const baseKey = `${firstCat.id}__${firstSeg.id}`;
-    let key = baseKey;
-    let counter = 0;
-    while (gridRows.some(r => r.key === key)) {
-      counter++;
-      key = `${baseKey}__${counter}`;
-    }
-    setGridRows(prev => [...prev, { key, catId: firstCat.id, segId: firstSeg.id }]);
-    setGridValues(prev => {
-      const row: Record<number, string> = {};
-      for (let m = 1; m <= 12; m++) row[m] = "0";
-      return { ...prev, [key]: row };
-    });
-  }
-
-  /* ── Update category or segment for a grid row ── */
-  function updateGridRowField(rowKey: string, field: "catId" | "segId", newValue: string) {
-    setGridRows(prev => {
-      const idx = prev.findIndex(r => r.key === rowKey);
-      if (idx === -1) return prev;
-      const old = prev[idx];
-      const updated = { ...old, [field]: newValue };
-      const newKey = `${updated.catId}__${updated.segId}`;
-      const result = [...prev];
-      result[idx] = { ...updated, key: newKey };
-      // Move values
-      setGridValues(gv => {
-        const vals = { ...gv };
-        if (newKey !== rowKey) {
-          vals[newKey] = vals[rowKey] || {};
-          delete vals[rowKey];
-        }
-        return vals;
-      });
-      return result;
-    });
-  }
-
-  /* ── Remove grid row ── */
-  function removeGridRow(rowKey: string) {
-    setGridRows(prev => prev.filter(r => r.key !== rowKey));
-    setGridValues(prev => {
-      const updated = { ...prev };
-      delete updated[rowKey];
-      return updated;
-    });
-  }
-
-  /* ── Save ── */
-  async function handleSave() {
-    if (!editEsnId || !editUnitId) {
-      toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
-      return;
-    }
-    const missingSegment = gridRows.some(r => !r.segId);
-    if (missingSegment) {
-      toast({ title: "Preencha o Segmento em todas as linhas", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    try {
-      if (isCreateMode) {
-        const rows: any[] = [];
-        for (const gr of gridRows) {
-          for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[gr.key]?.[m] || "0");
-            const amount = Math.round(val * 100) / 100;
-            if (amount === 0) continue;
-            rows.push({
-              esn_id: editEsnId, year: Number(editYear), month: m, amount,
-              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
-            });
-          }
-        }
-        if (rows.length === 0) {
-          toast({ title: "Preencha ao menos um valor", variant: "destructive" });
-          setSaving(false);
-          return;
-        }
-        const { error } = await supabase.from("sales_targets").insert(rows);
-        if (error) throw error;
-        toast({ title: "Metas adicionadas com sucesso!" });
-      } else {
-        const existingTargetIds: string[] = [];
-        for (const t of targets) {
-          if (t.esn_id === editEsnId) existingTargetIds.push(t.id);
-        }
-        for (let i = 0; i < existingTargetIds.length; i += 100) {
-          const batch = existingTargetIds.slice(i, i + 100);
-          const { error } = await supabase.from("sales_targets").delete().in("id", batch);
-          if (error) throw error;
-        }
-        const rows: any[] = [];
-        for (const gr of gridRows) {
-          for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[gr.key]?.[m] || "0");
-            const amount = Math.round(val * 100) / 100;
-            if (amount === 0) continue;
-            rows.push({
-              esn_id: editEsnId, year: Number(editYear), month: m, amount,
-              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
-            });
-          }
-        }
-        if (rows.length > 0) {
-          const { error } = await supabase.from("sales_targets").insert(rows);
-          if (error) throw error;
-        }
-        toast({ title: "Metas atualizadas!" });
-      }
-      qc.invalidateQueries({ queryKey: ["sales-targets"] });
-      setEditDialogOpen(false);
-      setIsCreateMode(false);
-    } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  /* ── Grid totals ── */
-  const getRowTotal = (key: string) => {
-    const vals = gridValues[key] || {};
-    return Object.values(vals).reduce((s, v) => s + (Number(v) || 0), 0);
-  };
-  const getColTotal = (month: number) => {
-    return gridRows.reduce((s, r) => s + (Number(gridValues[r.key]?.[month] || "0") || 0), 0);
-  };
-  const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r.key), 0);
 
   return (
     <div className="space-y-5">
@@ -497,7 +259,7 @@ export default function SalesTargetsPage() {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={openCreateDialog}>
+              <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-1.5" /> Adicionar Meta
               </Button>
             )}
@@ -540,9 +302,7 @@ export default function SalesTargetsPage() {
                   Limpar filtros
                 </Button>
               )}
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
-              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">{filtered.length} registro{filtered.length !== 1 ? "s" : ""}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
@@ -581,7 +341,7 @@ export default function SalesTargetsPage() {
         </div>
       )}
 
-      {/* ── Table: Member + Segment + Category Columns ── */}
+      {/* ── Table ── */}
       <Card className="overflow-hidden border-border/50 shadow-sm">
         <CardContent className="p-0">
           {isLoading ? (
@@ -635,7 +395,7 @@ export default function SalesTargetsPage() {
                         <td
                           className={cn("sticky z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors", isAdmin ? "left-[40px]" : "left-0")}
                           style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
-                          onClick={() => isAdmin && openEditDialog(row)}
+                          onClick={() => openEdit(row)}
                         >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-semibold text-foreground leading-tight">{row.name}</span>
@@ -654,7 +414,7 @@ export default function SalesTargetsPage() {
                         {sortedCategories.map((cat: any) => {
                           const val = row.categoryTotals[cat.id] || 0;
                           return (
-                            <td key={cat.id} className="text-center px-2 py-2.5" onClick={() => isAdmin && openEditDialog(row)}>
+                            <td key={cat.id} className="text-center px-2 py-2.5" onClick={() => openEdit(row)}>
                               <span className={cn("tabular-nums text-xs", val > 0 ? "text-foreground font-medium" : "text-muted-foreground/30")}>
                                 {val > 0 ? formatCompact(val) : "—"}
                               </span>
@@ -662,7 +422,7 @@ export default function SalesTargetsPage() {
                           );
                         })}
                         {isAdmin && (
-                          <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20" onClick={() => openEditDialog(row)}>
+                          <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20" onClick={() => openEdit(row)}>
                             <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors mx-auto" />
                           </td>
                         )}
@@ -711,235 +471,6 @@ export default function SalesTargetsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* ── Edit / Create Dialog ── */}
-      <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving) { setEditDialogOpen(false); setIsCreateMode(false); } }}>
-        <DialogContent className="max-w-[95vw] w-[1200px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
-          {/* Hero header */}
-          <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-white/15 p-2">
-                {isCreateMode ? <Plus className="h-4 w-4 text-primary-foreground" /> : <Pencil className="h-4 w-4 text-primary-foreground" />}
-              </div>
-              <div>
-                <DialogTitle className="text-primary-foreground text-base font-semibold">
-                  {isCreateMode ? "Adicionar Metas" : "Editar Metas"}
-                </DialogTitle>
-                <DialogDescription className="text-primary-foreground/70 text-xs mt-0.5">
-                  {isCreateMode ? "Preencha o contexto e lance os valores por categoria" : "Ajuste os valores mensais na grade abaixo"}
-                </DialogDescription>
-              </div>
-            </div>
-          </div>
-
-          {/* Context header fields */}
-          <div className="px-6 pt-4 pb-3 border-b border-border/60 bg-muted/20 shrink-0">
-            <div className="flex items-center gap-2 mb-2.5">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {isCreateMode ? (
-                <>
-                  <div className="space-y-1 col-span-2 sm:col-span-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Membro</Label>
-                    <Select value={editEsnId} onValueChange={(val) => {
-                      setEditEsnId(val);
-                      const member = esnMap.get(val);
-                      if (member?.unit_id) setEditUnitId(member.unit_id);
-                    }}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {allEsns.map((e: any) => (
-                          <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Unidade</Label>
-                    <Select value={editUnitId} onValueChange={setEditUnitId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Ano</Label>
-                    <Select value={editYear} onValueChange={setEditYear}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Nível</Label>
-                    <Select value={editRole} onValueChange={setEditRole}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1 col-span-2 sm:col-span-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Membro</Label>
-                    <p className="text-sm font-medium text-foreground truncate leading-8">{esnMap.get(editEsnId)?.name || "—"} <span className="text-[10px] text-muted-foreground font-mono">({esnMap.get(editEsnId)?.code || "—"})</span></p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Unidade</Label>
-                    <Select value={editUnitId} onValueChange={setEditUnitId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Ano</Label>
-                    <p className="text-sm font-medium text-foreground leading-8">{editYear}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Nível</Label>
-                    <Select value={editRole} onValueChange={setEditRole}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Spreadsheet grid */}
-          <div className="flex-1 overflow-auto px-6 py-4 min-h-0">
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
-              <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
-            </div>
-            <div className="overflow-auto rounded-lg border border-border/60">
-              <table className="w-full text-sm border-collapse min-w-[1050px]">
-                <thead>
-                  <tr className="bg-muted/80">
-                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[140px] border-r border-border/60">
-                      Categoria
-                    </th>
-                    <th className="text-left px-2 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-r border-border/60">
-                      Segmento
-                    </th>
-                    {MONTH_NAMES.map((m) => (
-                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[68px] border-r border-border/30">
-                        {m}
-                      </th>
-                    ))}
-                    <th className="text-center px-2 py-2.5 font-semibold text-muted-foreground text-[10px] uppercase tracking-wider min-w-[100px] bg-muted border-l border-border/60">
-                      Total
-                    </th>
-                    <th className="w-[36px] border-l border-border/30" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/30">
-                  {gridRows.map((gr) => {
-                    const cat = categories.find((c: any) => c.id === gr.catId);
-                    const rowTotal = getRowTotal(gr.key);
-                    return (
-                      <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
-                        <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-1.5 py-1.5 border-r border-border/60">
-                          <Select value={gr.catId} onValueChange={(newId) => updateGridRowField(gr.key, "catId", newId)}>
-                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {sortedCategories.map((c: any) => (
-                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-1.5 py-1.5 border-r border-border/60">
-                          <Select value={gr.segId} onValueChange={(newId) => updateGridRowField(gr.key, "segId", newId)}>
-                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {segments.map((s: any) => (
-                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        {Array.from({ length: 12 }, (_, i) => {
-                          const m = i + 1;
-                          const val = gridValues[gr.key]?.[m] ?? "0";
-                          return (
-                            <td key={m} className="px-0.5 py-1 border-r border-border/20">
-                              <Input
-                                type="number"
-                                value={val}
-                                onChange={e => setGridValues(prev => ({
-                                  ...prev,
-                                  [gr.key]: { ...prev[gr.key], [m]: e.target.value }
-                                }))}
-                                className="h-7 text-xs tabular-nums text-right font-medium px-1.5 border-transparent bg-transparent hover:bg-muted/40 focus:bg-background focus:border-primary/40 transition-colors rounded-sm"
-                                onFocus={e => e.target.select()}
-                              />
-                            </td>
-                          );
-                        })}
-                        <td className="text-center px-2 py-1.5 bg-muted/20 border-l border-border/60">
-                          <span className="text-xs font-bold tabular-nums text-foreground">
-                            {rowTotal.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
-                        </td>
-                        <td className="text-center px-1 py-1.5 border-l border-border/30">
-                          {gridRows.length > 1 && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeGridRow(gr.key)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-muted/60 border-t-2 border-border">
-                    <td colSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
-                      Total Geral
-                    </td>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const colTotal = getColTotal(i + 1);
-                      return (
-                        <td key={i} className="text-center px-1 py-2 text-xs font-bold tabular-nums text-foreground border-r border-border/20">
-                          {colTotal > 0 ? formatCompact(colTotal) : "—"}
-                        </td>
-                      );
-                    })}
-                    <td className="text-center px-2 py-2 bg-muted border-l border-border/60">
-                      <span className="text-sm font-bold tabular-nums text-primary">
-                        {formatCurrency(getGridGrandTotal())}
-                      </span>
-                    </td>
-                    <td className="border-l border-border/30" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            {/* Add row button */}
-            <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs text-muted-foreground gap-1" onClick={addGridRow}>
-              <Plus className="h-3 w-3" /> Adicionar Linha
-            </Button>
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-border/60 px-6 py-3 flex items-center justify-end gap-2 bg-muted/20 shrink-0">
-            <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setIsCreateMode(false); }} disabled={saving} className="h-9">
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-9">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
-              {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

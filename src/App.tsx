@@ -28,6 +28,7 @@ import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import SalesTargetsPage from "@/pages/SalesTargetsPage";
+import SalesTargetEditPage from "@/pages/SalesTargetEditPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
 import WhatsAppConfigPage from "@/pages/WhatsAppConfigPage";
 import ProposalLogsPage from "@/pages/ProposalLogsPage";
@@ -204,6 +205,7 @@ function ProtectedRoutes() {
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
+        <Route path="/cadastros/metas/editar" element={<GuardedRoute path="/cadastros/metas"><SalesTargetEditPage /></GuardedRoute>} />
         <Route path="/cadastros/segmentos" element={<GuardedRoute path="/cadastros/segmentos"><SegmentsPage /></GuardedRoute>} />
         <Route path="/cadastros/templates" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplatesPage /></GuardedRoute>} />
         <Route path="/cadastros/templates/novo" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />

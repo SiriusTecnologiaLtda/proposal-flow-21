@@ -613,7 +613,9 @@ export default function SmartImport() {
     gsnList: { id: string; code: string; name: string }[];
     salesTeamList: { id: string; code: string; name: string }[];
   }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [] });
+  const [crmCodesCache, setCrmCodesCache] = useState<{ code: string; sales_team_id: string; unit_id: string | null }[]>([]);
   const [scanningRelations, setScanningRelations] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [aliasStore, setAliasStore] = useState<AliasStore>(loadAliasStore);
 
   const entityConfig = ENTITY_CONFIGS[detectedEntity];

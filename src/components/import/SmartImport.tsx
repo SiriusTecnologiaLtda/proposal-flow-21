@@ -1442,10 +1442,38 @@ export default function SmartImport() {
     try {
       const { data } = await supabase.from("import_logs").insert({
         entity, file_name: file!.name, status: "running",
-        total_rows: dataRows.length, cleared_before: false, user_id: user?.id || null,
+        total_rows: dataRows.length, cleared_before: clearExistingTargets, user_id: user?.id || null,
       } as any).select("id").single();
       dbLogId = data?.id;
     } catch {}
+
+    // Clear existing targets for the year if requested
+    if (clearExistingTargets) {
+      addImportLog(entity, "info", `🗑️ Removendo metas existentes do ano ${year}...`);
+      let deletedCount = 0;
+      let deleteError = false;
+      // Delete in batches to avoid timeouts
+      while (true) {
+        const { data: batch } = await supabase.from("sales_targets")
+          .select("id")
+          .eq("year", year)
+          .limit(500);
+        if (!batch || batch.length === 0) break;
+        const ids = batch.map(r => r.id);
+        const { error, count } = await supabase.from("sales_targets")
+          .delete({ count: "exact" })
+          .in("id", ids);
+        if (error) {
+          addImportLog(entity, "error", `Erro ao limpar metas: ${error.message}`);
+          deleteError = true;
+          break;
+        }
+        deletedCount += count || ids.length;
+      }
+      if (!deleteError) {
+        addImportLog(entity, "success", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year}.`);
+      }
+    }
 
     if (dataRows.length === 0) {
       addImportLog(entity, "error", "Nenhum dono de meta encontrado.");

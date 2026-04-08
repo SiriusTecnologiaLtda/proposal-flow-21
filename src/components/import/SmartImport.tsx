@@ -1200,9 +1200,10 @@ export default function SmartImport() {
     const segMap = new Map<string, string>();
     for (const s of (allSegments || [])) { segMap.set(normalize(s.name), s.id); }
 
-    const hasCategoryCol = fieldToCol["category_name"] !== undefined;
-    const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+    const hasCategoryCol = fieldToCol["category_name"] !== undefined || fieldToCol["category_code"] !== undefined;
+    const hasSegmentCol = fieldToCol["segment_name"] !== undefined || fieldToCol["segment_code"] !== undefined;
     const hasRoleCol = fieldToCol["role_name"] !== undefined;
+    const hasUnitCol = fieldToCol["unit_code"] !== undefined;
 
     const roleMap: Record<string, string> = {
       "esn": "esn", "executivo": "esn", "executivo de vendas": "esn",

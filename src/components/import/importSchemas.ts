@@ -125,7 +125,7 @@ export const ENTITY_CONFIGS: Record<ImportEntity, EntityConfig> = {
 export interface RelationalFieldDef {
   fieldKey: string;
   label: string;
-  listType: "units" | "esn" | "gsn" | "sales_team";
+  listType: "units" | "esn" | "gsn" | "sales_team" | "categories" | "segments";
 }
 
 export const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
@@ -144,6 +144,8 @@ export const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
     { fieldKey: "unit_code", label: "Unidade", listType: "units" },
     { fieldKey: "esn_code", label: "Dono da Meta (código)", listType: "sales_team" },
     { fieldKey: "esn_name", label: "Dono da Meta (nome)", listType: "sales_team" },
+    { fieldKey: "category_name", label: "Categoria", listType: "categories" },
+    { fieldKey: "segment_name", label: "Segmento", listType: "segments" },
   ],
 };
 

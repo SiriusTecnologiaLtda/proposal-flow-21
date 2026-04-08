@@ -879,7 +879,7 @@ export default function SmartImport() {
 
     const BATCH = 50;
     for (let b = 0; b < dataRows.length; b += BATCH) {
-      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Interrompido."); break; }
+      if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Interrompido.", "system"); break; }
       const batch = dataRows.slice(b, b + BATCH);
 
       for (let j = 0; j < batch.length; j++) {

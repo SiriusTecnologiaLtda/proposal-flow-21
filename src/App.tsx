@@ -205,6 +205,7 @@ function ProtectedRoutes() {
         <Route path="/cadastros/categorias" element={<GuardedRoute path="/cadastros/categorias"><ProductsCategoriesPage /></GuardedRoute>} />
         <Route path="/cadastros/tipos-proposta" element={<GuardedRoute path="/cadastros/tipos-proposta"><ProposalTypesPage /></GuardedRoute>} />
         <Route path="/cadastros/metas" element={<GuardedRoute path="/cadastros/metas"><SalesTargetsPage /></GuardedRoute>} />
+        <Route path="/cadastros/metas/editar" element={<GuardedRoute path="/cadastros/metas"><SalesTargetEditPage /></GuardedRoute>} />
         <Route path="/cadastros/segmentos" element={<GuardedRoute path="/cadastros/segmentos"><SegmentsPage /></GuardedRoute>} />
         <Route path="/cadastros/templates" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplatesPage /></GuardedRoute>} />
         <Route path="/cadastros/templates/novo" element={<GuardedRoute path="/cadastros/templates"><ScopeTemplateEditPage /></GuardedRoute>} />

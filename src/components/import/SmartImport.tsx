@@ -1005,10 +1005,10 @@ export default function SmartImport() {
         linked++;
       } else if (memberId && !gsnId) {
         gsnNotFound++;
-        addImportLog(entity, "error", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}".`);
+        addImportLog(entity, "warning", `GSN não encontrado para ${ev(row, "code")}: código="${ev(row, "gsn_code") || ""}" nome="${ev(row, "gsn_name") || ""}".`, "relation");
       }
     }
-    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`);
+    addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`, "relation");
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);

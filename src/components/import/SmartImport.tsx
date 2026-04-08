@@ -1868,12 +1868,9 @@ export default function SmartImport() {
 
     const totalWork = processed + toInsert.length;
     updateImportStats(entity, { totalRows: totalWork, processed, imported, updated, errors, skipped });
-    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções + ${toUpdate.length} atualizações pendentes`, "system");
-    if (consolidatedSourceRows > 0) {
-      addImportLog(entity, "info", `🧮 ${consolidatedSourceRows} linha(s) duplicadas da planilha foram consolidadas por chave lógica antes da gravação.`, "system");
-    }
+    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções pendentes`, "system");
 
-    // Batch UPSERT (onConflict on composite key)
+    // Batch INSERT (plain insert, no logical key dedup)
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
       const BATCH = 100;
@@ -1881,10 +1878,10 @@ export default function SmartImport() {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toInsert.slice(b, b + BATCH);
         const cleanBatch = batch.map(({ _line, _owner, _month, ...rest }) => rest);
-        const { error: batchErr } = await supabase.from("sales_targets").upsert(cleanBatch, { onConflict: "esn_id,year,month,role,category_id,segment_id" });
+        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
         if (batchErr) {
           for (let j = 0; j < cleanBatch.length; j++) {
-            const { error } = await supabase.from("sales_targets").upsert(cleanBatch[j], { onConflict: "esn_id,year,month,role,category_id,segment_id" });
+            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
             if (error) {
               errors++;
               const item = batch[j];
@@ -1899,22 +1896,6 @@ export default function SmartImport() {
           imported += cleanBatch.length;
         }
         processed += cleanBatch.length;
-        updateImportStats(entity, { processed, imported, updated, errors, skipped });
-      }
-    }
-
-    // Batch UPDATE
-    if (toUpdate.length > 0 && !interrupted) {
-      addImportLog(entity, "info", `Atualizando ${toUpdate.length} registros...`);
-      const BATCH = 50;
-      for (let b = 0; b < toUpdate.length; b += BATCH) {
-        if (cancelSignal?.aborted) { interrupted = true; break; }
-        const batch = toUpdate.slice(b, b + BATCH);
-        await Promise.all(batch.map(async (upd) => {
-          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount, unit_id: upd.unit_id }).eq("id", upd.id);
-          if (error) { errors++; } else { updated++; }
-        }));
-        processed += batch.length;
         updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }

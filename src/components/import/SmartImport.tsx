@@ -506,22 +506,22 @@ export default function SmartImport() {
       const unresolvedMap = new Map<string, { field: string; value: string; count: number }>();
 
       if (detectedEntity === "clients") {
+        // Business decision: clients.code is the sole unique key (store_code is NOT a uniqueness dimension)
         const dataRows = allDataRows.filter(r => ev(r, "code") && ev(r, "name") && ev(r, "cnpj"));
         result.invalidRows = allDataRows.length - dataRows.length;
         result.validRows = dataRows.length;
-        const existingMap = new Map<string, string>();
+        const existingCodes = new Set<string>();
         let dbOff = 0;
         while (true) {
-          const { data: chunk } = await supabase.from("clients").select("id, code, store_code").range(dbOff, dbOff + 999);
+          const { data: chunk } = await supabase.from("clients").select("code").range(dbOff, dbOff + 999);
           if (!chunk || chunk.length === 0) break;
-          for (const c of chunk) existingMap.set(`${(c.code || "").trim()}|${(c.store_code || "").trim()}`, c.id);
+          for (const c of chunk) existingCodes.add((c.code || "").trim());
           if (chunk.length < 1000) break;
           dbOff += 1000;
         }
         for (let i = 0; i < dataRows.length; i++) {
           const row = dataRows[i];
           const code = ev(row, "code")!;
-          const storeCode = ev(row, "store_code") || "";
           const lineNum = i + 2;
           for (const { key: fk, list, label } of [
             { key: "unit_code", list: unitList, label: "Unidade" },
@@ -535,7 +535,7 @@ export default function SmartImport() {
               if (ex) ex.count++; else unresolvedMap.set(uKey, { field: label, value: val, count: 1 });
             }
           }
-          if (existingMap.has(`${code}|${storeCode}`)) {
+          if (existingCodes.has(code)) {
             result.toUpdate++;
             result.details.push({ line: lineNum, action: "update", reason: `${code} já existe` });
           } else {

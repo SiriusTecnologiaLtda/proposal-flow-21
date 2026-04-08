@@ -22,6 +22,7 @@ const roleLabels: Record<string, string> = {
 };
 
 const roleColors: Record<string, string> = {
+  dsn: "bg-destructive/10 text-destructive",
   esn: "bg-primary/10 text-primary",
   gsn: "bg-success/15 text-success",
   arquiteto: "bg-warning/15 text-warning",

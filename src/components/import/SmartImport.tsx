@@ -811,14 +811,19 @@ export default function SmartImport() {
     const wasCancelled = cancelSignal?.aborted;
     const finalStatus = wasCancelled ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
-    addImportLog(entity, "ok", `✅ Concluído — ${allDataRows.length} linhas | Inseridos: ${imported} | Atualizados: ${updated} | Ignorados: ${totalSkipped} | Erros: ${errors} | Tempo: ${formatDuration(Date.now() - importRun.startedAt)}`);
+    const dur = Date.now() - importRun.startedAt;
+    const warningCount = unresolvedWarnings.length;
+    addImportLog(entity, finalStatus === "error" ? "error" : "ok",
+      `${wasCancelled ? "⛔ Interrompido" : "✅ Concluído"} — ${allDataRows.length} linhas | Inseridos: ${imported} | Atualizados: ${updated} | Ignorados: ${totalSkipped} | Erros: ${errors}${warningCount > 0 ? ` | Alertas: ${warningCount}` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["clients"] });
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) {
       await supabase.from("import_logs").update({
         status: finalStatus, total_rows: allDataRows.length, imported, updated, errors,
         skipped: totalSkipped, finished_at: new Date().toISOString(),
-        duration_ms: Date.now() - importRun.startedAt,
-        summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados`,
+        duration_ms: dur,
+        summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${totalSkipped} ignorados${warningCount > 0 ? `, ${warningCount} alertas` : ""}`,
+        error_details: errorMsgs,
       } as any).eq("id", dbLogId);
     }
   }

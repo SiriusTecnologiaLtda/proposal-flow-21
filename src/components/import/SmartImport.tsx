@@ -295,6 +295,9 @@ export default function SmartImport() {
 
     setScanningRelations(true);
 
+    // Always invalidate CRM cache before pre-scan to ensure fresh data on re-imports
+    invalidateCrmCache();
+
     // Load lookup lists + CRM codes
     const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),

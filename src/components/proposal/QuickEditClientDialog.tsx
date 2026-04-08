@@ -45,6 +45,14 @@ export default function QuickEditClientDialog({ client, open, onOpenChange, onSa
         esn_id: client.esn_id || "",
         gsn_id: client.gsn_id || "",
       });
+      // Fetch unit name if client has unit_id
+      if (client.unit_id) {
+        supabase.from("unit_info").select("name").eq("id", client.unit_id).single().then(({ data }) => {
+          setUnitDisplayName(data?.name || "");
+        });
+      } else {
+        setUnitDisplayName("");
+      }
     }
   }, [client, open]);
 

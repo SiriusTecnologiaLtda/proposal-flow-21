@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useUpdateClient, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
+import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 

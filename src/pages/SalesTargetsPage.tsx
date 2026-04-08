@@ -72,14 +72,14 @@ export default function SalesTargetsPage() {
   const [editEsnId, setEditEsnId] = useState("");
   const [editUnitId, setEditUnitId] = useState("");
   const [editRole, setEditRole] = useState("esn");
-  const [editSegmentId, setEditSegmentId] = useState("");
   const [editYear, setEditYear] = useState(String(currentYear));
 
-  // Grid: categoryId → month → value string
+  // Grid rows: each row is a catId__segId composite key
+  // gridRows: array of { key, catId, segId }
+  const [gridRows, setGridRows] = useState<{ key: string; catId: string; segId: string }[]>([]);
+  // Grid values: key → month → value string
   const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
-  // Which category rows are shown in the grid
-  const [gridCategoryIds, setGridCategoryIds] = useState<string[]>([]);
-  // Existing record IDs for edit: categoryId_month → id
+  // Existing record IDs for edit: key_month → id(s)
   const [existingIds, setExistingIds] = useState<Record<string, string>>({});
 
   // Selection / delete

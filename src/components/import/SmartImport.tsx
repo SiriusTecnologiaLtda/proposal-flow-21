@@ -1265,7 +1265,7 @@ export default function SmartImport() {
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
     const dur = Date.now() - importRun.startedAt;
     addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
-    if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
+    if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
     if (dbLogId) await supabase.from("import_logs").update({
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,

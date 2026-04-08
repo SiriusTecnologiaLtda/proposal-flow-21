@@ -131,6 +131,7 @@ export default function SmartImport() {
   const [targetCategoryId, setTargetCategoryId] = useState<string>("");
   const [targetSegmentId, setTargetSegmentId] = useState<string>("");
   const [targetRole, setTargetRole] = useState<string>("esn");
+  const [clearExistingTargets, setClearExistingTargets] = useState(false);
   const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([]);
   const [segmentsList, setSegmentsList] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1441,10 +1442,38 @@ export default function SmartImport() {
     try {
       const { data } = await supabase.from("import_logs").insert({
         entity, file_name: file!.name, status: "running",
-        total_rows: dataRows.length, cleared_before: false, user_id: user?.id || null,
+        total_rows: dataRows.length, cleared_before: clearExistingTargets, user_id: user?.id || null,
       } as any).select("id").single();
       dbLogId = data?.id;
     } catch {}
+
+    // Clear existing targets for the year if requested
+    if (clearExistingTargets) {
+      addImportLog(entity, "info", `🗑️ Removendo metas existentes do ano ${year}...`);
+      let deletedCount = 0;
+      let deleteError = false;
+      // Delete in batches to avoid timeouts
+      while (true) {
+        const { data: batch } = await supabase.from("sales_targets")
+          .select("id")
+          .eq("year", year)
+          .limit(500);
+        if (!batch || batch.length === 0) break;
+        const ids = batch.map(r => r.id);
+        const { error, count } = await supabase.from("sales_targets")
+          .delete({ count: "exact" })
+          .in("id", ids);
+        if (error) {
+          addImportLog(entity, "error", `Erro ao limpar metas: ${error.message}`);
+          deleteError = true;
+          break;
+        }
+        deletedCount += count || ids.length;
+      }
+      if (!deleteError) {
+        addImportLog(entity, "ok", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year}.`);
+      }
+    }
 
     if (dataRows.length === 0) {
       addImportLog(entity, "error", "Nenhum dono de meta encontrado.");
@@ -2335,6 +2364,20 @@ export default function SmartImport() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos ausentes serão criados automaticamente; caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                  </p>
+                  <Separator className="my-2" />
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="clearExistingTargets"
+                      checked={clearExistingTargets}
+                      onCheckedChange={(v) => setClearExistingTargets(!!v)}
+                    />
+                    <Label htmlFor="clearExistingTargets" className="text-xs cursor-pointer">
+                      Limpar metas existentes do ano <strong>{targetYear}</strong> antes de importar
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground ml-6">
+                    Remove todas as metas do ano selecionado antes de inserir os novos registros. Use ao reimportar planilhas corrigidas.
                   </p>
                 </div>
               )}

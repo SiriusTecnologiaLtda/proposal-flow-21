@@ -150,7 +150,9 @@ export default function SmartImport() {
     esnList: { id: string; code: string; name: string }[];
     gsnList: { id: string; code: string; name: string }[];
     salesTeamList: { id: string; code: string; name: string }[];
-  }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [] });
+    categoryList: { id: string; code: string; name: string }[];
+    segmentList: { id: string; code: string; name: string }[];
+  }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [], categoryList: [], segmentList: [] });
   const [crmCodesCache, setCrmCodesCache] = useState<{ code: string; sales_team_id: string; unit_id: string | null }[]>([]);
   const [scanningRelations, setScanningRelations] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);

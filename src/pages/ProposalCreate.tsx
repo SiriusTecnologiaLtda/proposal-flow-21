@@ -234,27 +234,32 @@ export default function ProposalCreate() {
     const authUser = session?.user;
     if (!authUser) return;
 
-    await supabase.from("proposal_process_logs").insert({
-      stage: entry.stage,
-      severity: entry.severity || "info",
-      action: entry.action || (isEditing ? "proposal_update" : "proposal_create"),
-      proposal_id: entry.proposalId || null,
-      client_id: clientId || null,
-      user_id: authUser.id,
-      user_email: authUser.email || user?.email || null,
-      user_name: (user?.user_metadata?.display_name as string | undefined) || authUser.email || null,
-      proposal_number: proposalNumber || null,
-      error_message: entry.errorMessage || null,
-      error_code: entry.errorCode || null,
-      payload: entry.payload || {},
-      metadata: entry.metadata || {},
-      error_details: {
-        route: window.location.pathname,
-        is_editing: isEditing,
-        is_duplicating: isDuplicating,
-        generate_on_save: generateOnSave,
-      },
-    });
+    try {
+      await supabase.from("proposal_process_logs").insert({
+        stage: entry.stage,
+        severity: entry.severity || "info",
+        action: entry.action || (isEditing ? "proposal_update" : "proposal_create"),
+        proposal_id: entry.proposalId || null,
+        client_id: clientId || null,
+        user_id: authUser.id,
+        user_email: authUser.email || user?.email || null,
+        user_name: (user?.user_metadata?.display_name as string | undefined) || authUser.email || null,
+        proposal_number: proposalNumber || null,
+        error_message: entry.errorMessage || null,
+        error_code: entry.errorCode || null,
+        payload: entry.payload || {},
+        metadata: entry.metadata || {},
+        error_details: {
+          route: window.location.pathname,
+          is_editing: isEditing,
+          is_duplicating: isDuplicating,
+          generate_on_save: generateOnSave,
+        },
+      });
+    } catch (logError) {
+      // Silently ignore log write failures (e.g. 409 conflicts)
+      console.warn("[ProposalCreate] writeProposalLog failed:", logError);
+    }
   }
 
   // Load existing proposal data for editing or duplicating

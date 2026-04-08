@@ -2093,15 +2093,149 @@ export default function SmartImport() {
                 <Button variant="outline" size="sm" onClick={() => { setStep("mapping"); setValidationResult(null); }}>
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
                 </Button>
-                <Button size="sm" onClick={runImport} disabled={scanningRelations}>
-                  {scanningRelations ? (
-                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verificando vínculos...</>
-                  ) : (
-                    <><Play className="mr-1.5 h-3.5 w-3.5" /> Iniciar Importação</>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={runDryRun} disabled={dryRunLoading || scanningRelations}>
+                    {dryRunLoading ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Simulando...</>
+                    ) : (
+                      <><Eye className="mr-1.5 h-3.5 w-3.5" /> Simular</>
+                    )}
+                  </Button>
+                  <Button size="sm" onClick={runImport} disabled={scanningRelations || dryRunLoading}>
+                    {scanningRelations ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Verificando vínculos...</>
+                    ) : (
+                      <><Play className="mr-1.5 h-3.5 w-3.5" /> Importar Direto</>
+                    )}
+                  </Button>
+                </div>
               </div>
             </>
+          )}
+
+          {/* ── STEP: Preview (Dry-Run) ────────────────────────── */}
+          {step === "preview" && dryRunResult && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Resultado da Simulação</span>
+                  <Badge variant="outline" className="text-xs">Nenhum dado foi gravado</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{dryRunResult.totalRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Linhas lidas</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{dryRunResult.validRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Válidas</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-destructive">{dryRunResult.invalidRows}</div>
+                    <div className="text-[11px] text-muted-foreground">Inválidas</div>
+                  </div>
+                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-center">
+                    <div className="text-2xl font-bold text-success">{dryRunResult.toInsert}</div>
+                    <div className="text-[11px] text-muted-foreground">Inserções</div>
+                  </div>
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center">
+                    <div className="text-2xl font-bold text-primary">{dryRunResult.toUpdate}</div>
+                    <div className="text-[11px] text-muted-foreground">Atualizações</div>
+                  </div>
+                  <div className="rounded-md border border-border bg-background p-3 text-center">
+                    <div className="text-2xl font-bold text-muted-foreground">{dryRunResult.toSkip}</div>
+                    <div className="text-[11px] text-muted-foreground">Ignorados</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Blockers */}
+              {dryRunResult.blockers.length > 0 && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
+                    <XCircle className="h-3.5 w-3.5" /> Erros bloqueantes ({dryRunResult.blockers.length})
+                  </div>
+                  {dryRunResult.blockers.map((b, i) => (
+                    <div key={i} className="text-xs text-destructive pl-5">• {b}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Unresolved relations */}
+              {dryRunResult.unresolvedRelations.length > 0 && (
+                <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Vínculos não resolvidos ({dryRunResult.unresolvedRelations.length})
+                  </div>
+                  {dryRunResult.unresolvedRelations.map((ur, i) => (
+                    <div key={i} className="text-xs text-muted-foreground pl-5">
+                      • <span className="font-medium">{ur.field}:</span> "{ur.value}" — {ur.count} ocorrência(s)
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Warnings */}
+              {dryRunResult.warnings.length > 0 && (
+                <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Alertas ({dryRunResult.warnings.length})
+                  </div>
+                  {dryRunResult.warnings.map((w, i) => (
+                    <div key={i} className="text-xs text-muted-foreground pl-5">• {w}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Detail log (collapsible) */}
+              {dryRunResult.details.length > 0 && dryRunResult.details.length <= 200 && (
+                <details className="rounded-md border border-border">
+                  <summary className="px-3 py-2 text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    Detalhes linha a linha ({dryRunResult.details.length} registros)
+                  </summary>
+                  <ScrollArea className="h-40 px-3 pb-2">
+                    <div className="space-y-0.5 font-mono text-[11px]">
+                      {dryRunResult.details.map((d, i) => (
+                        <div key={i} className="flex items-start gap-1.5">
+                          {d.action === "insert" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
+                          {d.action === "update" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
+                          {d.action === "skip" && <Clock className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />}
+                          {d.action === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                          <span className={
+                            d.action === "error" ? "text-destructive" :
+                            d.action === "insert" ? "text-success" :
+                            d.action === "update" ? "text-primary" : "text-muted-foreground"
+                          }>
+                            {d.line > 0 ? `L${d.line}: ` : ""}{d.reason}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </details>
+              )}
+              {dryRunResult.details.length > 200 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  {dryRunResult.details.length} detalhes — exibição resumida para performance.
+                  Erros: {dryRunResult.details.filter(d => d.action === "error").length}
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-between">
+                <Button variant="outline" size="sm" onClick={() => { setStep("options"); setDryRunResult(null); }}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar às Opções
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={runImport}
+                  disabled={dryRunResult.blockers.length > 0}
+                >
+                  <Play className="mr-1.5 h-3.5 w-3.5" /> Confirmar e Importar
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* ── STEP: Running / Done ───────────────────────────── */}

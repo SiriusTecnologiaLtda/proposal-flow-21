@@ -410,6 +410,8 @@ export default function SmartImport() {
           continue;
         }
 
+        console.log(`[SmartImport] ❌ Não resolvido: campo=${rf.fieldKey} valor="${original}" (${count} ocorrência(s))`);
+
         const uniqueKey = `${rf.fieldKey}:${lower}`;
         if (seenKeys.has(uniqueKey)) continue;
         seenKeys.add(uniqueKey);

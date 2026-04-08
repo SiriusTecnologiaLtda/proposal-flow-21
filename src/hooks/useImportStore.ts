@@ -2,10 +2,23 @@ import { useState, useEffect, useCallback } from "react";
 
 export type ImportEntity = "clients" | "templates" | "sales_team" | "sales_targets";
 
+export type LogCategory =
+  | "validation"   // structural validation
+  | "relation"     // relational lookup (resolved/unresolved)
+  | "filter"       // pre-filter applied
+  | "insert"       // row inserted
+  | "update"       // row updated
+  | "skip"         // row skipped
+  | "batch_error"  // batch-level error
+  | "fallback"     // fallback to row-by-row
+  | "system"       // general system messages
+  | "summary";     // final summary
+
 export interface ImportLogEntry {
-  status: "ok" | "error" | "info";
+  status: "ok" | "error" | "info" | "warning";
   message: string;
   timestamp: number;
+  category?: LogCategory;
 }
 
 export interface ImportRun {

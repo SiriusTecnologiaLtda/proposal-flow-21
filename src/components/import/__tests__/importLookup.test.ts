@@ -25,8 +25,11 @@ const crmCodes = [
 describe("findInList", () => {
   it("returns null for empty search", () => {
     expect(findInList(salesTeam, "")).toBeNull();
-    // whitespace-only triggers partial match (empty string is substring of everything)
-    // this is expected behavior — the guard is at the caller level
+  });
+
+  it("returns null for whitespace-only search", () => {
+    expect(findInList(salesTeam, "   ")).toBeNull();
+    expect(findInList(salesTeam, "\t")).toBeNull();
   });
 
   it("finds by exact code match", () => {
@@ -102,8 +105,9 @@ describe("findInListWithAlias", () => {
     expect(findInListWithAlias(salesTeam, "crm001", "clients:esn_code", aliases, crmCodes)).toBe("id-joao");
   });
 
-  it("returns null for empty search", () => {
+  it("returns null for empty and whitespace search", () => {
     expect(findInListWithAlias(salesTeam, "", "clients:esn_code", aliases)).toBeNull();
+    expect(findInListWithAlias(salesTeam, "   ", "clients:esn_code", aliases)).toBeNull();
   });
 });
 

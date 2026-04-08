@@ -504,6 +504,7 @@ export function findInList(
 ): string | null {
   if (!search) return null;
   const s = search.trim().toLowerCase();
+  if (!s) return null; // whitespace-only guard
   const byCode = list.find(u => u.code === s);
   if (byCode) return byCode.id;
   const byName = list.find(u => u.name === s);
@@ -535,13 +536,69 @@ export function findInListWithAlias(
   aliases: AliasStore,
   crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
-  if (!search) return null;
+  if (!search || !search.trim()) return null;
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {
     const aliasId = aliasMap[search.trim().toLowerCase()];
     if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
   }
   return findInList(list, search, crmCodes);
+}
+
+// ─── parseRole (extracted for testability) ──────────────────────
+
+export function parseRole(cargo: string): "esn" | "gsn" | "dsn" | "arquiteto" | null {
+  const c = cargo.toLowerCase().trim();
+  if (!c) return null;
+  if (c.includes("arquiteto") || c.includes("engenheiro de valor") || c.includes("ev")) return "arquiteto";
+  if (c.includes("dsn") || c.includes("diretor")) return "dsn";
+  if (c.includes("gsn") || c.includes("gerente")) return "gsn";
+  if (c.includes("esn") || c.includes("executivo") || c.includes("vendedor")) return "esn";
+  return null;
+}
+
+// ─── buildClientPayload (extracted for testability) ─────────────
+
+export function buildClientPayload(
+  row: any[],
+  fieldToCol: Record<string, number>,
+  unitList: { id: string; code: string; name: string }[],
+  esnList: { id: string; code: string; name: string }[],
+  gsnList: { id: string; code: string; name: string }[],
+  aliases: AliasStore,
+  entity: string,
+  crmCodes?: { code: string; sales_team_id: string }[],
+): { payload: Record<string, any>; warnings: string[] } {
+  const warnings: string[] = [];
+  const ev = (key: string) => {
+    const col = fieldToCol[key];
+    if (col == null) return undefined;
+    const v = row[col];
+    return v != null ? String(v).trim() : undefined;
+  };
+
+  const mappedKeys = Object.values(fieldToCol).length > 0 ? Object.keys(fieldToCol) : [];
+  const p: Record<string, any> = {};
+  const unitAliasKey = getAliasKey(entity as ImportEntity, "unit_code");
+  const esnAliasKey = getAliasKey(entity as ImportEntity, "esn_code");
+  const gsnAliasKey = getAliasKey(entity as ImportEntity, "gsn_code");
+
+  for (const key of mappedKeys) {
+    const val = ev(key);
+    if (key === "unit_code") {
+      p.unit_id = findInListWithAlias(unitList, val || "", unitAliasKey, aliases);
+      if (val && !p.unit_id) warnings.push(`Unidade "${val}" não encontrada.`);
+    } else if (key === "esn_code") {
+      p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, aliases, crmCodes);
+      if (val && !p.esn_id) warnings.push(`ESN "${val}" não encontrado.`);
+    } else if (key === "gsn_code") {
+      p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, aliases, crmCodes);
+      if (val && !p.gsn_id) warnings.push(`GSN "${val}" não encontrado.`);
+    } else {
+      p[key] = val;
+    }
+  }
+  return { payload: p, warnings };
 }
 
 // ─── Utility ────────────────────────────────────────────────────

@@ -1703,18 +1703,6 @@ export default function SmartImport() {
 
     // Prepare all records to insert/update in bulk
     const toInsert: any[] = [];
-    const toUpdate: { id: string; amount: number; unit_id: string | null }[] = [];
-    const aggregatedTargets = new Map<string, {
-      esn_id: string;
-      role: string;
-      category_id: string;
-      segment_id: string;
-      unit_id: string;
-      months: Record<number, number>;
-      lines: number[];
-      owners: string[];
-    }>();
-    let consolidatedSourceRows = 0;
 
     for (let i = 0; i < dataRows.length; i++) {
       if (cancelSignal?.aborted) { interrupted = true; addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário."); break; }

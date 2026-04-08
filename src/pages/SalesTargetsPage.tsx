@@ -251,7 +251,7 @@ export default function SalesTargetsPage() {
     setSaving(true);
     try {
       for (let m = 1; m <= 12; m++) {
-        const newAmount = Number(editMonthValues[m]) || 0;
+        const newAmount = Math.round((Number(editMonthValues[m]) || 0) * 100) / 100;
         const existing = editRow.months[m];
         if (existing) {
           const updates: any = {};

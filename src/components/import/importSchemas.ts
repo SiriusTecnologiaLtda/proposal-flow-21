@@ -247,7 +247,8 @@ export function autoMapColumns(headers: string[], fields: DbField[]): Record<num
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
 
-  const unitCodeField = fields.find(field => field.key === "unit_code");
+  const isSalesTargetsSchema = fields.some(field => field.key === "month_1");
+  const unitCodeField = isSalesTargetsSchema ? fields.find(field => field.key === "unit_code") : undefined;
   if (unitCodeField && !usedFields.has(unitCodeField.key)) {
     const unitHeaderPriority = new Map<string, number>([
       ["codunidade", 0],

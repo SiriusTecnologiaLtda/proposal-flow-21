@@ -1633,24 +1633,7 @@ export default function SmartImport() {
     // Track which members need role update
     const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
-    // Pre-load ALL existing targets for this year to avoid per-row queries
-    addImportLog(entity, "info", "Carregando metas existentes do ano...");
-    const existingTargets = new Map<string, { id: string; unit_id: string | null }>(); // "esnId|month|role|catId|segId" -> row
-    let dbOffset = 0;
-    while (true) {
-      const { data: chunk } = await supabase.from("sales_targets")
-        .select("id, esn_id, month, role, category_id, segment_id, unit_id")
-        .eq("year", year)
-        .range(dbOffset, dbOffset + 999);
-      if (!chunk || chunk.length === 0) break;
-      for (const t of chunk) {
-        const key = `${t.esn_id}|${t.month}|${t.role}|${t.category_id || ""}|${t.segment_id || ""}`;
-        existingTargets.set(key, { id: t.id, unit_id: (t as any).unit_id || null });
-      }
-      if (chunk.length < 1000) break;
-      dbOffset += 1000;
-    }
-    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`, "system");
+    // No pre-load of existing targets needed — each row is inserted independently
 
     // Helper: ensure category exists
     const ensureCategoryId = async (rawValue: string): Promise<string | null> => {
@@ -1703,18 +1686,6 @@ export default function SmartImport() {
 
     // Prepare all records to insert/update in bulk
     const toInsert: any[] = [];
-    const toUpdate: { id: string; amount: number; unit_id: string | null }[] = [];
-    const aggregatedTargets = new Map<string, {
-      esn_id: string;
-      role: string;
-      category_id: string;
-      segment_id: string;
-      unit_id: string;
-      months: Record<number, number>;
-      lines: number[];
-      owners: string[];
-    }>();
-    let consolidatedSourceRows = 0;
 
     for (let i = 0; i < dataRows.length; i++) {
       if (cancelSignal?.aborted) { interrupted = true; addImportLog(entity, "info", "⛔ Importação interrompida pelo usuário."); break; }
@@ -1869,85 +1840,37 @@ export default function SmartImport() {
         continue;
       }
 
-      const aggregateKey = `${esnId}|${rowRole}|${rowCategoryId || ""}|${rowSegmentId || ""}`;
-      const existingAggregate = aggregatedTargets.get(aggregateKey);
-      if (existingAggregate && existingAggregate.unit_id !== rowUnitId) {
-        errors++;
-        const msg = `Linha ${lineNum}: a chave lógica de meta para "${esnLabel}" apareceu com unidades diferentes no mesmo arquivo; registro bloqueado para evitar sobrescrita incorreta.`;
-        addImportLog(entity, "error", msg, "validation");
-        errorDetails.push({ line: lineNum, owner: esnLabel, message: "Mesma chave lógica encontrada com unidades diferentes" });
-        processed++;
-        continue;
-      }
-
-      const aggregate = existingAggregate || {
-        esn_id: esnId,
-        role: rowRole,
-        category_id: rowCategoryId,
-        segment_id: rowSegmentId,
-        unit_id: rowUnitId,
-        months: {},
-        lines: [],
-        owners: [],
-      };
-
-      if (existingAggregate) consolidatedSourceRows++;
-      aggregate.lines.push(lineNum);
-      if (!aggregate.owners.includes(String(esnLabel))) aggregate.owners.push(String(esnLabel));
-
+      // Insert each row/month directly without logical key dedup
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
         const amount = Math.round((Number(val) || 0) * 100) / 100;
         if (amount === 0) { skipped++; continue; }
-        aggregate.months[m] = Math.round(((aggregate.months[m] || 0) + amount) * 100) / 100;
+        toInsert.push({
+          esn_id: esnId,
+          year,
+          month: m,
+          amount,
+          role: rowRole,
+          category_id: rowCategoryId,
+          segment_id: rowSegmentId,
+          unit_id: rowUnitId,
+          _line: lineNum,
+          _owner: String(esnLabel),
+          _month: m,
+        });
       }
 
-      aggregatedTargets.set(aggregateKey, aggregate);
-
       processed++;
-      // Update stats every 10 rows
       if (processed % 10 === 0) {
         updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }
 
-    for (const aggregate of aggregatedTargets.values()) {
-      for (let m = 1; m <= 12; m++) {
-        const amount = Math.round((aggregate.months[m] || 0) * 100) / 100;
-        if (amount === 0) continue;
-
-        const lookupKey = `${aggregate.esn_id}|${m}|${aggregate.role}|${aggregate.category_id || ""}|${aggregate.segment_id || ""}`;
-        const existing = existingTargets.get(lookupKey);
-
-        if (existing) {
-          toUpdate.push({ id: existing.id, amount, unit_id: aggregate.unit_id });
-        } else {
-          toInsert.push({
-            esn_id: aggregate.esn_id,
-            year,
-            month: m,
-            amount,
-            role: aggregate.role,
-            category_id: aggregate.category_id,
-            segment_id: aggregate.segment_id,
-            unit_id: aggregate.unit_id,
-            _line: aggregate.lines.join(", "),
-            _owner: aggregate.owners.join(" / "),
-            _month: m,
-          });
-        }
-      }
-    }
-
-    // Recalculate totalRows to reflect the real work: scanned rows + batch records to persist
-    const totalWork = processed + toInsert.length + toUpdate.length;
+    const totalWork = processed + toInsert.length;
     updateImportStats(entity, { totalRows: totalWork, processed, imported, updated, errors, skipped });
-    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções + ${toUpdate.length} atualizações pendentes`, "system");
-    if (consolidatedSourceRows > 0) {
-      addImportLog(entity, "info", `🧮 ${consolidatedSourceRows} linha(s) duplicadas da planilha foram consolidadas por chave lógica antes da gravação.`, "system");
-    }
+    addImportLog(entity, "info", `📋 ${dataRows.length} linhas lidas → ${toInsert.length} inserções pendentes`, "system");
 
-    // Batch UPSERT (onConflict on composite key)
+    // Batch INSERT (plain insert, no logical key dedup)
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
       const BATCH = 100;
@@ -1955,10 +1878,10 @@ export default function SmartImport() {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toInsert.slice(b, b + BATCH);
         const cleanBatch = batch.map(({ _line, _owner, _month, ...rest }) => rest);
-        const { error: batchErr } = await supabase.from("sales_targets").upsert(cleanBatch, { onConflict: "esn_id,year,month,role,category_id,segment_id" });
+        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
         if (batchErr) {
           for (let j = 0; j < cleanBatch.length; j++) {
-            const { error } = await supabase.from("sales_targets").upsert(cleanBatch[j], { onConflict: "esn_id,year,month,role,category_id,segment_id" });
+            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
             if (error) {
               errors++;
               const item = batch[j];
@@ -1973,22 +1896,6 @@ export default function SmartImport() {
           imported += cleanBatch.length;
         }
         processed += cleanBatch.length;
-        updateImportStats(entity, { processed, imported, updated, errors, skipped });
-      }
-    }
-
-    // Batch UPDATE
-    if (toUpdate.length > 0 && !interrupted) {
-      addImportLog(entity, "info", `Atualizando ${toUpdate.length} registros...`);
-      const BATCH = 50;
-      for (let b = 0; b < toUpdate.length; b += BATCH) {
-        if (cancelSignal?.aborted) { interrupted = true; break; }
-        const batch = toUpdate.slice(b, b + BATCH);
-        await Promise.all(batch.map(async (upd) => {
-          const { error } = await supabase.from("sales_targets").update({ amount: upd.amount, unit_id: upd.unit_id }).eq("id", upd.id);
-          if (error) { errors++; } else { updated++; }
-        }));
-        processed += batch.length;
         updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
     }

@@ -42,7 +42,8 @@ export default function SalesTargetEditPage() {
   const [editYear, setEditYear] = useState(yearParam);
 
   // Grid state
-  const [gridRows, setGridRows] = useState<{ key: string; catId: string; segId: string }[]>([]);
+  const [editSegId, setEditSegId] = useState("");
+  const [gridRows, setGridRows] = useState<{ key: string; catId: string }[]>([]);
   const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
   const [initialized, setInitialized] = useState(false);
 

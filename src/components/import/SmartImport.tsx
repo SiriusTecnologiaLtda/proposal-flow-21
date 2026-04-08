@@ -970,7 +970,7 @@ export default function SmartImport() {
         if (error) {
           for (const item of batch) {
             const { error: rowErr } = await supabase.from("sales_team_crm_codes").upsert(item, { onConflict: "code,sales_team_id" });
-            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`);
+            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`, "batch_error");
           }
         }
       }

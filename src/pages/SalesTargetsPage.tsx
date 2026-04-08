@@ -243,13 +243,10 @@ export default function SalesTargetsPage() {
   async function deleteSelected() {
     setDeleting(true);
     try {
-      // Get all target IDs for selected member+segment combos
       const idsToDelete: string[] = [];
-      for (const key of selectedKeys) {
-        const [esnId, segId] = key.split("__");
-        const realSegId = segId === "none" ? null : segId;
+      for (const esnId of selectedKeys) {
         for (const t of targets) {
-          if (t.esn_id === esnId && ((t as any).segment_id || null) === realSegId) {
+          if (t.esn_id === esnId) {
             idsToDelete.push(t.id);
           }
         }

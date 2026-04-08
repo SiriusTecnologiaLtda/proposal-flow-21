@@ -355,6 +355,67 @@ export default function SmartImport() {
       }
     }
 
+    // ── Sales Targets: cross-resolve esn_code ↔ esn_name pairs ──
+    // If esn_code resolves but esn_name doesn't (or vice-versa), and they
+    // appear on the same row, remove the unresolved one since the resolved
+    // partner already identifies the member.
+    if (detectedEntity === "sales_targets") {
+      const esnCodeResolved = new Map<string, string>(); // rowKey -> resolved ID
+      const esnNameResolved = new Map<string, string>();
+      const esnCodeAliasKey = getAliasKey("sales_targets", "esn_code");
+      const esnNameAliasKey = getAliasKey("sales_targets", "esn_name");
+
+      // Build map of code→name and name→code from same rows
+      const rowPairs = new Map<string, Set<string>>(); // code_lower → set of name_lowers
+      const nameToCodes = new Map<string, Set<string>>();
+      for (const row of allDataRows) {
+        const codeVal = extractValue(row, "esn_code", fieldToCol)?.trim().toLowerCase() || "";
+        const nameVal = extractValue(row, "esn_name", fieldToCol)?.trim().toLowerCase() || "";
+        if (codeVal && nameVal) {
+          if (!rowPairs.has(codeVal)) rowPairs.set(codeVal, new Set());
+          rowPairs.get(codeVal)!.add(nameVal);
+          if (!nameToCodes.has(nameVal)) nameToCodes.set(nameVal, new Set());
+          nameToCodes.get(nameVal)!.add(codeVal);
+        }
+      }
+
+      // Check which esn_code values are resolved
+      const unresolvedCodes = new Set(unresolved.filter(u => u.fieldKey === "esn_code").map(u => u.valueLower));
+      const unresolvedNames = new Set(unresolved.filter(u => u.fieldKey === "esn_name").map(u => u.valueLower));
+
+      // Remove unresolved names whose paired code IS resolved (not in unresolved)
+      const toRemove = new Set<string>();
+      for (const nameVal of unresolvedNames) {
+        const pairedCodes = nameToCodes.get(nameVal);
+        if (pairedCodes) {
+          for (const code of pairedCodes) {
+            if (!unresolvedCodes.has(code)) {
+              // The code resolved, so the name doesn't need separate resolution
+              toRemove.add(`esn_name:${nameVal}`);
+            }
+          }
+        }
+      }
+      // Remove unresolved codes whose paired name IS resolved
+      for (const codeVal of unresolvedCodes) {
+        const pairedNames = rowPairs.get(codeVal);
+        if (pairedNames) {
+          for (const name of pairedNames) {
+            if (!unresolvedNames.has(name)) {
+              toRemove.add(`esn_code:${codeVal}`);
+            }
+          }
+        }
+      }
+
+      // Filter out cross-resolved items
+      if (toRemove.size > 0) {
+        const filtered = unresolved.filter(u => !toRemove.has(`${u.fieldKey}:${u.valueLower}`));
+        unresolved.length = 0;
+        unresolved.push(...filtered);
+      }
+    }
+
     setScanningRelations(false);
 
     if (unresolved.length === 0) return true; // all resolved

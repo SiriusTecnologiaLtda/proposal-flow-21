@@ -421,9 +421,6 @@ export default function SalesTargetEditPage() {
                   <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[160px] border-b border-r border-border/60">
                     Categoria
                   </th>
-                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[140px] border-b border-r border-border/60">
-                    Segmento
-                  </th>
                   {MONTH_NAMES.map((m) => (
                     <th key={m} className="text-center px-1 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/30">
                       {m}

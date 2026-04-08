@@ -53,8 +53,8 @@ const CLIENT_DB_FIELDS: DbField[] = [
   { key: "phone", label: "Telefone", required: false, aliases: ["telefone", "fone", "tel", "phone", "a1_tel", "celular"] },
   { key: "address", label: "Endereço", required: false, aliases: ["endereço", "endereco", "address", "a1_end", "logradouro", "rua"] },
   { key: "unit_code", label: "Unidade (código/nome)", required: false, aliases: ["unidade", "cod unidade", "código unidade", "unit", "filial totvs"] },
-  { key: "esn_code", label: "ESN (código/nome)", required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend"] },
-  { key: "gsn_code", label: "GSN (código/nome)", required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor"] },
+  { key: "esn_code", label: "ESN (código/nome)", required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend", "código crm", "cod crm", "crm"] },
+  { key: "gsn_code", label: "GSN (código/nome)", required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor", "código crm gsn"] },
 ];
 
 const SALES_TEAM_DB_FIELDS: DbField[] = [

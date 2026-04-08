@@ -1352,6 +1352,21 @@ export default function SmartImport() {
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
       const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
 
+      // Resolve unit_id from file column if available, otherwise use member's unit
+      let rowUnitId = memberUnitId;
+      if (hasUnitCol) {
+        const rawUnit = (ev(row, "unit_code") || "").trim();
+        if (rawUnit) {
+          const unitAliasKey = getAliasKey(entity, "unit_code");
+          const resolved = findInListWithAlias(unitList, rawUnit, unitAliasKey, currentAliases);
+          if (resolved) {
+            rowUnitId = resolved;
+          } else {
+            addImportLog(entity, "warning", `Linha ${lineNum}: Unidade "${rawUnit}" não encontrada, usando unidade do membro.`, "relation");
+          }
+        }
+      }
+
       if (!esnId) {
         errors++;
         const msg = `Linha ${lineNum}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`;

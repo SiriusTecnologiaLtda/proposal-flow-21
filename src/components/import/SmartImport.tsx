@@ -53,8 +53,8 @@ const CLIENT_DB_FIELDS: DbField[] = [
   { key: "phone", label: "Telefone", required: false, aliases: ["telefone", "fone", "tel", "phone", "a1_tel", "celular"] },
   { key: "address", label: "Endereço", required: false, aliases: ["endereço", "endereco", "address", "a1_end", "logradouro", "rua"] },
   { key: "unit_code", label: "Unidade (código/nome)", required: false, aliases: ["unidade", "cod unidade", "código unidade", "unit", "filial totvs"] },
-  { key: "esn_code", label: "ESN (código/nome)", required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend"] },
-  { key: "gsn_code", label: "GSN (código/nome)", required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor"] },
+  { key: "esn_code", label: "ESN (código/nome)", required: false, aliases: ["esn", "cod esn", "código esn", "vendedor", "executivo", "a1_vend", "código crm", "cod crm", "crm"] },
+  { key: "gsn_code", label: "GSN (código/nome)", required: false, aliases: ["gsn", "cod gsn", "código gsn", "gerente", "supervisor", "código crm gsn"] },
 ];
 
 const SALES_TEAM_DB_FIELDS: DbField[] = [
@@ -183,6 +183,7 @@ function findInListWithAlias(
   search: string,
   aliasKey: string,
   aliases: AliasStore,
+  crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
   if (!search) return null;
   // Check alias first
@@ -191,7 +192,7 @@ function findInListWithAlias(
     const aliasId = aliasMap[search.trim().toLowerCase()];
     if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
   }
-  return findInList(list, search);
+  return findInList(list, search, crmCodes);
 }
 
 // ─── Filter rule types ─────────────────────────────────────────
@@ -425,8 +426,24 @@ function formatDuration(ms: number): string {
   return `${Math.floor(s / 60)}min ${s % 60}s`;
 }
 
+// ─── CRM codes cache (loaded once per session) ─────────────────
+let _crmCodesCache: { code: string; sales_team_id: string; unit_id: string | null }[] | null = null;
+
+async function loadCrmCodes(): Promise<{ code: string; sales_team_id: string; unit_id: string | null }[]> {
+  if (_crmCodesCache) return _crmCodesCache;
+  const { data } = await supabase.from("sales_team_crm_codes").select("code, sales_team_id, unit_id");
+  _crmCodesCache = (data || []).map(c => ({
+    code: c.code.trim().toLowerCase(),
+    sales_team_id: c.sales_team_id,
+    unit_id: c.unit_id,
+  }));
+  return _crmCodesCache;
+}
+
+function invalidateCrmCache() { _crmCodesCache = null; }
+
 // ─── Lookup helpers ─────────────────────────────────────────────
-function findInList(list: { id: string; code: string; name: string }[], search: string): string | null {
+function findInList(list: { id: string; code: string; name: string }[], search: string, crmCodes?: { code: string; sales_team_id: string }[]): string | null {
   if (!search) return null;
   const s = search.trim().toLowerCase();
   const byCode = list.find(u => u.code === s);
@@ -438,11 +455,106 @@ function findInList(list: { id: string; code: string; name: string }[], search: 
     const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
     if (byPaddedCode) return byPaddedCode.id;
   }
+  // Check CRM codes for sales team lookups
+  if (crmCodes) {
+    const byCrm = crmCodes.find(c => c.code === s);
+    if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) return byCrm.sales_team_id;
+    if (sNum) {
+      const byCrmPadded = crmCodes.find(c => c.code.replace(/^0+/, "") === sNum);
+      if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
+    }
+  }
   const partial = list.find(u =>
     (u.code && (u.code.includes(s) || s.includes(u.code))) ||
     (u.name && (u.name.includes(s) || s.includes(u.name)))
   );
   return partial ? partial.id : null;
+}
+
+// ─── Dynamic structural validation ─────────────────────────────
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+function validateImportStructure(
+  entity: ImportEntity,
+  mapping: Record<number, string>,
+  headers: string[],
+  dbFields: DbField[],
+  dataRows: any[][],
+): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const fieldToCol: Record<string, number> = {};
+  for (const [colStr, field] of Object.entries(mapping)) fieldToCol[field] = Number(colStr);
+
+  // 1. Required fields check
+  const missingRequired = dbFields.filter(f => f.required && !(f.key in fieldToCol));
+  if (missingRequired.length > 0) {
+    errors.push(`Campos obrigatórios não mapeados: ${missingRequired.map(f => f.label).join(", ")}`);
+  }
+
+  // 2. Sample data type validation (first 20 rows)
+  const sampleSize = Math.min(dataRows.length, 20);
+  let emptyRequiredCount = 0;
+  for (let i = 0; i < sampleSize; i++) {
+    const row = dataRows[i];
+    for (const f of dbFields.filter(ff => ff.required)) {
+      const colIdx = fieldToCol[f.key];
+      if (colIdx == null) continue;
+      const val = String(row[colIdx] ?? "").trim();
+      if (!val) emptyRequiredCount++;
+    }
+  }
+  if (emptyRequiredCount > 0) {
+    warnings.push(`${emptyRequiredCount} célula(s) obrigatória(s) vazia(s) nas primeiras ${sampleSize} linhas — linhas serão ignoradas.`);
+  }
+
+  // 3. CNPJ format check for clients
+  if (entity === "clients" && fieldToCol["cnpj"] != null) {
+    let invalidCnpj = 0;
+    for (let i = 0; i < sampleSize; i++) {
+      const val = String(dataRows[i][fieldToCol["cnpj"]] ?? "").replace(/\D/g, "");
+      if (val && val.length !== 11 && val.length !== 14) invalidCnpj++;
+    }
+    if (invalidCnpj > 0) warnings.push(`${invalidCnpj} CNPJ/CPF com formato inválido nas primeiras ${sampleSize} linhas.`);
+  }
+
+  // 4. Email format check
+  const emailCol = fieldToCol["email"];
+  if (emailCol != null) {
+    let invalidEmail = 0;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (let i = 0; i < sampleSize; i++) {
+      const val = String(dataRows[i][emailCol] ?? "").trim();
+      if (val && !emailRegex.test(val)) invalidEmail++;
+    }
+    if (invalidEmail > 0) warnings.push(`${invalidEmail} e-mail(s) com formato inválido nas primeiras ${sampleSize} linhas.`);
+  }
+
+  // 5. Numeric month columns for sales_targets
+  if (entity === "sales_targets") {
+    let nonNumericMonths = 0;
+    for (let m = 1; m <= 12; m++) {
+      const col = fieldToCol[`month_${m}`];
+      if (col == null) continue;
+      for (let i = 0; i < sampleSize; i++) {
+        const val = String(dataRows[i][col] ?? "").trim();
+        if (val && isNaN(Number(val.replace(/[.,]/g, "")))) nonNumericMonths++;
+      }
+    }
+    if (nonNumericMonths > 0) warnings.push(`${nonNumericMonths} valor(es) de meta não numérico(s) detectado(s).`);
+  }
+
+  // 6. Unmapped columns warning
+  const unmappedCols = headers.filter((_, i) => !mapping[i] && headers[i]?.trim());
+  if (unmappedCols.length > 0) {
+    warnings.push(`${unmappedCols.length} coluna(s) não mapeada(s): ${unmappedCols.slice(0, 5).join(", ")}${unmappedCols.length > 5 ? "..." : ""}`);
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 // ─── Unresolved relation types ──────────────────────────────────
@@ -501,7 +613,9 @@ export default function SmartImport() {
     gsnList: { id: string; code: string; name: string }[];
     salesTeamList: { id: string; code: string; name: string }[];
   }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [] });
+  const [crmCodesCache, setCrmCodesCache] = useState<{ code: string; sales_team_id: string; unit_id: string | null }[]>([]);
   const [scanningRelations, setScanningRelations] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [aliasStore, setAliasStore] = useState<AliasStore>(loadAliasStore);
 
   const entityConfig = ENTITY_CONFIGS[detectedEntity];
@@ -645,11 +759,13 @@ export default function SmartImport() {
 
     setScanningRelations(true);
 
-    // Load lookup lists
-    const [{ data: units }, { data: salesTeam }] = await Promise.all([
+    // Load lookup lists + CRM codes
+    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      loadCrmCodes(),
     ]);
+    setCrmCodesCache(crmCodes);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const allSalesTeam = (salesTeam || []).map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase(), role: s.role }));
     const esnList = allSalesTeam.filter(s => s.role === "esn").map(({ role, ...r }) => r);
@@ -683,8 +799,9 @@ export default function SmartImport() {
       }
 
       for (const [lower, { original, count }] of valueCountMap) {
-        // Check if resolved by normal lookup or alias
-        const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases);
+        // Check if resolved by normal lookup, alias, or CRM code
+        const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
+        const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases, crmForField);
         if (resolved) continue;
 
         const uniqueKey = `${rf.fieldKey}:${lower}`;
@@ -779,6 +896,21 @@ export default function SmartImport() {
 
   // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {
+    // Dynamic structural validation
+    const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
+    setValidationResult(validation);
+
+    if (!validation.valid) {
+      toast({ title: "Validação falhou", description: validation.errors.join("; "), variant: "destructive" });
+      return;
+    }
+
+    if (validation.warnings.length > 0) {
+      for (const w of validation.warnings) {
+        addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+      }
+    }
+
     if (!layoutSaved && headers.length > 0) {
       saveLayout({
         id: crypto.randomUUID(),
@@ -861,9 +993,10 @@ export default function SmartImport() {
       return;
     }
 
-    const [{ data: units }, { data: salesTeam }] = await Promise.all([
+    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      loadCrmCodes(),
     ]);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const esnList = (salesTeam || []).filter(s => s.role === "esn").map(s => ({ id: s.id, code: s.code.toLowerCase(), name: s.name.toLowerCase() }));
@@ -927,10 +1060,10 @@ export default function SmartImport() {
           p.unit_id = findInListWithAlias(unitList, val || "", unitAliasKey, currentAliases);
           if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
         } else if (key === "esn_code") {
-          p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, currentAliases);
+          p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, currentAliases, crmCodes);
           if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
         } else if (key === "gsn_code") {
-          p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, currentAliases);
+          p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, currentAliases, crmCodes);
           if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
         } else p[key] = val;
       }
@@ -1132,7 +1265,7 @@ export default function SmartImport() {
     finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
     const dur = Date.now() - importRun.startedAt;
     addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros | Tempo: ${formatDuration(dur)}`);
-    if (imported > 0 || updated > 0) qc.invalidateQueries({ queryKey: ["sales_team"] });
+    if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
     if (dbLogId) await supabase.from("import_logs").update({
       status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
@@ -1275,14 +1408,24 @@ export default function SmartImport() {
       return;
     }
 
-    // Load all sales team members
-    const { data: salesTeam } = await supabase.from("sales_team").select("id, code, name, role, unit_id");
+    // Load all sales team members + CRM codes
+    const [{ data: salesTeam }, crmCodes] = await Promise.all([
+      supabase.from("sales_team").select("id, code, name, role, unit_id"),
+      loadCrmCodes(),
+    ]);
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
       if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id });
       if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id });
+    }
+    // Also index CRM codes into memberMap
+    for (const crm of crmCodes) {
+      if (!memberMap.has(crm.code)) {
+        const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
+        if (member) memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id });
+      }
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
@@ -1579,6 +1722,8 @@ export default function SmartImport() {
     setDetectionResults([]);
     setUnresolvedItems([]);
     setResolutionSelections({});
+    setValidationResult(null);
+    invalidateCrmCache();
   };
 
   // ── Helper to get lookup list for a relational field ──────────
@@ -2129,8 +2274,34 @@ export default function SmartImport() {
                 </div>
               </div>
 
+              {/* Validation results */}
+              {validationResult && (
+                <div className="space-y-2">
+                  {validationResult.errors.length > 0 && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                      {validationResult.errors.map((e, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-destructive">
+                          <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>{e}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {validationResult.warnings.length > 0 && (
+                    <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-1">
+                      {validationResult.warnings.map((w, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning" />
+                          <span>{w}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-2 justify-between">
-                <Button variant="outline" size="sm" onClick={() => setStep("mapping")}>
+                <Button variant="outline" size="sm" onClick={() => { setStep("mapping"); setValidationResult(null); }}>
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar
                 </Button>
                 <Button size="sm" onClick={runImport} disabled={scanningRelations}>

@@ -92,13 +92,24 @@ export default function SalesTargetsPage() {
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ["sales-targets", yearFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales_targets")
-        .select("*")
-        .eq("year", Number(yearFilter))
-        .order("month", { ascending: true });
-      if (error) throw error;
-      return data || [];
+      // Paginate to avoid the 1000-row default limit
+      const all: any[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("sales_targets")
+          .select("*")
+          .eq("year", Number(yearFilter))
+          .order("month", { ascending: true })
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -319,14 +330,22 @@ export default function SalesTargetsPage() {
           Object.values(row.months).forEach(m => idsToDelete.push(m.id));
         }
       }
+      let deletedCount = 0;
       // Delete in batches of 100
       for (let i = 0; i < idsToDelete.length; i += 100) {
         const batch = idsToDelete.slice(i, i + 100);
-        const { error } = await supabase.from("sales_targets").delete().in("id", batch);
+        const { error, count } = await supabase.from("sales_targets").delete({ count: "exact" }).in("id", batch);
         if (error) throw error;
+        deletedCount += count || 0;
       }
-      qc.invalidateQueries({ queryKey: ["sales-targets"] });
-      toast({ title: `${selectedKeys.size} meta(s) excluída(s) com sucesso!` });
+      await qc.invalidateQueries({ queryKey: ["sales-targets"] });
+      if (deletedCount === 0) {
+        toast({ title: "Nenhuma meta foi excluída", description: "Verifique suas permissões.", variant: "destructive" });
+      } else if (deletedCount < idsToDelete.length) {
+        toast({ title: `${deletedCount} de ${idsToDelete.length} registro(s) excluído(s)`, description: "Alguns registros não puderam ser removidos." });
+      } else {
+        toast({ title: `${deletedCount} registro(s) excluído(s) com sucesso!` });
+      }
       setSelectedKeys(new Set());
     } catch (err: any) {
       toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });

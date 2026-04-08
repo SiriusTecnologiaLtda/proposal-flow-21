@@ -126,7 +126,21 @@ function findInListWithAlias(
 }
 
 // ─── Steps ──────────────────────────────────────────────────────
-type Step = "upload" | "confirm" | "mapping" | "options" | "running" | "done";
+type Step = "upload" | "confirm" | "mapping" | "options" | "preview" | "running" | "done";
+
+// ─── Dry-run result ─────────────────────────────────────────────
+export interface DryRunResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  toInsert: number;
+  toUpdate: number;
+  toSkip: number;
+  blockers: string[];
+  warnings: string[];
+  unresolvedRelations: { field: string; value: string; count: number }[];
+  details: { line: number; action: "insert" | "update" | "skip" | "error"; reason: string }[];
+}
 
 export default function SmartImport() {
   const [step, setStep] = useState<Step>("upload");

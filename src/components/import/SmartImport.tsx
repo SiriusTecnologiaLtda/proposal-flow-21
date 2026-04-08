@@ -1706,6 +1706,29 @@ export default function SmartImport() {
       }
     }
 
+    // Post-processing: create CRM codes for members resolved via sales_team.code fallback
+    if (crmCodesPendingCreation.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Criando ${crmCodesPendingCreation.size} código(s) CRM para membros resolvidos por fallback...`, "system");
+      const crmBatch = Array.from(crmCodesPendingCreation.values()).map(c => ({
+        code: c.code, sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
+      }));
+      for (let b = 0; b < crmBatch.length; b += 100) {
+        const batch = crmBatch.slice(b, b + 100);
+        await supabase.from("sales_team_crm_codes").upsert(batch, { onConflict: "code,sales_team_id" });
+      }
+      invalidateCrmCache();
+      addImportLog(entity, "ok", `${crmCodesPendingCreation.size} código(s) CRM criados.`, "insert");
+    }
+
+    // Post-processing: update member unit_id where missing
+    if (memberUnitUpdates.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Atualizando unidade de ${memberUnitUpdates.size} membro(s) do time...`, "system");
+      for (const [memberId, unitId] of memberUnitUpdates) {
+        await supabase.from("sales_team").update({ unit_id: unitId }).eq("id", memberId);
+      }
+      addImportLog(entity, "ok", `${memberUnitUpdates.size} membro(s) com unidade atualizada.`, "update");
+    }
+
     const finalStatus = interrupted ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");
     finishImportRun(entity, finalStatus as any);
     const dur = Date.now() - importRun.startedAt;

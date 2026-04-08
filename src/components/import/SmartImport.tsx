@@ -2637,7 +2637,9 @@ export default function SmartImport() {
                         return (
                           <div key={selKey} className="px-3 py-2.5 flex items-center gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-destructive truncate">"{item.value}"</div>
+                              <div className="text-sm font-medium text-destructive truncate">
+                                "{item.value}"{item.pairedName ? ` — ${item.pairedName}` : ""}
+                              </div>
                               <div className="text-[11px] text-muted-foreground">{item.occurrences} registro(s) na planilha</div>
                             </div>
                             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

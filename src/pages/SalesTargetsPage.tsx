@@ -419,10 +419,10 @@ export default function SalesTargetsPage() {
         if (error) throw error;
         toast({ title: "Metas adicionadas com sucesso!" });
       } else {
-        // Edit mode: delete all existing records for this member+segment+year, then re-insert
+        // Edit mode: delete all existing records for this member+year, then re-insert
         const existingTargetIds: string[] = [];
         for (const t of targets) {
-          if (t.esn_id === editEsnId && ((t as any).segment_id || null) === (editSegmentId || null)) {
+          if (t.esn_id === editEsnId) {
             existingTargetIds.push(t.id);
           }
         }

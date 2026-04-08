@@ -2394,11 +2394,28 @@ export default function SmartImport() {
 // ── Running/Done sub-component ──────────────────────────────────
 function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => void; isDone: boolean }) {
   const [showLog, setShowLog] = useState(true);
+  const [logFilter, setLogFilter] = useState<"all" | "error" | "warning" | "ok">("all");
   const isRunning = run.status === "running";
   const processedCount = run.totalRows > 0
     ? Math.min(run.totalRows, Math.max(run.processed || 0, run.imported + run.updated + run.errors + run.skipped))
     : 0;
   const progress = run.totalRows > 0 ? (processedCount / run.totalRows * 100) : 0;
+
+  const warningCount = run.logs.filter(l => l.status === "warning").length;
+  const errorCount = run.logs.filter(l => l.status === "error").length;
+  const okCount = run.logs.filter(l => l.status === "ok").length;
+
+  const filteredLogs = logFilter === "all" ? run.logs : run.logs.filter(l => l.status === logFilter);
+
+  const statusBanner = run.status === "success" && run.errors === 0
+    ? { icon: <CheckCircle2 className="h-4 w-4" />, label: "Importação concluída com sucesso", cls: "border-success/30 bg-success/5 text-success" }
+    : run.status === "success" && run.errors > 0
+    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação concluída com erros parciais", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    : run.status === "interrupted"
+    ? { icon: <AlertTriangle className="h-4 w-4" />, label: "Importação interrompida", cls: "border-yellow-500/30 bg-yellow-500/5 text-yellow-700 dark:text-yellow-400" }
+    : run.status === "error"
+    ? { icon: <XCircle className="h-4 w-4" />, label: "Importação falhou", cls: "border-destructive/30 bg-destructive/5 text-destructive" }
+    : null;
 
   return (
     <div className="space-y-3">
@@ -2418,35 +2435,59 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
       )}
 
       {!isRunning && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-success" />
-              <span className="text-muted-foreground">Inseridos:</span>
-              <span className="font-medium">{run.imported}</span>
+        <div className="space-y-3">
+          {/* Status banner */}
+          {statusBanner && (
+            <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${statusBanner.cls}`}>
+              {statusBanner.icon}
+              {statusBanner.label}
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-primary" />
-              <span className="text-muted-foreground">Atualizados:</span>
-              <span className="font-medium">{run.updated}</span>
+          )}
+
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-success" />
+                <span className="text-muted-foreground">Inseridos:</span>
+                <span className="font-medium">{run.imported}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                <span className="text-muted-foreground">Atualizados:</span>
+                <span className="font-medium">{run.updated}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-destructive" />
+                <span className="text-muted-foreground">Erros:</span>
+                <span className="font-medium">{run.errors}</span>
+              </div>
+              {warningCount > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                  <span className="text-muted-foreground">Alertas:</span>
+                  <span className="font-medium">{warningCount}</span>
+                </div>
+              )}
+              {run.skipped > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Ignorados:</span>
+                  <span className="font-medium">{run.skipped}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Tempo:</span>
+                <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-destructive" />
-              <span className="text-muted-foreground">Erros:</span>
-              <span className="font-medium">{run.errors}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Tempo:</span>
-              <span className="font-medium">{formatDuration(run.durationMs || 0)}</span>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Taxa de êxito</span>
-            <div className="flex items-center gap-2">
-              <Progress value={run.totalRows > 0 ? (run.imported + run.updated) / run.totalRows * 100 : 0} className="h-1.5 w-20" />
-              <span className="font-semibold">{run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : 0}%</span>
+            <Separator />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Taxa de êxito</span>
+              <div className="flex items-center gap-2">
+                <Progress value={run.totalRows > 0 ? (run.imported + run.updated) / run.totalRows * 100 : 0} className="h-1.5 w-20" />
+                <span className="font-semibold">{run.totalRows > 0 ? ((run.imported + run.updated) / run.totalRows * 100).toFixed(1) : 0}%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2454,20 +2495,37 @@ function RunningView({ run, onReset, isDone }: { run: ImportRun; onReset: () => 
 
       {run.logs.length > 0 && (
         <div>
-          <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
-            {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            Log ({run.logs.length} entradas)
-          </button>
+          <div className="flex items-center justify-between">
+            <button onClick={() => setShowLog(!showLog)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              {showLog ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Log ({run.logs.length} entradas)
+            </button>
+            {showLog && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setLogFilter("all")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
+                {errorCount > 0 && <button onClick={() => setLogFilter("error")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "error" ? "bg-destructive text-destructive-foreground" : "text-destructive hover:text-destructive/80"}`}>Erros ({errorCount})</button>}
+                {warningCount > 0 && <button onClick={() => setLogFilter("warning")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "warning" ? "bg-yellow-500 text-yellow-950" : "text-yellow-600 dark:text-yellow-400 hover:text-yellow-700"}`}>Alertas ({warningCount})</button>}
+                {okCount > 0 && <button onClick={() => setLogFilter("ok")} className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${logFilter === "ok" ? "bg-success text-success-foreground" : "text-success hover:text-success/80"}`}>Sucesso ({okCount})</button>}
+              </div>
+            )}
+          </div>
           {showLog && (
-            <ScrollArea className="mt-2 h-40 rounded-md border border-border bg-muted/20 p-2">
+            <ScrollArea className="mt-2 h-48 rounded-md border border-border bg-muted/20 p-2">
               <div className="space-y-0.5 font-mono text-[11px]">
-                {run.logs.map((entry, i) => (
+                {filteredLogs.map((entry, i) => (
                   <div key={i} className="flex items-start gap-1.5">
                     {entry.status === "ok" && <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />}
                     {entry.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0 mt-0.5" />}
+                    {entry.status === "warning" && <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />}
                     {entry.status === "info" && <FileSpreadsheet className="h-3 w-3 text-primary shrink-0 mt-0.5" />}
-                    <span className={entry.status === "ok" ? "text-success" : entry.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                    <span className={
+                      entry.status === "ok" ? "text-success" :
+                      entry.status === "error" ? "text-destructive" :
+                      entry.status === "warning" ? "text-yellow-600 dark:text-yellow-400" :
+                      "text-muted-foreground"
+                    }>
+                      {entry.category && <span className="text-muted-foreground/60">[{entry.category}] </span>}
                       {entry.message}
                     </span>
                   </div>

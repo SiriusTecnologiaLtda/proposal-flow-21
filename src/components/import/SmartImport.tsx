@@ -850,14 +850,7 @@ export default function SmartImport() {
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const unitAliasKey = getAliasKey(entity, "unit_code");
 
-    function parseRole(cargo: string): "esn" | "gsn" | "dsn" | "arquiteto" | null {
-      const c = cargo.toLowerCase().trim();
-      if (c.includes("arquiteto") || c.includes("engenheiro de valor") || c.includes("ev")) return "arquiteto";
-      if (c.includes("dsn") || c.includes("diretor")) return "dsn";
-      if (c.includes("gsn") || c.includes("gerente")) return "gsn";
-      if (c.includes("esn") || c.includes("executivo") || c.includes("vendedor")) return "esn";
-      return null;
-    }
+    // parseRole is now imported from importSchemas
 
     // Pre-load existing sales_team by code for dedup
     const existingByCode = new Map<string, string>();

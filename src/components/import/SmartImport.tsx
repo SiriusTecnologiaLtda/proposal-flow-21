@@ -362,12 +362,9 @@ export default function SmartImport() {
     // If esn_code resolves but esn_name doesn't (or vice-versa), and they
     // appear on the same row, remove the unresolved one since the resolved
     // partner already identifies the member.
+    // Also: if BOTH are unresolved but paired on the same row, keep only
+    // esn_code (the primary identifier) to avoid showing duplicate pending items.
     if (detectedEntity === "sales_targets") {
-      const esnCodeResolved = new Map<string, string>(); // rowKey -> resolved ID
-      const esnNameResolved = new Map<string, string>();
-      const esnCodeAliasKey = getAliasKey("sales_targets", "esn_code");
-      const esnNameAliasKey = getAliasKey("sales_targets", "esn_name");
-
       // Build map of code→name and name→code from same rows
       const rowPairs = new Map<string, Set<string>>(); // code_lower → set of name_lowers
       const nameToCodes = new Map<string, Set<string>>();
@@ -386,14 +383,14 @@ export default function SmartImport() {
       const unresolvedCodes = new Set(unresolved.filter(u => u.fieldKey === "esn_code").map(u => u.valueLower));
       const unresolvedNames = new Set(unresolved.filter(u => u.fieldKey === "esn_name").map(u => u.valueLower));
 
-      // Remove unresolved names whose paired code IS resolved (not in unresolved)
       const toRemove = new Set<string>();
+
+      // Remove unresolved names whose paired code IS resolved (not in unresolved)
       for (const nameVal of unresolvedNames) {
         const pairedCodes = nameToCodes.get(nameVal);
         if (pairedCodes) {
           for (const code of pairedCodes) {
             if (!unresolvedCodes.has(code)) {
-              // The code resolved, so the name doesn't need separate resolution
               toRemove.add(`esn_name:${nameVal}`);
             }
           }
@@ -406,6 +403,29 @@ export default function SmartImport() {
           for (const name of pairedNames) {
             if (!unresolvedNames.has(name)) {
               toRemove.add(`esn_code:${codeVal}`);
+            }
+          }
+        }
+      }
+
+      // When BOTH code and name are unresolved but paired on same row,
+      // keep only esn_code to avoid duplicate pending items for the same person.
+      // Enrich the esn_code entry with the paired name for better display.
+      for (const codeVal of unresolvedCodes) {
+        const pairedNames = rowPairs.get(codeVal);
+        if (pairedNames) {
+          for (const name of pairedNames) {
+            if (unresolvedNames.has(name)) {
+              // Both unresolved + same row → remove name, keep code
+              toRemove.add(`esn_name:${name}`);
+              // Enrich the code entry with the paired name
+              const codeEntry = unresolved.find(u => u.fieldKey === "esn_code" && u.valueLower === codeVal);
+              if (codeEntry) {
+                const nameEntry = unresolved.find(u => u.fieldKey === "esn_name" && u.valueLower === name);
+                if (nameEntry) {
+                  codeEntry.pairedName = nameEntry.value;
+                }
+              }
             }
           }
         }

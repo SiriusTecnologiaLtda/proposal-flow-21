@@ -62,8 +62,8 @@ describe("findInList", () => {
     expect(findInList(shortList, "0099", crmCodes)).toBeNull();
   });
 
-  it("falls back to partial match", () => {
-    expect(findInList(salesTeam, "silva")).toBe("id-joao"); // partial name
+  it("no longer falls back to partial match (removed to prevent false positives)", () => {
+    expect(findInList(salesTeam, "silva")).toBeNull(); // partial match removed
   });
 
   it("returns null when nothing matches", () => {

@@ -567,15 +567,19 @@ export function findInList(
   if (!search) return null;
   const s = search.trim().toLowerCase();
   if (!s) return null; // whitespace-only guard
+  // Exact code match
   const byCode = list.find(u => u.code === s);
   if (byCode) return byCode.id;
+  // Exact name match
   const byName = list.find(u => u.name === s);
   if (byName) return byName.id;
+  // Padded code match (leading zeros)
   const sNum = s.replace(/^0+/, "");
   if (sNum) {
     const byPaddedCode = list.find(u => u.code.replace(/^0+/, "") === sNum);
     if (byPaddedCode) return byPaddedCode.id;
   }
+  // CRM code match
   if (crmCodes) {
     const byCrm = crmCodes.find(c => c.code === s);
     if (byCrm && list.some(l => l.id === byCrm.sales_team_id)) return byCrm.sales_team_id;
@@ -584,11 +588,11 @@ export function findInList(
       if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
     }
   }
-  const partial = list.find(u =>
-    (u.code && (u.code.includes(s) || s.includes(u.code))) ||
-    (u.name && (u.name.includes(s) || s.includes(u.name)))
-  );
-  return partial ? partial.id : null;
+  // NOTE: Partial/substring matching was removed because it caused false
+  // positives (e.g. a member named "SANTOS" matching "FELIPHE NOGUEIRA SANTOS").
+  // The pre-scan would consider the value resolved while the execution
+  // (which uses exact Map.get()) would fail, generating FK errors silently.
+  return null;
 }
 
 export function findInListWithAlias(

@@ -304,18 +304,6 @@ export default function SmartImport() {
     // Always invalidate CRM cache before pre-scan to ensure fresh data on re-imports
     invalidateCrmCache();
 
-    // When "clear existing data" is checked, also clear aliases to avoid stale resolutions
-    if (clearExistingTargets && detectedEntity === "sales_targets") {
-      const freshAliases = { ...loadAliasStore() };
-      const keysToRemove = Object.keys(freshAliases).filter(k => k.startsWith("sales_targets:"));
-      if (keysToRemove.length > 0) {
-        for (const k of keysToRemove) delete freshAliases[k];
-        saveAliasStore(freshAliases);
-        setAliasStore(freshAliases);
-        console.log("[SmartImport] Aliases de sales_targets limpos (opção Limpar dados ativa).");
-      }
-    }
-
     // Load lookup lists + CRM codes
     const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
@@ -331,7 +319,44 @@ export default function SmartImport() {
 
     setLookupListsCache({ unitList, esnList, gsnList, salesTeamList });
 
-    const currentAliases = loadAliasStore();
+    // Always purge stale aliases for the current entity: remove any alias
+    // whose target ID no longer exists in the freshly-loaded lookup lists.
+    const freshAliases = { ...loadAliasStore() };
+    const entityPrefix = `${detectedEntity}:`;
+    let purgedCount = 0;
+    for (const aliasGroupKey of Object.keys(freshAliases)) {
+      if (!aliasGroupKey.startsWith(entityPrefix)) continue;
+      const aliasMap = freshAliases[aliasGroupKey];
+      if (!aliasMap || typeof aliasMap !== "object") continue;
+      // Determine which lookup list this alias group belongs to
+      const fieldKey = aliasGroupKey.slice(entityPrefix.length);
+      const rf = mappedRelFields.find(r => r.fieldKey === fieldKey);
+      const listForAlias = rf
+        ? (rf.listType === "units" ? unitList : rf.listType === "esn" ? esnList : rf.listType === "gsn" ? gsnList : salesTeamList)
+        : salesTeamList;
+      for (const [val, targetId] of Object.entries(aliasMap)) {
+        if (!listForAlias.some(l => l.id === targetId)) {
+          delete aliasMap[val];
+          purgedCount++;
+        }
+      }
+      // Remove empty alias groups
+      if (Object.keys(aliasMap).length === 0) delete freshAliases[aliasGroupKey];
+    }
+    // Additionally clear ALL entity aliases when "clear existing data" is checked
+    if (clearExistingTargets && detectedEntity === "sales_targets") {
+      for (const k of Object.keys(freshAliases).filter(k => k.startsWith("sales_targets:"))) {
+        purgedCount += Object.keys(freshAliases[k] || {}).length;
+        delete freshAliases[k];
+      }
+    }
+    if (purgedCount > 0) {
+      saveAliasStore(freshAliases);
+      setAliasStore(freshAliases);
+      console.log(`[SmartImport] ${purgedCount} alias(es) obsoleto(s) removido(s) para ${detectedEntity}.`);
+    }
+
+    const currentAliases = freshAliases;
 
     // Collect unique values per relational field
     const unresolved: UnresolvedRelation[] = [];
@@ -384,6 +409,8 @@ export default function SmartImport() {
           }
           continue;
         }
+
+        console.log(`[SmartImport] ❌ Não resolvido: campo=${rf.fieldKey} valor="${original}" (${count} ocorrência(s))`);
 
         const uniqueKey = `${rf.fieldKey}:${lower}`;
         if (seenKeys.has(uniqueKey)) continue;

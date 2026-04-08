@@ -622,7 +622,7 @@ export default function SmartImport() {
       return;
     }
     if (validation.warnings.length > 0) {
-      for (const w of validation.warnings) addImportLog(detectedEntity, "info", `⚠️ Validação: ${w}`);
+      for (const w of validation.warnings) addImportLog(detectedEntity, "warning", `Validação: ${w}`, "validation");
     }
     if (!layoutSaved && headers.length > 0) {
       saveLayout({ id: crypto.randomUUID(), name: file?.name || "Layout", entity: detectedEntity, headerSignature: getHeaderSignature(headers), mapping, headerNames: headers, createdAt: Date.now() });

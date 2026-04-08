@@ -92,13 +92,24 @@ export default function SalesTargetsPage() {
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ["sales-targets", yearFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales_targets")
-        .select("*")
-        .eq("year", Number(yearFilter))
-        .order("month", { ascending: true });
-      if (error) throw error;
-      return data || [];
+      // Paginate to avoid the 1000-row default limit
+      const all: any[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("sales_targets")
+          .select("*")
+          .eq("year", Number(yearFilter))
+          .order("month", { ascending: true })
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
     },
     staleTime: 0,
     refetchOnWindowFocus: true,

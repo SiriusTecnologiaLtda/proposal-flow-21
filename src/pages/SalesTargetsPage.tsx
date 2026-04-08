@@ -355,10 +355,18 @@ export default function SalesTargetsPage() {
     }
   }
 
-  // KPI cards data
-  const totalEsns = filtered.length;
-  const avgPerEsn = totalEsns > 0 ? grandTotalMeta / totalEsns : 0;
-  const esnWithTargets = filtered.filter(r => Object.values(r.months).some(m => m.amount > 0)).length;
+  // KPI cards: total by category from filtered data
+  const categoryTotals = useMemo(() => {
+    const map = new Map<string, { name: string; total: number }>();
+    for (const row of filtered) {
+      const catId = row.category_id || "sem_categoria";
+      const catName = categories.find(c => c.id === row.category_id)?.name || "Sem Categoria";
+      const rowTotal = Object.values(row.months).reduce((s, m) => s + m.amount, 0);
+      const entry = map.get(catId);
+      if (entry) { entry.total += rowTotal; } else { map.set(catId, { name: catName, total: rowTotal }); }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filtered, categories]);
 
   return (
     <div className="space-y-5">

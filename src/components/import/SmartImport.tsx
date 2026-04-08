@@ -898,7 +898,7 @@ export default function SmartImport() {
 
         const unit_id = unitVal ? findInListWithAlias(unitList, unitVal, unitAliasKey, currentAliases) : null;
         if (unitVal && !unit_id) {
-          addImportLog(entity, "error", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`);
+          addImportLog(entity, "warning", `Linha ${i + 2} (${code}): Unidade "${unitVal}" não encontrada no cadastro.`, "relation");
         }
 
         const payload: any = { code, name, role, email, phone, unit_id };

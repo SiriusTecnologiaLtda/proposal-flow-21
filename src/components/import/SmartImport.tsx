@@ -833,17 +833,16 @@ export default function SmartImport() {
       }
     }
 
-    // Batch insert CRM codes
+    // Batch upsert CRM codes (onConflict on code+sales_team_id)
     if (crmCodesToInsert.length > 0) {
       addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`);
       const CRM_BATCH = 100;
       for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
         const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);
-        const { error } = await supabase.from("sales_team_crm_codes").insert(batch);
+        const { error } = await supabase.from("sales_team_crm_codes").upsert(batch, { onConflict: "code,sales_team_id" });
         if (error) {
-          // Fallback row-by-row
           for (const item of batch) {
-            const { error: rowErr } = await supabase.from("sales_team_crm_codes").insert(item);
+            const { error: rowErr } = await supabase.from("sales_team_crm_codes").upsert(item, { onConflict: "code,sales_team_id" });
             if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`);
           }
         }

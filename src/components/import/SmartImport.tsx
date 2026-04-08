@@ -19,7 +19,7 @@ import {
 import {
   Upload, Wand2, ArrowRight, ArrowLeft, CheckCircle2, XCircle, Loader2,
   FileSpreadsheet, Clock, ChevronDown, ChevronUp, Play, Settings2, Eye, Save,
-  Sparkles, Filter, Trash2, AlertTriangle, Link2
+  Sparkles, Filter, Trash2, AlertTriangle, Link2, Target
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {

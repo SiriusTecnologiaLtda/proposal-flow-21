@@ -150,7 +150,9 @@ export default function SmartImport() {
     esnList: { id: string; code: string; name: string }[];
     gsnList: { id: string; code: string; name: string }[];
     salesTeamList: { id: string; code: string; name: string }[];
-  }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [] });
+    categoryList: { id: string; code: string; name: string }[];
+    segmentList: { id: string; code: string; name: string }[];
+  }>({ unitList: [], esnList: [], gsnList: [], salesTeamList: [], categoryList: [], segmentList: [] });
   const [crmCodesCache, setCrmCodesCache] = useState<{ code: string; sales_team_id: string; unit_id: string | null }[]>([]);
   const [scanningRelations, setScanningRelations] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -305,9 +307,11 @@ export default function SmartImport() {
     invalidateCrmCache();
 
     // Load lookup lists + CRM codes
-    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
+    const [{ data: units }, { data: salesTeam }, { data: categories }, { data: segments }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      supabase.from("categories").select("id, name"),
+      supabase.from("software_segments").select("id, name"),
       loadCrmCodes(),
     ]);
     setCrmCodesCache(crmCodes);
@@ -316,8 +320,10 @@ export default function SmartImport() {
     const esnList = allSalesTeam.filter(s => s.role === "esn").map(({ role, ...r }) => r);
     const gsnList = allSalesTeam.filter(s => s.role === "gsn").map(({ role, ...r }) => r);
     const salesTeamList = allSalesTeam.map(({ role, ...r }) => r);
+    const categoryList = (categories || []).map(c => ({ id: c.id, code: "", name: c.name.trim().toLowerCase() }));
+    const segmentList = (segments || []).map(s => ({ id: s.id, code: "", name: s.name.trim().toLowerCase() }));
 
-    setLookupListsCache({ unitList, esnList, gsnList, salesTeamList });
+    setLookupListsCache({ unitList, esnList, gsnList, salesTeamList, categoryList, segmentList });
 
     // Always purge stale aliases for the current entity: remove any alias
     // whose target ID no longer exists in the freshly-loaded lookup lists.
@@ -332,7 +338,7 @@ export default function SmartImport() {
       const fieldKey = aliasGroupKey.slice(entityPrefix.length);
       const rf = mappedRelFields.find(r => r.fieldKey === fieldKey);
       const listForAlias = rf
-        ? (rf.listType === "units" ? unitList : rf.listType === "esn" ? esnList : rf.listType === "gsn" ? gsnList : salesTeamList)
+        ? (rf.listType === "units" ? unitList : rf.listType === "esn" ? esnList : rf.listType === "gsn" ? gsnList : rf.listType === "categories" ? categoryList : rf.listType === "segments" ? segmentList : salesTeamList)
         : salesTeamList;
       for (const [val, targetId] of Object.entries(aliasMap)) {
         if (!listForAlias.some(l => l.id === targetId)) {
@@ -367,10 +373,12 @@ export default function SmartImport() {
       const listForField = rf.listType === "units" ? unitList
         : rf.listType === "esn" ? esnList
         : rf.listType === "gsn" ? gsnList
+        : rf.listType === "categories" ? categoryList
+        : rf.listType === "segments" ? segmentList
         : salesTeamList;
 
       const aliasKey = getAliasKey(detectedEntity, rf.fieldKey);
-      const crmForField = (rf.listType !== "units") ? crmCodes : undefined;
+      const crmForField = (rf.listType !== "units" && rf.listType !== "categories" && rf.listType !== "segments") ? crmCodes : undefined;
       const valueCountMap = new Map<string, { original: string; count: number }>();
 
       for (const row of allDataRows) {
@@ -1634,51 +1642,7 @@ export default function SmartImport() {
     const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
     // No pre-load of existing targets needed — each row is inserted independently
-
-    // Helper: ensure category exists
-    const ensureCategoryId = async (rawValue: string): Promise<string | null> => {
-      const label = rawValue.trim();
-      if (!label) return null;
-      const key = normalize(label);
-      const existingId = catMap.get(key);
-      if (existingId) return existingId;
-      const { data: created, error } = await supabase
-        .from("categories").insert({ name: label.toUpperCase(), cost_classification: "opex" } as any).select("id, name").single();
-      if (error || !created) return null;
-      catMap.set(key, created.id);
-      catMap.set(normalize(created.name || label), created.id);
-      setCategoriesList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
-      addImportLog(entity, "info", `Categoria "${created.name}" criada automaticamente.`);
-      return created.id;
-    };
-
-    const ensureSegmentId = async (rawValue: string): Promise<string | null> => {
-      const label = rawValue.trim();
-      if (!label) return null;
-      const key = normalize(label);
-      const existingId = segMap.get(key);
-      if (existingId) return existingId;
-      const { data: created, error } = await supabase
-        .from("software_segments").insert({ name: label.toUpperCase(), is_active: true } as any).select("id, name").single();
-      if (error || !created) return null;
-      segMap.set(key, created.id);
-      segMap.set(normalize(created.name || label), created.id);
-      setSegmentsList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
-      addImportLog(entity, "info", `Segmento "${created.name}" criado automaticamente.`);
-      return created.id;
-    };
-
-    // Pre-scan: ensure all unique categories and segments exist before main loop
-    if (hasCategoryCol || hasSegmentCol) {
-      const uniqueCats = new Set<string>();
-      const uniqueSegs = new Set<string>();
-      for (const row of dataRows) {
-        if (fieldToCol["category_name"] !== undefined) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
-        if (fieldToCol["segment_name"] !== undefined) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
-      }
-      for (const cat of uniqueCats) { await ensureCategoryId(cat); }
-      for (const seg of uniqueSegs) { await ensureSegmentId(seg); }
-    }
+    // Categories and segments are resolved via pre-scan (no auto-creation)
 
     let imported = 0, updated = 0, errors = 0, skipped = 0, processed = 0;
     const cancelSignal = getCancelSignal(entity);
@@ -1773,25 +1737,44 @@ export default function SmartImport() {
         }
       }
 
-      // Resolve category (by name or code)
+      // Resolve category (by name or code, including aliases from pre-scan)
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
         const rawCatName = (ev(row, "category_name") || "").trim();
         const rawCatCode = (ev(row, "category_code") || "").trim();
-        if (rawCatName) { rowCategoryId = catMap.get(normalize(rawCatName)) || null; }
+        if (rawCatName) {
+          rowCategoryId = catMap.get(normalize(rawCatName)) || null;
+          // Check aliases from pre-scan resolution
+          if (!rowCategoryId) {
+            const catAliasKey = getAliasKey(entity, "category_name");
+            const catAliases = currentAliases[catAliasKey];
+            if (catAliases && catAliases[normalize(rawCatName)]) {
+              rowCategoryId = catAliases[normalize(rawCatName)];
+            }
+          }
+        }
         if (!rowCategoryId && rawCatCode) {
-          // Try to find category by normalized code
           const found = (allCategories || []).find(c => normalize(c.name) === normalize(rawCatCode) || c.id === rawCatCode);
           if (found) rowCategoryId = found.id;
         }
       }
 
-      // Resolve segment (by name or code)
+      // Resolve segment (by name or code, including aliases from pre-scan)
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
         const rawSegName = (ev(row, "segment_name") || "").trim();
         const rawSegCode = (ev(row, "segment_code") || "").trim();
-        if (rawSegName) { rowSegmentId = segMap.get(normalize(rawSegName)) || null; }
+        if (rawSegName) {
+          rowSegmentId = segMap.get(normalize(rawSegName)) || null;
+          // Check aliases from pre-scan resolution
+          if (!rowSegmentId) {
+            const segAliasKey = getAliasKey(entity, "segment_name");
+            const segAliases = currentAliases[segAliasKey];
+            if (segAliases && segAliases[normalize(rawSegName)]) {
+              rowSegmentId = segAliases[normalize(rawSegName)];
+            }
+          }
+        }
         if (!rowSegmentId && rawSegCode) {
           const found = (allSegments || []).find(s => normalize(s.name) === normalize(rawSegCode) || s.id === rawSegCode);
           if (found) rowSegmentId = found.id;
@@ -2016,12 +1999,14 @@ export default function SmartImport() {
   };
 
   // ── Helper to get lookup list for a relational field ──────────
-  function getListForType(listType: "units" | "esn" | "gsn" | "sales_team") {
+  function getListForType(listType: "units" | "esn" | "gsn" | "sales_team" | "categories" | "segments") {
     switch (listType) {
       case "units": return lookupListsCache.unitList;
       case "esn": return lookupListsCache.esnList;
       case "gsn": return lookupListsCache.gsnList;
       case "sales_team": return lookupListsCache.salesTeamList;
+      case "categories": return lookupListsCache.categoryList;
+      case "segments": return lookupListsCache.segmentList;
     }
   }
 
@@ -2452,7 +2437,7 @@ export default function SmartImport() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos ausentes serão criados automaticamente; caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos não encontrados serão exibidos como pendência para resolução manual; caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
                   <Separator className="my-2" />
                   <div className="flex items-center gap-2">

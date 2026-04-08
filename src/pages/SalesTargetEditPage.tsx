@@ -449,18 +449,6 @@ export default function SalesTargetEditPage() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="px-2 py-2 border-r border-border/60">
-                        <Select value={gr.segId} onValueChange={(newId) => updateGridRowField(gr.key, "segId", newId)}>
-                          <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {segments.map((s: any) => (
-                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
                       {Array.from({ length: 12 }, (_, i) => {
                         const m = i + 1;
                         const val = gridValues[gr.key]?.[m] ?? "0";

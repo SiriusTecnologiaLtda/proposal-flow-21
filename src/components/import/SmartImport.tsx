@@ -649,7 +649,7 @@ export default function SmartImport() {
           alreadyCreatedForPair.set(selectionKey, created.id);
 
           // Create CRM code entry for the new member
-          const crmCode = insertData.code.trim();
+          const crmCode = insertData.code.trim().toUpperCase();
           if (crmCode && !crmCode.startsWith("AUTO_")) {
             await supabase.from("sales_team_crm_codes").upsert({
               code: crmCode, sales_team_id: created.id, unit_id: memberUnitId, description: "Criado via importação",
@@ -1211,9 +1211,10 @@ export default function SmartImport() {
           insertedCodeMap.set(code.toLowerCase(), memberId);
 
           // Auto-sync: sempre gravar o código principal como CRM code
-          const mainCrmKey = `${code.trim().toLowerCase()}|${memberId}`;
+          const normalizedCode = code.trim().toUpperCase();
+          const mainCrmKey = `${normalizedCode.toLowerCase()}|${memberId}`;
           if (!existingCrmSet.has(mainCrmKey)) {
-            crmCodesToInsert.push({ code: code.trim(), sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
+            crmCodesToInsert.push({ code: normalizedCode, sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
             existingCrmSet.add(mainCrmKey);
           }
 
@@ -1222,10 +1223,11 @@ export default function SmartImport() {
             const rawCrm = ev(row, "crm_codes") || "";
             if (rawCrm) {
               const codes = rawCrm.split(/[;,]/).map((c: string) => c.trim()).filter(Boolean);
-              for (const crmCode of codes) {
-                const crmKey = `${crmCode.toLowerCase()}|${memberId}`;
+              for (const rawCrmCode of codes) {
+                const normalizedCrm = rawCrmCode.toUpperCase();
+                const crmKey = `${normalizedCrm.toLowerCase()}|${memberId}`;
                 if (!existingCrmSet.has(crmKey)) {
-                  crmCodesToInsert.push({ code: crmCode, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
+                  crmCodesToInsert.push({ code: normalizedCrm, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
                   existingCrmSet.add(crmKey);
                 }
               }
@@ -1875,7 +1877,7 @@ export default function SmartImport() {
     if (crmCodesPendingCreation.size > 0 && !interrupted) {
       addImportLog(entity, "info", `Criando ${crmCodesPendingCreation.size} código(s) CRM para membros resolvidos por fallback...`, "system");
       const crmBatch = Array.from(crmCodesPendingCreation.values()).map(c => ({
-        code: c.code, sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
+        code: c.code.trim().toUpperCase(), sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
       }));
       for (let b = 0; b < crmBatch.length; b += 100) {
         const batch = crmBatch.slice(b, b + 100);

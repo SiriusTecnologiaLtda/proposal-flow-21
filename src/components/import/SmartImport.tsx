@@ -1423,23 +1423,29 @@ export default function SmartImport() {
       supabase.from("unit_info").select("id, code, name"),
     ]);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
-    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
+    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" }>();
+    // Index CRM codes FIRST (primary match source)
+    for (const crm of crmCodes) {
+      const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
+      if (member && !memberMap.has(crm.code)) {
+        memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id, source: "crm" });
+      }
+    }
+    // Then index by sales_team.code and name (fallback)
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
-      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id });
-      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id });
-    }
-    // Also index CRM codes into memberMap
-    for (const crm of crmCodes) {
-      if (!memberMap.has(crm.code)) {
-        const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
-        if (member) memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id });
-      }
+      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "code" });
+      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "name" });
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
+
+    // Track which members need CRM code creation (resolved via sales_team.code fallback)
+    const crmCodesPendingCreation = new Map<string, { code: string; sales_team_id: string; unit_id: string | null }>();
+    // Track which members need unit_id update
+    const memberUnitUpdates = new Map<string, string>(); // member_id -> unit_id
 
     // Pre-load ALL existing targets for this year to avoid per-row queries
     addImportLog(entity, "info", "Carregando metas existentes do ano...");

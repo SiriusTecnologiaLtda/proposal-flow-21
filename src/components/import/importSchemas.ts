@@ -603,11 +603,19 @@ export function findInListWithAlias(
   crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
   if (!search || !search.trim()) return null;
+  const s = search.trim().toLowerCase();
+  // Priority 1: direct code/name match always wins over aliases and CRM codes
+  const byCode = list.find(u => u.code === s);
+  if (byCode) return byCode.id;
+  const byName = list.find(u => u.name === s);
+  if (byName) return byName.id;
+  // Priority 2: session alias
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {
-    const aliasId = aliasMap[search.trim().toLowerCase()];
+    const aliasId = aliasMap[s];
     if (aliasId && list.some(l => l.id === aliasId)) return aliasId;
   }
+  // Priority 3: padded code, then CRM codes (via findInList which skips the exact checks already done)
   return findInList(list, search, crmCodes);
 }
 

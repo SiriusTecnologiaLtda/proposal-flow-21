@@ -237,9 +237,8 @@ export default function SalesTargetEditPage() {
       toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
       return;
     }
-    const missingSegment = gridRows.some(r => !r.segId);
-    if (missingSegment) {
-      toast({ title: "Preencha o Segmento em todas as linhas", variant: "destructive" });
+    if (!editSegId) {
+      toast({ title: "Preencha o Segmento", variant: "destructive" });
       return;
     }
     setSaving(true);

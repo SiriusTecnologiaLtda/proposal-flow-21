@@ -35,10 +35,9 @@ const ROLE_OPTIONS = [
   { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
 ];
 
-/* ── Summary row: one per member+segment ── */
+/* ── Summary row: one per member ── */
 type SummaryRow = {
   esn_id: string;
-  segment_id: string | null;
   name: string;
   code: string;
   role: string;
@@ -73,14 +72,14 @@ export default function SalesTargetsPage() {
   const [editEsnId, setEditEsnId] = useState("");
   const [editUnitId, setEditUnitId] = useState("");
   const [editRole, setEditRole] = useState("esn");
-  const [editSegmentId, setEditSegmentId] = useState("");
   const [editYear, setEditYear] = useState(String(currentYear));
 
-  // Grid: categoryId → month → value string
+  // Grid rows: each row is a catId__segId composite key
+  // gridRows: array of { key, catId, segId }
+  const [gridRows, setGridRows] = useState<{ key: string; catId: string; segId: string }[]>([]);
+  // Grid values: key → month → value string
   const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
-  // Which category rows are shown in the grid
-  const [gridCategoryIds, setGridCategoryIds] = useState<string[]>([]);
-  // Existing record IDs for edit: categoryId_month → id
+  // Existing record IDs for edit: key_month → id(s)
   const [existingIds, setExistingIds] = useState<Record<string, string>>({});
 
   // Selection / delete
@@ -141,13 +140,11 @@ export default function SalesTargetsPage() {
   const summaryRows: SummaryRow[] = useMemo(() => {
     const map = new Map<string, SummaryRow>();
     for (const t of targets) {
-      const segId = (t as any).segment_id || "none";
-      const key = `${t.esn_id}__${segId}`;
+      const key = t.esn_id;
       if (!map.has(key)) {
       const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
-          segment_id: (t as any).segment_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           role: (t as any).role || "esn",
@@ -174,7 +171,21 @@ export default function SalesTargetsPage() {
     }
     if (filterUnitIds.length > 0) result = result.filter(g => g.unit_id && filterUnitIds.includes(g.unit_id));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
-    if (filterSegmentIds.length > 0) result = result.filter(g => g.segment_id && filterSegmentIds.includes(g.segment_id));
+    if (filterSegmentIds.length > 0) {
+      // Filter by checking if the member has ANY target with the selected segment
+      const memberSegments = new Map<string, Set<string>>();
+      for (const t of targets) {
+        const segId = (t as any).segment_id;
+        if (segId) {
+          if (!memberSegments.has(t.esn_id)) memberSegments.set(t.esn_id, new Set());
+          memberSegments.get(t.esn_id)!.add(segId);
+        }
+      }
+      result = result.filter(g => {
+        const segs = memberSegments.get(g.esn_id);
+        return segs && filterSegmentIds.some(sid => segs.has(sid));
+      });
+    }
     if (filterRoles.length > 0) result = result.filter(g => filterRoles.includes(g.role));
     if (filterCategoryIds.length > 0) {
       result = result.filter(g => filterCategoryIds.some(cid => (g.categoryTotals[cid] || 0) > 0));
@@ -210,7 +221,7 @@ export default function SalesTargetsPage() {
   const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
 
-  const getRowKey = (row: SummaryRow) => `${row.esn_id}__${row.segment_id || "none"}`;
+  const getRowKey = (row: SummaryRow) => row.esn_id;
 
   /* ── Selection ── */
   const toggleSelect = (key: string) => {
@@ -232,13 +243,10 @@ export default function SalesTargetsPage() {
   async function deleteSelected() {
     setDeleting(true);
     try {
-      // Get all target IDs for selected member+segment combos
       const idsToDelete: string[] = [];
-      for (const key of selectedKeys) {
-        const [esnId, segId] = key.split("__");
-        const realSegId = segId === "none" ? null : segId;
+      for (const esnId of selectedKeys) {
         for (const t of targets) {
-          if (t.esn_id === esnId && ((t as any).segment_id || null) === realSegId) {
+          if (t.esn_id === esnId) {
             idsToDelete.push(t.id);
           }
         }
@@ -272,40 +280,36 @@ export default function SalesTargetsPage() {
     setEditEsnId(row.esn_id);
     setEditUnitId(row.unit_id || "");
     setEditRole(row.role);
-    setEditSegmentId(row.segment_id || "");
     setEditYear(yearFilter);
 
-    // Find all targets for this member+segment to populate the grid
-    const relevantTargets = targets.filter((t: any) =>
-      t.esn_id === row.esn_id && ((t as any).segment_id || null) === (row.segment_id || null)
-    );
+    const relevantTargets = targets.filter((t: any) => t.esn_id === row.esn_id);
 
-    // Build grid values and existing IDs
-    const catIds = new Set<string>();
+    const rowMap = new Map<string, { catId: string; segId: string }>();
     const values: Record<string, Record<number, string>> = {};
     const ids: Record<string, string> = {};
 
     for (const t of relevantTargets) {
       const catId = (t as any).category_id || "";
+      const segId = (t as any).segment_id || "";
       if (!catId) continue;
-      catIds.add(catId);
-      if (!values[catId]) values[catId] = {};
-      // Sum values for same category+month (since we removed unique constraints)
-      const current = Number(values[catId][t.month] || "0");
-      values[catId][t.month] = String(current + (t.amount || 0));
-      // Store IDs (may have multiple per cat+month, store comma-separated)
-      const idKey = `${catId}_${t.month}`;
+      const key = `${catId}__${segId}`;
+      if (!rowMap.has(key)) rowMap.set(key, { catId, segId });
+      if (!values[key]) values[key] = {};
+      const current = Number(values[key][t.month] || "0");
+      values[key][t.month] = String(current + (t.amount || 0));
+      const idKey = `${key}_${t.month}`;
       ids[idKey] = ids[idKey] ? `${ids[idKey]},${t.id}` : t.id;
     }
 
-    // Fill empty months with "0"
-    for (const catId of catIds) {
+    const rows = Array.from(rowMap.entries()).map(([key, r]) => ({ key, ...r }));
+    for (const r of rows) {
+      if (!values[r.key]) values[r.key] = {};
       for (let m = 1; m <= 12; m++) {
-        if (!values[catId][m]) values[catId][m] = "0";
+        if (!values[r.key][m]) values[r.key][m] = "0";
       }
     }
 
-    setGridCategoryIds(Array.from(catIds));
+    setGridRows(rows);
     setGridValues(values);
     setExistingIds(ids);
     setEditDialogOpen(true);
@@ -318,89 +322,101 @@ export default function SalesTargetsPage() {
     setEditEsnId(firstEsn?.id || "");
     setEditUnitId(firstEsn?.unit_id || "");
     setEditRole("esn");
-    setEditSegmentId("");
     setEditYear(yearFilter);
 
-    // Start with all categories
-    const catIds = sortedCategories.map((c: any) => c.id);
+    const firstSeg = segments[0];
+    const rows = sortedCategories.map((c: any) => ({
+      key: `${c.id}__${firstSeg?.id || ""}`,
+      catId: c.id,
+      segId: firstSeg?.id || "",
+    }));
     const values: Record<string, Record<number, string>> = {};
-    for (const catId of catIds) {
-      values[catId] = {};
-      for (let m = 1; m <= 12; m++) values[catId][m] = "0";
+    for (const r of rows) {
+      values[r.key] = {};
+      for (let m = 1; m <= 12; m++) values[r.key][m] = "0";
     }
-    setGridCategoryIds(catIds);
+    setGridRows(rows);
     setGridValues(values);
     setExistingIds({});
     setEditDialogOpen(true);
   }
 
-  /* ── Add category row to grid ── */
-  function addCategoryRow() {
-    // Find categories not yet in the grid
-    const available = sortedCategories.filter((c: any) => !gridCategoryIds.includes(c.id));
-    if (available.length === 0) {
-      toast({ title: "Todas as categorias já estão na grade" });
-      return;
+  /* ── Add row to grid ── */
+  function addGridRow() {
+    const firstCat = sortedCategories[0];
+    const firstSeg = segments[0];
+    if (!firstCat || !firstSeg) return;
+    const baseKey = `${firstCat.id}__${firstSeg.id}`;
+    let key = baseKey;
+    let counter = 0;
+    while (gridRows.some(r => r.key === key)) {
+      counter++;
+      key = `${baseKey}__${counter}`;
     }
-    const newCatId = available[0].id;
-    setGridCategoryIds(prev => [...prev, newCatId]);
+    setGridRows(prev => [...prev, { key, catId: firstCat.id, segId: firstSeg.id }]);
     setGridValues(prev => {
       const row: Record<number, string> = {};
       for (let m = 1; m <= 12; m++) row[m] = "0";
-      return { ...prev, [newCatId]: row };
+      return { ...prev, [key]: row };
     });
   }
 
-  /* ── Change category for a row ── */
-  function changeCategoryForRow(oldCatId: string, newCatId: string) {
-    if (oldCatId === newCatId) return;
-    setGridCategoryIds(prev => prev.map(id => id === oldCatId ? newCatId : id));
-    setGridValues(prev => {
-      const updated = { ...prev };
-      updated[newCatId] = updated[oldCatId] || {};
-      for (let m = 1; m <= 12; m++) {
-        if (!updated[newCatId][m]) updated[newCatId][m] = "0";
-      }
-      delete updated[oldCatId];
-      return updated;
+  /* ── Update category or segment for a grid row ── */
+  function updateGridRowField(rowKey: string, field: "catId" | "segId", newValue: string) {
+    setGridRows(prev => {
+      const idx = prev.findIndex(r => r.key === rowKey);
+      if (idx === -1) return prev;
+      const old = prev[idx];
+      const updated = { ...old, [field]: newValue };
+      const newKey = `${updated.catId}__${updated.segId}`;
+      const result = [...prev];
+      result[idx] = { ...updated, key: newKey };
+      // Move values
+      setGridValues(gv => {
+        const vals = { ...gv };
+        if (newKey !== rowKey) {
+          vals[newKey] = vals[rowKey] || {};
+          delete vals[rowKey];
+        }
+        return vals;
+      });
+      return result;
     });
   }
 
-  /* ── Remove category row ── */
-  function removeCategoryRow(catId: string) {
-    setGridCategoryIds(prev => prev.filter(id => id !== catId));
+  /* ── Remove grid row ── */
+  function removeGridRow(rowKey: string) {
+    setGridRows(prev => prev.filter(r => r.key !== rowKey));
     setGridValues(prev => {
       const updated = { ...prev };
-      delete updated[catId];
+      delete updated[rowKey];
       return updated;
     });
   }
 
   /* ── Save ── */
   async function handleSave() {
-    if (!editEsnId || !editSegmentId || !editUnitId) {
-      toast({ title: "Preencha todos os campos de contexto", variant: "destructive" });
+    if (!editEsnId || !editUnitId) {
+      toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
+      return;
+    }
+    const missingSegment = gridRows.some(r => !r.segId);
+    if (missingSegment) {
+      toast({ title: "Preencha o Segmento em todas as linhas", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
       if (isCreateMode) {
-        // Insert all non-zero values
         const rows: any[] = [];
-        for (const catId of gridCategoryIds) {
+        for (const gr of gridRows) {
           for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[catId]?.[m] || "0");
+            const val = Number(gridValues[gr.key]?.[m] || "0");
             const amount = Math.round(val * 100) / 100;
             if (amount === 0) continue;
             rows.push({
-              esn_id: editEsnId,
-              year: Number(editYear),
-              month: m,
-              amount,
-              category_id: catId,
-              segment_id: editSegmentId,
-              role: editRole,
-              unit_id: editUnitId,
+              esn_id: editEsnId, year: Number(editYear), month: m, amount,
+              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
             });
           }
         }
@@ -413,35 +429,24 @@ export default function SalesTargetsPage() {
         if (error) throw error;
         toast({ title: "Metas adicionadas com sucesso!" });
       } else {
-        // Edit mode: delete all existing records for this member+segment+year, then re-insert
         const existingTargetIds: string[] = [];
         for (const t of targets) {
-          if (t.esn_id === editEsnId && ((t as any).segment_id || null) === (editSegmentId || null)) {
-            existingTargetIds.push(t.id);
-          }
+          if (t.esn_id === editEsnId) existingTargetIds.push(t.id);
         }
-        // Delete in batches
         for (let i = 0; i < existingTargetIds.length; i += 100) {
           const batch = existingTargetIds.slice(i, i + 100);
           const { error } = await supabase.from("sales_targets").delete().in("id", batch);
           if (error) throw error;
         }
-        // Insert new values
         const rows: any[] = [];
-        for (const catId of gridCategoryIds) {
+        for (const gr of gridRows) {
           for (let m = 1; m <= 12; m++) {
-            const val = Number(gridValues[catId]?.[m] || "0");
+            const val = Number(gridValues[gr.key]?.[m] || "0");
             const amount = Math.round(val * 100) / 100;
             if (amount === 0) continue;
             rows.push({
-              esn_id: editEsnId,
-              year: Number(editYear),
-              month: m,
-              amount,
-              category_id: catId,
-              segment_id: editSegmentId,
-              role: editRole,
-              unit_id: editUnitId,
+              esn_id: editEsnId, year: Number(editYear), month: m, amount,
+              category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
             });
           }
         }
@@ -462,17 +467,14 @@ export default function SalesTargetsPage() {
   }
 
   /* ── Grid totals ── */
-  const getRowTotal = (catId: string) => {
-    const vals = gridValues[catId] || {};
+  const getRowTotal = (key: string) => {
+    const vals = gridValues[key] || {};
     return Object.values(vals).reduce((s, v) => s + (Number(v) || 0), 0);
   };
   const getColTotal = (month: number) => {
-    return gridCategoryIds.reduce((s, catId) => s + (Number(gridValues[catId]?.[month] || "0") || 0), 0);
+    return gridRows.reduce((s, r) => s + (Number(gridValues[r.key]?.[month] || "0") || 0), 0);
   };
-  const getGridGrandTotal = () => gridCategoryIds.reduce((s, catId) => s + getRowTotal(catId), 0);
-
-  // Categories available to add (not yet in grid)
-  const availableCatsToAdd = useMemo(() => sortedCategories.filter((c: any) => !gridCategoryIds.includes(c.id)), [sortedCategories, gridCategoryIds]);
+  const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r.key), 0);
 
   return (
     <div className="space-y-5">
@@ -605,7 +607,7 @@ export default function SalesTargetsPage() {
                       </th>
                     )}
                     <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
-                      Membro / Segmento
+                      Time de Vendas
                     </th>
                     {sortedCategories.map((cat: any) => (
                       <th key={cat.id} className="text-center px-2 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[100px] border-b border-border/60">
@@ -622,7 +624,6 @@ export default function SalesTargetsPage() {
                     const rowKey = getRowKey(row);
                     const isSelected = selectedKeys.has(rowKey);
                     const unitName = getUnitName(row.unit_id);
-                    const segName = getSegmentName(row.segment_id);
                     return (
                       <tr key={rowKey} className={cn("group transition-colors hover:bg-accent/40", isAdmin && "cursor-pointer", isSelected && "bg-primary/5")}>
                         {isAdmin && (
@@ -641,12 +642,6 @@ export default function SalesTargetsPage() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
-                              {row.segment_id && (
-                                <>
-                                  <span className="text-muted-foreground/30">•</span>
-                                  <span className="text-[10px] text-muted-foreground font-medium">{segName}</span>
-                                </>
-                              )}
                               {unitName && (
                                 <>
                                   <span className="text-muted-foreground/30">•</span>
@@ -743,7 +738,7 @@ export default function SalesTargetsPage() {
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {isCreateMode ? (
                 <>
                   <div className="space-y-1 col-span-2 sm:col-span-1">
@@ -782,13 +777,6 @@ export default function SalesTargetsPage() {
                       <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
-                    <Select value={editSegmentId} onValueChange={setEditSegmentId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
                 </>
               ) : (
                 <>
@@ -814,13 +802,6 @@ export default function SalesTargetsPage() {
                       <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
-                    <Select value={editSegmentId} onValueChange={setEditSegmentId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
                 </>
               )}
             </div>
@@ -834,14 +815,17 @@ export default function SalesTargetsPage() {
               <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
             </div>
             <div className="overflow-auto rounded-lg border border-border/60">
-              <table className="w-full text-sm border-collapse min-w-[900px]">
+              <table className="w-full text-sm border-collapse min-w-[1050px]">
                 <thead>
                   <tr className="bg-muted/80">
-                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[160px] border-r border-border/60">
+                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[140px] border-r border-border/60">
                       Categoria
                     </th>
+                    <th className="text-left px-2 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-r border-border/60">
+                      Segmento
+                    </th>
                     {MONTH_NAMES.map((m) => (
-                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[72px] border-r border-border/30">
+                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[68px] border-r border-border/30">
                         {m}
                       </th>
                     ))}
@@ -852,43 +836,38 @@ export default function SalesTargetsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {gridCategoryIds.map((catId) => {
-                    const cat = categories.find((c: any) => c.id === catId);
-                    const rowTotal = getRowTotal(catId);
-                    const hasExisting = Object.keys(existingIds).some(k => k.startsWith(`${catId}_`));
+                  {gridRows.map((gr) => {
+                    const cat = categories.find((c: any) => c.id === gr.catId);
+                    const rowTotal = getRowTotal(gr.key);
                     return (
-                      <tr key={catId} className="group hover:bg-accent/30 transition-colors">
-                        <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-3 py-1.5 border-r border-border/60">
-                          {/* If it's a new row without existing data, allow changing category */}
-                          {!hasExisting && !isCreateMode ? (
-                            <Select value={catId} onValueChange={(newId) => changeCategoryForRow(catId, newId)}>
-                              <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sortedCategories.filter((c: any) => c.id === catId || !gridCategoryIds.includes(c.id)).map((c: any) => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : isCreateMode ? (
-                            <Select value={catId} onValueChange={(newId) => changeCategoryForRow(catId, newId)}>
-                              <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sortedCategories.filter((c: any) => c.id === catId || !gridCategoryIds.includes(c.id)).map((c: any) => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <span className="text-xs font-semibold text-foreground">{cat?.name || "—"}</span>
-                          )}
+                      <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
+                        <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-1.5 py-1.5 border-r border-border/60">
+                          <Select value={gr.catId} onValueChange={(newId) => updateGridRowField(gr.key, "catId", newId)}>
+                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sortedCategories.map((c: any) => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-1.5 py-1.5 border-r border-border/60">
+                          <Select value={gr.segId} onValueChange={(newId) => updateGridRowField(gr.key, "segId", newId)}>
+                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {segments.map((s: any) => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {
                           const m = i + 1;
-                          const val = gridValues[catId]?.[m] ?? "0";
+                          const val = gridValues[gr.key]?.[m] ?? "0";
                           return (
                             <td key={m} className="px-0.5 py-1 border-r border-border/20">
                               <Input
@@ -896,7 +875,7 @@ export default function SalesTargetsPage() {
                                 value={val}
                                 onChange={e => setGridValues(prev => ({
                                   ...prev,
-                                  [catId]: { ...prev[catId], [m]: e.target.value }
+                                  [gr.key]: { ...prev[gr.key], [m]: e.target.value }
                                 }))}
                                 className="h-7 text-xs tabular-nums text-right font-medium px-1.5 border-transparent bg-transparent hover:bg-muted/40 focus:bg-background focus:border-primary/40 transition-colors rounded-sm"
                                 onFocus={e => e.target.select()}
@@ -910,8 +889,8 @@ export default function SalesTargetsPage() {
                           </span>
                         </td>
                         <td className="text-center px-1 py-1.5 border-l border-border/30">
-                          {gridCategoryIds.length > 1 && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeCategoryRow(catId)}>
+                          {gridRows.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeGridRow(gr.key)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
@@ -922,7 +901,7 @@ export default function SalesTargetsPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/60 border-t-2 border-border">
-                    <td className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
+                    <td colSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
                       Total Geral
                     </td>
                     {Array.from({ length: 12 }, (_, i) => {
@@ -943,12 +922,10 @@ export default function SalesTargetsPage() {
                 </tfoot>
               </table>
             </div>
-            {/* Add category button */}
-            {availableCatsToAdd.length > 0 && (
-              <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs text-muted-foreground gap-1" onClick={addCategoryRow}>
-                <Plus className="h-3 w-3" /> Adicionar Categoria
-              </Button>
-            )}
+            {/* Add row button */}
+            <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs text-muted-foreground gap-1" onClick={addGridRow}>
+              <Plus className="h-3 w-3" /> Adicionar Linha
+            </Button>
           </div>
 
           {/* Footer */}
@@ -956,7 +933,7 @@ export default function SalesTargetsPage() {
             <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setIsCreateMode(false); }} disabled={saving} className="h-9">
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving || !editEsnId || !editSegmentId || !editUnitId} className="h-9">
+            <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-9">
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
             </Button>

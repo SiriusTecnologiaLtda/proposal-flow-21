@@ -666,9 +666,6 @@ export default function SalesTargetsPage() {
                             </td>
                           );
                         })}
-                        <td className="text-center px-3 py-2.5 font-semibold tabular-nums text-xs border-l border-border/40 bg-muted/20" onClick={() => isAdmin && openEditDialog(row)}>
-                          {formatCurrency(row.grandTotal)}
-                        </td>
                         {isAdmin && (
                           <td className="text-center px-2 py-2.5 border-l border-border/40 bg-muted/20" onClick={() => openEditDialog(row)}>
                             <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors mx-auto" />

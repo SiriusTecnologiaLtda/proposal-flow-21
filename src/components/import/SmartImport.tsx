@@ -708,6 +708,7 @@ export default function SmartImport() {
   }, [file, allDataRows, mapping, updateFields, user, qc, headerRowIdx, headers, filterRules, detectedEntity, dbFields, extractValue, targetYear]);
 
   // ── CLIENT import with mapped columns ─────────────────────────
+  // Business decision: clients.code is the sole unique key. store_code is NOT a uniqueness dimension.
   async function runClientImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any, currentAliases: AliasStore) {
     const entity: ImportEntity = "clients";
     const importRun = startImportRun(entity, file!.name, false);
@@ -746,7 +747,7 @@ export default function SmartImport() {
     const esnAliasKey = getAliasKey(entity, "esn_code");
     const gsnAliasKey = getAliasKey(entity, "gsn_code");
 
-    // Pre-filter: valid unit (now with aliases)
+    // Pre-filter: valid unit (with aliases)
     const hasUnitMapping = "unit_code" in fieldToCol;
     let filteredRows = dataRows;
     let unitFilteredCount = 0;
@@ -776,22 +777,9 @@ export default function SmartImport() {
       return;
     }
 
-    addImportLog(entity, "info", "Carregando clientes existentes...");
-    const existingMap = new Map<string, string>();
-    let dbOffset = 0;
-    while (true) {
-      const { data: chunk } = await supabase.from("clients").select("id, code, store_code").range(dbOffset, dbOffset + 999);
-      if (!chunk || chunk.length === 0) break;
-      for (const c of chunk) existingMap.set(`${(c.code || "").trim()}|${(c.store_code || "").trim()}`, c.id);
-      if (chunk.length < 1000) break;
-      dbOffset += 1000;
-    }
-
-    const updateFieldsArr = Array.from(updateFields);
-    const willUpdate = updateFieldsArr.length > 0;
     const allMappedKeys = Object.values(mapping);
-
     const unresolvedWarnings: string[] = [];
+
     function buildPayload(row: any[], keys: string[], rowLabel?: string): Record<string, any> {
       const p: Record<string, any> = {};
       for (const key of keys) {
@@ -814,60 +802,47 @@ export default function SmartImport() {
     const cancelSignal = getCancelSignal("clients");
     const BATCH = 50;
 
+    addImportLog(entity, "info", "Iniciando upsert por lote (chave: code)...");
+
     for (let b = 0; b < filteredRows.length; b += BATCH) {
       if (cancelSignal?.aborted) { addImportLog(entity, "info", "⛔ Importação interrompida."); break; }
       const batch = filteredRows.slice(b, b + BATCH);
-      const toInsert: any[] = [];
-      const toUpdate: { id: string; data: Record<string, any> }[] = [];
+      const upsertRows: any[] = [];
 
       for (const row of batch) {
         const code = ev(row, "code");
-        const storeCode = ev(row, "store_code") || "";
-        const key = `${code}|${storeCode}`;
-        const existingId = existingMap.get(key);
         const rowLabel = `Cliente ${code}`;
-
-        if (existingId) {
-          // Always update existing records with all mapped fields
-          unresolvedWarnings.length = 0;
-          const updateKeys = willUpdate ? updateFieldsArr : allMappedKeys.filter(k => k !== "code" && k !== "store_code");
-          const upd = buildPayload(row, updateKeys, rowLabel);
-          for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
-          const clean: Record<string, any> = {};
-          for (const [k, v] of Object.entries(upd)) if (v != null && v !== "") clean[k] = v;
-          if (Object.keys(clean).length > 0) toUpdate.push({ id: existingId, data: clean });
-          else skipped++;
-        } else {
-          unresolvedWarnings.length = 0;
-          const payload = buildPayload(row, allMappedKeys, rowLabel);
-          for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
-          payload.code = payload.code || code;
-          payload.name = payload.name || ev(row, "name");
-          payload.cnpj = ev(row, "cnpj") || "";
-          if (!payload.store_code) payload.store_code = storeCode;
-          toInsert.push({ ...payload, _key: key });
-        }
+        unresolvedWarnings.length = 0;
+        const payload = buildPayload(row, allMappedKeys, rowLabel);
+        for (const w of unresolvedWarnings) addImportLog(entity, "error", `⚠️ ${w}`);
+        payload.code = payload.code || code;
+        payload.name = payload.name || ev(row, "name");
+        payload.cnpj = ev(row, "cnpj") || "";
+        // store_code can still come from the file, just not used as key
+        if (!payload.store_code) payload.store_code = ev(row, "store_code") || "";
+        // Remove undefined/null values that would cause issues
+        const clean: Record<string, any> = {};
+        for (const [k, v] of Object.entries(payload)) if (v != null) clean[k] = v;
+        upsertRows.push(clean);
       }
 
-      if (toInsert.length > 0) {
-        const clean = toInsert.map(({ _key, ...rest }) => rest);
-        const { error: batchErr, data: insData } = await supabase.from("clients").insert(clean).select("id");
+      if (upsertRows.length > 0) {
+        const { error: batchErr, data: upsertData } = await supabase
+          .from("clients")
+          .upsert(upsertRows, { onConflict: "code" })
+          .select("id");
+
         if (batchErr) {
-          for (let i = 0; i < clean.length; i++) {
-            const { error } = await supabase.from("clients").insert(clean[i]);
-            if (error) { errors++; addImportLog(entity, "error", `(${clean[i].code}): ${error.message}`); }
-            else { imported++; existingMap.set(toInsert[i]._key, "new"); }
+          // Fallback: row-by-row
+          for (const row of upsertRows) {
+            const { error } = await supabase.from("clients").upsert(row, { onConflict: "code" });
+            if (error) { errors++; addImportLog(entity, "error", `(${row.code}): ${error.message}`); }
+            else imported++;
           }
         } else {
-          imported += insData?.length || clean.length;
-          for (const item of toInsert) existingMap.set(item._key, "new");
+          imported += upsertData?.length || upsertRows.length;
         }
       }
-
-      for (const upd of toUpdate) {
-        const { error } = await supabase.from("clients").update(upd.data).eq("id", upd.id);
-        if (error) { errors++; addImportLog(entity, "error", `Update: ${error.message}`); }
-        else updated++;
       }
 
       const totalSkipped = skipped + invalidRows + unitFilteredCount + customFilteredCount;

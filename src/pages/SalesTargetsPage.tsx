@@ -35,10 +35,9 @@ const ROLE_OPTIONS = [
   { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
 ];
 
-/* ── Summary row: one per member+segment ── */
+/* ── Summary row: one per member ── */
 type SummaryRow = {
   esn_id: string;
-  segment_id: string | null;
   name: string;
   code: string;
   role: string;

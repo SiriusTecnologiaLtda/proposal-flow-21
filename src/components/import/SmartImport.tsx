@@ -307,9 +307,11 @@ export default function SmartImport() {
     invalidateCrmCache();
 
     // Load lookup lists + CRM codes
-    const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
+    const [{ data: units }, { data: salesTeam }, { data: categories }, { data: segments }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
       supabase.from("sales_team").select("id, code, name, role"),
+      supabase.from("categories").select("id, name"),
+      supabase.from("software_segments").select("id, name"),
       loadCrmCodes(),
     ]);
     setCrmCodesCache(crmCodes);
@@ -318,8 +320,10 @@ export default function SmartImport() {
     const esnList = allSalesTeam.filter(s => s.role === "esn").map(({ role, ...r }) => r);
     const gsnList = allSalesTeam.filter(s => s.role === "gsn").map(({ role, ...r }) => r);
     const salesTeamList = allSalesTeam.map(({ role, ...r }) => r);
+    const categoryList = (categories || []).map(c => ({ id: c.id, code: "", name: c.name.trim().toLowerCase() }));
+    const segmentList = (segments || []).map(s => ({ id: s.id, code: "", name: s.name.trim().toLowerCase() }));
 
-    setLookupListsCache({ unitList, esnList, gsnList, salesTeamList });
+    setLookupListsCache({ unitList, esnList, gsnList, salesTeamList, categoryList, segmentList });
 
     // Always purge stale aliases for the current entity: remove any alias
     // whose target ID no longer exists in the freshly-loaded lookup lists.

@@ -536,7 +536,7 @@ export function findInListWithAlias(
   aliases: AliasStore,
   crmCodes?: { code: string; sales_team_id: string }[],
 ): string | null {
-  if (!search) return null;
+  if (!search || !search.trim()) return null;
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {
     const aliasId = aliasMap[search.trim().toLowerCase()];

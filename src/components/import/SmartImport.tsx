@@ -1533,6 +1533,7 @@ export default function SmartImport() {
       const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
       const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
+      const resolvedSource = memberByCode?.source || memberByName?.source;
 
       // Resolve unit_id from file column if available, otherwise use member's unit
       let rowUnitId = memberUnitId;
@@ -1556,6 +1557,20 @@ export default function SmartImport() {
         errorDetails.push({ line: lineNum, owner: esnLabel, message: "Não encontrado no cadastro do Time de Vendas" });
         processed++;
         continue;
+      }
+
+      // If member was resolved via sales_team.code (fallback), create CRM code entry
+      if (esnCode && resolvedSource === "code" && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
+        crmCodesPendingCreation.set(`${esnCode}|${esnId}`, {
+          code: esnCode.trim(),
+          sales_team_id: esnId,
+          unit_id: rowUnitId,
+        });
+      }
+
+      // If member has no unit_id but row has one, track for update
+      if (esnId && rowUnitId && !memberUnitId) {
+        memberUnitUpdates.set(esnId, rowUnitId);
       }
 
       // Resolve category (by name or code)

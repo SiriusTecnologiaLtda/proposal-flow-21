@@ -57,23 +57,26 @@ export const TEMPLATE_DB_FIELDS: DbField[] = [
 ];
 
 export const SALES_TARGETS_DB_FIELDS: DbField[] = [
-  { key: "esn_code", label: "Código Dono da Meta", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn", "cod dono", "cod dono da meta", "código dono da meta", "cod dsn", "cod gsn"] },
+  { key: "esn_code", label: "Código Dono da Meta", required: true, aliases: ["código", "codigo", "cod", "code", "código esn", "cod esn", "cod dono", "cod dono da meta", "código dono da meta", "cod dsn", "cod gsn", "cód dono da meta"] },
   { key: "esn_name", label: "Nome Dono da Meta", required: false, aliases: ["nome", "name", "esn", "nome esn", "colaborador", "dono da meta", "nome dono da meta", "dono", "nome dsn", "nome gsn"] },
+  { key: "unit_code", label: "Unidade (código/nome)", required: false, aliases: ["unidade", "cod unidade", "cód unidade", "código unidade", "nome unidade", "unit"] },
   { key: "role_name", label: "Nível de Meta", required: false, aliases: ["nivel", "nível", "nivel meta", "nível de meta", "funcao", "função", "role", "tipo meta"] },
-  { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "tipo"] },
+  { key: "category_name", label: "Categoria", required: false, aliases: ["categoria", "category", "cat", "receita", "tipo"] },
+  { key: "category_code", label: "Código Categoria", required: false, aliases: ["cod receita", "cód receita", "código receita", "cod categoria", "código categoria"] },
   { key: "segment_name", label: "Segmento", required: false, aliases: ["segmento", "segment", "seg", "linha"] },
-  { key: "month_1", label: "Janeiro", required: false, aliases: ["janeiro", "jan", "01", "1"], format: "numeric" },
-  { key: "month_2", label: "Fevereiro", required: false, aliases: ["fevereiro", "fev", "02", "2"], format: "numeric" },
-  { key: "month_3", label: "Março", required: false, aliases: ["março", "mar", "03", "3"], format: "numeric" },
-  { key: "month_4", label: "Abril", required: false, aliases: ["abril", "abr", "04", "4"], format: "numeric" },
-  { key: "month_5", label: "Maio", required: false, aliases: ["maio", "mai", "05", "5"], format: "numeric" },
-  { key: "month_6", label: "Junho", required: false, aliases: ["junho", "jun", "06", "6"], format: "numeric" },
-  { key: "month_7", label: "Julho", required: false, aliases: ["julho", "jul", "07", "7"], format: "numeric" },
-  { key: "month_8", label: "Agosto", required: false, aliases: ["agosto", "ago", "08", "8"], format: "numeric" },
-  { key: "month_9", label: "Setembro", required: false, aliases: ["setembro", "set", "09", "9"], format: "numeric" },
-  { key: "month_10", label: "Outubro", required: false, aliases: ["outubro", "out", "10"], format: "numeric" },
-  { key: "month_11", label: "Novembro", required: false, aliases: ["novembro", "nov", "11"], format: "numeric" },
-  { key: "month_12", label: "Dezembro", required: false, aliases: ["dezembro", "dez", "12"], format: "numeric" },
+  { key: "segment_code", label: "Código Segmento", required: false, aliases: ["cod segmento", "cód segmento", "código segmento"] },
+  { key: "month_1", label: "Janeiro", required: false, aliases: ["janeiro", "jan"], format: "numeric" },
+  { key: "month_2", label: "Fevereiro", required: false, aliases: ["fevereiro", "fev"], format: "numeric" },
+  { key: "month_3", label: "Março", required: false, aliases: ["março", "mar"], format: "numeric" },
+  { key: "month_4", label: "Abril", required: false, aliases: ["abril", "abr"], format: "numeric" },
+  { key: "month_5", label: "Maio", required: false, aliases: ["maio", "mai"], format: "numeric" },
+  { key: "month_6", label: "Junho", required: false, aliases: ["junho", "jun"], format: "numeric" },
+  { key: "month_7", label: "Julho", required: false, aliases: ["julho", "jul"], format: "numeric" },
+  { key: "month_8", label: "Agosto", required: false, aliases: ["agosto", "ago"], format: "numeric" },
+  { key: "month_9", label: "Setembro", required: false, aliases: ["setembro", "set"], format: "numeric" },
+  { key: "month_10", label: "Outubro", required: false, aliases: ["outubro", "out"], format: "numeric" },
+  { key: "month_11", label: "Novembro", required: false, aliases: ["novembro", "nov"], format: "numeric" },
+  { key: "month_12", label: "Dezembro", required: false, aliases: ["dezembro", "dez"], format: "numeric" },
 ];
 
 // ─── Entity configs ─────────────────────────────────────────────
@@ -138,6 +141,7 @@ export const RELATIONAL_FIELDS: Record<ImportEntity, RelationalFieldDef[]> = {
   ],
   templates: [],
   sales_targets: [
+    { fieldKey: "unit_code", label: "Unidade", listType: "units" },
     { fieldKey: "esn_code", label: "Dono da Meta (código)", listType: "sales_team" },
     { fieldKey: "esn_name", label: "Dono da Meta (nome)", listType: "sales_team" },
   ],
@@ -243,8 +247,25 @@ export function autoMapColumns(headers: string[], fields: DbField[]): Record<num
   const mapping: Record<number, string> = {};
   const usedFields = new Set<string>();
 
+  // Pass 0: META YYYY - MM pattern → month_N (for sales_targets)
+  const metaMonthRegex = /^meta\s*\d{4}\s*[-–_]\s*(\d{1,2})$/i;
+  for (let i = 0; i < headers.length; i++) {
+    const raw = (headers[i] || "").trim();
+    const m = raw.match(metaMonthRegex);
+    if (m) {
+      const monthNum = parseInt(m[1], 10);
+      const fieldKey = `month_${monthNum}`;
+      const field = fields.find(f => f.key === fieldKey);
+      if (field && !usedFields.has(fieldKey)) {
+        mapping[i] = fieldKey;
+        usedFields.add(fieldKey);
+      }
+    }
+  }
+
   // Pass 1: exact matches
   for (let i = 0; i < headers.length; i++) {
+    if (mapping[i]) continue;
     const h = normalize(headers[i] || "");
     if (!h) continue;
     for (const field of fields) {
@@ -310,10 +331,24 @@ export function detectEntity(headers: string[], sheetNames: string[]): { entity:
   scores.push({ entity: "templates", score: tplScore });
 
   let targScore = scores.find(s => s.entity === "sales_targets")?.score || 0;
+  // Classic month names
   const monthKeywords = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const monthMatches = monthKeywords.filter(m => has(m)).length;
   if (monthMatches >= 6) targScore += 50;
-  if (monthMatches >= 3) targScore += 25;
+  else if (monthMatches >= 3) targScore += 25;
+  // META YYYY - MM pattern detection
+  const metaMonthPattern = /^meta\s*\d{4}\s*[-–_]\s*\d{1,2}$/i;
+  const rawHeaders = headers.map(hdr => (hdr || "").trim());
+  const metaMonthCount = rawHeaders.filter(hdr => metaMonthPattern.test(hdr)).length;
+  if (metaMonthCount >= 6) targScore += 55;
+  else if (metaMonthCount >= 3) targScore += 30;
+  // Target-specific keywords
+  if (has("dono da meta") || has("donodameta")) targScore += 25;
+  if (has("cod dono da meta") || has("coddonometa") || has("códdonodameta")) targScore += 20;
+  if (has("total meta") || has("totalmeta")) targScore += 15;
+  if (has("receita")) targScore += 10;
+  if (has("segmento")) targScore += 10;
+  if (has("nivel") || has("nível")) targScore += 5;
   const existing = scores.find(s => s.entity === "sales_targets");
   if (!existing) {
     scores.push({ entity: "sales_targets", score: targScore });

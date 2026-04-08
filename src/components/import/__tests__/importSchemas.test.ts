@@ -87,6 +87,27 @@ describe("autoMapColumns", () => {
     expect(mapping[4]).toBe("month_3");
   });
 
+  it("maps META YYYY - MM columns for sales_targets", () => {
+    const headers = ["CÓD DONO DA META", "DONO DA META", "META 2026 - 01", "META 2026 - 02", "META 2026 - 03", "META 2026 - 12"];
+    const mapping = autoMapColumns(headers, SALES_TARGETS_DB_FIELDS);
+    expect(mapping[0]).toBe("esn_code");
+    expect(mapping[1]).toBe("esn_name");
+    expect(mapping[2]).toBe("month_1");
+    expect(mapping[3]).toBe("month_2");
+    expect(mapping[4]).toBe("month_3");
+    expect(mapping[5]).toBe("month_12");
+  });
+
+  it("maps unit and segment columns for sales_targets", () => {
+    const headers = ["CÓD DONO DA META", "NOME UNIDADE", "SEGMENTO", "CÓD SEGMENTO", "RECEITA"];
+    const mapping = autoMapColumns(headers, SALES_TARGETS_DB_FIELDS);
+    expect(mapping[0]).toBe("esn_code");
+    expect(mapping[1]).toBe("unit_code");
+    expect(mapping[2]).toBe("segment_name");
+    expect(mapping[3]).toBe("segment_code");
+    expect(mapping[4]).toBe("category_name");
+  });
+
   it("does not duplicate field assignments", () => {
     const headers = ["código", "codigo", "nome"];
     const mapping = autoMapColumns(headers, CLIENT_DB_FIELDS);
@@ -137,6 +158,13 @@ describe("detectEntity", () => {
   it("returns empty array for unrecognizable headers", () => {
     const results = detectEntity(["xyz", "abc", "123"], []);
     expect(results.length).toBe(0);
+  });
+
+  it("detects sales_targets by META YYYY - MM pattern", () => {
+    const headers = ["OPERAÇÃO", "NOME UNIDADE", "CÓD UNIDADE", "DONO DA META", "CÓD DONO DA META", "NÍVEL", "RECEITA", "SEGMENTO", "TOTAL META", "META 2026 - 01", "META 2026 - 02", "META 2026 - 03", "META 2026 - 04", "META 2026 - 05", "META 2026 - 06", "META 2026 - 07", "META 2026 - 08", "META 2026 - 09", "META 2026 - 10", "META 2026 - 11", "META 2026 - 12"];
+    const results = detectEntity(headers, []);
+    expect(results[0].entity).toBe("sales_targets");
+    expect(results[0].confidence).toBeGreaterThanOrEqual(70);
   });
 });
 

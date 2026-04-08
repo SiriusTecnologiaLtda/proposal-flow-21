@@ -1200,9 +1200,10 @@ export default function SmartImport() {
     const segMap = new Map<string, string>();
     for (const s of (allSegments || [])) { segMap.set(normalize(s.name), s.id); }
 
-    const hasCategoryCol = fieldToCol["category_name"] !== undefined;
-    const hasSegmentCol = fieldToCol["segment_name"] !== undefined;
+    const hasCategoryCol = fieldToCol["category_name"] !== undefined || fieldToCol["category_code"] !== undefined;
+    const hasSegmentCol = fieldToCol["segment_name"] !== undefined || fieldToCol["segment_code"] !== undefined;
     const hasRoleCol = fieldToCol["role_name"] !== undefined;
+    const hasUnitCol = fieldToCol["unit_code"] !== undefined;
 
     const roleMap: Record<string, string> = {
       "esn": "esn", "executivo": "esn", "executivo de vendas": "esn",
@@ -1242,10 +1243,12 @@ export default function SmartImport() {
     }
 
     // Load all sales team members + CRM codes
-    const [{ data: salesTeam }, crmCodes] = await Promise.all([
+    const [{ data: salesTeam }, crmCodes, { data: units }] = await Promise.all([
       supabase.from("sales_team").select("id, code, name, role, unit_id"),
       loadCrmCodes(),
+      supabase.from("unit_info").select("id, code, name"),
     ]);
+    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
@@ -1321,8 +1324,8 @@ export default function SmartImport() {
       const uniqueCats = new Set<string>();
       const uniqueSegs = new Set<string>();
       for (const row of dataRows) {
-        if (hasCategoryCol) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
-        if (hasSegmentCol) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
+        if (fieldToCol["category_name"] !== undefined) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
+        if (fieldToCol["segment_name"] !== undefined) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
       }
       for (const cat of uniqueCats) { await ensureCategoryId(cat); }
       for (const seg of uniqueSegs) { await ensureSegmentId(seg); }
@@ -1351,6 +1354,21 @@ export default function SmartImport() {
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
       const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
 
+      // Resolve unit_id from file column if available, otherwise use member's unit
+      let rowUnitId = memberUnitId;
+      if (hasUnitCol) {
+        const rawUnit = (ev(row, "unit_code") || "").trim();
+        if (rawUnit) {
+          const unitAliasKey = getAliasKey(entity, "unit_code");
+          const resolved = findInListWithAlias(unitList, rawUnit, unitAliasKey, currentAliases);
+          if (resolved) {
+            rowUnitId = resolved;
+          } else {
+            addImportLog(entity, "warning", `Linha ${lineNum}: Unidade "${rawUnit}" não encontrada, usando unidade do membro.`, "relation");
+          }
+        }
+      }
+
       if (!esnId) {
         errors++;
         const msg = `Linha ${lineNum}: Dono da meta "${esnLabel}" não encontrado no cadastro do Time de Vendas.`;
@@ -1360,18 +1378,29 @@ export default function SmartImport() {
         continue;
       }
 
-      // Resolve category
+      // Resolve category (by name or code)
       let rowCategoryId: string | null = targetCategoryId || null;
       if (hasCategoryCol) {
-        const rawCat = (ev(row, "category_name") || "").trim();
-        if (rawCat) { rowCategoryId = catMap.get(normalize(rawCat)) || null; }
+        const rawCatName = (ev(row, "category_name") || "").trim();
+        const rawCatCode = (ev(row, "category_code") || "").trim();
+        if (rawCatName) { rowCategoryId = catMap.get(normalize(rawCatName)) || null; }
+        if (!rowCategoryId && rawCatCode) {
+          // Try to find category by normalized code
+          const found = (allCategories || []).find(c => normalize(c.name) === normalize(rawCatCode) || c.id === rawCatCode);
+          if (found) rowCategoryId = found.id;
+        }
       }
 
-      // Resolve segment
+      // Resolve segment (by name or code)
       let rowSegmentId: string | null = targetSegmentId || null;
       if (hasSegmentCol) {
-        const rawSeg = (ev(row, "segment_name") || "").trim();
-        if (rawSeg) { rowSegmentId = segMap.get(normalize(rawSeg)) || null; }
+        const rawSegName = (ev(row, "segment_name") || "").trim();
+        const rawSegCode = (ev(row, "segment_code") || "").trim();
+        if (rawSegName) { rowSegmentId = segMap.get(normalize(rawSegName)) || null; }
+        if (!rowSegmentId && rawSegCode) {
+          const found = (allSegments || []).find(s => normalize(s.name) === normalize(rawSegCode) || s.id === rawSegCode);
+          if (found) rowSegmentId = found.id;
+        }
       }
 
       // Resolve role
@@ -1420,7 +1449,7 @@ export default function SmartImport() {
         if (existingId) {
           toUpdate.push({ id: existingId, amount });
         } else {
-          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: memberUnitId, _line: lineNum, _owner: esnLabel, _month: m });
+          toInsert.push({ esn_id: esnId, year, month: m, amount, role: rowRole, category_id: rowCategoryId, segment_id: rowSegmentId, unit_id: rowUnitId, _line: lineNum, _owner: esnLabel, _month: m });
         }
       }
 

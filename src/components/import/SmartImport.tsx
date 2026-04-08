@@ -1211,9 +1211,10 @@ export default function SmartImport() {
           insertedCodeMap.set(code.toLowerCase(), memberId);
 
           // Auto-sync: sempre gravar o código principal como CRM code
-          const mainCrmKey = `${code.trim().toLowerCase()}|${memberId}`;
+          const normalizedCode = code.trim().toUpperCase();
+          const mainCrmKey = `${normalizedCode.toLowerCase()}|${memberId}`;
           if (!existingCrmSet.has(mainCrmKey)) {
-            crmCodesToInsert.push({ code: code.trim(), sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
+            crmCodesToInsert.push({ code: normalizedCode, sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
             existingCrmSet.add(mainCrmKey);
           }
 

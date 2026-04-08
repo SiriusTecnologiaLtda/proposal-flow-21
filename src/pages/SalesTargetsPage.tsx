@@ -522,7 +522,7 @@ export default function SalesTargetsPage() {
                       </th>
                     )}
                     <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
-                      Executivo de Negócios
+                      Time de Vendas
                     </th>
                     {MONTH_NAMES.map((m, i) => (
                       <th key={i} className="text-center px-1.5 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[80px] border-b border-border/60">
@@ -572,8 +572,20 @@ export default function SalesTargetsPage() {
                           onClick={() => isAdmin && openEditDialog(row)}
                         >
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm text-foreground font-medium leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
+                              {row.category_id && (
+                                <span className="text-sm text-foreground font-semibold leading-tight">{catName}</span>
+                              )}
+                              {row.segment_id && (
+                                <>
+                                  <span className="text-muted-foreground/40">·</span>
+                                  <span className="text-sm text-foreground font-medium leading-tight">{segName}</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-muted-foreground leading-tight">{row.name}</span>
+                              <span className="text-muted-foreground/30">•</span>
                               <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
                               {unitName && (
@@ -581,12 +593,6 @@ export default function SalesTargetsPage() {
                                   <span className="text-muted-foreground/30">•</span>
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{unitName}</span>
                                 </>
-                              )}
-                              {row.category_id && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal">{catName}</Badge>
-                              )}
-                              {row.segment_id && (
-                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal">{segName}</Badge>
                               )}
                             </div>
                           </div>

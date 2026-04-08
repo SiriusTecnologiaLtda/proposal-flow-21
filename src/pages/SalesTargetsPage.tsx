@@ -65,7 +65,7 @@ export default function SalesTargetsPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
-  const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
+  const [editMonthValues, setEditMonthValues] = useState<Record<string | number, string>>({});
   const [editUnitId, setEditUnitId] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("");
@@ -400,8 +400,11 @@ export default function SalesTargetsPage() {
                 setNewSegmentId("");
                 setNewRole("esn");
                 setNewYear(yearFilter);
-                const emptyMonths: Record<number, string> = {};
-                for (let m = 1; m <= 12; m++) emptyMonths[m] = "0";
+                const emptyMonths: Record<string, string> = {};
+                // Initialize all category×month combos with "0"
+                for (const cat of categories) {
+                  for (let m = 1; m <= 12; m++) emptyMonths[`${cat.id}_${m}`] = "0";
+                }
                 setEditMonthValues(emptyMonths);
                 setEditDialogOpen(true);
               }}>
@@ -670,43 +673,43 @@ export default function SalesTargetsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Edit / Create Dialog ──────────────────────────────────── */}
+      {/* ── Edit / Create Dialog (Spreadsheet-style) ──────────────── */}
       <Dialog open={editDialogOpen} onOpenChange={v => { if (!v && !saving && !addEsnMutation.isPending) { setEditDialogOpen(false); setIsCreateMode(false); } }}>
-        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4">
+        <DialogContent className="max-w-[95vw] w-[1200px] p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col">
+          {/* Hero header */}
+          <div className="bg-gradient-to-r from-primary/90 to-primary px-6 py-4 shrink-0">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-white/15 p-2">
                 {isCreateMode ? <Plus className="h-4 w-4 text-primary-foreground" /> : <Pencil className="h-4 w-4 text-primary-foreground" />}
               </div>
               <div>
                 <DialogTitle className="text-primary-foreground text-base font-semibold">
-                  {isCreateMode ? "Adicionar Meta" : "Editar Metas Mensais"}
+                  {isCreateMode ? "Adicionar Metas" : "Editar Metas"}
                 </DialogTitle>
                 <DialogDescription className="text-primary-foreground/70 text-xs mt-0.5">
-                  {isCreateMode ? `Criar nova meta para o ano de ${yearFilter}` : "Ajuste os valores mensais para o executivo selecionado"}
+                  {isCreateMode ? "Preencha o contexto e lance os valores por categoria" : "Ajuste os valores mensais na grade abaixo"}
                 </DialogDescription>
               </div>
             </div>
           </div>
 
-          <div className="p-6 space-y-5">
-            {/* Context section */}
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Identificação</span>
-              </div>
-
+          {/* Context header fields */}
+          <div className="px-6 pt-4 pb-3 border-b border-border/60 bg-muted/20 shrink-0">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {isCreateMode ? (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Membro da Equipe</Label>
+                <>
+                  <div className="space-y-1 col-span-2 sm:col-span-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Membro</Label>
                     <Select value={newEsnId} onValueChange={(val) => {
                       setNewEsnId(val);
                       const member = esnMap.get(val);
                       if (member?.unit_id) setNewUnitId(member.unit_id);
                     }}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         {allEsns.map((e: any) => (
                           <SelectItem key={e.id} value={e.id}>{e.name} ({e.code})</SelectItem>
@@ -714,181 +717,257 @@ export default function SalesTargetsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Ano</Label>
-                      <Select value={newYear} onValueChange={setNewYear}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Ano" /></SelectTrigger>
-                        <SelectContent>
-                          {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Nível de Meta</Label>
-                      <Select value={newRole} onValueChange={setNewRole}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {ROLE_OPTIONS.map(r => (
-                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Unidade</Label>
-                      <Select value={newUnitId} onValueChange={setNewUnitId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {units.map((u: any) => (
-                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Categoria</Label>
-                      <Select value={newCategoryId} onValueChange={setNewCategoryId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {categories.map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Segmento</Label>
-                      <Select value={newSegmentId} onValueChange={setNewSegmentId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {segments.map((s: any) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Unidade</Label>
+                    <Select value={newUnitId} onValueChange={setNewUnitId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Ano</Label>
+                    <Select value={newYear} onValueChange={setNewYear}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Nível</Label>
+                    <Select value={newRole} onValueChange={setNewRole}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
+                    <Select value={newSegmentId} onValueChange={setNewSegmentId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               ) : editRow ? (
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Membro</Label>
-                    <p className="text-sm font-medium text-foreground mt-0.5">{editRow.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{editRow.code}</p>
+                <>
+                  <div className="space-y-1 col-span-2 sm:col-span-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Membro</Label>
+                    <p className="text-sm font-medium text-foreground truncate leading-8">{editRow.name} <span className="text-[10px] text-muted-foreground font-mono">({editRow.code})</span></p>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Nível</Label>
-                      <Select value={editRole} onValueChange={setEditRole}>
-                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {ROLE_OPTIONS.map(r => (
-                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Ano</Label>
-                      {isCreateMode ? (
-                        <Select value={newYear} onValueChange={setNewYear}>
-                          <SelectTrigger className="h-9"><SelectValue placeholder="Ano" /></SelectTrigger>
-                          <SelectContent>
-                            {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-sm font-medium text-foreground mt-1.5">{yearFilter}</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Unidade</Label>
-                      <Select value={editUnitId} onValueChange={setEditUnitId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {units.map((u: any) => (
-                            <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Categoria</Label>
-                      <Select value={editCategoryId} onValueChange={setEditCategoryId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {categories.map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Segmento</Label>
-                      <Select value={editSegmentId} onValueChange={setEditSegmentId}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {segments.map((s: any) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Unidade</Label>
+                    <Select value={editUnitId} onValueChange={setEditUnitId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Ano</Label>
+                    <p className="text-sm font-medium text-foreground leading-8">{yearFilter}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Nível</Label>
+                    <Select value={editRole} onValueChange={setEditRole}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
+                    <Select value={editSegmentId} onValueChange={setEditSegmentId}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               ) : null}
-            </div>
-
-            {/* Monthly values section */}
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Valores Mensais</span>
-                <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-3">
-                {Array.from({ length: 12 }, (_, i) => {
-                  const m = i + 1;
-                  return (
-                    <div key={m} className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground font-medium">{MONTH_FULL[i]}</Label>
-                      <Input
-                        type="number"
-                        value={editMonthValues[m] || "0"}
-                        onChange={e => setEditMonthValues(prev => ({ ...prev, [m]: e.target.value }))}
-                        className="h-9 text-sm tabular-nums text-right font-medium"
-                        onFocus={e => e.target.select()}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Total summary */}
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Anual</span>
-              </div>
-              <span className="text-lg font-bold text-primary tabular-nums">{formatCurrency(editDialogTotal)}</span>
             </div>
           </div>
 
-          {/* Dialog footer */}
-          <div className="border-t border-border/60 px-6 py-3.5 flex items-center justify-end gap-2 bg-muted/20">
+          {/* Spreadsheet grid */}
+          <div className="flex-1 overflow-auto px-6 py-4 min-h-0">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
+              <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
+            </div>
+            <div className="overflow-auto rounded-lg border border-border/60">
+              <table className="w-full text-sm border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-muted/80">
+                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[140px] border-r border-border/60">
+                      Categoria
+                    </th>
+                    {MONTH_NAMES.map((m) => (
+                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[72px] border-r border-border/30">
+                        {m}
+                      </th>
+                    ))}
+                    <th className="text-center px-2 py-2.5 font-semibold text-muted-foreground text-[10px] uppercase tracking-wider min-w-[100px] bg-muted border-l border-border/60">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {(() => {
+                    // In create mode: show all categories as rows
+                    // In edit mode: show only the current category row
+                    const gridCategories = isCreateMode
+                      ? categories
+                      : editCategoryId
+                        ? categories.filter((c: any) => c.id === editCategoryId)
+                        : categories;
+                    return gridCategories.map((cat: any) => {
+                      const catKey = cat.id;
+                      const rowTotal = Array.from({ length: 12 }, (_, i) => {
+                        const val = editMonthValues[`${catKey}_${i + 1}`] ?? editMonthValues[i + 1] ?? "0";
+                        return Number(val) || 0;
+                      }).reduce((s, v) => s + v, 0);
+                      return (
+                        <tr key={catKey} className="group hover:bg-accent/30 transition-colors">
+                          <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-3 py-1.5 border-r border-border/60">
+                            <span className="text-xs font-semibold text-foreground">{cat.name}</span>
+                          </td>
+                          {Array.from({ length: 12 }, (_, i) => {
+                            const m = i + 1;
+                            const valKey = isCreateMode || gridCategories.length > 1 ? `${catKey}_${m}` : m;
+                            const val = editMonthValues[valKey] ?? "0";
+                            return (
+                              <td key={m} className="px-0.5 py-1 border-r border-border/20">
+                                <Input
+                                  type="number"
+                                  value={val}
+                                  onChange={e => setEditMonthValues(prev => ({ ...prev, [valKey]: e.target.value }))}
+                                  className="h-7 text-xs tabular-nums text-right font-medium px-1.5 border-transparent bg-transparent hover:bg-muted/40 focus:bg-background focus:border-primary/40 transition-colors rounded-sm"
+                                  onFocus={e => e.target.select()}
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="text-center px-2 py-1.5 bg-muted/20 border-l border-border/60">
+                            <span className="text-xs font-bold tabular-nums text-foreground">
+                              {rowTotal.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+                {/* Grand total row */}
+                <tfoot>
+                  <tr className="bg-muted/60 border-t-2 border-border">
+                    <td className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
+                      Total Geral
+                    </td>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const m = i + 1;
+                      const gridCategories = isCreateMode
+                        ? categories
+                        : editCategoryId
+                          ? categories.filter((c: any) => c.id === editCategoryId)
+                          : categories;
+                      const colTotal = gridCategories.reduce((s: number, cat: any) => {
+                        const valKey = isCreateMode || gridCategories.length > 1 ? `${cat.id}_${m}` : m;
+                        return s + (Number(editMonthValues[valKey]) || 0);
+                      }, 0);
+                      return (
+                        <td key={m} className="text-center px-1 py-2 text-xs font-bold tabular-nums text-foreground border-r border-border/20">
+                          {colTotal > 0 ? formatCompact(colTotal) : "—"}
+                        </td>
+                      );
+                    })}
+                    <td className="text-center px-2 py-2 bg-muted border-l border-border/60">
+                      <span className="text-sm font-bold tabular-nums text-primary">
+                        {formatCurrency(
+                          (() => {
+                            const gridCategories = isCreateMode
+                              ? categories
+                              : editCategoryId
+                                ? categories.filter((c: any) => c.id === editCategoryId)
+                                : categories;
+                            return gridCategories.reduce((s: number, cat: any) => {
+                              for (let m = 1; m <= 12; m++) {
+                                const valKey = isCreateMode || gridCategories.length > 1 ? `${cat.id}_${m}` : m;
+                                s += Number(editMonthValues[valKey]) || 0;
+                              }
+                              return s;
+                            }, 0);
+                          })()
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border/60 px-6 py-3 flex items-center justify-end gap-2 bg-muted/20 shrink-0">
             <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setIsCreateMode(false); }} disabled={saving || addEsnMutation.isPending} className="h-9">
               Cancelar
             </Button>
             {isCreateMode ? (
               <Button
-                onClick={() => newEsnId && newCategoryId && newSegmentId && newUnitId && addEsnMutation.mutate({ esn_id: newEsnId, category_id: newCategoryId, segment_id: newSegmentId, role: newRole, monthValues: editMonthValues, unit_id: newUnitId })}
-                disabled={!newEsnId || !newCategoryId || !newSegmentId || !newUnitId || addEsnMutation.isPending}
+                onClick={() => {
+                  if (!newEsnId || !newSegmentId || !newUnitId) return;
+                  // Collect per-category data and insert
+                  const rows: any[] = [];
+                  for (const cat of categories) {
+                    for (let m = 1; m <= 12; m++) {
+                      const val = Number(editMonthValues[`${cat.id}_${m}`]) || 0;
+                      const amount = Math.round(val * 100) / 100;
+                      if (amount === 0) continue;
+                      rows.push({
+                        esn_id: newEsnId,
+                        year: Number(newYear),
+                        month: m,
+                        amount,
+                        category_id: cat.id,
+                        segment_id: newSegmentId,
+                        role: newRole,
+                        unit_id: newUnitId,
+                      });
+                    }
+                  }
+                  if (rows.length === 0) {
+                    toast({ title: "Preencha ao menos um valor", variant: "destructive" });
+                    return;
+                  }
+                  (async () => {
+                    setSaving(true);
+                    try {
+                      const { error } = await supabase.from("sales_targets").insert(rows);
+                      if (error) throw error;
+                      qc.invalidateQueries({ queryKey: ["sales-targets"] });
+                      setEditDialogOpen(false);
+                      setIsCreateMode(false);
+                      toast({ title: "Metas adicionadas com sucesso!" });
+                    } catch (err: any) {
+                      toast({ title: "Erro", description: err.message, variant: "destructive" });
+                    } finally {
+                      setSaving(false);
+                    }
+                  })();
+                }}
+                disabled={!newEsnId || !newSegmentId || !newUnitId || saving}
                 className="h-9"
               >
-                {addEsnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
-                Adicionar Meta
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
+                Adicionar Metas
               </Button>
             ) : (
               <Button onClick={saveEditDialog} disabled={saving} className="h-9">

@@ -730,7 +730,7 @@ export default function SmartImport() {
       const before = filteredRows.length;
       filteredRows = filteredRows.filter(row => filterRules.every(rule => evaluateFilterRule(rule, row, fieldToCol, lookupLists, findInList)));
       customFilteredCount = before - filteredRows.length;
-      if (customFilteredCount > 0) addImportLog(entity, "info", `🔍 ${customFilteredCount} registros removidos por filtros.`);
+      if (customFilteredCount > 0) addImportLog(entity, "info", `${customFilteredCount} registros removidos por filtros personalizados`, "filter");
     }
 
     if (filteredRows.length === 0) {

@@ -140,13 +140,11 @@ export default function SalesTargetsPage() {
   const summaryRows: SummaryRow[] = useMemo(() => {
     const map = new Map<string, SummaryRow>();
     for (const t of targets) {
-      const segId = (t as any).segment_id || "none";
-      const key = `${t.esn_id}__${segId}`;
+      const key = t.esn_id;
       if (!map.has(key)) {
       const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
           esn_id: t.esn_id,
-          segment_id: (t as any).segment_id || null,
           name: esn?.name || "—",
           code: esn?.code || "—",
           role: (t as any).role || "esn",

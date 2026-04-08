@@ -338,7 +338,7 @@ export default function SmartImport() {
       const fieldKey = aliasGroupKey.slice(entityPrefix.length);
       const rf = mappedRelFields.find(r => r.fieldKey === fieldKey);
       const listForAlias = rf
-        ? (rf.listType === "units" ? unitList : rf.listType === "esn" ? esnList : rf.listType === "gsn" ? gsnList : salesTeamList)
+        ? (rf.listType === "units" ? unitList : rf.listType === "esn" ? esnList : rf.listType === "gsn" ? gsnList : rf.listType === "categories" ? categoryList : rf.listType === "segments" ? segmentList : salesTeamList)
         : salesTeamList;
       for (const [val, targetId] of Object.entries(aliasMap)) {
         if (!listForAlias.some(l => l.id === targetId)) {

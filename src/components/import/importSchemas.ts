@@ -331,10 +331,24 @@ export function detectEntity(headers: string[], sheetNames: string[]): { entity:
   scores.push({ entity: "templates", score: tplScore });
 
   let targScore = scores.find(s => s.entity === "sales_targets")?.score || 0;
+  // Classic month names
   const monthKeywords = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const monthMatches = monthKeywords.filter(m => has(m)).length;
   if (monthMatches >= 6) targScore += 50;
-  if (monthMatches >= 3) targScore += 25;
+  else if (monthMatches >= 3) targScore += 25;
+  // META YYYY - MM pattern detection
+  const metaMonthPattern = /^meta\s*\d{4}\s*[-–_]\s*\d{1,2}$/i;
+  const rawHeaders = headers.map(hdr => (hdr || "").trim());
+  const metaMonthCount = rawHeaders.filter(hdr => metaMonthPattern.test(hdr)).length;
+  if (metaMonthCount >= 6) targScore += 55;
+  else if (metaMonthCount >= 3) targScore += 30;
+  // Target-specific keywords
+  if (has("dono da meta") || has("donodameta")) targScore += 25;
+  if (has("cod dono da meta") || has("coddonometa") || has("códdonodameta")) targScore += 20;
+  if (has("total meta") || has("totalmeta")) targScore += 15;
+  if (has("receita")) targScore += 10;
+  if (has("segmento")) targScore += 10;
+  if (has("nivel") || has("nível")) targScore += 5;
   const existing = scores.find(s => s.entity === "sales_targets");
   if (!existing) {
     scores.push({ entity: "sales_targets", score: targScore });

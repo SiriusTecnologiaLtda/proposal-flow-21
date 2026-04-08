@@ -734,7 +734,7 @@ export default function SmartImport() {
     }
 
     if (filteredRows.length === 0) {
-      addImportLog(entity, "error", "Nenhum registro após filtros.");
+      addImportLog(entity, "error", "Nenhum registro após filtros.", "filter");
       finishImportRun(entity, "error");
       return;
     }

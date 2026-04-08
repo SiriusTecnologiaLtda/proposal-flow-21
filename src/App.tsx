@@ -66,9 +66,39 @@ class ErrorBoundary extends React.Component<
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[ErrorBoundary] Render crash:", error, info.componentStack);
+
+    // Auto-recover from DOM reconciliation errors (insertBefore, removeChild, etc.)
+    // These are typically caused by portal/dialog/toast race conditions during navigation
+    const isDomError =
+      error?.message?.includes("insertBefore") ||
+      error?.message?.includes("removeChild") ||
+      error?.message?.includes("not a child of this node") ||
+      error?.name === "NotFoundError";
+
+    if (isDomError) {
+      console.warn("[ErrorBoundary] DOM reconciliation error detected — auto-recovering...");
+      // Give React a tick to settle, then clear the error state
+      setTimeout(() => {
+        this.setState({ hasError: false, error: null });
+      }, 100);
+    }
   }
   render() {
     if (this.state.hasError) {
+      // For DOM errors we auto-recover above, but show fallback briefly
+      const isDomError =
+        this.state.error?.message?.includes("insertBefore") ||
+        this.state.error?.message?.includes("removeChild") ||
+        this.state.error?.name === "NotFoundError";
+
+      if (isDomError) {
+        return (
+          <div className="flex h-screen items-center justify-center bg-background">
+            <div className="text-muted-foreground">Recarregando...</div>
+          </div>
+        );
+      }
+
       return (
         <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center">
           <h2 className="text-lg font-semibold text-destructive">Ocorreu um erro inesperado</h2>

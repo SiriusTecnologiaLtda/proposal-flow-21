@@ -2437,7 +2437,7 @@ export default function SmartImport() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos ausentes serão criados automaticamente; caso contrário, o valor selecionado acima será aplicado a todos os registros.
+                    Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos não encontrados serão exibidos como pendência para resolução manual; caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
                   <Separator className="my-2" />
                   <div className="flex items-center gap-2">

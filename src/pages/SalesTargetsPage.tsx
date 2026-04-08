@@ -355,10 +355,18 @@ export default function SalesTargetsPage() {
     }
   }
 
-  // KPI cards data
-  const totalEsns = filtered.length;
-  const avgPerEsn = totalEsns > 0 ? grandTotalMeta / totalEsns : 0;
-  const esnWithTargets = filtered.filter(r => Object.values(r.months).some(m => m.amount > 0)).length;
+  // KPI cards: total by category from filtered data
+  const categoryTotals = useMemo(() => {
+    const map = new Map<string, { name: string; total: number }>();
+    for (const row of filtered) {
+      const catId = row.category_id || "sem_categoria";
+      const catName = categories.find(c => c.id === row.category_id)?.name || "Sem Categoria";
+      const rowTotal = Object.values(row.months).reduce((s, m) => s + m.amount, 0);
+      const entry = map.get(catId);
+      if (entry) { entry.total += rowTotal; } else { map.set(catId, { name: catName, total: rowTotal }); }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filtered, categories]);
 
   return (
     <div className="space-y-5">
@@ -403,41 +411,24 @@ export default function SalesTargetsPage() {
         </div>
       </div>
 
-      {/* ── KPI Summary Cards ──────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2.5">
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Meta Total {yearFilter}</p>
-              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(grandTotalMeta)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2.5">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">ESNs com Meta</p>
-              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{esnWithTargets} <span className="text-sm font-normal text-muted-foreground">/ {totalEsns}</span></p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2.5">
-              <Calendar className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Média por ESN</p>
-              <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(avgPerEsn)}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── KPI por Categoria ──────────────────────────────────── */}
+      <div className={cn("grid gap-3", categoryTotals.length <= 3 ? "grid-cols-1 sm:grid-cols-3" : categoryTotals.length <= 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5")}>
+        {categoryTotals.map((cat) => (
+          <Card key={cat.name} className="border-border/50 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2.5">
+                <Target className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium truncate">{cat.name}</p>
+                <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(cat.total)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {categoryTotals.length === 0 && (
+          <p className="text-sm text-muted-foreground col-span-full py-2">Nenhuma meta encontrada com os filtros atuais.</p>
+        )}
       </div>
 
       {/* ── Filters ────────────────────────────────────────────── */}

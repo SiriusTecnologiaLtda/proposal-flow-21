@@ -790,17 +790,30 @@ export default function SmartImport() {
         const payload: any = { code, name, role, email, phone, unit_id };
         if (commissionVal) payload.commission_pct = parseFloat(commissionVal) || 3;
 
-        const existingId = existingByCode.get(code.trim().toLowerCase());
         let memberId: string | undefined;
+        const existingId = existingByCode.get(code.trim().toLowerCase());
 
-        if (existingId) {
-          const { error } = await supabase.from("sales_team").update(payload).eq("id", existingId);
-          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao atualizar — ${error.message}`); }
-          else { memberId = existingId; updated++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
-        } else {
-          const { data: ins, error } = await supabase.from("sales_team").insert(payload).select("id").single();
-          if (error) { errors++; addImportLog(entity, "error", `Linha ${i + 2} (${code}): Erro ao inserir — ${error.message}`); }
-          else if (ins) { memberId = ins.id; existingByCode.set(code.trim().toLowerCase(), ins.id); imported++; addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`); }
+        // Use upsert with onConflict on code constraint
+        const { data: upsertResult, error: upsertErr } = await supabase
+          .from("sales_team")
+          .upsert(payload, { onConflict: "code" })
+          .select("id")
+          .single();
+
+        if (upsertErr) {
+          errors++;
+          addImportLog(entity, "error", `Linha ${i + 2} (${code}): ${upsertErr.message}`);
+          updateImportStats(entity, { errors });
+        } else if (upsertResult) {
+          memberId = upsertResult.id;
+          if (existingId) {
+            updated++;
+            addImportLog(entity, "info", `Linha ${i + 2} (${code}): Atualizado — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`);
+          } else {
+            existingByCode.set(code.trim().toLowerCase(), upsertResult.id);
+            imported++;
+            addImportLog(entity, "info", `Linha ${i + 2} (${code}): Inserido — ${name}${unit_id ? "" : unitVal ? " ⚠️ sem unidade" : ""}${!email ? " ⚠️ sem e-mail" : ""}`);
+          }
         }
 
         if (memberId) {

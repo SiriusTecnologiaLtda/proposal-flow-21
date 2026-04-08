@@ -528,6 +528,7 @@ export interface UnresolvedRelation {
   occurrences: number;
   listType: "units" | "esn" | "gsn" | "sales_team";
   resolvedId?: string;
+  pairedName?: string;
 }
 
 // ─── Lookup helpers (extracted for testability) ─────────────────

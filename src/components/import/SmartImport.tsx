@@ -295,6 +295,9 @@ export default function SmartImport() {
 
     setScanningRelations(true);
 
+    // Always invalidate CRM cache before pre-scan to ensure fresh data on re-imports
+    invalidateCrmCache();
+
     // Load lookup lists + CRM codes
     const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("unit_info").select("id, code, name"),
@@ -359,12 +362,9 @@ export default function SmartImport() {
     // If esn_code resolves but esn_name doesn't (or vice-versa), and they
     // appear on the same row, remove the unresolved one since the resolved
     // partner already identifies the member.
+    // Also: if BOTH are unresolved but paired on the same row, keep only
+    // esn_code (the primary identifier) to avoid showing duplicate pending items.
     if (detectedEntity === "sales_targets") {
-      const esnCodeResolved = new Map<string, string>(); // rowKey -> resolved ID
-      const esnNameResolved = new Map<string, string>();
-      const esnCodeAliasKey = getAliasKey("sales_targets", "esn_code");
-      const esnNameAliasKey = getAliasKey("sales_targets", "esn_name");
-
       // Build map of code→name and name→code from same rows
       const rowPairs = new Map<string, Set<string>>(); // code_lower → set of name_lowers
       const nameToCodes = new Map<string, Set<string>>();
@@ -383,14 +383,14 @@ export default function SmartImport() {
       const unresolvedCodes = new Set(unresolved.filter(u => u.fieldKey === "esn_code").map(u => u.valueLower));
       const unresolvedNames = new Set(unresolved.filter(u => u.fieldKey === "esn_name").map(u => u.valueLower));
 
-      // Remove unresolved names whose paired code IS resolved (not in unresolved)
       const toRemove = new Set<string>();
+
+      // Remove unresolved names whose paired code IS resolved (not in unresolved)
       for (const nameVal of unresolvedNames) {
         const pairedCodes = nameToCodes.get(nameVal);
         if (pairedCodes) {
           for (const code of pairedCodes) {
             if (!unresolvedCodes.has(code)) {
-              // The code resolved, so the name doesn't need separate resolution
               toRemove.add(`esn_name:${nameVal}`);
             }
           }
@@ -403,6 +403,29 @@ export default function SmartImport() {
           for (const name of pairedNames) {
             if (!unresolvedNames.has(name)) {
               toRemove.add(`esn_code:${codeVal}`);
+            }
+          }
+        }
+      }
+
+      // When BOTH code and name are unresolved but paired on same row,
+      // keep only esn_code to avoid duplicate pending items for the same person.
+      // Enrich the esn_code entry with the paired name for better display.
+      for (const codeVal of unresolvedCodes) {
+        const pairedNames = rowPairs.get(codeVal);
+        if (pairedNames) {
+          for (const name of pairedNames) {
+            if (unresolvedNames.has(name)) {
+              // Both unresolved + same row → remove name, keep code
+              toRemove.add(`esn_name:${name}`);
+              // Enrich the code entry with the paired name
+              const codeEntry = unresolved.find(u => u.fieldKey === "esn_code" && u.valueLower === codeVal);
+              if (codeEntry) {
+                const nameEntry = unresolved.find(u => u.fieldKey === "esn_name" && u.valueLower === name);
+                if (nameEntry) {
+                  codeEntry.pairedName = nameEntry.value;
+                }
+              }
             }
           }
         }
@@ -523,7 +546,7 @@ export default function SmartImport() {
         }
 
         const insertData: any = {
-          name: isCode ? (pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
+          name: isCode ? (item.pairedName || pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
           code: isCode ? item.value.toUpperCase() : (pairedValue || `AUTO_${Date.now()}`).toUpperCase(),
           role: memberRole as any,
           commission_pct: 0,
@@ -2614,7 +2637,9 @@ export default function SmartImport() {
                         return (
                           <div key={selKey} className="px-3 py-2.5 flex items-center gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-destructive truncate">"{item.value}"</div>
+                              <div className="text-sm font-medium text-destructive truncate">
+                                "{item.value}"{item.pairedName ? ` — ${item.pairedName}` : ""}
+                              </div>
                               <div className="text-[11px] text-muted-foreground">{item.occurrences} registro(s) na planilha</div>
                             </div>
                             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -2631,7 +2656,7 @@ export default function SmartImport() {
                                 <SelectItem value="__skip__">— Ignorar (não vincular) —</SelectItem>
                                 {(item.listType === "sales_team" || item.listType === "esn" || item.listType === "gsn") && (
                                   <SelectItem value="__create__" className="text-primary font-medium">
-                                    ＋ Incluir "{item.value}" no cadastro
+                                    ＋ Incluir "{item.value}{item.pairedName ? ` — ${item.pairedName}` : ""}" no cadastro
                                   </SelectItem>
                                 )}
                                 {list.map(item => (

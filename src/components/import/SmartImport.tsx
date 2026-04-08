@@ -1509,9 +1509,12 @@ export default function SmartImport() {
       dbLogId = data?.id;
     } catch {}
 
+    // Load units early (needed for clear scoping and later processing)
+    const { data: units } = await supabase.from("unit_info").select("id, code, name");
+    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
+
     // Clear existing targets for the year if requested — SCOPED to units found in the spreadsheet
     if (clearExistingTargets) {
-      // Detect all unique unit IDs from the spreadsheet data
       const unitAliasKeyForClear = getAliasKey(entity, "unit_code");
       const spreadsheetUnitIds = new Set<string>();
       for (const row of dataRows) {
@@ -1570,12 +1573,10 @@ export default function SmartImport() {
     }
 
     // Load all sales team members + CRM codes
-    const [{ data: salesTeam }, crmCodes, { data: units }] = await Promise.all([
+    const [{ data: salesTeam }, crmCodes] = await Promise.all([
       supabase.from("sales_team").select("id, code, name, role, unit_id"),
       loadCrmCodes(),
-      supabase.from("unit_info").select("id, code, name"),
     ]);
-    const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
     const memberMap = new Map<string, { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" }>();
     // Index CRM codes FIRST (primary match source)
     for (const crm of crmCodes) {

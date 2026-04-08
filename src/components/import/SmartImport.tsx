@@ -1281,7 +1281,7 @@ export default function SmartImport() {
       if (chunk.length < 1000) break;
       dbOffset += 1000;
     }
-    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`);
+    addImportLog(entity, "info", `${existingTargets.size} metas existentes carregadas.`, "system");
 
     // Helper: ensure category exists
     const ensureCategoryId = async (rawValue: string): Promise<string | null> => {

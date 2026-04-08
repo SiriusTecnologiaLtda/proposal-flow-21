@@ -65,7 +65,7 @@ export default function SalesTargetsPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRow, setEditRow] = useState<GroupedRow | null>(null);
-  const [editMonthValues, setEditMonthValues] = useState<Record<number, string>>({});
+  const [editMonthValues, setEditMonthValues] = useState<Record<string | number, string>>({});
   const [editUnitId, setEditUnitId] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("");

@@ -28,6 +28,7 @@ import RegisteredUsersPage from "@/pages/RegisteredUsersPage";
 import ProposalTypesPage from "@/pages/ProposalTypesPage";
 import CadastrosPage from "@/pages/CadastrosPage";
 import SalesTargetsPage from "@/pages/SalesTargetsPage";
+import SalesTargetEditPage from "@/pages/SalesTargetEditPage";
 import TaeConfigPage from "@/pages/TaeConfigPage";
 import WhatsAppConfigPage from "@/pages/WhatsAppConfigPage";
 import ProposalLogsPage from "@/pages/ProposalLogsPage";

@@ -97,10 +97,10 @@ export function startImportRun(entity: ImportEntity, fileName: string, clearedBe
   return run;
 }
 
-export function addImportLog(entity: ImportEntity, status: ImportLogEntry["status"], message: string) {
+export function addImportLog(entity: ImportEntity, status: ImportLogEntry["status"], message: string, category?: LogCategory) {
   const run = activeImports.get(entity);
   if (run) {
-    run.logs.push({ status, message, timestamp: Date.now() });
+    run.logs.push({ status, message, timestamp: Date.now(), category });
     notify();
   }
 }

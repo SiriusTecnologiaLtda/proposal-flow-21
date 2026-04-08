@@ -1223,10 +1223,11 @@ export default function SmartImport() {
             const rawCrm = ev(row, "crm_codes") || "";
             if (rawCrm) {
               const codes = rawCrm.split(/[;,]/).map((c: string) => c.trim()).filter(Boolean);
-              for (const crmCode of codes) {
-                const crmKey = `${crmCode.toLowerCase()}|${memberId}`;
+              for (const rawCrmCode of codes) {
+                const normalizedCrm = rawCrmCode.toUpperCase();
+                const crmKey = `${normalizedCrm.toLowerCase()}|${memberId}`;
                 if (!existingCrmSet.has(crmKey)) {
-                  crmCodesToInsert.push({ code: crmCode, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
+                  crmCodesToInsert.push({ code: normalizedCrm, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
                   existingCrmSet.add(crmKey);
                 }
               }

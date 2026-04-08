@@ -795,10 +795,10 @@ export default function SmartImport() {
           .select("id");
 
         if (batchErr) {
-          // Fallback: row-by-row
+          addImportLog(entity, "warning", `Lote falhou, tentando registro a registro (${upsertRows.length} itens)...`, "fallback");
           for (const row of upsertRows) {
             const { error } = await supabase.from("clients").upsert(row, { onConflict: "code" });
-            if (error) { errors++; addImportLog(entity, "error", `(${row.code}): ${error.message}`); }
+            if (error) { errors++; addImportLog(entity, "error", `(${row.code}): ${error.message}`, "batch_error"); }
             else imported++;
           }
         } else {

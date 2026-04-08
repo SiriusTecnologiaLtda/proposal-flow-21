@@ -1642,51 +1642,7 @@ export default function SmartImport() {
     const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
     // No pre-load of existing targets needed — each row is inserted independently
-
-    // Helper: ensure category exists
-    const ensureCategoryId = async (rawValue: string): Promise<string | null> => {
-      const label = rawValue.trim();
-      if (!label) return null;
-      const key = normalize(label);
-      const existingId = catMap.get(key);
-      if (existingId) return existingId;
-      const { data: created, error } = await supabase
-        .from("categories").insert({ name: label.toUpperCase(), cost_classification: "opex" } as any).select("id, name").single();
-      if (error || !created) return null;
-      catMap.set(key, created.id);
-      catMap.set(normalize(created.name || label), created.id);
-      setCategoriesList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
-      addImportLog(entity, "info", `Categoria "${created.name}" criada automaticamente.`);
-      return created.id;
-    };
-
-    const ensureSegmentId = async (rawValue: string): Promise<string | null> => {
-      const label = rawValue.trim();
-      if (!label) return null;
-      const key = normalize(label);
-      const existingId = segMap.get(key);
-      if (existingId) return existingId;
-      const { data: created, error } = await supabase
-        .from("software_segments").insert({ name: label.toUpperCase(), is_active: true } as any).select("id, name").single();
-      if (error || !created) return null;
-      segMap.set(key, created.id);
-      segMap.set(normalize(created.name || label), created.id);
-      setSegmentsList((prev) => prev.some((item) => item.id === created.id) ? prev : [...prev, { id: created.id, name: created.name }]);
-      addImportLog(entity, "info", `Segmento "${created.name}" criado automaticamente.`);
-      return created.id;
-    };
-
-    // Pre-scan: ensure all unique categories and segments exist before main loop
-    if (hasCategoryCol || hasSegmentCol) {
-      const uniqueCats = new Set<string>();
-      const uniqueSegs = new Set<string>();
-      for (const row of dataRows) {
-        if (fieldToCol["category_name"] !== undefined) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
-        if (fieldToCol["segment_name"] !== undefined) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
-      }
-      for (const cat of uniqueCats) { await ensureCategoryId(cat); }
-      for (const seg of uniqueSegs) { await ensureSegmentId(seg); }
-    }
+    // Categories and segments are resolved via pre-scan (no auto-creation)
 
     let imported = 0, updated = 0, errors = 0, skipped = 0, processed = 0;
     const cancelSignal = getCancelSignal(entity);

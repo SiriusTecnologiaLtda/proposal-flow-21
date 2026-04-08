@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
+import { useUpdateClient, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
+import { SearchableUnitSelect } from "@/components/software-proposal/SearchableUnitSelect";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export default function QuickEditClientDialog({ client, open, onOpenChange, onSaved }: Props) {
-  const { data: units = [] } = useUnits();
+  const [unitDisplayName, setUnitDisplayName] = useState("");
   const { data: salesTeam = [] } = useSalesTeam();
   const updateClient = useUpdateClient();
   const { toast } = useToast();
@@ -44,6 +45,14 @@ export default function QuickEditClientDialog({ client, open, onOpenChange, onSa
         esn_id: client.esn_id || "",
         gsn_id: client.gsn_id || "",
       });
+      // Fetch unit name if client has unit_id
+      if (client.unit_id) {
+        supabase.from("unit_info").select("name").eq("id", client.unit_id).single().then(({ data }) => {
+          setUnitDisplayName(data?.name || "");
+        });
+      } else {
+        setUnitDisplayName("");
+      }
     }
   }, [client, open]);
 
@@ -143,12 +152,15 @@ export default function QuickEditClientDialog({ client, open, onOpenChange, onSa
 
           <div className="grid gap-1">
             <Label className="text-xs">Unidade</Label>
-            <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-              <SelectContent>
-                {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableUnitSelect
+              value={form.unit_id || null}
+              displayValue={unitDisplayName}
+              onChange={(unitId, unitName) => {
+                setForm((f) => ({ ...f, unit_id: unitId || "" }));
+                setUnitDisplayName(unitName);
+              }}
+              placeholder="Buscar unidade..."
+            />
           </div>
 
           <div className="grid gap-1">

@@ -189,7 +189,7 @@ export default function SalesTargetsPage() {
         esn_id,
         year: Number(newYear),
         month: i + 1,
-        amount: Number(monthValues[i + 1]) || 0,
+        amount: Math.round((Number(monthValues[i + 1]) || 0) * 100) / 100,
         category_id,
         segment_id,
         role,
@@ -251,7 +251,7 @@ export default function SalesTargetsPage() {
     setSaving(true);
     try {
       for (let m = 1; m <= 12; m++) {
-        const newAmount = Number(editMonthValues[m]) || 0;
+        const newAmount = Math.round((Number(editMonthValues[m]) || 0) * 100) / 100;
         const existing = editRow.months[m];
         if (existing) {
           const updates: any = {};

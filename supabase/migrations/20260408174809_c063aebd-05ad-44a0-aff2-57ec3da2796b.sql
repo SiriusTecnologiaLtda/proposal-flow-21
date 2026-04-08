@@ -1,0 +1,1 @@
+UPDATE sales_targets SET amount = round(amount::numeric, 2) WHERE amount != round(amount::numeric, 2);

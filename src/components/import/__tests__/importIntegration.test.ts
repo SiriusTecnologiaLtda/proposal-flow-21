@@ -207,9 +207,9 @@ describe("buildClientPayload", () => {
       row, fieldToCol, units, esnList, gsnList, emptyAliases, "clients"
     );
 
-    expect(payload.unit_id).toBeUndefined();
-    expect(payload.esn_id).toBeUndefined();
-    expect(payload.gsn_id).toBeUndefined();
+    expect(payload.unit_id).toBeNull();
+    expect(payload.esn_id).toBeNull();
+    expect(payload.gsn_id).toBeNull();
     expect(warnings).toHaveLength(0);
   });
 

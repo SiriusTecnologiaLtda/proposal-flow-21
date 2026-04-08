@@ -144,12 +144,15 @@ export default function QuickEditClientDialog({ client, open, onOpenChange, onSa
 
           <div className="grid gap-1">
             <Label className="text-xs">Unidade</Label>
-            <Select value={form.unit_id} onValueChange={(v) => setForm((f) => ({ ...f, unit_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
-              <SelectContent>
-                {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableUnitSelect
+              value={form.unit_id || null}
+              displayValue={unitDisplayName}
+              onChange={(unitId, unitName) => {
+                setForm((f) => ({ ...f, unit_id: unitId || "" }));
+                setUnitDisplayName(unitName);
+              }}
+              placeholder="Buscar unidade..."
+            />
           </div>
 
           <div className="grid gap-1">

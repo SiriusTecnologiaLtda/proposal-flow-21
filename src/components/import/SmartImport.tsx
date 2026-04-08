@@ -1220,7 +1220,12 @@ export default function SmartImport() {
       }
     }
 
-    // Batch INSERT
+    // Batch UPSERT (onConflict on composite key)
+    const allRecords = [...toInsert.map(({ _line, _owner, _month, ...rest }) => rest), ...toUpdate.map(u => {
+      // For updates, we need to reconstruct the full record from existingTargets
+      return { id: u.id, amount: u.amount };
+    })];
+
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
       const BATCH = 100;
@@ -1228,11 +1233,10 @@ export default function SmartImport() {
         if (cancelSignal?.aborted) { interrupted = true; break; }
         const batch = toInsert.slice(b, b + BATCH);
         const cleanBatch = batch.map(({ _line, _owner, _month, ...rest }) => rest);
-        const { error: batchErr } = await supabase.from("sales_targets").insert(cleanBatch);
+        const { error: batchErr } = await supabase.from("sales_targets").upsert(cleanBatch, { onConflict: "esn_id,year,month,role,category_id,segment_id" });
         if (batchErr) {
-          // Fallback: insert one by one to identify which records fail
           for (let j = 0; j < cleanBatch.length; j++) {
-            const { error } = await supabase.from("sales_targets").insert(cleanBatch[j]);
+            const { error } = await supabase.from("sales_targets").upsert(cleanBatch[j], { onConflict: "esn_id,year,month,role,category_id,segment_id" });
             if (error) {
               errors++;
               const item = batch[j];

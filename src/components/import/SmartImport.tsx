@@ -962,7 +962,7 @@ export default function SmartImport() {
 
     // Batch upsert CRM codes (onConflict on code+sales_team_id)
     if (crmCodesToInsert.length > 0) {
-      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`);
+      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`, "system");
       const CRM_BATCH = 100;
       for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
         const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);

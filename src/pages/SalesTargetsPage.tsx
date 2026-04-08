@@ -283,13 +283,11 @@ export default function SalesTargetsPage() {
     setEditEsnId(row.esn_id);
     setEditUnitId(row.unit_id || "");
     setEditRole(row.role);
-    setEditSegmentId(row.segment_id || "");
+    setEditSegmentId("");
     setEditYear(yearFilter);
 
-    // Find all targets for this member+segment to populate the grid
-    const relevantTargets = targets.filter((t: any) =>
-      t.esn_id === row.esn_id && ((t as any).segment_id || null) === (row.segment_id || null)
-    );
+    // Find all targets for this member to populate the grid
+    const relevantTargets = targets.filter((t: any) => t.esn_id === row.esn_id);
 
     // Build grid values and existing IDs
     const catIds = new Set<string>();

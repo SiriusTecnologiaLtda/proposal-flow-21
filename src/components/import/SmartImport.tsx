@@ -748,13 +748,13 @@ export default function SmartImport() {
         const val = ev(row, key);
         if (key === "unit_code") {
           p.unit_id = findInListWithAlias(unitList, val || "", unitAliasKey, currentAliases);
-          if (val && !p.unit_id) unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`);
+          if (val && !p.unit_id) { unresolvedWarnings.push(`${rowLabel || ""}: Unidade "${val}" não encontrada.`); }
         } else if (key === "esn_code") {
           p.esn_id = findInListWithAlias(esnList, val || "", esnAliasKey, currentAliases, crmCodes);
-          if (val && !p.esn_id) unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`);
+          if (val && !p.esn_id) { unresolvedWarnings.push(`${rowLabel || ""}: ESN "${val}" não encontrado.`); }
         } else if (key === "gsn_code") {
           p.gsn_id = findInListWithAlias(gsnList, val || "", gsnAliasKey, currentAliases, crmCodes);
-          if (val && !p.gsn_id) unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`);
+          if (val && !p.gsn_id) { unresolvedWarnings.push(`${rowLabel || ""}: GSN "${val}" não encontrado.`); }
         } else p[key] = val;
       }
       return p;

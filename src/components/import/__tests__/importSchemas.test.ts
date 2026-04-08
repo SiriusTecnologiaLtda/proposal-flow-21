@@ -159,6 +159,13 @@ describe("detectEntity", () => {
     const results = detectEntity(["xyz", "abc", "123"], []);
     expect(results.length).toBe(0);
   });
+
+  it("detects sales_targets by META YYYY - MM pattern", () => {
+    const headers = ["OPERAÇÃO", "NOME UNIDADE", "CÓD UNIDADE", "DONO DA META", "CÓD DONO DA META", "NÍVEL", "RECEITA", "SEGMENTO", "TOTAL META", "META 2026 - 01", "META 2026 - 02", "META 2026 - 03", "META 2026 - 04", "META 2026 - 05", "META 2026 - 06", "META 2026 - 07", "META 2026 - 08", "META 2026 - 09", "META 2026 - 10", "META 2026 - 11", "META 2026 - 12"];
+    const results = detectEntity(headers, []);
+    expect(results[0].entity).toBe("sales_targets");
+    expect(results[0].confidence).toBeGreaterThanOrEqual(70);
+  });
 });
 
 // ─── detectHeaderRow ────────────────────────────────────────────

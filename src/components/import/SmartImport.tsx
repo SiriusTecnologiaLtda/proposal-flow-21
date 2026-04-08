@@ -1446,6 +1446,8 @@ export default function SmartImport() {
     const crmCodesPendingCreation = new Map<string, { code: string; sales_team_id: string; unit_id: string | null }>();
     // Track which members need unit_id update
     const memberUnitUpdates = new Map<string, string>(); // member_id -> unit_id
+    // Track which members need role update
+    const memberRoleUpdates = new Map<string, string>(); // member_id -> role
 
     // Pre-load ALL existing targets for this year to avoid per-row queries
     addImportLog(entity, "info", "Carregando metas existentes do ano...");
@@ -1571,6 +1573,15 @@ export default function SmartImport() {
       // If member has no unit_id but row has one, track for update
       if (esnId && rowUnitId && !memberUnitId) {
         memberUnitUpdates.set(esnId, rowUnitId);
+      }
+
+      // If spreadsheet has role_name column and member's role differs, track for update
+      if (hasRoleCol && esnId) {
+        const roleVal = (ev(row, "role_name") || "").trim().toLowerCase();
+        const mappedRole = roleVal ? (roleMap[roleVal] || null) : null;
+        if (mappedRole && detectedMemberRole && mappedRole !== detectedMemberRole) {
+          memberRoleUpdates.set(esnId, mappedRole);
+        }
       }
 
       // Resolve category (by name or code)
@@ -1727,6 +1738,15 @@ export default function SmartImport() {
         await supabase.from("sales_team").update({ unit_id: unitId }).eq("id", memberId);
       }
       addImportLog(entity, "ok", `${memberUnitUpdates.size} membro(s) com unidade atualizada.`, "update");
+    }
+
+    // Post-processing: update member role where spreadsheet differs from stored value
+    if (memberRoleUpdates.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Atualizando função/nível de ${memberRoleUpdates.size} membro(s) do time...`, "system");
+      for (const [memberId, newRole] of memberRoleUpdates) {
+        await supabase.from("sales_team").update({ role: newRole as any }).eq("id", memberId);
+      }
+      addImportLog(entity, "ok", `${memberRoleUpdates.size} membro(s) com função atualizada.`, "update");
     }
 
     const finalStatus = interrupted ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");

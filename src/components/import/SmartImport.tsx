@@ -1322,8 +1322,8 @@ export default function SmartImport() {
       const uniqueCats = new Set<string>();
       const uniqueSegs = new Set<string>();
       for (const row of dataRows) {
-        if (hasCategoryCol) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
-        if (hasSegmentCol) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
+        if (fieldToCol["category_name"] !== undefined) { const v = (ev(row, "category_name") || "").trim(); if (v) uniqueCats.add(v); }
+        if (fieldToCol["segment_name"] !== undefined) { const v = (ev(row, "segment_name") || "").trim(); if (v) uniqueSegs.add(v); }
       }
       for (const cat of uniqueCats) { await ensureCategoryId(cat); }
       for (const seg of uniqueSegs) { await ensureSegmentId(seg); }

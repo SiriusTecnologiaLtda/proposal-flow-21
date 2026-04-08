@@ -221,7 +221,7 @@ export default function SalesTargetsPage() {
   const getSegmentName = (id: string | null) => id ? segments.find((s: any) => s.id === id)?.name || "—" : "—";
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
 
-  const getRowKey = (row: SummaryRow) => `${row.esn_id}__${row.segment_id || "none"}`;
+  const getRowKey = (row: SummaryRow) => row.esn_id;
 
   /* ── Selection ── */
   const toggleSelect = (key: string) => {

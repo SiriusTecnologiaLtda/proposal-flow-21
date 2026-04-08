@@ -2337,6 +2337,20 @@ export default function SmartImport() {
                   <p className="text-xs text-muted-foreground">
                     Se a planilha possuir colunas de Categoria/Segmento/Nível mapeadas, os valores serão usados por linha. Categorias e segmentos ausentes serão criados automaticamente; caso contrário, o valor selecionado acima será aplicado a todos os registros.
                   </p>
+                  <Separator className="my-2" />
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="clearExistingTargets"
+                      checked={clearExistingTargets}
+                      onCheckedChange={(v) => setClearExistingTargets(!!v)}
+                    />
+                    <Label htmlFor="clearExistingTargets" className="text-xs cursor-pointer">
+                      Limpar metas existentes do ano <strong>{targetYear}</strong> antes de importar
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground ml-6">
+                    Remove todas as metas do ano selecionado antes de inserir os novos registros. Use ao reimportar planilhas corrigidas.
+                  </p>
                 </div>
               )}
 

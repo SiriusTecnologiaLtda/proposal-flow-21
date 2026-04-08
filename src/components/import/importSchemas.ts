@@ -504,6 +504,7 @@ export function findInList(
 ): string | null {
   if (!search) return null;
   const s = search.trim().toLowerCase();
+  if (!s) return null; // whitespace-only guard
   const byCode = list.find(u => u.code === s);
   if (byCode) return byCode.id;
   const byName = list.find(u => u.name === s);

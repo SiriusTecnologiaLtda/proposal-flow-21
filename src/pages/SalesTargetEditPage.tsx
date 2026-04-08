@@ -261,7 +261,7 @@ export default function SalesTargetEditPage() {
           if (amount === 0) continue;
           rows.push({
             esn_id: editEsnId, year: Number(editYear), month: m, amount,
-            category_id: gr.catId, segment_id: gr.segId, role: editRole, unit_id: editUnitId,
+            category_id: gr.catId, segment_id: editSegId, role: editRole, unit_id: editUnitId,
           });
         }
       }

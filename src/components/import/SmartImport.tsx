@@ -1234,11 +1234,6 @@ export default function SmartImport() {
     }
 
     // Batch UPSERT (onConflict on composite key)
-    const allRecords = [...toInsert.map(({ _line, _owner, _month, ...rest }) => rest), ...toUpdate.map(u => {
-      // For updates, we need to reconstruct the full record from existingTargets
-      return { id: u.id, amount: u.amount };
-    })];
-
     if (toInsert.length > 0 && !interrupted) {
       addImportLog(entity, "info", `Inserindo ${toInsert.length} registros em lote...`);
       const BATCH = 100;

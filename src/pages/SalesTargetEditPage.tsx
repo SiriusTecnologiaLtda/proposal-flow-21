@@ -485,7 +485,7 @@ export default function SalesTargetEditPage() {
               </tbody>
               <tfoot>
                 <tr className="sticky bottom-0 z-20 bg-muted/80 backdrop-blur-sm border-t-2 border-border">
-                  <td colSpan={2} className="sticky left-0 z-30 bg-muted px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
+                  <td className="sticky left-0 z-30 bg-muted px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
                     Total Geral
                   </td>
                   {Array.from({ length: 12 }, (_, i) => {

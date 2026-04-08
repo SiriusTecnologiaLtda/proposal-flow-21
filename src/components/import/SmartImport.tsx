@@ -1011,14 +1011,19 @@ export default function SmartImport() {
     addImportLog(entity, "info", `${linked} vínculos GSN resolvidos${gsnNotFound > 0 ? `, ${gsnNotFound} GSN(s) não encontrado(s)` : ""}.`, "relation");
 
     const finalStatus = errors > 0 && imported === 0 && updated === 0 ? "error" : "success";
-    finishImportRun(entity, cancelSignal?.aborted ? "interrupted" : finalStatus);
+    const actualStatus = cancelSignal?.aborted ? "interrupted" : finalStatus;
+    finishImportRun(entity, actualStatus as any);
     const dur = Date.now() - importRun.startedAt;
-    addImportLog(entity, "ok", `✅ Concluído — ${imported} inseridos, ${updated} atualizados, ${errors} erros${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`);
+    const warningCount = run?.logs.filter(l => l.status === "warning").length || 0;
+    addImportLog(entity, actualStatus === "error" ? "error" : "ok",
+      `${cancelSignal?.aborted ? "⛔ Interrompido" : "✅ Concluído"} — ${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
+    const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) await supabase.from("import_logs").update({
-      status: finalStatus, total_rows: dataRows.length, imported, updated, errors,
+      status: actualStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros, ${crmCodesToInsert.length} CRM codes`,
+      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}, ${crmCodesToInsert.length} CRM codes`,
+      error_details: errorMsgs,
     } as any).eq("id", dbLogId);
   }
 

@@ -738,7 +738,7 @@ export default function SalesTargetsPage() {
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {isCreateMode ? (
                 <>
                   <div className="space-y-1 col-span-2 sm:col-span-1">
@@ -777,13 +777,6 @@ export default function SalesTargetsPage() {
                       <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
-                    <Select value={editSegmentId} onValueChange={setEditSegmentId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
                 </>
               ) : (
                 <>
@@ -809,13 +802,6 @@ export default function SalesTargetsPage() {
                       <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground font-medium">Segmento</Label>
-                    <Select value={editSegmentId} onValueChange={setEditSegmentId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{segments.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
                 </>
               )}
             </div>
@@ -829,14 +815,17 @@ export default function SalesTargetsPage() {
               <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
             </div>
             <div className="overflow-auto rounded-lg border border-border/60">
-              <table className="w-full text-sm border-collapse min-w-[900px]">
+              <table className="w-full text-sm border-collapse min-w-[1050px]">
                 <thead>
                   <tr className="bg-muted/80">
-                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[160px] border-r border-border/60">
+                    <th className="sticky left-0 z-10 bg-muted text-left px-3 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[140px] border-r border-border/60">
                       Categoria
                     </th>
+                    <th className="text-left px-2 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-r border-border/60">
+                      Segmento
+                    </th>
                     {MONTH_NAMES.map((m) => (
-                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[72px] border-r border-border/30">
+                      <th key={m} className="text-center px-1 py-2.5 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[68px] border-r border-border/30">
                         {m}
                       </th>
                     ))}
@@ -847,43 +836,38 @@ export default function SalesTargetsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {gridCategoryIds.map((catId) => {
-                    const cat = categories.find((c: any) => c.id === catId);
-                    const rowTotal = getRowTotal(catId);
-                    const hasExisting = Object.keys(existingIds).some(k => k.startsWith(`${catId}_`));
+                  {gridRows.map((gr) => {
+                    const cat = categories.find((c: any) => c.id === gr.catId);
+                    const rowTotal = getRowTotal(gr.key);
                     return (
-                      <tr key={catId} className="group hover:bg-accent/30 transition-colors">
-                        <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-3 py-1.5 border-r border-border/60">
-                          {/* If it's a new row without existing data, allow changing category */}
-                          {!hasExisting && !isCreateMode ? (
-                            <Select value={catId} onValueChange={(newId) => changeCategoryForRow(catId, newId)}>
-                              <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sortedCategories.filter((c: any) => c.id === catId || !gridCategoryIds.includes(c.id)).map((c: any) => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : isCreateMode ? (
-                            <Select value={catId} onValueChange={(newId) => changeCategoryForRow(catId, newId)}>
-                              <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sortedCategories.filter((c: any) => c.id === catId || !gridCategoryIds.includes(c.id)).map((c: any) => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <span className="text-xs font-semibold text-foreground">{cat?.name || "—"}</span>
-                          )}
+                      <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
+                        <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-1.5 py-1.5 border-r border-border/60">
+                          <Select value={gr.catId} onValueChange={(newId) => updateGridRowField(gr.key, "catId", newId)}>
+                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sortedCategories.map((c: any) => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-1.5 py-1.5 border-r border-border/60">
+                          <Select value={gr.segId} onValueChange={(newId) => updateGridRowField(gr.key, "segId", newId)}>
+                            <SelectTrigger className="h-7 text-xs border-transparent bg-transparent hover:bg-muted/40 px-1">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {segments.map((s: any) => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                         {Array.from({ length: 12 }, (_, i) => {
                           const m = i + 1;
-                          const val = gridValues[catId]?.[m] ?? "0";
+                          const val = gridValues[gr.key]?.[m] ?? "0";
                           return (
                             <td key={m} className="px-0.5 py-1 border-r border-border/20">
                               <Input
@@ -891,7 +875,7 @@ export default function SalesTargetsPage() {
                                 value={val}
                                 onChange={e => setGridValues(prev => ({
                                   ...prev,
-                                  [catId]: { ...prev[catId], [m]: e.target.value }
+                                  [gr.key]: { ...prev[gr.key], [m]: e.target.value }
                                 }))}
                                 className="h-7 text-xs tabular-nums text-right font-medium px-1.5 border-transparent bg-transparent hover:bg-muted/40 focus:bg-background focus:border-primary/40 transition-colors rounded-sm"
                                 onFocus={e => e.target.select()}
@@ -905,8 +889,8 @@ export default function SalesTargetsPage() {
                           </span>
                         </td>
                         <td className="text-center px-1 py-1.5 border-l border-border/30">
-                          {gridCategoryIds.length > 1 && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeCategoryRow(catId)}>
+                          {gridRows.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeGridRow(gr.key)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
@@ -917,7 +901,7 @@ export default function SalesTargetsPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/60 border-t-2 border-border">
-                    <td className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
+                    <td colSpan={2} className="sticky left-0 z-10 bg-muted px-3 py-2 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
                       Total Geral
                     </td>
                     {Array.from({ length: 12 }, (_, i) => {
@@ -938,12 +922,10 @@ export default function SalesTargetsPage() {
                 </tfoot>
               </table>
             </div>
-            {/* Add category button */}
-            {availableCatsToAdd.length > 0 && (
-              <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs text-muted-foreground gap-1" onClick={addCategoryRow}>
-                <Plus className="h-3 w-3" /> Adicionar Categoria
-              </Button>
-            )}
+            {/* Add row button */}
+            <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs text-muted-foreground gap-1" onClick={addGridRow}>
+              <Plus className="h-3 w-3" /> Adicionar Linha
+            </Button>
           </div>
 
           {/* Footer */}
@@ -951,7 +933,7 @@ export default function SalesTargetsPage() {
             <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setIsCreateMode(false); }} disabled={saving} className="h-9">
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving || !editEsnId || !editSegmentId || !editUnitId} className="h-9">
+            <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-9">
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
             </Button>

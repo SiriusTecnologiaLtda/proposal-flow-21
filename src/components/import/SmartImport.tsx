@@ -495,11 +495,39 @@ export default function SmartImport() {
         // Build consolidated insert using paired row data
         const isCode = item.fieldKey.includes("code");
         const pairedValue = pairKey || "";
+
+        // Resolve unit_id and role from the row data for the new member
+        const fieldToColLocal: Record<string, number> = {};
+        for (const [colStr, field] of Object.entries(mapping)) fieldToColLocal[field] = Number(colStr);
+        let memberUnitId: string | null = null;
+        let memberRole: string = "esn";
+        // Find the first row with this member to extract unit and role
+        for (const row of allDataRows) {
+          const rowCode = (extractValue(row, "esn_code", fieldToColLocal) || "").trim().toLowerCase();
+          const rowName = (extractValue(row, "esn_name", fieldToColLocal) || "").trim().toLowerCase();
+          if ((isCode && rowCode === item.valueLower) || (!isCode && rowName === item.valueLower)) {
+            // Resolve unit
+            const rawUnit = (extractValue(row, "unit_code", fieldToColLocal) || "").trim();
+            if (rawUnit) {
+              const unitAliasKey = getAliasKey(detectedEntity, "unit_code");
+              memberUnitId = findInListWithAlias(lookupListsCache.unitList, rawUnit, unitAliasKey, newAliases);
+            }
+            // Resolve role
+            const rawRole = (extractValue(row, "role_name", fieldToColLocal) || "").trim().toLowerCase();
+            if (rawRole) {
+              const r = parseRole(rawRole);
+              if (r) memberRole = r;
+            }
+            break;
+          }
+        }
+
         const insertData: any = {
           name: isCode ? (pairedValue || item.value).toUpperCase() : item.value.toUpperCase(),
           code: isCode ? item.value.toUpperCase() : (pairedValue || `AUTO_${Date.now()}`).toUpperCase(),
-          role: "esn" as any,
+          role: memberRole as any,
           commission_pct: 0,
+          unit_id: memberUnitId,
         };
         const { data: created, error } = await supabase.from("sales_team").insert(insertData).select("id").single();
         if (created && !error) {
@@ -516,6 +544,14 @@ export default function SmartImport() {
 
           // Track for dedup
           alreadyCreatedForPair.set(selectionKey, created.id);
+
+          // Create CRM code entry for the new member
+          const crmCode = insertData.code.trim();
+          if (crmCode && !crmCode.startsWith("AUTO_")) {
+            await supabase.from("sales_team_crm_codes").upsert({
+              code: crmCode, sales_team_id: created.id, unit_id: memberUnitId, description: "Criado via importação",
+            }, { onConflict: "code,sales_team_id" });
+          }
 
           const newEntry = { id: created.id, code: insertData.code.toLowerCase(), name: insertData.name.toLowerCase() };
           setLookupListsCache(prev => ({
@@ -1387,23 +1423,29 @@ export default function SmartImport() {
       supabase.from("unit_info").select("id, code, name"),
     ]);
     const unitList = (units || []).map(u => ({ id: u.id, code: (u.code || "").trim().toLowerCase(), name: u.name.trim().toLowerCase() }));
-    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null }>();
+    const memberMap = new Map<string, { id: string; role: string; unit_id: string | null; source: "crm" | "code" | "name" }>();
+    // Index CRM codes FIRST (primary match source)
+    for (const crm of crmCodes) {
+      const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
+      if (member && !memberMap.has(crm.code)) {
+        memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id, source: "crm" });
+      }
+    }
+    // Then index by sales_team.code and name (fallback)
     for (const s of (salesTeam || [])) {
       const codeLower = s.code.trim().toLowerCase();
       const nameLower = s.name.trim().toLowerCase();
-      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id });
-      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id });
-    }
-    // Also index CRM codes into memberMap
-    for (const crm of crmCodes) {
-      if (!memberMap.has(crm.code)) {
-        const member = (salesTeam || []).find(s => s.id === crm.sales_team_id);
-        if (member) memberMap.set(crm.code, { id: member.id, role: member.role, unit_id: crm.unit_id || member.unit_id });
-      }
+      if (!memberMap.has(codeLower)) memberMap.set(codeLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "code" });
+      if (!memberMap.has(nameLower)) memberMap.set(nameLower, { id: s.id, role: s.role, unit_id: s.unit_id, source: "name" });
     }
 
     const esnCodeAliases = currentAliases[getAliasKey(entity, "esn_code")] || {};
     const esnNameAliases = currentAliases[getAliasKey(entity, "esn_name")] || {};
+
+    // Track which members need CRM code creation (resolved via sales_team.code fallback)
+    const crmCodesPendingCreation = new Map<string, { code: string; sales_team_id: string; unit_id: string | null }>();
+    // Track which members need unit_id update
+    const memberUnitUpdates = new Map<string, string>(); // member_id -> unit_id
 
     // Pre-load ALL existing targets for this year to avoid per-row queries
     addImportLog(entity, "info", "Carregando metas existentes do ano...");
@@ -1491,6 +1533,7 @@ export default function SmartImport() {
       const esnId = memberByCode?.id || memberByName?.id || esnCodeAliases[esnCode] || esnNameAliases[esnName];
       const detectedMemberRole = memberByCode?.role || memberByName?.role;
       const memberUnitId = memberByCode?.unit_id || memberByName?.unit_id;
+      const resolvedSource = memberByCode?.source || memberByName?.source;
 
       // Resolve unit_id from file column if available, otherwise use member's unit
       let rowUnitId = memberUnitId;
@@ -1514,6 +1557,20 @@ export default function SmartImport() {
         errorDetails.push({ line: lineNum, owner: esnLabel, message: "Não encontrado no cadastro do Time de Vendas" });
         processed++;
         continue;
+      }
+
+      // If member was resolved via sales_team.code (fallback), create CRM code entry
+      if (esnCode && resolvedSource === "code" && !crmCodesPendingCreation.has(`${esnCode}|${esnId}`)) {
+        crmCodesPendingCreation.set(`${esnCode}|${esnId}`, {
+          code: esnCode.trim(),
+          sales_team_id: esnId,
+          unit_id: rowUnitId,
+        });
+      }
+
+      // If member has no unit_id but row has one, track for update
+      if (esnId && rowUnitId && !memberUnitId) {
+        memberUnitUpdates.set(esnId, rowUnitId);
       }
 
       // Resolve category (by name or code)
@@ -1647,6 +1704,29 @@ export default function SmartImport() {
         processed += batch.length;
         updateImportStats(entity, { processed, imported, updated, errors, skipped });
       }
+    }
+
+    // Post-processing: create CRM codes for members resolved via sales_team.code fallback
+    if (crmCodesPendingCreation.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Criando ${crmCodesPendingCreation.size} código(s) CRM para membros resolvidos por fallback...`, "system");
+      const crmBatch = Array.from(crmCodesPendingCreation.values()).map(c => ({
+        code: c.code, sales_team_id: c.sales_team_id, unit_id: c.unit_id, description: "Criado automaticamente via importação de metas",
+      }));
+      for (let b = 0; b < crmBatch.length; b += 100) {
+        const batch = crmBatch.slice(b, b + 100);
+        await supabase.from("sales_team_crm_codes").upsert(batch, { onConflict: "code,sales_team_id" });
+      }
+      invalidateCrmCache();
+      addImportLog(entity, "ok", `${crmCodesPendingCreation.size} código(s) CRM criados.`, "insert");
+    }
+
+    // Post-processing: update member unit_id where missing
+    if (memberUnitUpdates.size > 0 && !interrupted) {
+      addImportLog(entity, "info", `Atualizando unidade de ${memberUnitUpdates.size} membro(s) do time...`, "system");
+      for (const [memberId, unitId] of memberUnitUpdates) {
+        await supabase.from("sales_team").update({ unit_id: unitId }).eq("id", memberId);
+      }
+      addImportLog(entity, "ok", `${memberUnitUpdates.size} membro(s) com unidade atualizada.`, "update");
     }
 
     const finalStatus = interrupted ? "interrupted" : (errors > 0 && imported === 0 && updated === 0 ? "error" : "success");

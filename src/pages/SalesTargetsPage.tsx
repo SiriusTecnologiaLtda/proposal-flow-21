@@ -135,7 +135,8 @@ export default function SalesTargetsPage() {
     const map = new Map<string, GroupedRow>();
     for (const t of targets) {
       const tRole = (t as any).role || "esn";
-      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}__${tRole}`;
+      const tUnitId = (t as any).unit_id || "";
+      const key = `${t.esn_id}__${(t as any).category_id || "none"}__${(t as any).segment_id || "none"}__${tRole}__${tUnitId}`;
       if (!map.has(key)) {
         const esn = esnMap.get(t.esn_id);
         map.set(key, {

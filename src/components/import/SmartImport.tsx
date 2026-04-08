@@ -286,6 +286,7 @@ export default function SmartImport() {
 
   // ── Pre-scan for unresolved relational values ─────────────────
   const preScanRelations = useCallback(async () => {
+    try {
     const relFields = RELATIONAL_FIELDS[detectedEntity];
     if (!relFields || relFields.length === 0) return true; // no relational fields, proceed
 
@@ -302,6 +303,18 @@ export default function SmartImport() {
 
     // Always invalidate CRM cache before pre-scan to ensure fresh data on re-imports
     invalidateCrmCache();
+
+    // When "clear existing data" is checked, also clear aliases to avoid stale resolutions
+    if (clearExistingTargets && detectedEntity === "sales_targets") {
+      const freshAliases = { ...loadAliasStore() };
+      const keysToRemove = Object.keys(freshAliases).filter(k => k.startsWith("sales_targets:"));
+      if (keysToRemove.length > 0) {
+        for (const k of keysToRemove) delete freshAliases[k];
+        saveAliasStore(freshAliases);
+        setAliasStore(freshAliases);
+        console.log("[SmartImport] Aliases de sales_targets limpos (opção Limpar dados ativa).");
+      }
+    }
 
     // Load lookup lists + CRM codes
     const [{ data: units }, { data: salesTeam }, crmCodes] = await Promise.all([
@@ -323,6 +336,7 @@ export default function SmartImport() {
     // Collect unique values per relational field
     const unresolved: UnresolvedRelation[] = [];
     const seenKeys = new Set<string>();
+    let aliasResolvedCount = 0;
 
     for (const rf of mappedRelFields) {
       const listForField = rf.listType === "units" ? unitList
@@ -361,7 +375,15 @@ export default function SmartImport() {
       for (const [lower, { original, count }] of valueCountMap) {
         // Check if resolved by normal lookup, alias, or CRM code
         const resolved = findInListWithAlias(listForField, original, aliasKey, currentAliases, crmForField);
-        if (resolved) continue;
+        if (resolved) {
+          // Log alias-resolved items for transparency
+          const aliasMap = currentAliases[aliasKey];
+          if (aliasMap && aliasMap[lower]) {
+            aliasResolvedCount++;
+            console.log(`[SmartImport] "${original}" resolvido via alias → membro ${resolved}`);
+          }
+          continue;
+        }
 
         const uniqueKey = `${rf.fieldKey}:${lower}`;
         if (seenKeys.has(uniqueKey)) continue;
@@ -377,6 +399,11 @@ export default function SmartImport() {
         });
       }
     }
+
+    if (aliasResolvedCount > 0) {
+      console.log(`[SmartImport] ${aliasResolvedCount} valor(es) resolvido(s) via aliases de importações anteriores.`);
+    }
+    console.log(`[SmartImport] Pré-varredura: ${unresolved.length} item(ns) não resolvido(s) de ${allDataRows.length} linhas.`);
 
     // ── Sales Targets: cross-resolve esn_code ↔ esn_name pairs ──
     // If esn_code resolves but esn_name doesn't (or vice-versa), and they
@@ -468,7 +495,13 @@ export default function SmartImport() {
     setResolutionSelections({});
     setShowResolutionDialog(true);
     return false; // don't proceed yet
-  }, [detectedEntity, mapping, allDataRows, extractValue, headers]);
+    } catch (err) {
+      console.error("[SmartImport] Erro na pré-varredura relacional:", err);
+      setScanningRelations(false);
+      toast({ title: "Erro na verificação de vínculos", description: "Ocorreu um erro ao verificar os vínculos relacionais. Tente novamente.", variant: "destructive" });
+      return false;
+    }
+  }, [detectedEntity, mapping, allDataRows, extractValue, headers, clearExistingTargets]);
 
   // ── Save resolutions and proceed ──────────────────────────────
   const handleSaveResolutions = useCallback(async () => {

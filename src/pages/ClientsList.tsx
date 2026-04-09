@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useVisibleSalesScope } from "@/hooks/useVisibleSalesScope";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface Contact {
   id: string;

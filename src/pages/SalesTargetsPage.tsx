@@ -61,6 +61,7 @@ export default function SalesTargetsPage() {
   const { data: segments = [] } = useSegments();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
+  const newScope = useVisibleSalesScope();
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ["sales-targets", yearFilter],

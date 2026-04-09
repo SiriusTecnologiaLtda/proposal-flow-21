@@ -1502,9 +1502,9 @@ Deno.serve(async (req) => {
       // Go-Live: backward compat
       "{{QT_HR_ACOMP1}}": rec1 ? rec1.goliveHours.toString() : accompAnalystHours.toString(),
       "{{QT_HR_ACOMP2}}": rec2 ? rec2.goliveHours.toString() : accompGPHours.toString(),
-      "{{QT_HORAS_TRASL}}": (proposal.travel_local_hours || 1).toString(),
-      "{{QT_HORAS_TRASV}}": (proposal.travel_trip_hours || 4).toString(),
-      "{{VR_TRAS}}": fmt(Number(proposal.travel_hourly_rate || 250)),
+      "{{QT_HORAS_TRASL}}": (proposal.travel_local_hours ?? 1).toString(),
+      "{{QT_HORAS_TRASV}}": (proposal.travel_trip_hours ?? 4).toString(),
+      "{{VR_TRAS}}": fmt(Number(proposal.travel_hourly_rate ?? 250)),
       "{{QT_EMPRESAS}}": (proposal.num_companies || 1).toString(),
       "{{VR_HORA_ADIC1}}": rec1 ? fmt(rec1.hourlyRate) : fmt(Number(proposal.additional_analyst_rate)),
       "{{VR_HORA_ADIC2}}": rec2 ? fmt(rec2.hourlyRate) : fmt(Number(proposal.additional_gp_rate)),

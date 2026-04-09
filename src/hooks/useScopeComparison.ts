@@ -95,12 +95,12 @@ export function useScopeComparison() {
     queryKey: ["scope-audit-all-assignments"],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales_team_assignments" as any)
+      const { data, error } = await (supabase as any)
+        .from("sales_team_assignments")
         .select("id, member_id, unit_id, role, reports_to_id, is_primary, active")
         .eq("active", true);
       if (error) throw error;
-      return (data || []) as Array<{
+      return (data || []) as unknown as Array<{
         id: string;
         member_id: string;
         unit_id: string;

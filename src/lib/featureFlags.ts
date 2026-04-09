@@ -18,4 +18,12 @@ export const FEATURE_FLAGS = {
    * Affects: member visibility in SalesTargetsPage.tsx
    */
   useNewScopeSalesTargets: true,
+
+  /**
+   * Clients: use new scope to filter visible clients.
+   * Rule: client visible if esn_id OR gsn_id in visibleIds.
+   * Unassigned clients (no esn_id AND no gsn_id) visible to users with functional access.
+   * Affects: filtering in ClientsList.tsx
+   */
+  useNewScopeClients: true,
 } as const;

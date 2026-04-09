@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useVisibleSalesScope } from "@/hooks/useVisibleSalesScope";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface Contact {
   id: string;
@@ -73,8 +75,12 @@ export default function ClientsList() {
     [clients, selectedClientId]
   );
 
-  // Find the ESN member linked to current user (by email)
+  // === NEW SCOPE (flag-gated) ===
+  const { visibleIds, isUnrestricted } = useVisibleSalesScope();
+
+  // Legacy: ESN member linked by email
   const userEsnMemberId = useMemo(() => {
+    if (FEATURE_FLAGS.useNewScopeClients) return null; // not used when new scope is active
     if (role === "admin" || role === "gsn" || role === "arquiteto") return null;
     if (!user?.email) return null;
     const member = salesTeam.find((m) => m.role === "esn" && m.email?.toLowerCase() === user.email?.toLowerCase());
@@ -83,9 +89,27 @@ export default function ClientsList() {
 
   const filtered = useMemo(() => {
     let list = clients;
-    if (role === "vendedor" && userEsnMemberId) {
-      list = list.filter((c) => c.esn_id === userEsnMemberId);
+
+    if (FEATURE_FLAGS.useNewScopeClients) {
+      // New scope: filter by visibleIds from assignments hierarchy
+      if (!isUnrestricted && visibleIds) {
+        list = list.filter((c) => {
+          // Client in user's commercial scope
+          if (c.esn_id && visibleIds.includes(c.esn_id)) return true;
+          if (c.gsn_id && visibleIds.includes(c.gsn_id)) return true;
+          // Unassigned clients visible to anyone with functional access to this screen
+          if (!c.esn_id && !c.gsn_id) return true;
+          return false;
+        });
+      }
+      // isUnrestricted (admin / non-sales) → no filter
+    } else {
+      // Legacy: only ESN vendedor is restricted
+      if (role === "vendedor" && userEsnMemberId) {
+        list = list.filter((c) => c.esn_id === userEsnMemberId);
+      }
     }
+
     if (!debouncedSearch) return list;
     const s = debouncedSearch.toLowerCase();
     return list.filter(
@@ -93,7 +117,7 @@ export default function ClientsList() {
         c.code.toLowerCase().includes(s) ||
         c.cnpj.includes(debouncedSearch)
     );
-  }, [clients, debouncedSearch, role, userEsnMemberId]);
+  }, [clients, debouncedSearch, role, userEsnMemberId, visibleIds, isUnrestricted]);
 
   // Reset visible count when search changes
   useEffect(() => { setVisibleCount(60); }, [debouncedSearch]);

@@ -491,13 +491,16 @@ export default function Dashboard() {
   const isGsn = myTeamRole === "gsn";
   const isEsn = myTeamRole === "esn";
 
+  // ── New scope (from sales_team_assignments) ──
+  const newScope = useVisibleSalesScope();
+
   // Build the set of sales_team IDs this user can see based on hierarchy
   // null = unrestricted (admin-like)
-  const hierarchyScopedIds = useMemo((): string[] | null => {
+  // LEGACY logic (linked_gsn_id based) — kept intact for rollback
+  const legacyHierarchyScopedIds = useMemo((): string[] | null => {
     if (isEffectiveAdmin) return null; // full access
 
     if (isDsn) {
-      // DSN sees: themselves + their GSNs + ESNs linked to those GSNs + all EVs
       const myGsns = salesTeam.filter((m) => m.role === "gsn" && m.linked_gsn_id === mySalesTeamId);
       const myGsnIds = myGsns.map((m) => m.id);
       const myEsns = salesTeam.filter((m) => m.role === "esn" && myGsnIds.includes(m.linked_gsn_id || ""));
@@ -506,7 +509,6 @@ export default function Dashboard() {
     }
 
     if (isGsn) {
-      // GSN sees: themselves + their linked ESNs + all EVs
       const myEsns = salesTeam.filter((m) => m.role === "esn" && m.linked_gsn_id === mySalesTeamId);
       const allEvs = salesTeam.filter((m) => m.role === "arquiteto");
       return [mySalesTeamId!, ...myEsns.map((m) => m.id), ...allEvs.map((m) => m.id)];
@@ -517,12 +519,23 @@ export default function Dashboard() {
     }
 
     if (isArquiteto) {
-      // EV: cross role — will be handled via proposal involvement, not member IDs
       return [mySalesTeamId!];
     }
 
     return [];
   }, [isEffectiveAdmin, isDsn, isGsn, isEsn, isArquiteto, mySalesTeamId, salesTeam]);
+
+  // ── Flag-controlled scope switch ──
+  // When useNewScopeDashboard = true → uses get_visible_sales_ids_v2 (assignments)
+  // When useNewScopeDashboard = false → uses legacy linked_gsn_id logic
+  const hierarchyScopedIds = useMemo((): string[] | null => {
+    if (!FEATURE_FLAGS.useNewScopeDashboard) {
+      return legacyHierarchyScopedIds;
+    }
+    // New scope: null = unrestricted
+    if (newScope.isUnrestricted) return null;
+    return newScope.visibleIds;
+  }, [legacyHierarchyScopedIds, newScope.isUnrestricted, newScope.visibleIds]);
 
   // ─── Hierarchy-scoped member list for filter ──────────────────
   const allowedMembers = useMemo(() => {

@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
+import { useVisibleSalesScope } from "@/hooks/useVisibleSalesScope";
 
 const ROLE_LABELS: Record<string, string> = { dsn: "DSN", gsn: "GSN", esn: "ESN", arquiteto: "EV" };
 const ROLE_OPTIONS = [
@@ -59,6 +61,7 @@ export default function SalesTargetsPage() {
   const { data: segments = [] } = useSegments();
   const { data: units = [] } = useUnits();
   const { data: fullSalesTeam = [] } = useSalesTeam();
+  const newScope = useVisibleSalesScope();
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ["sales-targets", yearFilter],
@@ -129,6 +132,13 @@ export default function SalesTargetsPage() {
 
   const filtered = useMemo(() => {
     let result = summaryRows;
+    // ── New scope filter (flag-controlled) ──
+    // When useNewScopeSalesTargets = true, restrict to visible members
+    // When false, no scope filtering (legacy behavior = admin sees all)
+    if (FEATURE_FLAGS.useNewScopeSalesTargets && newScope.visibleIds) {
+      const allowed = new Set(newScope.visibleIds);
+      result = result.filter(g => allowed.has(g.esn_id));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(g => g.name.toLowerCase().includes(q) || g.code.toLowerCase().includes(q));
@@ -154,7 +164,7 @@ export default function SalesTargetsPage() {
       result = result.filter(g => filterCategoryIds.some(cid => (g.categoryTotals[cid] || 0) > 0));
     }
     return result;
-  }, [summaryRows, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles, targets]);
+  }, [summaryRows, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles, targets, newScope.visibleIds]);
 
   const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0) + (filterRoles.length > 0 ? 1 : 0);
 

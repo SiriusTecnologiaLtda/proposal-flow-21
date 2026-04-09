@@ -76,6 +76,14 @@ export default function ClientsList() {
   );
 
   // === NEW SCOPE (flag-gated) ===
+  // Visibility rule for clients:
+  //   - Admin: unrestricted, sees all clients.
+  //   - Non-commercial user with functional permission to "cadastros/clientes":
+  //     unrestricted (isUnrestricted=true because no sales_team_member_id),
+  //     sees all clients — access is gated by route permission, not commercial scope.
+  //   - Commercial user (ESN/GSN/DSN): sees clients where esn_id OR gsn_id
+  //     is within their visibleIds from sales_team_assignments hierarchy,
+  //     PLUS unassigned clients (no esn_id AND no gsn_id).
   const { visibleIds, isUnrestricted } = useVisibleSalesScope();
 
   // Legacy: ESN member linked by email

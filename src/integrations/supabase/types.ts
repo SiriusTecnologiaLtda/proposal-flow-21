@@ -3239,6 +3239,10 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_project_v2: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_view_proposal: {
         Args: { _proposal_id: string; _user_id: string }
         Returns: boolean

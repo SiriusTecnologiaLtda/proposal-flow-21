@@ -4,7 +4,7 @@
  * Admin role always has access to everything regardless of DB entries.
  */
 
-export type AppRole = "admin" | "vendedor" | "arquiteto" | "gsn" | "consulta";
+export type AppRole = "admin" | "dsn" | "vendedor" | "arquiteto" | "gsn" | "consulta";
 
 export const RESOURCE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -53,6 +53,7 @@ export function canAccessRoute(
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
+  dsn: "DSN (Diretor de Negócios)",
   vendedor: "Vendedor (ESN)",
   gsn: "GSN",
   arquiteto: "Eng. Valor",

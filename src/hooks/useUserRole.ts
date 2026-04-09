@@ -17,7 +17,7 @@ export function useUserRole() {
         .eq("user_id", user!.id);
       if (error || !data?.length) return null;
       // Prioritize admin role when user has multiple roles
-      const PRIORITY: AppRole[] = ["admin", "gsn", "arquiteto", "vendedor", "consulta"];
+      const PRIORITY: AppRole[] = ["admin", "dsn", "gsn", "arquiteto", "vendedor", "consulta"];
       const roles = data.map((r: any) => r.role as AppRole);
       return PRIORITY.find((p) => roles.includes(p)) || roles[0];
     },

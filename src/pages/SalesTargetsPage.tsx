@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
+import { useVisibleSalesScope } from "@/hooks/useVisibleSalesScope";
 
 const ROLE_LABELS: Record<string, string> = { dsn: "DSN", gsn: "GSN", esn: "ESN", arquiteto: "EV" };
 const ROLE_OPTIONS = [

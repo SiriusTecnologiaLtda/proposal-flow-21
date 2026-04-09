@@ -3243,6 +3243,10 @@ export type Database = {
         Args: { _proposal_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_proposal_v2: {
+        Args: { _proposal_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_member_units_v2: { Args: { _member_id: string }; Returns: string[] }
       get_profile_display_names: {
         Args: { _user_ids: string[] }

@@ -17,5 +17,5 @@ export const FEATURE_FLAGS = {
    * Sales Targets: use new scope to filter visible members.
    * Affects: member visibility in SalesTargetsPage.tsx
    */
-  useNewScopeSalesTargets: false,
+  useNewScopeSalesTargets: true,
 } as const;

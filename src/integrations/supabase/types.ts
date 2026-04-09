@@ -2022,6 +2022,64 @@ export type Database = {
           },
         ]
       }
+      sales_team_assignments: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          is_primary: boolean
+          member_id: string
+          reports_to_id: string | null
+          role: Database["public"]["Enums"]["sales_role"]
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          member_id: string
+          reports_to_id?: string | null
+          role: Database["public"]["Enums"]["sales_role"]
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          member_id?: string
+          reports_to_id?: string | null
+          role?: Database["public"]["Enums"]["sales_role"]
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_team_assignments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_team_assignments_reports_to_id_fkey"
+            columns: ["reports_to_id"]
+            isOneToOne: false
+            referencedRelation: "sales_team_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_team_assignments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_team_crm_codes: {
         Row: {
           code: string
@@ -3185,12 +3243,17 @@ export type Database = {
         Args: { _proposal_id: string; _user_id: string }
         Returns: boolean
       }
+      get_member_units_v2: { Args: { _member_id: string }; Returns: string[] }
       get_profile_display_names: {
         Args: { _user_ids: string[] }
         Returns: {
           display_name: string
           user_id: string
         }[]
+      }
+      get_visible_sales_ids_v2: {
+        Args: { _member_id: string }
+        Returns: string[]
       }
       has_role: {
         Args: {

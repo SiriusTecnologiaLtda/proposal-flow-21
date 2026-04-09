@@ -52,6 +52,7 @@ import EmailInboxConfigPage from "@/pages/EmailInboxConfigPage";
 import SegmentsPage from "@/pages/SegmentsPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
+import ScopeAuditPage from "@/pages/ScopeAuditPage";
 import React from "react";
 
 class ErrorBoundary extends React.Component<
@@ -233,6 +234,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/usuarios/cadastrados" element={<GuardedRoute path="/configuracoes"><RegisteredUsersPage /></GuardedRoute>} />
         <Route path="/configuracoes/usuarios/grupos" element={<GuardedRoute path="/configuracoes"><UserGroupsPage /></GuardedRoute>} />
         <Route path="/configuracoes/tipos-proposta" element={<Navigate to="/cadastros/tipos-proposta" replace />} />
+        <Route path="/admin/scope-audit" element={<GuardedRoute path="/configuracoes"><ScopeAuditPage /></GuardedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

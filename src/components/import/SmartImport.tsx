@@ -1160,8 +1160,8 @@ export default function SmartImport() {
     const cancelSignal = getCancelSignal(entity);
     const hasCrmCodesCol = "crm_codes" in fieldToCol;
 
-    // Collect CRM codes to upsert after main loop
-    const crmCodesToInsert: { code: string; sales_team_id: string; unit_id: string | null; description: string }[] = [];
+    // Collect CRM codes to update on assignments after main loop
+    const crmCodesToUpdate: { crm_code: string; member_id: string; unit_id: string | null }[] = [];
 
     const BATCH = 50;
     for (let b = 0; b < dataRows.length; b += BATCH) {

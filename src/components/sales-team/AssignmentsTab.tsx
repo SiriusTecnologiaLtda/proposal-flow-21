@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Loader2, Building2, ChevronDown, ChevronUp, Star, StarOff } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, Building2, ChevronDown, ChevronUp, Star, StarOff, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(cid)}/download?tipoDownload=${tipo}`;
         console.log(`[tae-download] Trying: ${url}`);
         try {
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
+          const res = await taeFetchWithTimeout(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
             const ct = res.headers.get("content-type") || "";
             const parsed = await parseTaeDownloadResponse(res);
@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
         const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(cid)}/download`;
         console.log(`[tae-download] Fallback (no tipoDownload): ${url}`);
         try {
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
+          const res = await taeFetchWithTimeout(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
             const parsed = await parseTaeDownloadResponse(res);
             if (parsed) {

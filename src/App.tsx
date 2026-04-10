@@ -238,6 +238,8 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/usuarios/grupos" element={<GuardedRoute path="/configuracoes"><UserGroupsPage /></GuardedRoute>} />
         <Route path="/configuracoes/tipos-proposta" element={<Navigate to="/cadastros/tipos-proposta" replace />} />
         <Route path="/admin/scope-audit" element={<GuardedRoute path="/configuracoes"><ScopeAuditPage /></GuardedRoute>} />
+        <Route path="/oportunidade-detalhe" element={<OpportunityDetailPage />} />
+        <Route path="/apresentacao-executiva/:id" element={<ExecutivePresentationPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
@@ -257,6 +259,7 @@ const App = () => (
               <Route path="/login" element={<LoginPage />} />
               <Route path="/oauth/google/callback" element={<GoogleOAuthCallback />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/apresentacao-publica/:id" element={<ExecutivePresentationSharePage />} />
               <Route path="/*" element={<ProtectedRoutes />} />
             </Routes>
           </AuthProvider>

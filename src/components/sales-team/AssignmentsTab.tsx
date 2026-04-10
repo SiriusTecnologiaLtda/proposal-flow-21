@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Loader2, Building2, ChevronDown, ChevronUp, Star, StarOff } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, Building2, ChevronDown, ChevronUp, Star, StarOff, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,11 +97,40 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     setExpandedIdx(assignments.length);
   };
 
-  const removeAssignment = (index: number) => {
+  const [dependentsInfo, setDependentsInfo] = useState<{ index: number; dependents: { memberName: string; unitName: string }[] } | null>(null);
+
+  const removeAssignment = async (index: number) => {
     const removed = assignments[index];
-    if (removed.id && !removed.isNew) {
-      setRemovedIds((prev) => [...prev, removed.id!]);
+    // New assignments can always be removed
+    if (!removed.id || removed.isNew) {
+      setAssignments((prev) => prev.filter((_, i) => i !== index));
+      setExpandedIdx(null);
+      return;
     }
+
+    // Check if this assignment is used as reports_to_id by others
+    const { data: refs } = await (supabase as any)
+      .from("sales_team_assignments")
+      .select("id, member_id, unit_id")
+      .eq("reports_to_id", removed.id)
+      .eq("active", true);
+
+    if (refs && refs.length > 0) {
+      // Resolve names for the dependents
+      const depDetails = refs.map((ref: any) => {
+        const member = allMembers.find((m) => m.id === ref.member_id);
+        const unit = units.find((u) => u.id === ref.unit_id);
+        return {
+          memberName: member ? `${member.code} - ${member.name}` : ref.member_id,
+          unitName: unit?.name || "—",
+        };
+      });
+      setDependentsInfo({ index, dependents: depDetails });
+      return;
+    }
+
+    // No dependents — safe to remove
+    setRemovedIds((prev) => [...prev, removed.id!]);
     setAssignments((prev) => prev.filter((_, i) => i !== index));
     setExpandedIdx(null);
   };
@@ -175,21 +204,25 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
 
       // Delete assignments that the user explicitly removed
       if (removedIds.length > 0) {
-        // Check if any removed ID is referenced by reports_to_id from OTHER members
+        // Final safety check: block if any removed ID still has active dependents
         const { data: refsData } = await (supabase as any)
           .from("sales_team_assignments")
-          .select("id, member_id, reports_to_id")
+          .select("id, member_id")
           .in("reports_to_id", removedIds)
-          .neq("member_id", memberId);
+          .eq("active", true);
 
         if (refsData && refsData.length > 0) {
-          // Clear the reports_to_id references before deleting
-          for (const ref of refsData) {
-            await (supabase as any)
-              .from("sales_team_assignments")
-              .update({ reports_to_id: null })
-              .eq("id", ref.id);
-          }
+          const names = refsData.map((r: any) => {
+            const m = allMembers.find((m: any) => m.id === r.member_id);
+            return m ? m.name : r.member_id;
+          }).join(", ");
+          toast({
+            title: "Remoção bloqueada",
+            description: `Os seguintes membros ainda reportam a vínculos marcados para remoção: ${names}. Reatribua-os antes de salvar.`,
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
         }
 
         const { error: delError } = await (supabase as any)
@@ -439,6 +472,41 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
           </div>
         )}
       </div>
+
+      {/* Dependents blocking alert */}
+      {dependentsInfo && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-destructive">
+                Não é possível remover este vínculo
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Os seguintes membros reportam a este vínculo como superior hierárquico.
+                Reatribua-os antes de remover.
+              </p>
+            </div>
+          </div>
+          <div className="ml-6 space-y-1">
+            {dependentsInfo.dependents.map((dep, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className="text-[10px] font-mono">{dep.unitName}</Badge>
+                <span className="text-foreground">{dep.memberName}</span>
+              </div>
+            ))}
+          </div>
+          <div className="ml-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDependentsInfo(null)}
+            >
+              Entendi
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="flex justify-end border-t border-border pt-4">

@@ -473,6 +473,41 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
         )}
       </div>
 
+      {/* Dependents blocking alert */}
+      {dependentsInfo && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-destructive">
+                Não é possível remover este vínculo
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Os seguintes membros reportam a este vínculo como superior hierárquico.
+                Reatribua-os antes de remover.
+              </p>
+            </div>
+          </div>
+          <div className="ml-6 space-y-1">
+            {dependentsInfo.dependents.map((dep, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className="text-[10px] font-mono">{dep.unitName}</Badge>
+                <span className="text-foreground">{dep.memberName}</span>
+              </div>
+            ))}
+          </div>
+          <div className="ml-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDependentsInfo(null)}
+            >
+              Entendi
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex justify-end border-t border-border pt-4">
         <Button onClick={handleSave} disabled={saving}>

@@ -297,26 +297,27 @@ Deno.serve(async (req) => {
     // Extract signer details
     const rawSigners = pubData?.assinantes || pubData?.destinatarios || pubData?.pendentes || [];
     const signers = rawSigners.map((s: any) => {
-      const isPendentesFormat = s.pendente !== undefined;
+      const mappedStatus = mapIndividualSignerStatus({
+        assinado: s.assinado ?? null,
+        rejeitado: s.rejeitado ?? null,
+        pendente: s.pendente ?? null,
+        statusAssinatura: typeof s.statusAssinatura === "number" ? s.statusAssinatura : null,
+        taeStatus: pubStatus ?? null,
+      });
       return {
         email: s.email || s.emailDestinatario,
         name: s.nomeCompleto || s.nome || s.email,
         status: s.statusAssinatura ?? s.status,
-        statusLabel: isPendentesFormat
-          ? (s.pendente ? "Pendente" : "Assinado")
-          : (s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente")),
+        statusLabel: mappedStatus === "signed" ? "Assinado" : mappedStatus === "rejected" ? "Rejeitado" : "Pendente",
+        mappedStatus,
         signedAt: s.dataAssinatura || null,
         action: s.acao ?? s.tipoAssinatura,
       };
     });
 
-    // P2.3 + P2.4: Sync local signatories with state machine guard and normalized email
+    // P2.3 + P2.4: Sync local signatories using unified mapIndividualSignerStatus
     for (const signer of signers) {
-      const nextStatus = signer.statusLabel === "Assinado"
-        ? "signed"
-        : signer.statusLabel === "Rejeitado"
-          ? "rejected"
-          : "pending";
+      const nextStatus = signer.mappedStatus;
 
       const normalized = normalizeEmail(signer.email || "");
       if (!normalized) continue;

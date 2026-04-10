@@ -9,17 +9,44 @@ import {
 import {
   formatCurrency,
   type PresentationConfig,
+  type OpportunityData,
   executivePresentationStore,
+  composePresentation,
 } from "@/data/executivePresentationData";
 import GenerateDialog from "@/components/executive-presentation/GenerateDialog";
+import {
+  useCreateExecutivePresentation,
+  usePresentationTypeConfig,
+} from "@/hooks/useExecutivePresentation";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function OpportunityDetailPage() {
   const navigate = useNavigate();
+  // TODO: replace with real proposals query when ready
   const opportunities = executivePresentationStore.getOpportunities();
   const [selectedOpp, setSelectedOpp] = useState(opportunities[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Fetch proposal_type ID for the selected slug
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("id, name, slug").order("name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const selectedTypeId = proposalTypes.find((t) => t.slug === selectedOpp.opportunityTypeSlug)?.id;
+  const { data: dbPresConfig } = usePresentationTypeConfig(selectedTypeId);
+
+  // Legacy fallback: mock config
   const presConfig = executivePresentationStore.getConfigForSlug(selectedOpp.opportunityTypeSlug);
+
+  const createPresentation = useCreateExecutivePresentation();
 
   const stageColors: Record<string, string> = {
     Proposta: "bg-primary/10 text-primary border-primary/20",
@@ -29,8 +56,36 @@ export default function OpportunityDetailPage() {
 
   const handleGenerate = (config: PresentationConfig) => {
     setDialogOpen(false);
-    const pres = executivePresentationStore.createPresentation(selectedOpp, config);
-    navigate(`/apresentacao-executiva/${pres.id}`);
+    // Compose data using the same logic
+    const typeConfig = presConfig; // Will use DB config when fully migrated
+    const composedData = composePresentation(selectedOpp, typeConfig);
+
+    // For now, use a mock proposal_id since opportunities are still mock
+    // TODO: replace with real proposal_id when data comes from proposals table
+    const proposalTypeId = selectedTypeId ?? "";
+
+    createPresentation.mutate(
+      {
+        proposalId: selectedOpp.id, // Will be real proposal UUID when migrated
+        proposalTypeId,
+        config: config as any,
+        composedData: composedData as any,
+        dataSources: {
+          opportunity: true,
+          proposalType: !!typeConfig,
+          linkedProject: !!selectedOpp.linkedProject,
+          proposalTemplate: !!selectedOpp.templateContext,
+        },
+      },
+      {
+        onSuccess: (pres) => {
+          navigate(`/apresentacao-executiva/${pres.id}`);
+        },
+        onError: () => {
+          toast.error("Erro ao criar apresentação");
+        },
+      },
+    );
   };
 
   return (

@@ -50,7 +50,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
   const [saving, setSaving] = useState(false);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);
@@ -101,14 +101,14 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
 
   const removeAssignment = async (index: number) => {
     const removed = assignments[index];
-    // New assignments can always be removed
+    // New assignments (not yet saved) can be discarded
     if (!removed.id || removed.isNew) {
       setAssignments((prev) => prev.filter((_, i) => i !== index));
       setExpandedIdx(null);
       return;
     }
 
-    // Check if this assignment is used as reports_to_id by others
+    // Existing assignments: check for dependents before inactivating
     const { data: refs } = await (supabase as any)
       .from("sales_team_assignments")
       .select("id, member_id, unit_id")
@@ -116,7 +116,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       .eq("active", true);
 
     if (refs && refs.length > 0) {
-      // Resolve names for the dependents
       const depDetails = refs.map((ref: any) => {
         const member = allMembers.find((m) => m.id === ref.member_id);
         const unit = units.find((u) => u.id === ref.unit_id);
@@ -129,9 +128,8 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       return;
     }
 
-    // No dependents — safe to remove
-    setRemovedIds((prev) => [...prev, removed.id!]);
-    setAssignments((prev) => prev.filter((_, i) => i !== index));
+    // No dependents — inactivate instead of removing from list
+    updateField(index, "active", false);
     setExpandedIdx(null);
   };
 

@@ -5,15 +5,20 @@ import { Button } from "@/components/ui/button";
 import {
   Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft, Settings2,
 } from "lucide-react";
-import { mockOpportunities, formatCurrency, type PresentationConfig, getTypeForOpportunity } from "@/data/executivePresentationData";
+import {
+  formatCurrency,
+  type PresentationConfig,
+  executivePresentationStore,
+} from "@/data/executivePresentationData";
 import GenerateDialog from "@/components/executive-presentation/GenerateDialog";
 
 export default function OpportunityDetailPage() {
   const navigate = useNavigate();
-  const [selectedOpp, setSelectedOpp] = useState(mockOpportunities[0]);
+  const opportunities = executivePresentationStore.getOpportunities();
+  const [selectedOpp, setSelectedOpp] = useState(opportunities[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const typeRef = getTypeForOpportunity(selectedOpp);
+  const typeRef = executivePresentationStore.getTypeBySlug(selectedOpp.opportunityTypeSlug);
 
   const stageColors: Record<string, string> = {
     Proposta: "bg-primary/10 text-primary border-primary/20",
@@ -23,7 +28,8 @@ export default function OpportunityDetailPage() {
 
   const handleGenerate = (config: PresentationConfig) => {
     setDialogOpen(false);
-    navigate(`/apresentacao-executiva/${selectedOpp.id}`, { state: { config } });
+    const pres = executivePresentationStore.createPresentation(selectedOpp, config);
+    navigate(`/apresentacao-executiva/${pres.id}`);
   };
 
   return (
@@ -51,7 +57,7 @@ export default function OpportunityDetailPage() {
 
       {/* Opportunity selector */}
       <div className="grid gap-4 md:grid-cols-3">
-        {mockOpportunities.map((opp) => (
+        {opportunities.map((opp) => (
           <button
             key={opp.id}
             onClick={() => setSelectedOpp(opp)}

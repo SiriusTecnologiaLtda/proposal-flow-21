@@ -1,20 +1,13 @@
-// Mock data for Executive Presentation MVP
+// Executive Presentation — Data models, mock data & shared store
+// No hardcoded type unions — all types come from the central store.
 
-export type OpportunityType = "saas" | "consultoria" | "projeto_sob_medida";
+// ── Shared scalar types (open strings, not unions) ──────────────────
 export type TemplateStyle = "modern" | "corporate" | "minimal";
 export type AudienceLevel = "c_level" | "gerencia" | "operacional";
 export type DetailLevel = "resumido" | "detalhado";
 export type PricingDisplayMode = "recorrencia" | "setup_unico" | "faseado" | "sob_consulta";
 
-export interface PresentationConfig {
-  opportunityType: OpportunityType;
-  templateStyle: TemplateStyle;
-  audience: AudienceLevel;
-  detailLevel: DetailLevel;
-  showInvestment: boolean;
-  showTimeline: boolean;
-}
-
+// ── Reusable sub-entities ───────────────────────────────────────────
 export interface ScopeBlock {
   id: string;
   title: string;
@@ -44,21 +37,21 @@ export interface Differentiator {
   description: string;
 }
 
+// ── Reference Attachment (DOC/PDF attached to a type) ───────────────
 export interface ReferenceAttachment {
   id: string;
   fileName: string;
   fileType: "pdf" | "doc" | "docx";
   description: string;
   uploadedAt: string;
-  /** Simulated — no real URL in MVP */
   url?: string;
 }
 
-// ── Opportunity Type Reference (content-base per type) ──────────────
-export interface OpportunityTypeReference {
+// ── OpportunityType (content-base per type) ─────────────────────────
+export interface OpportunityType {
   id: string;
   name: string;
-  slug: OpportunityType;
+  slug: string;
   executiveSummary: string;
   positioningText: string;
   problemStatement: string;
@@ -75,6 +68,9 @@ export interface OpportunityTypeReference {
   updatedAt: string;
 }
 
+/** @deprecated use OpportunityType instead */
+export type OpportunityTypeReference = OpportunityType;
+
 // ── Opportunity Data ────────────────────────────────────────────────
 export interface OpportunityData {
   id: string;
@@ -82,7 +78,8 @@ export interface OpportunityData {
   contact: string;
   contactRole: string;
   segment: string;
-  opportunityType: OpportunityType;
+  /** slug referencing an OpportunityType */
+  opportunityTypeSlug: string;
   opportunityTypeLabel: string;
   stage: string;
   mainPain: string;
@@ -105,16 +102,83 @@ export interface OpportunityData {
   expectedCloseDate: string;
 }
 
-export interface PresentationSection {
-  id: string;
-  key: string;
-  title: string;
-  enabled: boolean;
-  content: Record<string, string>;
+// ── Presentation Config ─────────────────────────────────────────────
+export interface PresentationConfig {
+  opportunityTypeSlug: string;
+  templateStyle: TemplateStyle;
+  audience: AudienceLevel;
+  detailLevel: DetailLevel;
+  showInvestment: boolean;
+  showTimeline: boolean;
 }
 
-// ── Mock Opportunity Type References ────────────────────────────────
-export const mockOpportunityTypes: OpportunityTypeReference[] = [
+// ── Executive Presentation (generated entity) ───────────────────────
+export interface ExecutivePresentation {
+  id: string;
+  opportunityId: string;
+  opportunityTypeSlug: string;
+  config: PresentationConfig;
+  /** Composed data snapshot (type defaults + opportunity data) */
+  composedData: OpportunityData;
+  /** User overrides applied in preview editor */
+  overrides: Record<string, string>;
+  shareSlug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Composition helper ──────────────────────────────────────────────
+export function composePresentation(
+  opportunity: OpportunityData,
+  typeRef: OpportunityType,
+): OpportunityData {
+  return {
+    ...opportunity,
+    solutionSummary: opportunity.solutionSummary || typeRef.solutionApproach,
+    solutionHow: opportunity.solutionHow || typeRef.positioningText,
+    currentScenario: opportunity.currentScenario || typeRef.problemStatement,
+    scopeBlocks: opportunity.scopeBlocks.length > 0 ? opportunity.scopeBlocks : typeRef.defaultScopeBlocks,
+    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : typeRef.defaultBenefits,
+    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : typeRef.defaultTimeline,
+    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : typeRef.differentiators,
+    nextStep: opportunity.nextStep || typeRef.defaultCta,
+    nextStepCta: opportunity.nextStepCta || typeRef.defaultCta,
+  };
+}
+
+// ── Option lists (template, audience, detail, pricing) ──────────────
+export const templateStyleOptions: { value: TemplateStyle; label: string; description: string }[] = [
+  { value: "modern", label: "Moderno", description: "Visual arrojado com gradientes e cards dinâmicos" },
+  { value: "corporate", label: "Corporativo", description: "Sóbrio e profissional, ideal para C-Level" },
+  { value: "minimal", label: "Minimal", description: "Limpo e direto, foco total no conteúdo" },
+];
+
+export const audienceOptions: { value: AudienceLevel; label: string }[] = [
+  { value: "c_level", label: "C-Level / Diretoria" },
+  { value: "gerencia", label: "Gerência / Coordenação" },
+  { value: "operacional", label: "Operacional / Técnico" },
+];
+
+export const detailOptions: { value: DetailLevel; label: string }[] = [
+  { value: "resumido", label: "Resumido" },
+  { value: "detalhado", label: "Detalhado" },
+];
+
+export const pricingDisplayModeOptions: { value: PricingDisplayMode; label: string }[] = [
+  { value: "recorrencia", label: "Recorrência (mensal/anual)" },
+  { value: "setup_unico", label: "Setup único" },
+  { value: "faseado", label: "Faseado por etapa" },
+  { value: "sob_consulta", label: "Sob consulta" },
+];
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+// =====================================================================
+//  MOCK DATA — Opportunity Types
+// =====================================================================
+const initialOpportunityTypes: OpportunityType[] = [
   {
     id: "type-saas",
     name: "SaaS / Assinatura",
@@ -239,39 +303,17 @@ export const mockOpportunityTypes: OpportunityTypeReference[] = [
   },
 ];
 
-// ── Composition: merge type defaults with opportunity overrides ─────
-export function composePresentation(
-  opportunity: OpportunityData,
-  typeRef: OpportunityTypeReference,
-): OpportunityData {
-  return {
-    ...opportunity,
-    // Use opportunity data when available, fallback to type defaults
-    solutionSummary: opportunity.solutionSummary || typeRef.solutionApproach,
-    solutionHow: opportunity.solutionHow || typeRef.positioningText,
-    currentScenario: opportunity.currentScenario || typeRef.problemStatement,
-    scopeBlocks: opportunity.scopeBlocks.length > 0 ? opportunity.scopeBlocks : typeRef.defaultScopeBlocks,
-    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : typeRef.defaultBenefits,
-    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : typeRef.defaultTimeline,
-    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : typeRef.differentiators,
-    nextStep: opportunity.nextStep || typeRef.defaultCta,
-    nextStepCta: opportunity.nextStepCta || typeRef.defaultCta,
-  };
-}
-
-export function getTypeForOpportunity(opp: OpportunityData): OpportunityTypeReference | undefined {
-  return mockOpportunityTypes.find((t) => t.slug === opp.opportunityType);
-}
-
-// ── Mock Opportunities ──────────────────────────────────────────────
-export const mockOpportunities: OpportunityData[] = [
+// =====================================================================
+//  MOCK DATA — Opportunities
+// =====================================================================
+const initialOpportunities: OpportunityData[] = [
   {
     id: "opp-1",
     company: "Grupo Nova Energia S.A.",
     contact: "Marcelo Andrade",
     contactRole: "Diretor de Tecnologia",
     segment: "Energia & Utilities",
-    opportunityType: "saas",
+    opportunityTypeSlug: "saas",
     opportunityTypeLabel: "SaaS / Assinatura",
     stage: "Proposta",
     mainPain: "Falta de visibilidade operacional em tempo real e processos manuais de controle de consumo, causando perdas financeiras e operacionais recorrentes.",
@@ -323,7 +365,7 @@ export const mockOpportunities: OpportunityData[] = [
     contact: "Dra. Carla Figueiredo",
     contactRole: "Superintendente de Operações",
     segment: "Saúde",
-    opportunityType: "consultoria",
+    opportunityTypeSlug: "consultoria",
     opportunityTypeLabel: "Consultoria / Serviços",
     stage: "Qualificação",
     mainPain: "Processos assistenciais fragmentados entre unidades, com impacto direto na qualidade do atendimento e nos custos operacionais.",
@@ -372,7 +414,7 @@ export const mockOpportunities: OpportunityData[] = [
     contact: "Roberto Almeida",
     contactRole: "CEO",
     segment: "Logística & Transportes",
-    opportunityType: "projeto_sob_medida",
+    opportunityTypeSlug: "projeto_sob_medida",
     opportunityTypeLabel: "Projeto Sob Medida",
     stage: "Negociação",
     mainPain: "Necessidade de um sistema de roteirização proprietário integrado ao ERP, pois as soluções de mercado não atendem às regras de negócio específicas da operação.",
@@ -418,46 +460,124 @@ export const mockOpportunities: OpportunityData[] = [
   },
 ];
 
-// ── Template definitions ────────────────────────────────────────────
-export const templateStyleOptions: { value: TemplateStyle; label: string; description: string }[] = [
-  { value: "modern", label: "Moderno", description: "Visual arrojado com gradientes e cards dinâmicos" },
-  { value: "corporate", label: "Corporativo", description: "Sóbrio e profissional, ideal para C-Level" },
-  { value: "minimal", label: "Minimal", description: "Limpo e direto, foco total no conteúdo" },
-];
+// =====================================================================
+//  SHARED STORE — in-memory singleton (survives across components)
+// =====================================================================
+let _opportunityTypes = [...initialOpportunityTypes];
+let _opportunities = [...initialOpportunities];
+let _presentations: ExecutivePresentation[] = [];
+let _listeners: Array<() => void> = [];
 
-export const audienceOptions: { value: AudienceLevel; label: string }[] = [
-  { value: "c_level", label: "C-Level / Diretoria" },
-  { value: "gerencia", label: "Gerência / Coordenação" },
-  { value: "operacional", label: "Operacional / Técnico" },
-];
+function notify() {
+  _listeners.forEach((fn) => fn());
+}
 
-export const detailOptions: { value: DetailLevel; label: string }[] = [
-  { value: "resumido", label: "Resumido" },
-  { value: "detalhado", label: "Detalhado" },
-];
+export const executivePresentationStore = {
+  subscribe(fn: () => void) {
+    _listeners.push(fn);
+    return () => {
+      _listeners = _listeners.filter((l) => l !== fn);
+    };
+  },
 
-export const opportunityTypeOptions: { value: OpportunityType; label: string }[] = [
-  { value: "saas", label: "SaaS / Assinatura" },
-  { value: "consultoria", label: "Consultoria / Serviços" },
-  { value: "projeto_sob_medida", label: "Projeto Sob Medida" },
-];
+  // ── Opportunity Types ───────────────────────────────────────────
+  getTypes: () => _opportunityTypes,
+  getTypeBySlug: (slug: string) => _opportunityTypes.find((t) => t.slug === slug),
+  getTypeById: (id: string) => _opportunityTypes.find((t) => t.id === id),
 
-export const pricingDisplayModeOptions: { value: PricingDisplayMode; label: string }[] = [
-  { value: "recorrencia", label: "Recorrência (mensal/anual)" },
-  { value: "setup_unico", label: "Setup único" },
-  { value: "faseado", label: "Faseado por etapa" },
-  { value: "sob_consulta", label: "Sob consulta" },
-];
+  setTypes(types: OpportunityType[]) {
+    _opportunityTypes = types;
+    notify();
+  },
+  upsertType(type: OpportunityType) {
+    const idx = _opportunityTypes.findIndex((t) => t.id === type.id);
+    if (idx >= 0) _opportunityTypes[idx] = type;
+    else _opportunityTypes.push(type);
+    notify();
+  },
+  deleteType(id: string) {
+    _opportunityTypes = _opportunityTypes.filter((t) => t.id !== id);
+    notify();
+  },
+
+  // ── Opportunities ───────────────────────────────────────────────
+  getOpportunities: () => _opportunities,
+  getOpportunity: (id: string) => _opportunities.find((o) => o.id === id),
+
+  // ── Presentations ───────────────────────────────────────────────
+  getPresentations: () => _presentations,
+  getPresentation: (id: string) => _presentations.find((p) => p.id === id),
+  getPresentationByShare: (slug: string) => _presentations.find((p) => p.shareSlug === slug),
+
+  createPresentation(
+    opportunity: OpportunityData,
+    config: PresentationConfig,
+  ): ExecutivePresentation {
+    const typeRef = executivePresentationStore.getTypeBySlug(config.opportunityTypeSlug);
+    const composedData = typeRef
+      ? composePresentation(opportunity, typeRef)
+      : opportunity;
+
+    const now = new Date().toISOString();
+    const id = `pres-${Date.now()}`;
+    const pres: ExecutivePresentation = {
+      id,
+      opportunityId: opportunity.id,
+      opportunityTypeSlug: config.opportunityTypeSlug,
+      config,
+      composedData,
+      overrides: {},
+      shareSlug: id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    _presentations.push(pres);
+    notify();
+    return pres;
+  },
+
+  updateOverrides(id: string, overrides: Record<string, string>) {
+    const pres = _presentations.find((p) => p.id === id);
+    if (pres) {
+      pres.overrides = overrides;
+      pres.updatedAt = new Date().toISOString();
+      notify();
+    }
+  },
+
+  duplicatePresentation(id: string): ExecutivePresentation | undefined {
+    const source = _presentations.find((p) => p.id === id);
+    if (!source) return undefined;
+    const now = new Date().toISOString();
+    const newId = `pres-${Date.now()}`;
+    const dup: ExecutivePresentation = {
+      ...structuredClone(source),
+      id: newId,
+      shareSlug: newId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    _presentations.push(dup);
+    notify();
+    return dup;
+  },
+};
+
+// ── Legacy aliases (backward compat) ────────────────────────────────
+/** @deprecated use executivePresentationStore.getTypes() */
+export const mockOpportunityTypes = _opportunityTypes;
+/** @deprecated use executivePresentationStore.getOpportunities() */
+export const mockOpportunities = _opportunities;
+
+export function getTypeForOpportunity(opp: OpportunityData): OpportunityType | undefined {
+  return executivePresentationStore.getTypeBySlug(opp.opportunityTypeSlug);
+}
 
 export const defaultPresentationConfig: PresentationConfig = {
-  opportunityType: "saas",
+  opportunityTypeSlug: "saas",
   templateStyle: "modern",
   audience: "c_level",
   detailLevel: "resumido",
   showInvestment: true,
   showTimeline: true,
 };
-
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}

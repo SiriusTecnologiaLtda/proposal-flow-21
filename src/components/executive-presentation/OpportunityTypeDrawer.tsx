@@ -13,15 +13,16 @@ import { Separator } from "@/components/ui/separator";
 import { FileText, Upload, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
-  type OpportunityTypeReference,
   type OpportunityType,
   type TemplateStyle,
   type PricingDisplayMode,
   type ReferenceAttachment,
-  opportunityTypeOptions,
   templateStyleOptions,
   pricingDisplayModeOptions,
 } from "@/data/executivePresentationData";
+
+/** @deprecated kept for backward compat */
+type OpportunityTypeReference = OpportunityType;
 
 interface Props {
   open: boolean;
@@ -109,14 +110,7 @@ export default function OpportunityTypeDrawer({ open, onOpenChange, type, onSave
                 </div>
                 <div className="space-y-1.5">
                   <Label>Slug</Label>
-                  <Select value={form.slug} onValueChange={(v) => set("slug", v as OpportunityType)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {opportunityTypeOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="ex: saas, consultoria" />
                 </div>
               </div>
             </section>

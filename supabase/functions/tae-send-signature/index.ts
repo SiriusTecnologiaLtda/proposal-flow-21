@@ -138,6 +138,14 @@ async function getPreferredGoogleDocTab(
   };
 }
 
+// P3: Timeout helper for TAE HTTP calls (no retry — send is not idempotent)
+const TAE_TIMEOUT_MS = 30_000;
+function taeFetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TAE_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

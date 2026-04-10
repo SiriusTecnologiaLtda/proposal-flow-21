@@ -44,15 +44,22 @@ Deno.serve(async (req) => {
 
     const h = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
 
-    // Search in batches from 13996386 upwards (increments of 200)
-    const startId = 13996387;
-    const results: any = { batches: [], allFound: [] };
+    // Wider search: sample every 1000 IDs to find where documents exist
+    // Known: 13996386 exists (April 1). Target: April 10. 
+    // Try ranges: 14000000-14200000 with step of 500, batch of 500
+    const results: any = { probes: [], allFound: [] };
 
-    for (let batch = 0; batch < 10; batch++) {
+    // Probe with 500-ID batches at strategic points
+    const probeStarts = [
+      14000000, 14010000, 14020000, 14030000, 14040000, 14050000,
+      14060000, 14070000, 14080000, 14090000, 14100000,
+      14150000, 14200000, 14250000, 14300000,
+    ];
+
+    for (const start of probeStarts) {
       const ids = [];
-      const batchStart = startId + (batch * 200);
-      for (let i = 0; i < 200; i++) {
-        ids.push(batchStart + i);
+      for (let i = 0; i < 500; i++) {
+        ids.push(start + i);
       }
       
       const res = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
@@ -63,39 +70,26 @@ Deno.serve(async (req) => {
       let parsed: any;
       try { parsed = JSON.parse(raw); } catch { parsed = null; }
       
-      if (parsed && res.ok) {
-        const data = parsed?.data || parsed;
-        const items = Array.isArray(data) ? data : data ? [data] : [];
+      const data = parsed?.data || parsed;
+      const items = Array.isArray(data) ? data : data ? [data] : [];
+      const found = items.filter((i: any) => i && typeof i === 'object');
+      
+      results.probes.push({ start, found: found.length });
+      
+      for (const item of found) {
+        const info = {
+          idDocumento: item?.idDocumento || item?.id,
+          nome: item?.nome || item?.nomeDocumento,
+          status: item?.status,
+          idPublicacao: item?.idPublicacao,
+          raw: JSON.stringify(item).substring(0, 300),
+        };
+        results.allFound.push(info);
         
-        if (items.length > 0) {
-          for (const item of items) {
-            const info = {
-              idDocumento: item?.idDocumento || item?.id,
-              nome: item?.nome || item?.nomeDocumento,
-              status: item?.status,
-              idPublicacao: item?.idPublicacao || item?.publicacaoId,
-              raw: JSON.stringify(item).substring(0, 500),
-            };
-            results.allFound.push(info);
-            
-            const str = JSON.stringify(item).toLowerCase();
-            if (str.includes("507346") || str.includes("tracomal")) {
-              results.match = item;
-            }
-          }
+        const str = JSON.stringify(item).toLowerCase();
+        if (str.includes("507346") || str.includes("tracomal")) {
+          results.match = item;
         }
-        
-        results.batches.push({ 
-          range: `${batchStart}-${batchStart + 199}`, 
-          status: res.status, 
-          found: items.length 
-        });
-      } else {
-        results.batches.push({ 
-          range: `${batchStart}-${batchStart + 199}`, 
-          status: res.status,
-          body: (raw || "").substring(0, 200)
-        });
       }
     }
 

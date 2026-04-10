@@ -43,64 +43,92 @@ Deno.serve(async (req) => {
     const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
 
     const results: any = {};
-    const authHeaders = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
+    const h = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
 
-    // Get full error from pendentes
-    const fullErrorEndpoints = [
-      { label: "pendentes-full", url: `${baseUrl}/signintegration/v2/Publicacoes/pendentes` },
-      { label: "todos-full", url: `${baseUrl}/signintegration/v2/Publicacoes/todos` },
+    // Try /documents/v1/publicacoes (the actual endpoint used by tae-send-signature)
+    const listEndpoints = [
+      `${baseUrl}/documents/v1/publicacoes`,
+      `${baseUrl}/documents/v1/publicacoes?page=1&pageSize=50`,
+      // Try with POST to see if there's a search endpoint
     ];
-
-    for (const ep of fullErrorEndpoints) {
-      const res = await fetch(ep.url, { headers: authHeaders });
-      results[ep.label] = { status: res.status, body: await res.text() };
+    
+    for (let i = 0; i < listEndpoints.length; i++) {
+      const res = await fetch(listEndpoints[i], { headers: h });
+      const raw = await res.text();
+      results[`list_${i}`] = { url: listEndpoints[i], status: res.status, body: raw.substring(0, 1000) };
     }
 
-    // Try POST with email filter to documentos-empresa
-    // This endpoint accepts array of document IDs. But we need to find the ID.
-    // Let me try searching via the TOTVS Sign web API (documentos endpoint)
-    const searchEndpoints = [
-      { label: "api-v1-documentos", url: `${baseUrl}/api/v1/documentos?pageSize=50` },
-      { label: "api-v1-envelopes", url: `${baseUrl}/api/v1/envelopes?pageSize=50` },
-      { label: "api-v2-documentos", url: `${baseUrl}/api/v2/documentos?pageSize=50` },
-      { label: "api-documentos", url: `${baseUrl}/documentos?pageSize=50` },
-      // TOTVS Sign uses /sign/v1/ pattern sometimes
-      { label: "sign-v1-documentos", url: `${baseUrl}/sign/v1/documentos?pageSize=50` },
-      // Try the /documents/ base
-      { label: "documents-v1-documentos-list", url: `${baseUrl}/documents/v1/documentos` },
-      { label: "documents-v2-documentos-list", url: `${baseUrl}/documents/v2/documentos` },
-      { label: "documents-v1-envelopes-list", url: `${baseUrl}/documents/v1/envelopes` },
-      { label: "documents-v2-envelopes", url: `${baseUrl}/documents/v2/envelopes` },
-      { label: "documents-v2-envelopes-page", url: `${baseUrl}/documents/v2/envelopes?page=1&pageSize=50` },
-    ];
+    // Try POST search to publicacoes
+    try {
+      const res = await fetch(`${baseUrl}/documents/v1/publicacoes/search`, {
+        method: "POST", headers: h,
+        body: JSON.stringify({ nome: "507346" }),
+      });
+      results["search_publicacoes"] = { status: res.status, body: (await res.text()).substring(0, 500) };
+    } catch (e: any) { results["search_publicacoes"] = { error: e.message }; }
 
-    for (const ep of searchEndpoints) {
-      try {
-        const res = await fetch(ep.url, { headers: authHeaders });
-        const raw = await res.text();
-        let parsed: any;
-        try { parsed = JSON.parse(raw); } catch { parsed = null; }
-        
-        if (res.ok && parsed) {
-          const dataArr = parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : null);
-          if (Array.isArray(dataArr) && dataArr.length > 0) {
-            const matches = dataArr.filter((item: any) => {
-              const str = JSON.stringify(item).toLowerCase();
-              return str.includes("507346") || str.includes("tracomal");
-            });
-            results[ep.label] = {
-              status: res.status, totalItems: dataArr.length,
-              matchCount: matches.length, matches,
-              sampleKeys: Object.keys(dataArr[0]),
-            };
-          } else {
-            results[ep.label] = { status: res.status, keys: parsed ? Object.keys(parsed) : [], sample: JSON.stringify(parsed).substring(0, 300) };
-          }
-        } else {
-          results[ep.label] = { status: res.status, body: (raw || "").substring(0, 200) };
+    // Try /documents/v1/documentos/search
+    try {
+      const res = await fetch(`${baseUrl}/documents/v1/documentos/search`, {
+        method: "POST", headers: h,
+        body: JSON.stringify({ nome: "507346" }),
+      });
+      results["search_documentos"] = { status: res.status, body: (await res.text()).substring(0, 500) };
+    } catch (e: any) { results["search_documentos"] = { error: e.message }; }
+
+    // Try direct ID guesses (sequential IDs near recent ones from other signatures)
+    // First check what other signature records have TAE IDs
+    const { data: otherSigs } = await admin
+      .from("proposal_signatures")
+      .select("id, tae_document_id, tae_publication_id, created_at")
+      .not("tae_document_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    
+    results["other_signatures"] = otherSigs;
+
+    // If we have other document IDs, try nearby IDs
+    if (otherSigs && otherSigs.length > 0) {
+      const knownDocId = parseInt(otherSigs[0].tae_document_id || "0");
+      if (knownDocId > 0) {
+        // Try a range of IDs around the known one
+        const tryIds = [];
+        for (let offset = -20; offset <= 20; offset++) {
+          tryIds.push(knownDocId + offset);
         }
-      } catch (e: any) {
-        results[ep.label] = { error: e.message };
+        
+        // Use the signintegration batch endpoint
+        const batchRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+          method: "POST", headers: h,
+          body: JSON.stringify(tryIds),
+        });
+        const batchRaw = await batchRes.text();
+        let batchParsed: any;
+        try { batchParsed = JSON.parse(batchRaw); } catch { batchParsed = null; }
+        
+        if (batchParsed) {
+          const data = batchParsed?.data || batchParsed;
+          const items = Array.isArray(data) ? data : [data];
+          const matches = items.filter((item: any) => {
+            const str = JSON.stringify(item).toLowerCase();
+            return str.includes("507346") || str.includes("tracomal");
+          });
+          results["batch_search"] = {
+            status: batchRes.status,
+            knownDocId,
+            totalReturned: items.length,
+            matchCount: matches.length,
+            matches: matches.length > 0 ? matches : undefined,
+            allItems: items.map((item: any) => ({
+              id: item?.id || item?.idDocumento || item?.documentoId,
+              nome: item?.nome || item?.nomeDocumento,
+              status: item?.status,
+              pubId: item?.idPublicacao || item?.publicacaoId,
+            })),
+          };
+        } else {
+          results["batch_search"] = { status: batchRes.status, raw: batchRaw.substring(0, 500) };
+        }
       }
     }
 

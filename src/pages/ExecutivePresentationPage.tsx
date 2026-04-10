@@ -17,6 +17,10 @@ export default function ExecutivePresentationPage() {
     presentation?.overrides ?? {},
   );
 
+  const handleEdit = useCallback((field: string, value: string) => {
+    setOverrides((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
   // Sync overrides back to store on change
   useEffect(() => {
     if (presentation) {
@@ -32,10 +36,6 @@ export default function ExecutivePresentationPage() {
       </div>
     );
   }
-
-  const handleEdit = useCallback((field: string, value: string) => {
-    setOverrides((prev) => ({ ...prev, [field]: value }));
-  }, []);
 
   const handleShare = () => {
     const url = `${window.location.origin}/apresentacao-publica/${presentation.shareSlug}`;

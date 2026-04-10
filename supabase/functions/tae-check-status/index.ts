@@ -372,9 +372,10 @@ Deno.serve(async (req) => {
         .from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
         .eq("id", signatureId);
+      // P1.3: After real TAE send, cancel/reject → pendente (unified with webhook and cancel-signature)
       await adminSupabase
         .from("proposals")
-        .update({ status: "proposta_gerada" })
+        .update({ status: "pendente" })
         .eq("id", sigRecord.proposal_id);
     } else if (resolvedPublicationId && !sigRecord.tae_publication_id) {
       await adminSupabase

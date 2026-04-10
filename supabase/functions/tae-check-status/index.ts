@@ -43,6 +43,22 @@ function canTransitionSignatory(current: string, next: string): boolean {
   return true;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P1.1 — Individual signer status mapping (same as webhook)
+// ════════════════════════════════════════════════════════════════════
+function mapIndividualSignerStatus(input: {
+  assinado?: boolean | null;
+  rejeitado?: boolean | null;
+  pendente?: boolean | null;
+  statusAssinatura?: number | null;
+  taeStatus?: number | null;
+}): "pending" | "signed" | "rejected" {
+  if (input.rejeitado === true || input.statusAssinatura === 3) return "rejected";
+  if (input.assinado === true || input.statusAssinatura === 0 || input.pendente === false) return "signed";
+  if (input.taeStatus === 4 || input.taeStatus === 7) return "rejected";
+  return "pending";
+}
+
 const SIGNATURE_VALID_TRANSITIONS: Record<string, Set<string>> = {
   pending: new Set(["sent", "completed", "cancelled"]),
   sent: new Set(["completed", "cancelled"]),

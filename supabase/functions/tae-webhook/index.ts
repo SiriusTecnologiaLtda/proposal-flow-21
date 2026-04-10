@@ -51,16 +51,14 @@ function mapIndividualSignerStatus(input: {
   return "pending";
 }
 
-// Status precedence: signed/rejected are terminal — never regress to pending
-const STATUS_RANK: Record<string, number> = { pending: 0, signed: 1, rejected: 1 };
+// Terminal states: signed and rejected are immutable once set.
+// Only pending → signed or pending → rejected transitions are allowed.
+const TERMINAL_STATUSES = new Set(["signed", "rejected"]);
 
 function shouldUpdateSignerStatus(currentStatus: string, newStatus: string): boolean {
-  // Never regress from signed/rejected to pending
-  const currentRank = STATUS_RANK[currentStatus] ?? 0;
-  const newRank = STATUS_RANK[newStatus] ?? 0;
-  if (newRank < currentRank) return false;
-  // Don't update if status is unchanged
   if (currentStatus === newStatus) return false;
+  // Once terminal, no further transitions allowed
+  if (TERMINAL_STATUSES.has(currentStatus)) return false;
   return true;
 }
 

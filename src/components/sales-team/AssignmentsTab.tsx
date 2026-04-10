@@ -423,7 +423,8 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeAssignment(index)}
                         >
-                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />Remover
+                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                          {a.id && !a.isNew ? "Inativar" : "Remover"}
                         </Button>
                       </div>
                     </div>

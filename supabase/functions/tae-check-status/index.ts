@@ -130,8 +130,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get TAE config
-    const { data: taeConfig } = await supabase.from("tae_config").select("*").maybeSingle();
+    // Get TAE config — use service role to bypass RLS on tae_config
+    const adminSupabaseForConfig = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: taeConfig } = await adminSupabaseForConfig.from("tae_config").select("*").maybeSingle();
     if (!taeConfig) {
       return new Response(JSON.stringify({ error: "Configuração TAE não encontrada" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

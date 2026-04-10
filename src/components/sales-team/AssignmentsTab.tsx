@@ -97,11 +97,40 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     setExpandedIdx(assignments.length);
   };
 
-  const removeAssignment = (index: number) => {
+  const [dependentsInfo, setDependentsInfo] = useState<{ index: number; dependents: { memberName: string; unitName: string }[] } | null>(null);
+
+  const removeAssignment = async (index: number) => {
     const removed = assignments[index];
-    if (removed.id && !removed.isNew) {
-      setRemovedIds((prev) => [...prev, removed.id!]);
+    // New assignments can always be removed
+    if (!removed.id || removed.isNew) {
+      setAssignments((prev) => prev.filter((_, i) => i !== index));
+      setExpandedIdx(null);
+      return;
     }
+
+    // Check if this assignment is used as reports_to_id by others
+    const { data: refs } = await (supabase as any)
+      .from("sales_team_assignments")
+      .select("id, member_id, unit_id")
+      .eq("reports_to_id", removed.id)
+      .eq("active", true);
+
+    if (refs && refs.length > 0) {
+      // Resolve names for the dependents
+      const depDetails = refs.map((ref: any) => {
+        const member = allMembers.find((m) => m.id === ref.member_id);
+        const unit = units.find((u) => u.id === ref.unit_id);
+        return {
+          memberName: member ? `${member.code} - ${member.name}` : ref.member_id,
+          unitName: unit?.name || "—",
+        };
+      });
+      setDependentsInfo({ index, dependents: depDetails });
+      return;
+    }
+
+    // No dependents — safe to remove
+    setRemovedIds((prev) => [...prev, removed.id!]);
     setAssignments((prev) => prev.filter((_, i) => i !== index));
     setExpandedIdx(null);
   };

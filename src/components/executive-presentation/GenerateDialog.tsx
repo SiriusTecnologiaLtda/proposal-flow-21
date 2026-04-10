@@ -24,7 +24,6 @@ import {
   detailOptions,
   defaultPresentationConfig,
 } from "@/data/executivePresentationData";
-import { usePresentationTypeConfig } from "@/hooks/useExecutivePresentation";
 
 interface GenerateDialogProps {
   open: boolean;
@@ -44,25 +43,40 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
     staleTime: 5 * 60 * 1000,
   });
 
-  const [config, setConfig] = useState<PresentationConfig>(() => {
-    const tc = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
-    return {
-      ...defaultPresentationConfig,
-      opportunityTypeSlug: opportunity.opportunityTypeSlug,
-      templateStyle: tc?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
-    };
+  // Fetch all presentation_type_configs to know which types have content
+  const { data: presConfigs = [] } = useQuery({
+    queryKey: ["presentation_type_configs_all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("presentation_type_configs")
+        .select("proposal_type_id, preferred_template");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
+  const configByTypeId = new Map(presConfigs.map((c) => [c.proposal_type_id, c]));
+  const selectedTypeId = proposalTypes.find((t) => t.slug === opportunity.opportunityTypeSlug)?.id;
+  const selectedConfig = selectedTypeId ? configByTypeId.get(selectedTypeId) : undefined;
+
+  const [config, setConfig] = useState<PresentationConfig>(() => ({
+    ...defaultPresentationConfig,
+    opportunityTypeSlug: opportunity.opportunityTypeSlug,
+    templateStyle: (selectedConfig?.preferred_template as any) ?? defaultPresentationConfig.templateStyle,
+  }));
+
   useEffect(() => {
-    const tc = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
+    const typeId = proposalTypes.find((t) => t.slug === opportunity.opportunityTypeSlug)?.id;
+    const tc = typeId ? configByTypeId.get(typeId) : undefined;
     setConfig({
       ...defaultPresentationConfig,
       opportunityTypeSlug: opportunity.opportunityTypeSlug,
-      templateStyle: tc?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
+      templateStyle: (tc?.preferred_template as any) ?? defaultPresentationConfig.templateStyle,
     });
-  }, [opportunity.id, opportunity.opportunityTypeSlug]);
+  }, [opportunity.id, opportunity.opportunityTypeSlug, presConfigs.length]);
 
-  const hasPresConfig = executivePresentationStore.hasConfig(config.opportunityTypeSlug);
+  const hasPresConfig = !!selectedConfig;
   const hasProject = !!opportunity.linkedProject;
   const hasTemplate = !!opportunity.templateContext;
 
@@ -123,11 +137,12 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
             <Select
               value={config.opportunityTypeSlug}
               onValueChange={(v) => {
-                const tc = executivePresentationStore.getConfigForSlug(v);
+                const typeId = proposalTypes.find((t) => t.slug === v)?.id;
+                const tc = typeId ? configByTypeId.get(typeId) : undefined;
                 setConfig((c) => ({
                   ...c,
                   opportunityTypeSlug: v,
-                  templateStyle: tc?.preferredTemplate ?? c.templateStyle,
+                  templateStyle: (tc?.preferred_template as any) ?? c.templateStyle,
                 }));
               }}
             >
@@ -136,7 +151,7 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
                 {proposalTypes.map((t) => (
                   <SelectItem key={t.slug} value={t.slug}>
                     <span>{t.name}</span>
-                    {!executivePresentationStore.hasConfig(t.slug) && (
+                    {!configByTypeId.has(t.id) && (
                       <span className="ml-2 text-xs text-muted-foreground">(sem conteúdo)</span>
                     )}
                   </SelectItem>

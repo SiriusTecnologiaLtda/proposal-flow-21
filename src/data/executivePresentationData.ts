@@ -197,26 +197,26 @@ function inferIcon(title: string, index: number): string {
 // ── Executive narrative heuristics ──────────────────────────────────
 // Maps group title keywords → commercial objective
 const objectiveHeuristic: [RegExp, string][] = [
-  [/operacion|workflow|processo/i, "Automatizar e otimizar processos operacionais, eliminando controles manuais e reduzindo erros."],
+  [/contab|cont[aá]bil/i, "Estruturar a gestão contábil com automação de lançamentos, conciliações e fechamentos."],
+  [/fiscal|tribut/i, "Garantir conformidade fiscal com apuração automatizada de impostos e obrigações acessórias."],
+  [/rh|folha|ponto|pessoal/i, "Modernizar a gestão de pessoas com folha automatizada, controle de ponto e conformidade trabalhista."],
   [/financ|fatura|concilia|dre/i, "Garantir controle financeiro integrado com visibilidade em tempo real sobre receitas e custos."],
   [/dashboard|bi|kpi|indicador/i, "Fornecer visibilidade executiva por meio de indicadores estratégicos e relatórios personalizados."],
   [/treina|onboard|suporte|capacita/i, "Assegurar a adoção efetiva pela equipe por meio de capacitação estruturada e suporte dedicado."],
   [/integra[çc]/i, "Conectar sistemas e eliminar silos de informação, garantindo fluxo de dados consistente."],
-  [/contab|cont[aá]bil/i, "Estruturar a gestão contábil com automação de lançamentos, conciliações e fechamentos."],
-  [/fiscal|tribut/i, "Garantir conformidade fiscal com apuração automatizada de impostos e obrigações acessórias."],
-  [/rh|folha|ponto|pessoal/i, "Modernizar a gestão de pessoas com folha automatizada, controle de ponto e conformidade trabalhista."],
+  [/operacion|workflow|processo/i, "Automatizar e otimizar processos operacionais, eliminando controles manuais e reduzindo erros."],
   [/migra[çc]/i, "Migrar dados com segurança e integridade, garantindo continuidade operacional."],
 ];
 
 const impactHeuristic: [RegExp, string][] = [
-  [/operacion|workflow|processo/i, "Redução de retrabalho e ganho de produtividade na operação diária."],
+  [/contab|cont[aá]bil/i, "Fechamentos mais ágeis e redução de riscos em obrigações legais."],
+  [/fiscal|tribut/i, "Conformidade garantida com redução de riscos fiscais e multas."],
+  [/rh|folha|ponto|pessoal/i, "Conformidade trabalhista e eficiência na gestão do capital humano."],
   [/financ|fatura|concilia|dre/i, "Maior previsibilidade financeira e redução de perdas por inconsistências."],
   [/dashboard|bi|kpi|indicador/i, "Decisões mais rápidas e fundamentadas com dados atualizados em tempo real."],
   [/treina|onboard|suporte/i, "Equipe preparada para operar com autonomia e extrair o máximo da solução."],
   [/integra[çc]/i, "Eliminação de digitação duplicada e ganho de confiabilidade nos dados."],
-  [/contab|cont[aá]bil/i, "Fechamentos mais ágeis e redução de riscos em obrigações legais."],
-  [/fiscal|tribut/i, "Conformidade garantida com redução de riscos fiscais e multas."],
-  [/rh|folha|ponto|pessoal/i, "Conformidade trabalhista e eficiência na gestão do capital humano."],
+  [/operacion|workflow|processo/i, "Redução de retrabalho e ganho de produtividade na operação diária."],
 ];
 
 function inferExecutiveObjective(group: ProjectScopeGroup): string {

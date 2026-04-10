@@ -19,7 +19,7 @@ export interface ScopeBlock {
   executiveObjective?: string;
   /** Expected business impact */
   expectedImpact?: string;
-  /** Volume summary (e.g. "160h · 12 itens") */
+  /** Volume summary (e.g. "160h estimadas") */
   volumeSummary?: string;
 }
 
@@ -56,6 +56,11 @@ export interface ReferenceAttachment {
 // ── Linked Project (scope source) ───────────────────────────────────
 // Represents the project linked to an opportunity — primary source
 // for deliverable scope in the executive presentation.
+//
+// IMPORTANT: executiveObjective, expectedImpact, and executiveSummary
+// are explicit fields that should be filled by the user or system.
+// When present, they take priority over any heuristic inference.
+// This is the path to eliminating regex-based guessing.
 export interface ProjectScopeGroup {
   id: string;
   title: string;
@@ -64,6 +69,12 @@ export interface ProjectScopeGroup {
   itemCount: number;
   totalHours: number;
   items: { id: string; description: string; hours: number; included: boolean }[];
+  /** Explicit executive objective — takes priority over heuristic */
+  executiveObjective?: string;
+  /** Explicit expected impact — takes priority over heuristic */
+  expectedImpact?: string;
+  /** Short executive summary of this group */
+  executiveSummary?: string;
 }
 
 export interface LinkedProject {
@@ -76,22 +87,16 @@ export interface LinkedProject {
 }
 
 // ── Proposal Template Context ───────────────────────────────────────
-// Narrative and commercial structure extracted/referenced from the
-// proposal template linked to the opportunity type.
 export interface ProposalTemplateContext {
   templateDocId?: string;
   mitTemplateDocId?: string;
-  /** Placeholders available in the template */
   placeholders: string[];
-  /** Premises / assumptions from the template */
   premises: string[];
-  /** Out-of-scope items from the template */
   outOfScope: string[];
-  /** Methodology description from the template */
   methodology?: string;
 }
 
-// ── Presentation Config (per proposal_type slug) ────────────────────
+// ── Presentation Config (per proposal_types.slug) ────────────────────
 export interface PresentationTypeConfig {
   executiveSummary: string;
   positioningText: string;
@@ -136,9 +141,7 @@ export interface OpportunityData {
   nextStepCta: string;
   createdAt: string;
   expectedCloseDate: string;
-  /** Linked project — primary source of deliverable scope */
   linkedProject?: LinkedProject;
-  /** Template context — narrative & commercial references */
   templateContext?: ProposalTemplateContext;
 }
 
@@ -160,7 +163,6 @@ export interface ExecutivePresentation {
   config: PresentationConfig;
   composedData: OpportunityData;
   overrides: Record<string, string>;
-  /** Data sources used in composition */
   dataSources: {
     opportunity: boolean;
     proposalType: boolean;
@@ -173,6 +175,7 @@ export interface ExecutivePresentation {
 }
 
 // ── Executive scope icons by keyword heuristic ─────────────────────
+// Used as FALLBACK when explicit data is not available.
 const scopeIconHeuristic: [RegExp, string][] = [
   [/financ|fatura|concilia|dre|receita/i, "DollarSign"],
   [/dashboard|bi|kpi|relat[oó]rio|indicador/i, "BarChart3"],
@@ -184,6 +187,9 @@ const scopeIconHeuristic: [RegExp, string][] = [
   [/seguran[çc]|complian/i, "ShieldCheck"],
   [/opera|workflow|processo|automa/i, "Settings"],
   [/vendas|comercial|crm/i, "Rocket"],
+  [/diagn[oó]stic/i, "Search"],
+  [/redesenho|melhoria|otimiz/i, "PenTool"],
+  [/governan[çc]|qualidade/i, "Award"],
 ];
 
 function inferIcon(title: string, index: number): string {
@@ -194,8 +200,8 @@ function inferIcon(title: string, index: number): string {
   return fallbacks[index % fallbacks.length];
 }
 
-// ── Executive narrative heuristics ──────────────────────────────────
-// Maps group title keywords → commercial objective
+// ── Executive narrative heuristics (FALLBACK only) ──────────────────
+// These are used ONLY when ProjectScopeGroup does not have explicit fields.
 const objectiveHeuristic: [RegExp, string][] = [
   [/contab|cont[aá]bil/i, "Estruturar a gestão contábil com automação de lançamentos, conciliações e fechamentos."],
   [/fiscal|tribut/i, "Garantir conformidade fiscal com apuração automatizada de impostos e obrigações acessórias."],
@@ -206,6 +212,9 @@ const objectiveHeuristic: [RegExp, string][] = [
   [/integra[çc]/i, "Conectar sistemas e eliminar silos de informação, garantindo fluxo de dados consistente."],
   [/operacion|workflow|processo/i, "Automatizar e otimizar processos operacionais, eliminando controles manuais e reduzindo erros."],
   [/migra[çc]/i, "Migrar dados com segurança e integridade, garantindo continuidade operacional."],
+  [/diagn[oó]stic/i, "Mapear processos e identificar oportunidades de melhoria com análise detalhada."],
+  [/redesenho|melhoria/i, "Redesenhar processos para alcançar eficiência e padronização operacional."],
+  [/governan[çc]|qualidade/i, "Estabelecer governança e indicadores de qualidade para sustentação dos resultados."],
 ];
 
 const impactHeuristic: [RegExp, string][] = [
@@ -217,18 +226,30 @@ const impactHeuristic: [RegExp, string][] = [
   [/treina|onboard|suporte/i, "Equipe preparada para operar com autonomia e extrair o máximo da solução."],
   [/integra[çc]/i, "Eliminação de digitação duplicada e ganho de confiabilidade nos dados."],
   [/operacion|workflow|processo/i, "Redução de retrabalho e ganho de produtividade na operação diária."],
+  [/diagn[oó]stic/i, "Clareza sobre gaps e prioridades, direcionando investimentos com assertividade."],
+  [/redesenho|melhoria/i, "Processos mais enxutos com ganho mensurável de eficiência."],
+  [/governan[çc]|qualidade/i, "Cultura de melhoria contínua sustentada por indicadores confiáveis."],
 ];
 
-function inferExecutiveObjective(group: ProjectScopeGroup): string {
+/**
+ * Resolves the executive objective for a scope group.
+ * Priority: explicit field > heuristic > generic fallback
+ */
+function resolveExecutiveObjective(group: ProjectScopeGroup): string {
+  if (group.executiveObjective) return group.executiveObjective;
   for (const [re, text] of objectiveHeuristic) {
     if (re.test(group.title)) return text;
   }
-  // Generic but still executive
   const count = group.items.filter((i) => i.included).length;
   return `Frente de trabalho com ${count} entregáveis planejados para esta etapa do projeto.`;
 }
 
-function inferExpectedImpact(group: ProjectScopeGroup): string {
+/**
+ * Resolves the expected impact for a scope group.
+ * Priority: explicit field > heuristic > generic fallback
+ */
+function resolveExpectedImpact(group: ProjectScopeGroup): string {
+  if (group.expectedImpact) return group.expectedImpact;
   for (const [re, text] of impactHeuristic) {
     if (re.test(group.title)) return text;
   }
@@ -244,16 +265,20 @@ export function composePresentation(
 ): OpportunityData {
   // Transform project groups into executive scope blocks
   const projectScopeBlocks: ScopeBlock[] = opportunity.linkedProject
-    ? opportunity.linkedProject.scopeGroups.map((g, i) => ({
-        id: `proj-scope-${g.id}`,
-        title: g.title,
-        description: inferExecutiveObjective(g),
-        icon: inferIcon(g.title, i),
-        items: g.items.filter((it) => it.included).slice(0, 5).map((it) => it.description),
-        executiveObjective: inferExecutiveObjective(g),
-        expectedImpact: inferExpectedImpact(g),
-        volumeSummary: `${g.totalHours}h estimadas`,
-      }))
+    ? opportunity.linkedProject.scopeGroups.map((g, i) => {
+        const objective = resolveExecutiveObjective(g);
+        const impact = resolveExpectedImpact(g);
+        return {
+          id: `proj-scope-${g.id}`,
+          title: g.title,
+          description: g.executiveSummary || objective,
+          icon: inferIcon(g.title, i),
+          items: g.items.filter((it) => it.included).slice(0, 5).map((it) => it.description),
+          executiveObjective: objective,
+          expectedImpact: impact,
+          volumeSummary: `${g.totalHours}h estimadas`,
+        };
+      })
     : [];
 
   const fallbackType = typeConfig ?? ({} as Partial<PresentationTypeConfig>);
@@ -452,6 +477,8 @@ const initialPresentationConfigs: Record<string, PresentationTypeConfig> = {
 // =====================================================================
 //  MOCK — Opportunities (referencing real proposal_types slugs)
 //  Now includes linkedProject and templateContext for composite generation
+//  Mock scope groups use EXPLICIT executive fields where available,
+//  demonstrating the path away from regex heuristics.
 // =====================================================================
 const initialOpportunities: OpportunityData[] = [
   {
@@ -500,7 +527,7 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Agendar reunião de alinhamento",
     createdAt: "2026-03-15",
     expectedCloseDate: "2026-05-10",
-    // Linked project — scope comes from here
+    // Linked project — scope groups with EXPLICIT executive fields
     linkedProject: {
       id: "proj-nova-energia",
       description: "Implantação Plataforma Gestão Operacional — Nova Energia",
@@ -514,6 +541,9 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 12,
           totalHours: 160,
+          executiveObjective: "Centralizar e automatizar a gestão operacional, eliminando controles manuais e garantindo rastreabilidade completa.",
+          expectedImpact: "Redução de 40% no tempo de resposta operacional e eliminação de controles em planilha.",
+          executiveSummary: "Frente responsável pela automação dos processos operacionais críticos, incluindo monitoramento em tempo real e alertas inteligentes.",
           items: [
             { id: "si-1", description: "Workflow automatizado de operação", hours: 24, included: true },
             { id: "si-2", description: "Regras de negócio configuráveis", hours: 32, included: true },
@@ -529,6 +559,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 8,
           totalHours: 120,
+          executiveObjective: "Garantir controle financeiro integrado com faturamento automatizado e visibilidade sobre receitas e custos.",
+          expectedImpact: "Maior previsibilidade financeira e redução de perdas por inconsistências de faturamento.",
           items: [
             { id: "si-7", description: "Faturamento automático", hours: 32, included: true },
             { id: "si-8", description: "Conciliação bancária", hours: 24, included: true },
@@ -542,6 +574,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 6,
           totalHours: 96,
+          executiveObjective: "Fornecer visibilidade executiva com indicadores em tempo real para suportar decisões estratégicas.",
+          expectedImpact: "Decisões mais rápidas e fundamentadas, com dados atualizados e confiáveis.",
           items: [
             { id: "si-11", description: "KPIs em tempo real", hours: 24, included: true },
             { id: "si-12", description: "Relatórios customizáveis", hours: 32, included: true },
@@ -555,6 +589,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "manual",
           itemCount: 6,
           totalHours: 104,
+          executiveObjective: "Assegurar a adoção efetiva pela equipe por meio de capacitação estruturada e acompanhamento dedicado.",
+          expectedImpact: "Equipe preparada para operar com autonomia, maximizando o retorno do investimento desde o primeiro mês.",
           items: [
             { id: "si-15", description: "Migração de dados legados", hours: 40, included: true },
             { id: "si-16", description: "Treinamento de equipe", hours: 24, included: true },
@@ -624,7 +660,7 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Agendar visita técnica",
     createdAt: "2026-03-20",
     expectedCloseDate: "2026-06-30",
-    // No linked project yet — scope will fall back to type defaults
+    // No linked project — scope falls back to type defaults (consultoria)
     linkedProject: undefined,
     templateContext: {
       templateDocId: "1abc_template_consultoria",
@@ -686,7 +722,7 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Confirmar início do projeto",
     createdAt: "2026-02-28",
     expectedCloseDate: "2026-04-20",
-    // Linked project with scope groups
+    // Linked project — scope groups with EXPLICIT executive fields
     linkedProject: {
       id: "proj-logtech",
       description: "Projeto Sigma Cenário 2 BO no Mídia + Contábil/Fiscal e DP/Ponto no Protheus",
@@ -700,6 +736,9 @@ const initialOpportunities: OpportunityData[] = [
           source: "manual",
           itemCount: 9,
           totalHours: 160,
+          executiveObjective: "Conectar o sistema Mídia+ ao ERP, eliminando silos de informação e garantindo fluxo de dados de vendas em tempo real.",
+          expectedImpact: "Eliminação de digitação duplicada e ganho de confiabilidade nos dados comerciais.",
+          executiveSummary: "Frente de integração entre Mídia+ e ERP para unificação de dados de vendas e operação.",
           items: [
             { id: "lt-1", description: "Configuração de integração com Mídia+", hours: 24, included: true },
             { id: "lt-2", description: "Migração de dados de vendas", hours: 32, included: true },
@@ -714,6 +753,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 21,
           totalHours: 272,
+          executiveObjective: "Estruturar a gestão contábil com automação de lançamentos, conciliações e fechamentos mensais.",
+          expectedImpact: "Fechamentos mais ágeis e redução de riscos em obrigações legais e demonstrações financeiras.",
           items: [
             { id: "lt-6", description: "Plano de contas parametrizado", hours: 16, included: true },
             { id: "lt-7", description: "Lançamentos contábeis automatizados", hours: 40, included: true },
@@ -729,6 +770,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 7,
           totalHours: 132,
+          executiveObjective: "Garantir conformidade fiscal com apuração automatizada de impostos e geração de obrigações acessórias.",
+          expectedImpact: "Conformidade garantida com redução de riscos fiscais, multas e retrabalho tributário.",
           items: [
             { id: "lt-12", description: "Configuração tributária por UF", hours: 32, included: true },
             { id: "lt-13", description: "Apuração de impostos", hours: 24, included: true },
@@ -742,6 +785,8 @@ const initialOpportunities: OpportunityData[] = [
           source: "template",
           itemCount: 41,
           totalHours: 348,
+          executiveObjective: "Modernizar a gestão de pessoas com folha automatizada, controle de ponto e conformidade com eSocial.",
+          expectedImpact: "Conformidade trabalhista plena e eficiência na gestão do capital humano, reduzindo riscos legais.",
           items: [
             { id: "lt-16", description: "Cadastro de colaboradores", hours: 16, included: true },
             { id: "lt-17", description: "Folha de pagamento", hours: 48, included: true },
@@ -781,6 +826,43 @@ let _listeners: Array<() => void> = [];
 
 function notify() {
   _listeners.forEach((fn) => fn());
+}
+
+/**
+ * Validates that all opportunity slugs have a matching config.
+ * Returns list of unmatched slugs — useful for debugging & future DB sync.
+ */
+export function validateSlugAlignment(): { matched: string[]; unmatched: string[] } {
+  const slugsInUse = [...new Set(_opportunities.map((o) => o.opportunityTypeSlug))];
+  const matched = slugsInUse.filter((s) => s in _presentationConfigs);
+  const unmatched = slugsInUse.filter((s) => !(s in _presentationConfigs));
+  return { matched, unmatched };
+}
+
+/**
+ * Ensures a config entry exists for a given slug.
+ * If not, creates a minimal placeholder config.
+ * Call this when syncing with real proposal_types from DB.
+ */
+export function ensureConfigForSlug(slug: string, name: string): PresentationTypeConfig {
+  if (_presentationConfigs[slug]) return _presentationConfigs[slug];
+  const placeholder: PresentationTypeConfig = {
+    executiveSummary: `Apresentação executiva para oportunidades do tipo ${name}.`,
+    positioningText: "",
+    problemStatement: "",
+    solutionApproach: "",
+    defaultBenefits: [],
+    defaultScopeBlocks: [],
+    defaultTimeline: [],
+    pricingDisplayMode: "setup_unico",
+    differentiators: [],
+    defaultCta: "Entrar em contato para próximos passos",
+    preferredTemplate: "modern",
+    references: [],
+  };
+  _presentationConfigs[slug] = placeholder;
+  notify();
+  return placeholder;
 }
 
 export const executivePresentationStore = {

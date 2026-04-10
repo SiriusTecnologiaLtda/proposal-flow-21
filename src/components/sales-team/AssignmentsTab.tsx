@@ -50,6 +50,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
   const [saving, setSaving] = useState(false);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);

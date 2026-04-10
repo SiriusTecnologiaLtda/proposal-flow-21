@@ -1,5 +1,5 @@
 import { type OpportunityData } from "@/data/executivePresentationData";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, BookOpen } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
@@ -11,6 +11,7 @@ interface Props {
 export default function SolutionSection({ data, editable, overrides, onEdit }: Props) {
   const summary = overrides?.solutionSummary ?? data.solutionSummary;
   const how = overrides?.solutionHow ?? data.solutionHow;
+  const methodology = data.templateContext?.methodology;
 
   return (
     <section className="space-y-6">
@@ -45,9 +46,34 @@ export default function SolutionSection({ data, editable, overrides, onEdit }: P
                 <p className="text-muted-foreground leading-relaxed">{how}</p>
               </>
             )}
+
+            {/* Objectives from opportunity */}
+            {data.objectives.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50">
+                {data.objectives.map((obj, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="h-1.5 w-1.5 mt-1.5 shrink-0 rounded-full bg-primary" />
+                    <p className="text-xs text-muted-foreground">{obj}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Methodology from template — integrated into the solution narrative */}
+      {methodology && !editable && (
+        <div className="flex items-start gap-3 rounded-xl border bg-card p-5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-foreground">Abordagem Metodológica</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{methodology}</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

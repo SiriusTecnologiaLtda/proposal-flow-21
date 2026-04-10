@@ -15,6 +15,12 @@ export interface ScopeBlock {
   description: string;
   icon: string;
   items: string[];
+  /** Executive-level objective of this work stream */
+  executiveObjective?: string;
+  /** Expected business impact */
+  expectedImpact?: string;
+  /** Volume summary (e.g. "160h · 12 itens") */
+  volumeSummary?: string;
 }
 
 export interface TimelinePhase {
@@ -166,30 +172,84 @@ export interface ExecutivePresentation {
   updatedAt: string;
 }
 
+// ── Executive scope icons by keyword heuristic ─────────────────────
+const scopeIconHeuristic: [RegExp, string][] = [
+  [/financ|fatura|concilia|dre|receita/i, "DollarSign"],
+  [/dashboard|bi|kpi|relat[oó]rio|indicador/i, "BarChart3"],
+  [/treina|onboard|capacita|suporte/i, "GraduationCap"],
+  [/integra[çc]/i, "Link"],
+  [/contab|cont[aá]bil|fiscal|tribut/i, "Layers"],
+  [/rh|folha|ponto|pessoal|trabalh/i, "Heart"],
+  [/migra[çc]/i, "Route"],
+  [/seguran[çc]|complian/i, "ShieldCheck"],
+];
+
+function inferIcon(title: string, index: number): string {
+  for (const [re, icon] of scopeIconHeuristic) {
+    if (re.test(title)) return icon;
+  }
+  const fallbacks = ["Layers", "Settings", "Route", "Brain", "Rocket", "Shield"];
+  return fallbacks[index % fallbacks.length];
+}
+
+// ── Executive objective heuristic ───────────────────────────────────
+function inferExecutiveObjective(group: ProjectScopeGroup): string {
+  const topItems = group.items.filter((i) => i.included).slice(0, 3);
+  if (topItems.length === 0) return "Entregáveis definidos no escopo do projeto.";
+  const actions = topItems.map((i) => i.description.toLowerCase()).join(", ");
+  return `Estruturar e entregar: ${actions}.`;
+}
+
+function inferExpectedImpact(group: ProjectScopeGroup): string {
+  if (group.totalHours >= 200) return "Frente estratégica com alto volume de entregáveis — impacto direto na operação.";
+  if (group.totalHours >= 100) return "Frente relevante com impacto significativo na eficiência operacional.";
+  return "Frente complementar que fortalece o resultado global do projeto.";
+}
+
 // ── Composition helper ──────────────────────────────────────────────
 export function composePresentation(
   opportunity: OpportunityData,
   typeConfig: PresentationTypeConfig | undefined,
 ): OpportunityData {
-  // If there's a linked project, derive scope blocks from its groups
+  // Transform project groups into executive scope blocks
   const projectScopeBlocks: ScopeBlock[] = opportunity.linkedProject
     ? opportunity.linkedProject.scopeGroups.map((g, i) => ({
         id: `proj-scope-${g.id}`,
         title: g.title,
-        description: `${g.itemCount} itens · ${g.totalHours}h`,
-        icon: i === 0 ? "Layers" : "Settings",
+        description: inferExecutiveObjective(g),
+        icon: inferIcon(g.title, i),
         items: g.items.filter((it) => it.included).slice(0, 6).map((it) => it.description),
+        executiveObjective: inferExecutiveObjective(g),
+        expectedImpact: inferExpectedImpact(g),
+        volumeSummary: `${g.totalHours}h · ${g.itemCount} entregáveis`,
       }))
     : [];
 
   const fallbackType = typeConfig ?? ({} as Partial<PresentationTypeConfig>);
+  const tmpl = opportunity.templateContext;
+
+  // Narrative: opportunity > template methodology > type defaults
+  const solutionSummary =
+    opportunity.solutionSummary ||
+    fallbackType.solutionApproach ||
+    "Solução personalizada para os desafios identificados.";
+
+  const solutionHow =
+    opportunity.solutionHow ||
+    (tmpl?.methodology ? `${fallbackType.positioningText || ""} ${tmpl.methodology}`.trim() : "") ||
+    fallbackType.positioningText ||
+    "Abordagem estruturada com foco em resultados mensuráveis.";
+
+  const currentScenario =
+    opportunity.currentScenario ||
+    fallbackType.problemStatement ||
+    "Cenário atual com oportunidades de melhoria identificadas.";
 
   return {
     ...opportunity,
-    // Narrative: opportunity overrides type defaults
-    solutionSummary: opportunity.solutionSummary || fallbackType.solutionApproach || "",
-    solutionHow: opportunity.solutionHow || fallbackType.positioningText || "",
-    currentScenario: opportunity.currentScenario || fallbackType.problemStatement || "",
+    solutionSummary,
+    solutionHow,
+    currentScenario,
     // Scope: project > opportunity > type defaults
     scopeBlocks:
       projectScopeBlocks.length > 0
@@ -204,8 +264,8 @@ export function composePresentation(
     // Differentiators: opportunity > type defaults
     differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : fallbackType.differentiators || [],
     // CTA: opportunity > type defaults
-    nextStep: opportunity.nextStep || fallbackType.defaultCta || "",
-    nextStepCta: opportunity.nextStepCta || fallbackType.defaultCta || "",
+    nextStep: opportunity.nextStep || fallbackType.defaultCta || "Entrar em contato para próximos passos.",
+    nextStepCta: opportunity.nextStepCta || fallbackType.defaultCta || "Avançar",
   };
 }
 

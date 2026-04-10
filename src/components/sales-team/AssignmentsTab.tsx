@@ -97,6 +97,10 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
   };
 
   const removeAssignment = (index: number) => {
+    const removed = assignments[index];
+    if (removed.id && !removed.isNew) {
+      setRemovedIds((prev) => [...prev, removed.id!]);
+    }
     setAssignments((prev) => prev.filter((_, i) => i !== index));
     setExpandedIdx(null);
   };

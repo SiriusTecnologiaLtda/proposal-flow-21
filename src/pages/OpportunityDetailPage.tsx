@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft, Settings2,
+  Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -18,7 +18,7 @@ export default function OpportunityDetailPage() {
   const [selectedOpp, setSelectedOpp] = useState(opportunities[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const typeRef = executivePresentationStore.getTypeBySlug(selectedOpp.opportunityTypeSlug);
+  const presConfig = executivePresentationStore.getConfigForSlug(selectedOpp.opportunityTypeSlug);
 
   const stageColors: Record<string, string> = {
     Proposta: "bg-primary/10 text-primary border-primary/20",
@@ -44,14 +44,6 @@ export default function OpportunityDetailPage() {
             <h1 className="text-xl font-bold">Apresentação Executiva</h1>
             <p className="text-sm text-primary-foreground/70">Selecione uma oportunidade e gere a apresentação</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1.5"
-            onClick={() => navigate("/tipos-oportunidade-apresentacao")}
-          >
-            <Settings2 className="h-4 w-4" /> Gerenciar Tipos
-          </Button>
         </div>
       </div>
 
@@ -101,23 +93,23 @@ export default function OpportunityDetailPage() {
         </div>
 
         {/* Type reference info */}
-        {typeRef && (
+        {presConfig && (
           <div className="border-t p-6">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Conteúdo-base do tipo: {typeRef.name}</h3>
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Conteúdo-base: {selectedOpp.opportunityTypeLabel}</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-lg bg-muted/30 p-3">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Posicionamento</p>
-                <p className="text-sm text-foreground line-clamp-3">{typeRef.positioningText}</p>
+                <p className="text-sm text-foreground line-clamp-3">{presConfig.positioningText}</p>
               </div>
               <div className="rounded-lg bg-muted/30 p-3">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Abordagem</p>
-                <p className="text-sm text-foreground line-clamp-3">{typeRef.solutionApproach}</p>
+                <p className="text-sm text-foreground line-clamp-3">{presConfig.solutionApproach}</p>
               </div>
             </div>
             <div className="flex gap-2 mt-3 flex-wrap">
-              <Badge variant="secondary" className="text-xs">{typeRef.defaultScopeBlocks.length} blocos de escopo padrão</Badge>
-              <Badge variant="secondary" className="text-xs">{typeRef.defaultBenefits.length} benefícios padrão</Badge>
-              <Badge variant="secondary" className="text-xs">{typeRef.references.length} referências</Badge>
+              <Badge variant="secondary" className="text-xs">{presConfig.defaultScopeBlocks.length} blocos de escopo padrão</Badge>
+              <Badge variant="secondary" className="text-xs">{presConfig.defaultBenefits.length} benefícios padrão</Badge>
+              <Badge variant="secondary" className="text-xs">{presConfig.references.length} referências</Badge>
             </div>
           </div>
         )}

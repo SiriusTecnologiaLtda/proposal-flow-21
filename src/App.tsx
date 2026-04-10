@@ -56,7 +56,7 @@ import ScopeAuditPage from "@/pages/ScopeAuditPage";
 import OpportunityDetailPage from "@/pages/OpportunityDetailPage";
 import ExecutivePresentationPage from "@/pages/ExecutivePresentationPage";
 import ExecutivePresentationSharePage from "@/pages/ExecutivePresentationSharePage";
-import OpportunityTypesAdminPage from "@/pages/OpportunityTypesAdminPage";
+
 import React from "react";
 
 class ErrorBoundary extends React.Component<
@@ -241,7 +241,7 @@ function ProtectedRoutes() {
         <Route path="/admin/scope-audit" element={<GuardedRoute path="/configuracoes"><ScopeAuditPage /></GuardedRoute>} />
         <Route path="/oportunidade-detalhe" element={<OpportunityDetailPage />} />
         <Route path="/apresentacao-executiva/:id" element={<ExecutivePresentationPage />} />
-        <Route path="/tipos-oportunidade-apresentacao" element={<OpportunityTypesAdminPage />} />
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

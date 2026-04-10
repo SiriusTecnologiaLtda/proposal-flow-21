@@ -1,7 +1,8 @@
 // Executive Presentation — Data models, mock data & shared store
-// No hardcoded type unions — all types come from the central store.
+// Presentation content is keyed by proposal_types.slug (the real DB entity).
+// No standalone "type" entity — we extend the existing proposal_types.
 
-// ── Shared scalar types (open strings, not unions) ──────────────────
+// ── Shared scalar types ─────────────────────────────────────────────
 export type TemplateStyle = "modern" | "corporate" | "minimal";
 export type AudienceLevel = "c_level" | "gerencia" | "operacional";
 export type DetailLevel = "resumido" | "detalhado";
@@ -37,7 +38,6 @@ export interface Differentiator {
   description: string;
 }
 
-// ── Reference Attachment (DOC/PDF attached to a type) ───────────────
 export interface ReferenceAttachment {
   id: string;
   fileName: string;
@@ -47,11 +47,10 @@ export interface ReferenceAttachment {
   url?: string;
 }
 
-// ── OpportunityType (content-base per type) ─────────────────────────
-export interface OpportunityType {
-  id: string;
-  name: string;
-  slug: string;
+// ── Presentation Config (per proposal_type slug) ────────────────────
+// This is the "extension" content that enriches a proposal_type
+// for executive presentation generation. Stored as mock for now.
+export interface PresentationTypeConfig {
   executiveSummary: string;
   positioningText: string;
   problemStatement: string;
@@ -64,12 +63,7 @@ export interface OpportunityType {
   defaultCta: string;
   preferredTemplate: TemplateStyle;
   references: ReferenceAttachment[];
-  createdAt: string;
-  updatedAt: string;
 }
-
-/** @deprecated use OpportunityType instead */
-export type OpportunityTypeReference = OpportunityType;
 
 // ── Opportunity Data ────────────────────────────────────────────────
 export interface OpportunityData {
@@ -78,7 +72,7 @@ export interface OpportunityData {
   contact: string;
   contactRole: string;
   segment: string;
-  /** slug referencing an OpportunityType */
+  /** slug referencing a proposal_type */
   opportunityTypeSlug: string;
   opportunityTypeLabel: string;
   stage: string;
@@ -102,7 +96,7 @@ export interface OpportunityData {
   expectedCloseDate: string;
 }
 
-// ── Presentation Config ─────────────────────────────────────────────
+// ── Generation Config ───────────────────────────────────────────────
 export interface PresentationConfig {
   opportunityTypeSlug: string;
   templateStyle: TemplateStyle;
@@ -118,9 +112,7 @@ export interface ExecutivePresentation {
   opportunityId: string;
   opportunityTypeSlug: string;
   config: PresentationConfig;
-  /** Composed data snapshot (type defaults + opportunity data) */
   composedData: OpportunityData;
-  /** User overrides applied in preview editor */
   overrides: Record<string, string>;
   shareSlug: string;
   createdAt: string;
@@ -130,23 +122,23 @@ export interface ExecutivePresentation {
 // ── Composition helper ──────────────────────────────────────────────
 export function composePresentation(
   opportunity: OpportunityData,
-  typeRef: OpportunityType,
+  typeConfig: PresentationTypeConfig,
 ): OpportunityData {
   return {
     ...opportunity,
-    solutionSummary: opportunity.solutionSummary || typeRef.solutionApproach,
-    solutionHow: opportunity.solutionHow || typeRef.positioningText,
-    currentScenario: opportunity.currentScenario || typeRef.problemStatement,
-    scopeBlocks: opportunity.scopeBlocks.length > 0 ? opportunity.scopeBlocks : typeRef.defaultScopeBlocks,
-    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : typeRef.defaultBenefits,
-    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : typeRef.defaultTimeline,
-    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : typeRef.differentiators,
-    nextStep: opportunity.nextStep || typeRef.defaultCta,
-    nextStepCta: opportunity.nextStepCta || typeRef.defaultCta,
+    solutionSummary: opportunity.solutionSummary || typeConfig.solutionApproach,
+    solutionHow: opportunity.solutionHow || typeConfig.positioningText,
+    currentScenario: opportunity.currentScenario || typeConfig.problemStatement,
+    scopeBlocks: opportunity.scopeBlocks.length > 0 ? opportunity.scopeBlocks : typeConfig.defaultScopeBlocks,
+    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : typeConfig.defaultBenefits,
+    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : typeConfig.defaultTimeline,
+    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : typeConfig.differentiators,
+    nextStep: opportunity.nextStep || typeConfig.defaultCta,
+    nextStepCta: opportunity.nextStepCta || typeConfig.defaultCta,
   };
 }
 
-// ── Option lists (template, audience, detail, pricing) ──────────────
+// ── Option lists ────────────────────────────────────────────────────
 export const templateStyleOptions: { value: TemplateStyle; label: string; description: string }[] = [
   { value: "modern", label: "Moderno", description: "Visual arrojado com gradientes e cards dinâmicos" },
   { value: "corporate", label: "Corporativo", description: "Sóbrio e profissional, ideal para C-Level" },
@@ -175,18 +167,59 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+export const defaultPresentationConfig: PresentationConfig = {
+  opportunityTypeSlug: "",
+  templateStyle: "modern",
+  audience: "c_level",
+  detailLevel: "resumido",
+  showInvestment: true,
+  showTimeline: true,
+};
+
 // =====================================================================
-//  MOCK DATA — Opportunity Types
+//  MOCK — Presentation configs keyed by proposal_types.slug
 // =====================================================================
-const initialOpportunityTypes: OpportunityType[] = [
-  {
-    id: "type-saas",
-    name: "SaaS / Assinatura",
-    slug: "saas",
-    executiveSummary: "Soluções em nuvem com modelo de assinatura recorrente, entrega contínua de valor e escalabilidade imediata.",
-    positioningText: "Transforme sua operação com tecnologia de ponta em modelo SaaS — sem investimento em infraestrutura, com atualizações contínuas e suporte dedicado.",
+const initialPresentationConfigs: Record<string, PresentationTypeConfig> = {
+  projeto: {
+    executiveSummary: "Desenvolvimento de soluções tecnológicas sob medida com metodologia ágil, entregas incrementais e propriedade intelectual do cliente.",
+    positioningText: "Construímos soluções tecnológicas exclusivas que se tornam vantagem competitiva — com entregas incrementais, validação contínua e propriedade intelectual 100% do cliente.",
+    problemStatement: "Soluções de mercado não atendem regras de negócio específicas. Adaptações em ferramentas genéricas geram custo crescente, dívida técnica e dependência de fornecedor.",
+    solutionApproach: "Construção iterativa em sprints de 2 semanas, com validação contínua da equipe operacional e releases incrementais em produção.",
+    defaultBenefits: [
+      { id: "db-9", title: "Solução sob medida", description: "Sistema projetado para as regras de negócio específicas da operação.", icon: "Shield" },
+      { id: "db-10", title: "Escalabilidade operacional", description: "Crescimento sem aumento proporcional de equipe.", icon: "Rocket" },
+      { id: "db-11", title: "Propriedade intelectual", description: "Sistema proprietário que se torna vantagem competitiva exclusiva.", icon: "Award" },
+      { id: "db-12", title: "Visibilidade em tempo real", description: "Dashboards e alertas para gestão com visibilidade total.", icon: "Eye" },
+    ],
+    defaultScopeBlocks: [
+      { id: "ds-9", title: "Fase 1 — Fundação", description: "Arquitetura, modelagem de dados e infraestrutura.", icon: "Layers", items: ["Arquitetura do sistema", "Modelagem de dados", "Setup cloud", "MVP base"] },
+      { id: "ds-10", title: "Fase 2 — Core", description: "Desenvolvimento das funcionalidades principais.", icon: "Route", items: ["Regras de negócio", "Algoritmos core", "Validação operacional", "Testes integrados"] },
+      { id: "ds-11", title: "Fase 3 — Integração", description: "Conexão com sistemas existentes.", icon: "Link", items: ["APIs de integração", "Sincronização de dados", "Automação de fluxos", "Monitoramento"] },
+      { id: "ds-12", title: "Fase 4 — Inteligência", description: "Camada analítica e otimização contínua.", icon: "Brain", items: ["Analytics avançado", "Otimização contínua", "Análise de performance", "Recomendações"] },
+    ],
+    defaultTimeline: [
+      { id: "dt-9", phase: 1, title: "Fundação", duration: "6 semanas", description: "Arquitetura, infraestrutura e base." },
+      { id: "dt-10", phase: 2, title: "Desenvolvimento Core", duration: "10 semanas", description: "Funcionalidades principais com validação contínua." },
+      { id: "dt-11", phase: 3, title: "Integração", duration: "6 semanas", description: "Conexão com sistemas e testes integrados." },
+      { id: "dt-12", phase: 4, title: "Go-Live", duration: "8 semanas", description: "Otimização e entrada em produção." },
+    ],
+    pricingDisplayMode: "setup_unico",
+    differentiators: [
+      { id: "dd-7", title: "Experiência comprovada", description: "Mais de 50 projetos de tecnologia sob medida entregues." },
+      { id: "dd-8", title: "Metodologia ágil", description: "Entregas incrementais a cada 2 semanas com validação contínua." },
+      { id: "dd-9", title: "Suporte pós-entrega", description: "12 meses de suporte evolutivo inclusos para estabilização." },
+    ],
+    defaultCta: "Confirmar início do projeto e agendar discovery",
+    preferredTemplate: "minimal",
+    references: [
+      { id: "ref-4", fileName: "Escopo_Tecnico_Template.docx", fileType: "docx", description: "Template de escopo técnico detalhado", uploadedAt: "2026-02-01" },
+    ],
+  },
+  implantacao: {
+    executiveSummary: "Soluções de implantação com modelo de projeto e acompanhamento dedicado, foco em aderência operacional e transferência de conhecimento.",
+    positioningText: "Transforme sua operação com tecnologia de ponta — implantação assistida, com atualizações contínuas e suporte dedicado.",
     problemStatement: "Empresas que dependem de sistemas legados enfrentam custos crescentes de manutenção, lentidão na inovação e riscos de segurança que comprometem a competitividade.",
-    solutionApproach: "Nossa plataforma SaaS oferece módulos especializados com onboarding assistido, integrações nativas e evolução contínua orientada pelo cliente.",
+    solutionApproach: "Nossa plataforma oferece módulos especializados com onboarding assistido, integrações nativas e evolução contínua orientada pelo cliente.",
     defaultBenefits: [
       { id: "db-1", title: "Redução de custos operacionais", description: "Economia de até 25% com automação e eliminação de infraestrutura própria.", icon: "TrendingDown" },
       { id: "db-2", title: "Decisões baseadas em dados", description: "Dashboards em tempo real com KPIs estratégicos e operacionais.", icon: "Eye" },
@@ -194,7 +227,7 @@ const initialOpportunityTypes: OpportunityType[] = [
       { id: "db-4", title: "Atualizações contínuas", description: "Novas funcionalidades entregues automaticamente sem paradas ou custos extras.", icon: "ShieldCheck" },
     ],
     defaultScopeBlocks: [
-      { id: "ds-1", title: "Módulo Core", description: "Funcionalidades essenciais da plataforma com configuração personalizada.", icon: "Settings", items: ["Setup inicial", "Configuração de regras de negócio", "Migração de dados", "Integrações base"] },
+      { id: "ds-1", title: "Módulo Core", description: "Funcionalidades essenciais com configuração personalizada.", icon: "Settings", items: ["Setup inicial", "Configuração de regras de negócio", "Migração de dados", "Integrações base"] },
       { id: "ds-2", title: "Módulo Financeiro", description: "Automação financeira com conciliação e relatórios integrados.", icon: "DollarSign", items: ["Faturamento automático", "Conciliação", "DRE operacional", "Previsão de receita"] },
       { id: "ds-3", title: "Dashboards & BI", description: "Visibilidade executiva com indicadores customizáveis.", icon: "BarChart3", items: ["KPIs em tempo real", "Relatórios customizáveis", "Alertas de desvio", "Exportação"] },
       { id: "ds-4", title: "Onboarding & Suporte", description: "Implantação assistida com treinamento e suporte dedicado.", icon: "GraduationCap", items: ["Migração de dados", "Treinamento", "Suporte premium", "Customer Success"] },
@@ -205,7 +238,7 @@ const initialOpportunityTypes: OpportunityType[] = [
       { id: "dt-3", phase: 3, title: "Treinamento & Homologação", duration: "2 semanas", description: "Capacitação e validação." },
       { id: "dt-4", phase: 4, title: "Go-Live & Estabilização", duration: "2 semanas", description: "Entrada em produção com acompanhamento." },
     ],
-    pricingDisplayMode: "recorrencia",
+    pricingDisplayMode: "faseado",
     differentiators: [
       { id: "dd-1", title: "Tecnologia própria", description: "Plataforma desenvolvida internamente com roadmap orientado pelo cliente." },
       { id: "dd-2", title: "Time dedicado", description: "Customer Success focado no resultado desde o dia 1." },
@@ -214,16 +247,10 @@ const initialOpportunityTypes: OpportunityType[] = [
     defaultCta: "Agendar reunião de alinhamento técnico",
     preferredTemplate: "modern",
     references: [
-      { id: "ref-1", fileName: "Template_Proposta_SaaS_v3.docx", fileType: "docx", description: "Template padrão de proposta SaaS", uploadedAt: "2026-02-15" },
-      { id: "ref-2", fileName: "Modelo_Comercial_SaaS.pdf", fileType: "pdf", description: "Modelo de precificação SaaS", uploadedAt: "2026-01-20" },
+      { id: "ref-1", fileName: "Template_Proposta_Implantacao_v3.docx", fileType: "docx", description: "Template padrão de proposta de implantação", uploadedAt: "2026-02-15" },
     ],
-    createdAt: "2025-11-01",
-    updatedAt: "2026-03-10",
   },
-  {
-    id: "type-consultoria",
-    name: "Consultoria / Serviços",
-    slug: "consultoria",
+  consultoria: {
     executiveSummary: "Consultoria especializada com metodologia proprietária, foco em resultados mensuráveis e transferência de conhecimento.",
     positioningText: "Transformamos desafios complexos em resultados tangíveis com nossa metodologia de consultoria — diagnóstico profundo, redesenho de processos e implantação assistida.",
     problemStatement: "Organizações com processos fragmentados enfrentam ineficiências operacionais, falta de padronização e dificuldade em escalar com qualidade.",
@@ -257,54 +284,11 @@ const initialOpportunityTypes: OpportunityType[] = [
     references: [
       { id: "ref-3", fileName: "Metodologia_Consultoria_v2.pdf", fileType: "pdf", description: "Documento metodológico da consultoria", uploadedAt: "2026-01-10" },
     ],
-    createdAt: "2025-11-01",
-    updatedAt: "2026-03-10",
   },
-  {
-    id: "type-projeto",
-    name: "Projeto Sob Medida",
-    slug: "projeto_sob_medida",
-    executiveSummary: "Desenvolvimento de soluções tecnológicas sob medida com metodologia ágil, entregas incrementais e propriedade intelectual do cliente.",
-    positioningText: "Construímos soluções tecnológicas exclusivas que se tornam vantagem competitiva — com entregas incrementais, validação contínua e propriedade intelectual 100% do cliente.",
-    problemStatement: "Soluções de mercado não atendem regras de negócio específicas. Adaptações em ferramentas genéricas geram custo crescente, dívida técnica e dependência de fornecedor.",
-    solutionApproach: "Construção iterativa em sprints de 2 semanas, com validação contínua da equipe operacional e releases incrementais em produção.",
-    defaultBenefits: [
-      { id: "db-9", title: "Solução sob medida", description: "Sistema projetado para as regras de negócio específicas da operação.", icon: "Shield" },
-      { id: "db-10", title: "Escalabilidade operacional", description: "Crescimento sem aumento proporcional de equipe.", icon: "Rocket" },
-      { id: "db-11", title: "Propriedade intelectual", description: "Sistema proprietário que se torna vantagem competitiva exclusiva.", icon: "Award" },
-      { id: "db-12", title: "Visibilidade em tempo real", description: "Dashboards e alertas para gestão com visibilidade total.", icon: "Eye" },
-    ],
-    defaultScopeBlocks: [
-      { id: "ds-9", title: "Fase 1 — Fundação", description: "Arquitetura, modelagem de dados e infraestrutura.", icon: "Layers", items: ["Arquitetura do sistema", "Modelagem de dados", "Setup cloud", "MVP base"] },
-      { id: "ds-10", title: "Fase 2 — Core", description: "Desenvolvimento das funcionalidades principais.", icon: "Route", items: ["Regras de negócio", "Algoritmos core", "Validação operacional", "Testes integrados"] },
-      { id: "ds-11", title: "Fase 3 — Integração", description: "Conexão com sistemas existentes.", icon: "Link", items: ["APIs de integração", "Sincronização de dados", "Automação de fluxos", "Monitoramento"] },
-      { id: "ds-12", title: "Fase 4 — Inteligência", description: "Camada analítica e otimização contínua.", icon: "Brain", items: ["Analytics avançado", "Otimização contínua", "Análise de performance", "Recomendações"] },
-    ],
-    defaultTimeline: [
-      { id: "dt-9", phase: 1, title: "Fundação", duration: "6 semanas", description: "Arquitetura, infraestrutura e base." },
-      { id: "dt-10", phase: 2, title: "Desenvolvimento Core", duration: "10 semanas", description: "Funcionalidades principais com validação contínua." },
-      { id: "dt-11", phase: 3, title: "Integração", duration: "6 semanas", description: "Conexão com sistemas e testes integrados." },
-      { id: "dt-12", phase: 4, title: "Go-Live", duration: "8 semanas", description: "Otimização e entrada em produção." },
-    ],
-    pricingDisplayMode: "setup_unico",
-    differentiators: [
-      { id: "dd-7", title: "Experiência comprovada", description: "Mais de 50 projetos de tecnologia sob medida entregues." },
-      { id: "dd-8", title: "Metodologia ágil", description: "Entregas incrementais a cada 2 semanas com validação contínua." },
-      { id: "dd-9", title: "Suporte pós-entrega", description: "12 meses de suporte evolutivo inclusos para estabilização." },
-    ],
-    defaultCta: "Confirmar início do projeto e agendar discovery",
-    preferredTemplate: "minimal",
-    references: [
-      { id: "ref-4", fileName: "Escopo_Tecnico_Template.docx", fileType: "docx", description: "Template de escopo técnico detalhado", uploadedAt: "2026-02-01" },
-      { id: "ref-5", fileName: "Cronograma_Padrao_Projeto.pdf", fileType: "pdf", description: "Modelo de cronograma para projetos", uploadedAt: "2026-01-15" },
-    ],
-    createdAt: "2025-11-01",
-    updatedAt: "2026-03-10",
-  },
-];
+};
 
 // =====================================================================
-//  MOCK DATA — Opportunities
+//  MOCK — Opportunities (referencing real proposal_types slugs)
 // =====================================================================
 const initialOpportunities: OpportunityData[] = [
   {
@@ -313,8 +297,8 @@ const initialOpportunities: OpportunityData[] = [
     contact: "Marcelo Andrade",
     contactRole: "Diretor de Tecnologia",
     segment: "Energia & Utilities",
-    opportunityTypeSlug: "saas",
-    opportunityTypeLabel: "SaaS / Assinatura",
+    opportunityTypeSlug: "implantacao",
+    opportunityTypeLabel: "Implantação",
     stage: "Proposta",
     mainPain: "Falta de visibilidade operacional em tempo real e processos manuais de controle de consumo, causando perdas financeiras e operacionais recorrentes.",
     objectives: [
@@ -325,7 +309,7 @@ const initialOpportunities: OpportunityData[] = [
     ],
     currentScenario: "Hoje a operação é gerida com planilhas manuais e sistemas legados desconectados, resultando em retrabalho, inconsistência de dados e decisões baseadas em informações desatualizadas.",
     whyActNow: "A regulação do setor energético exige conformidade até Q1/2026. Empresas que não digitalizarem suas operações enfrentarão multas e perda de competitividade.",
-    solutionSummary: "Plataforma SaaS de Gestão Operacional Inteligente, com módulos de controle, faturamento, dashboards e integrações nativas.",
+    solutionSummary: "Plataforma de Gestão Operacional Inteligente, com módulos de controle, faturamento, dashboards e integrações nativas.",
     solutionHow: "A solução atende cada dor identificada através de módulos especializados que se integram ao ecossistema existente, com onboarding assistido e suporte contínuo.",
     scopeBlocks: [
       { id: "sb-1", title: "Módulo Operacional", description: "Gestão completa da operação com automação de processos e controle em tempo real.", icon: "Settings", items: ["Workflow automatizado", "Regras de negócio configuráveis", "Integração com sensores IoT", "Alertas inteligentes"] },
@@ -366,7 +350,7 @@ const initialOpportunities: OpportunityData[] = [
     contactRole: "Superintendente de Operações",
     segment: "Saúde",
     opportunityTypeSlug: "consultoria",
-    opportunityTypeLabel: "Consultoria / Serviços",
+    opportunityTypeLabel: "Consultoria",
     stage: "Qualificação",
     mainPain: "Processos assistenciais fragmentados entre unidades, com impacto direto na qualidade do atendimento e nos custos operacionais.",
     objectives: [
@@ -380,10 +364,10 @@ const initialOpportunities: OpportunityData[] = [
     solutionSummary: "Consultoria especializada em redesenho de processos assistenciais com metodologia proprietária e implantação de indicadores de qualidade.",
     solutionHow: "Nossa abordagem combina diagnóstico in-loco, benchmark setorial e desenho participativo de processos, garantindo aderência e adoção pela equipe.",
     scopeBlocks: [
-      { id: "sb-5", title: "Diagnóstico", description: "Mapeamento completo dos processos atuais em todas as unidades com identificação de gaps e oportunidades.", icon: "Search", items: ["Entrevistas com lideranças", "Mapeamento AS-IS", "Análise de indicadores", "Benchmark setorial"] },
+      { id: "sb-5", title: "Diagnóstico", description: "Mapeamento completo dos processos atuais em todas as unidades.", icon: "Search", items: ["Entrevistas com lideranças", "Mapeamento AS-IS", "Análise de indicadores", "Benchmark setorial"] },
       { id: "sb-6", title: "Redesenho de Processos", description: "Definição do modelo TO-BE com padronização assistencial e operacional.", icon: "PenTool", items: ["Processos TO-BE padronizados", "Protocolos assistenciais", "Fluxos de escalação", "Matriz de responsabilidades"] },
       { id: "sb-7", title: "Implantação", description: "Execução assistida do plano de mudança com acompanhamento em cada unidade.", icon: "CheckCircle", items: ["Plano de mudança por unidade", "Treinamento presencial", "Mentoria de lideranças", "Suporte à transição"] },
-      { id: "sb-8", title: "Indicadores & Governança", description: "Framework de indicadores de qualidade e governança para sustentação dos resultados.", icon: "BarChart3", items: ["Dashboard de qualidade", "Comitês de governança", "Ciclos de melhoria contínua", "Relatório executivo mensal"] },
+      { id: "sb-8", title: "Indicadores & Governança", description: "Framework de indicadores de qualidade e governança.", icon: "BarChart3", items: ["Dashboard de qualidade", "Comitês de governança", "Ciclos de melhoria contínua", "Relatório executivo mensal"] },
     ],
     benefits: [
       { id: "b-5", title: "Padronização assistencial", description: "Todos os pacientes recebem o mesmo nível de atendimento, independente da unidade.", icon: "Heart" },
@@ -414,8 +398,8 @@ const initialOpportunities: OpportunityData[] = [
     contact: "Roberto Almeida",
     contactRole: "CEO",
     segment: "Logística & Transportes",
-    opportunityTypeSlug: "projeto_sob_medida",
-    opportunityTypeLabel: "Projeto Sob Medida",
+    opportunityTypeSlug: "projeto",
+    opportunityTypeLabel: "Projeto",
     stage: "Negociação",
     mainPain: "Necessidade de um sistema de roteirização proprietário integrado ao ERP, pois as soluções de mercado não atendem às regras de negócio específicas da operação.",
     objectives: [
@@ -424,7 +408,7 @@ const initialOpportunities: OpportunityData[] = [
       "Reduzir custo de frete em 15%",
       "Automatizar alocação de veículos e motoristas",
     ],
-    currentScenario: "A roteirização é feita manualmente por 3 analistas, com alto índice de erro e ineficiência. As tentativas com ferramentas de mercado falharam por não suportarem as regras de negócio específicas.",
+    currentScenario: "A roteirização é feita manualmente por 3 analistas, com alto índice de erro e ineficiência.",
     whyActNow: "A empresa está expandindo a operação para 3 novos estados. Sem automação, será necessário triplicar a equipe de roteirização, inviabilizando a expansão.",
     solutionSummary: "Desenvolvimento de plataforma de roteirização inteligente sob medida, com motor de regras proprietário e integração nativa ao Protheus.",
     solutionHow: "Construção iterativa em sprints de 2 semanas, com validação contínua da equipe operacional e releases incrementais em produção.",
@@ -461,9 +445,9 @@ const initialOpportunities: OpportunityData[] = [
 ];
 
 // =====================================================================
-//  SHARED STORE — in-memory singleton (survives across components)
+//  SHARED STORE
 // =====================================================================
-let _opportunityTypes = [...initialOpportunityTypes];
+let _presentationConfigs = { ...initialPresentationConfigs };
 let _opportunities = [...initialOpportunities];
 let _presentations: ExecutivePresentation[] = [];
 let _listeners: Array<() => void> = [];
@@ -475,30 +459,26 @@ function notify() {
 export const executivePresentationStore = {
   subscribe(fn: () => void) {
     _listeners.push(fn);
-    return () => {
-      _listeners = _listeners.filter((l) => l !== fn);
-    };
+    return () => { _listeners = _listeners.filter((l) => l !== fn); };
   },
 
-  // ── Opportunity Types ───────────────────────────────────────────
-  getTypes: () => _opportunityTypes,
-  getTypeBySlug: (slug: string) => _opportunityTypes.find((t) => t.slug === slug),
-  getTypeById: (id: string) => _opportunityTypes.find((t) => t.id === id),
+  // ── Presentation Type Configs (keyed by proposal_types.slug) ────
+  getConfigForSlug: (slug: string): PresentationTypeConfig | undefined =>
+    _presentationConfigs[slug],
 
-  setTypes(types: OpportunityType[]) {
-    _opportunityTypes = types;
+  getAllConfigs: () => _presentationConfigs,
+
+  upsertConfig(slug: string, config: PresentationTypeConfig) {
+    _presentationConfigs[slug] = config;
     notify();
   },
-  upsertType(type: OpportunityType) {
-    const idx = _opportunityTypes.findIndex((t) => t.id === type.id);
-    if (idx >= 0) _opportunityTypes[idx] = type;
-    else _opportunityTypes.push(type);
+
+  deleteConfig(slug: string) {
+    delete _presentationConfigs[slug];
     notify();
   },
-  deleteType(id: string) {
-    _opportunityTypes = _opportunityTypes.filter((t) => t.id !== id);
-    notify();
-  },
+
+  hasConfig: (slug: string) => slug in _presentationConfigs,
 
   // ── Opportunities ───────────────────────────────────────────────
   getOpportunities: () => _opportunities,
@@ -513,9 +493,9 @@ export const executivePresentationStore = {
     opportunity: OpportunityData,
     config: PresentationConfig,
   ): ExecutivePresentation {
-    const typeRef = executivePresentationStore.getTypeBySlug(config.opportunityTypeSlug);
-    const composedData = typeRef
-      ? composePresentation(opportunity, typeRef)
+    const typeConfig = executivePresentationStore.getConfigForSlug(config.opportunityTypeSlug);
+    const composedData = typeConfig
+      ? composePresentation(opportunity, typeConfig)
       : opportunity;
 
     const now = new Date().toISOString();
@@ -561,23 +541,4 @@ export const executivePresentationStore = {
     notify();
     return dup;
   },
-};
-
-// ── Legacy aliases (backward compat) ────────────────────────────────
-/** @deprecated use executivePresentationStore.getTypes() */
-export const mockOpportunityTypes = _opportunityTypes;
-/** @deprecated use executivePresentationStore.getOpportunities() */
-export const mockOpportunities = _opportunities;
-
-export function getTypeForOpportunity(opp: OpportunityData): OpportunityType | undefined {
-  return executivePresentationStore.getTypeBySlug(opp.opportunityTypeSlug);
-}
-
-export const defaultPresentationConfig: PresentationConfig = {
-  opportunityTypeSlug: "saas",
-  templateStyle: "modern",
-  audience: "c_level",
-  detailLevel: "resumido",
-  showInvestment: true,
-  showTimeline: true,
 };

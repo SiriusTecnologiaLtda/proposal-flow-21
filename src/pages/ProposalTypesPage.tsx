@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Plus, Pencil, Trash2, ArrowLeft, FileText, ChevronDown, ChevronRight, ExternalLink, BookOpen, Copy, Check } from "lucide-react";
 import ServiceItemsManager from "@/components/proposal-types/ServiceItemsManager";
+import PresentationTypeConfigEditor from "@/components/executive-presentation/PresentationTypeConfigEditor";
 
 interface ProposalType {
   id: string;
@@ -260,8 +261,10 @@ export default function ProposalTypesPage() {
                   </div>
 
                   {expandedId === item.id && (
-                    <div className="px-4 pb-4 pt-1 border-t bg-muted/30">
+                    <div className="px-4 pb-4 pt-1 border-t bg-muted/30 space-y-4">
                       <ServiceItemsManager proposalTypeId={item.id} proposalTypeName={item.name} />
+                      <Separator />
+                      <PresentationTypeConfigEditor proposalTypeSlug={item.slug} proposalTypeName={item.name} />
                     </div>
                   )}
                 </div>

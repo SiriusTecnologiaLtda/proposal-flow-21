@@ -44,21 +44,17 @@ Deno.serve(async (req) => {
 
     const h = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
 
-    // Wider search: sample every 1000 IDs to find where documents exist
-    // Known: 13996386 exists (April 1). Target: April 10. 
-    // Try ranges: 14000000-14200000 with step of 500, batch of 500
-    const results: any = { probes: [], allFound: [] };
+    const results: any = { allFound: [], probes: [] };
 
-    // Probe with 500-ID batches at strategic points
-    const probeStarts = [
-      14000000, 14010000, 14020000, 14030000, 14040000, 14050000,
-      14060000, 14070000, 14080000, 14090000, 14100000,
-      14150000, 14200000, 14250000, 14300000,
-    ];
+    // Dense search: every 1000 from 13996000 to 14100000
+    const probeStarts: number[] = [];
+    for (let s = 13996000; s <= 14100000; s += 1000) {
+      probeStarts.push(s);
+    }
 
     for (const start of probeStarts) {
       const ids = [];
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 1000; i++) {
         ids.push(start + i);
       }
       
@@ -71,27 +67,25 @@ Deno.serve(async (req) => {
       try { parsed = JSON.parse(raw); } catch { parsed = null; }
       
       const data = parsed?.data || parsed;
-      const items = Array.isArray(data) ? data : data ? [data] : [];
-      const found = items.filter((i: any) => i && typeof i === 'object');
+      const items = Array.isArray(data) ? data.filter((i: any) => i && typeof i === 'object') : [];
       
-      results.probes.push({ start, found: found.length });
-      
-      for (const item of found) {
-        const info = {
-          idDocumento: item?.idDocumento || item?.id,
-          nome: item?.nome || item?.nomeDocumento,
-          status: item?.status,
-          idPublicacao: item?.idPublicacao,
-          raw: JSON.stringify(item).substring(0, 300),
-        };
-        results.allFound.push(info);
-        
-        const str = JSON.stringify(item).toLowerCase();
-        if (str.includes("507346") || str.includes("tracomal")) {
-          results.match = item;
+      if (items.length > 0) {
+        results.probes.push({ start, found: items.length });
+        for (const item of items) {
+          const str = JSON.stringify(item).toLowerCase();
+          const isMatch = str.includes("507346") || str.includes("tracomal");
+          results.allFound.push({
+            id: item?.id || item?.idDocumento,
+            status: item?.status,
+            pendentes: item?.pendentes?.map((p: any) => ({ email: p.email, pendente: p.pendente })),
+            isMatch,
+          });
+          if (isMatch) results.match = item;
         }
       }
     }
+
+    results.totalFound = results.allFound.length;
 
     return new Response(JSON.stringify(results, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

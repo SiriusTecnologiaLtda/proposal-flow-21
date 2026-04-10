@@ -1,32 +1,61 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Share2, Copy, FileDown, Pencil, Eye } from "lucide-react";
+import { ArrowLeft, Share2, Copy, FileDown, Pencil, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { executivePresentationStore } from "@/data/executivePresentationData";
 import PresentationRenderer from "@/components/executive-presentation/PresentationRenderer";
+import {
+  useExecutivePresentation,
+  useUpdateExecutivePresentationOverrides,
+} from "@/hooks/useExecutivePresentation";
+import type { OpportunityData, PresentationConfig } from "@/data/executivePresentationData";
 
 export default function ExecutivePresentationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const presentation = executivePresentationStore.getPresentation(id ?? "");
+  const { data: presentation, isLoading } = useExecutivePresentation(id);
+  const updateOverrides = useUpdateExecutivePresentationOverrides();
 
   const [editing, setEditing] = useState(false);
-  const [overrides, setOverrides] = useState<Record<string, string>>(
-    presentation?.overrides ?? {},
-  );
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+
+  // Sync overrides from DB on load
+  useEffect(() => {
+    if (presentation?.overrides) {
+      setOverrides(
+        typeof presentation.overrides === "object" && presentation.overrides !== null
+          ? (presentation.overrides as Record<string, string>)
+          : {},
+      );
+    }
+  }, [presentation?.id]);
 
   const handleEdit = useCallback((field: string, value: string) => {
-    setOverrides((prev) => ({ ...prev, [field]: value }));
+    setOverrides((prev) => {
+      const next = { ...prev, [field]: value };
+      return next;
+    });
   }, []);
 
-  // Sync overrides back to store on change
-  useEffect(() => {
-    if (presentation) {
-      executivePresentationStore.updateOverrides(presentation.id, overrides);
+  // Save overrides to DB when toggling out of edit mode
+  const handleToggleEdit = () => {
+    if (editing && presentation) {
+      updateOverrides.mutate(
+        { id: presentation.id, overrides },
+        { onSuccess: () => toast.success("Alterações salvas") },
+      );
     }
-  }, [overrides, presentation?.id]);
+    setEditing(!editing);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!presentation) {
     return (
@@ -37,18 +66,13 @@ export default function ExecutivePresentationPage() {
     );
   }
 
+  const composedData = presentation.composed_data as unknown as OpportunityData;
+  const config = presentation.config as unknown as PresentationConfig;
+
   const handleShare = () => {
-    const url = `${window.location.origin}/apresentacao-publica/${presentation.shareSlug}`;
+    const url = `${window.location.origin}/apresentacao-publica/${presentation.share_slug}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!", { description: "O link da apresentação foi copiado para a área de transferência." });
-  };
-
-  const handleDuplicate = () => {
-    const dup = executivePresentationStore.duplicatePresentation(presentation.id);
-    if (dup) {
-      toast.success("Apresentação duplicada", { description: "Uma cópia foi criada com sucesso." });
-      navigate(`/apresentacao-executiva/${dup.id}`);
-    }
   };
 
   const handleExportPdf = () => {
@@ -66,7 +90,7 @@ export default function ExecutivePresentationPage() {
             </Button>
             <div>
               <h1 className="text-sm font-semibold text-foreground">Apresentação Executiva</h1>
-              <p className="text-xs text-muted-foreground">{presentation.composedData.company}</p>
+              <p className="text-xs text-muted-foreground">{composedData.company}</p>
             </div>
           </div>
 
@@ -75,13 +99,10 @@ export default function ExecutivePresentationPage() {
               variant={editing ? "default" : "outline"}
               size="sm"
               className="gap-1.5"
-              onClick={() => setEditing(!editing)}
+              onClick={handleToggleEdit}
             >
               {editing ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-              {editing ? "Visualizar" : "Editar"}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDuplicate}>
-              <Copy className="h-3.5 w-3.5" /> Duplicar
+              {editing ? "Salvar e visualizar" : "Editar"}
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf}>
               <FileDown className="h-3.5 w-3.5" /> PDF
@@ -96,8 +117,8 @@ export default function ExecutivePresentationPage() {
       {/* Presentation */}
       <div className="mx-auto max-w-5xl pb-16">
         <PresentationRenderer
-          data={presentation.composedData}
-          config={presentation.config}
+          data={composedData}
+          config={config}
           editable={editing}
           overrides={overrides}
           onEdit={handleEdit}

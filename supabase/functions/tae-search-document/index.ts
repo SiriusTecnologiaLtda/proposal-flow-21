@@ -45,52 +45,56 @@ Deno.serve(async (req) => {
     const results: any = {};
     const authHeaders = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
 
-    // Try various TOTVS Sign endpoints
-    const endpoints = [
-      // Pendentes para o usuário de serviço
-      { label: "pendentes", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/pendentes` },
-      { label: "pendentes-page", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/pendentes?page=1&pageSize=50` },
-      // Assinados
-      { label: "assinados", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/assinados?page=1&pageSize=50` },
-      // Finalizados
-      { label: "finalizados", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/finalizados?page=1&pageSize=50` },
-      // Todos
-      { label: "todos", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/todos?page=1&pageSize=50` },
-      // Enviados
-      { label: "enviados", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes/enviados?page=1&pageSize=50` },
-      // By email of signer
-      { label: "by-email", method: "GET", url: `${baseUrl}/signintegration/v2/Publicacoes?email=mario@tracomal.com.br` },
-      // Documentos endpoint
-      { label: "documentos-v2", method: "GET", url: `${baseUrl}/signintegration/v2/Documentos?page=1&pageSize=50` },
+    // Get full error from pendentes
+    const fullErrorEndpoints = [
+      { label: "pendentes-full", url: `${baseUrl}/signintegration/v2/Publicacoes/pendentes` },
+      { label: "todos-full", url: `${baseUrl}/signintegration/v2/Publicacoes/todos` },
     ];
 
-    for (const ep of endpoints) {
+    for (const ep of fullErrorEndpoints) {
+      const res = await fetch(ep.url, { headers: authHeaders });
+      results[ep.label] = { status: res.status, body: await res.text() };
+    }
+
+    // Try POST with email filter to documentos-empresa
+    // This endpoint accepts array of document IDs. But we need to find the ID.
+    // Let me try searching via the TOTVS Sign web API (documentos endpoint)
+    const searchEndpoints = [
+      { label: "api-v1-documentos", url: `${baseUrl}/api/v1/documentos?pageSize=50` },
+      { label: "api-v1-envelopes", url: `${baseUrl}/api/v1/envelopes?pageSize=50` },
+      { label: "api-v2-documentos", url: `${baseUrl}/api/v2/documentos?pageSize=50` },
+      { label: "api-documentos", url: `${baseUrl}/documentos?pageSize=50` },
+      // TOTVS Sign uses /sign/v1/ pattern sometimes
+      { label: "sign-v1-documentos", url: `${baseUrl}/sign/v1/documentos?pageSize=50` },
+      // Try the /documents/ base
+      { label: "documents-v1-documentos-list", url: `${baseUrl}/documents/v1/documentos` },
+      { label: "documents-v2-documentos-list", url: `${baseUrl}/documents/v2/documentos` },
+      { label: "documents-v1-envelopes-list", url: `${baseUrl}/documents/v1/envelopes` },
+      { label: "documents-v2-envelopes", url: `${baseUrl}/documents/v2/envelopes` },
+      { label: "documents-v2-envelopes-page", url: `${baseUrl}/documents/v2/envelopes?page=1&pageSize=50` },
+    ];
+
+    for (const ep of searchEndpoints) {
       try {
-        const res = await fetch(ep.url, { method: ep.method, headers: authHeaders });
+        const res = await fetch(ep.url, { headers: authHeaders });
         const raw = await res.text();
         let parsed: any;
         try { parsed = JSON.parse(raw); } catch { parsed = null; }
-
-        if (parsed && res.ok) {
-          const dataArr = parsed?.data || parsed?.items || parsed?.publicacoes || (Array.isArray(parsed) ? parsed : null);
-          if (Array.isArray(dataArr)) {
+        
+        if (res.ok && parsed) {
+          const dataArr = parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : null);
+          if (Array.isArray(dataArr) && dataArr.length > 0) {
             const matches = dataArr.filter((item: any) => {
               const str = JSON.stringify(item).toLowerCase();
               return str.includes("507346") || str.includes("tracomal");
             });
             results[ep.label] = {
-              status: res.status,
-              totalItems: dataArr.length,
-              matchCount: matches.length,
-              matches: matches.length > 0 ? matches : undefined,
-              sampleKeys: dataArr.length > 0 ? Object.keys(dataArr[0]) : [],
+              status: res.status, totalItems: dataArr.length,
+              matchCount: matches.length, matches,
+              sampleKeys: Object.keys(dataArr[0]),
             };
           } else {
-            results[ep.label] = {
-              status: res.status,
-              keys: typeof parsed === 'object' ? Object.keys(parsed) : [],
-              sample: JSON.stringify(parsed).substring(0, 300),
-            };
+            results[ep.label] = { status: res.status, keys: parsed ? Object.keys(parsed) : [], sample: JSON.stringify(parsed).substring(0, 300) };
           }
         } else {
           results[ep.label] = { status: res.status, body: (raw || "").substring(0, 200) };

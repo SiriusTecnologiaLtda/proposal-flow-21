@@ -1,11 +1,14 @@
 import { type OpportunityData, formatCurrency } from "@/data/executivePresentationData";
-import { DollarSign } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, Layers } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
 }
 
 export default function InvestmentSection({ data }: Props) {
+  const hasProjectScope = !!data.linkedProject && data.linkedProject.scopeGroups.length > 0;
+
   return (
     <section className="space-y-6">
       <div className="space-y-1">
@@ -47,6 +50,31 @@ export default function InvestmentSection({ data }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Scope-hours breakdown from project */}
+      {hasProjectScope && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold text-foreground">Composição por frente de trabalho</h3>
+            <Badge variant="secondary" className="text-[10px]">Projeto Vinculado</Badge>
+          </div>
+          <div className="space-y-2">
+            {data.linkedProject!.scopeGroups.map((g) => (
+              <div key={g.id} className="flex items-center gap-3">
+                <span className="text-sm text-foreground flex-1 truncate">{g.title}</span>
+                <Badge variant="outline" className="text-[10px] shrink-0">{g.itemCount} itens</Badge>
+                <span className="text-sm font-semibold text-foreground tabular-nums w-16 text-right">{g.totalHours}h</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-3 border-t pt-2 mt-2">
+              <span className="text-sm font-semibold text-foreground flex-1">Total</span>
+              <Badge variant="secondary" className="text-[10px] shrink-0">{data.linkedProject!.totalItems} itens</Badge>
+              <span className="text-sm font-bold text-primary tabular-nums w-16 text-right">{data.linkedProject!.totalHours}h</span>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

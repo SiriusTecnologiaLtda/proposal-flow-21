@@ -27,6 +27,7 @@ export default function PresentationRenderer({ data, config, editable = false, o
       <BenefitsSection data={data} />
       {config.showTimeline && <TimelineSection data={data} />}
       {config.showInvestment && <InvestmentSection data={data} />}
+
       <DifferentiatorsSection data={data} />
       <NextStepsSection data={data} editable={editable} overrides={overrides} onEdit={onEdit} />
     </div>

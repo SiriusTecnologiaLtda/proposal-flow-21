@@ -47,9 +47,45 @@ export interface ReferenceAttachment {
   url?: string;
 }
 
+// ── Linked Project (scope source) ───────────────────────────────────
+// Represents the project linked to an opportunity — primary source
+// for deliverable scope in the executive presentation.
+export interface ProjectScopeGroup {
+  id: string;
+  title: string;
+  /** e.g. "template" or "manual" */
+  source: string;
+  itemCount: number;
+  totalHours: number;
+  items: { id: string; description: string; hours: number; included: boolean }[];
+}
+
+export interface LinkedProject {
+  id: string;
+  description: string;
+  status: string;
+  scopeGroups: ProjectScopeGroup[];
+  totalHours: number;
+  totalItems: number;
+}
+
+// ── Proposal Template Context ───────────────────────────────────────
+// Narrative and commercial structure extracted/referenced from the
+// proposal template linked to the opportunity type.
+export interface ProposalTemplateContext {
+  templateDocId?: string;
+  mitTemplateDocId?: string;
+  /** Placeholders available in the template */
+  placeholders: string[];
+  /** Premises / assumptions from the template */
+  premises: string[];
+  /** Out-of-scope items from the template */
+  outOfScope: string[];
+  /** Methodology description from the template */
+  methodology?: string;
+}
+
 // ── Presentation Config (per proposal_type slug) ────────────────────
-// This is the "extension" content that enriches a proposal_type
-// for executive presentation generation. Stored as mock for now.
 export interface PresentationTypeConfig {
   executiveSummary: string;
   positioningText: string;
@@ -94,6 +130,10 @@ export interface OpportunityData {
   nextStepCta: string;
   createdAt: string;
   expectedCloseDate: string;
+  /** Linked project — primary source of deliverable scope */
+  linkedProject?: LinkedProject;
+  /** Template context — narrative & commercial references */
+  templateContext?: ProposalTemplateContext;
 }
 
 // ── Generation Config ───────────────────────────────────────────────
@@ -114,6 +154,13 @@ export interface ExecutivePresentation {
   config: PresentationConfig;
   composedData: OpportunityData;
   overrides: Record<string, string>;
+  /** Data sources used in composition */
+  dataSources: {
+    opportunity: boolean;
+    proposalType: boolean;
+    linkedProject: boolean;
+    proposalTemplate: boolean;
+  };
   shareSlug: string;
   createdAt: string;
   updatedAt: string;
@@ -122,19 +169,43 @@ export interface ExecutivePresentation {
 // ── Composition helper ──────────────────────────────────────────────
 export function composePresentation(
   opportunity: OpportunityData,
-  typeConfig: PresentationTypeConfig,
+  typeConfig: PresentationTypeConfig | undefined,
 ): OpportunityData {
+  // If there's a linked project, derive scope blocks from its groups
+  const projectScopeBlocks: ScopeBlock[] = opportunity.linkedProject
+    ? opportunity.linkedProject.scopeGroups.map((g, i) => ({
+        id: `proj-scope-${g.id}`,
+        title: g.title,
+        description: `${g.itemCount} itens · ${g.totalHours}h`,
+        icon: i === 0 ? "Layers" : "Settings",
+        items: g.items.filter((it) => it.included).slice(0, 6).map((it) => it.description),
+      }))
+    : [];
+
+  const fallbackType = typeConfig ?? ({} as Partial<PresentationTypeConfig>);
+
   return {
     ...opportunity,
-    solutionSummary: opportunity.solutionSummary || typeConfig.solutionApproach,
-    solutionHow: opportunity.solutionHow || typeConfig.positioningText,
-    currentScenario: opportunity.currentScenario || typeConfig.problemStatement,
-    scopeBlocks: opportunity.scopeBlocks.length > 0 ? opportunity.scopeBlocks : typeConfig.defaultScopeBlocks,
-    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : typeConfig.defaultBenefits,
-    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : typeConfig.defaultTimeline,
-    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : typeConfig.differentiators,
-    nextStep: opportunity.nextStep || typeConfig.defaultCta,
-    nextStepCta: opportunity.nextStepCta || typeConfig.defaultCta,
+    // Narrative: opportunity overrides type defaults
+    solutionSummary: opportunity.solutionSummary || fallbackType.solutionApproach || "",
+    solutionHow: opportunity.solutionHow || fallbackType.positioningText || "",
+    currentScenario: opportunity.currentScenario || fallbackType.problemStatement || "",
+    // Scope: project > opportunity > type defaults
+    scopeBlocks:
+      projectScopeBlocks.length > 0
+        ? projectScopeBlocks
+        : opportunity.scopeBlocks.length > 0
+          ? opportunity.scopeBlocks
+          : fallbackType.defaultScopeBlocks || [],
+    // Benefits: opportunity > type defaults
+    benefits: opportunity.benefits.length > 0 ? opportunity.benefits : fallbackType.defaultBenefits || [],
+    // Timeline: opportunity > type defaults
+    timeline: opportunity.timeline.length > 0 ? opportunity.timeline : fallbackType.defaultTimeline || [],
+    // Differentiators: opportunity > type defaults
+    differentiators: opportunity.differentiators.length > 0 ? opportunity.differentiators : fallbackType.differentiators || [],
+    // CTA: opportunity > type defaults
+    nextStep: opportunity.nextStep || fallbackType.defaultCta || "",
+    nextStepCta: opportunity.nextStepCta || fallbackType.defaultCta || "",
   };
 }
 
@@ -289,6 +360,7 @@ const initialPresentationConfigs: Record<string, PresentationTypeConfig> = {
 
 // =====================================================================
 //  MOCK — Opportunities (referencing real proposal_types slugs)
+//  Now includes linkedProject and templateContext for composite generation
 // =====================================================================
 const initialOpportunities: OpportunityData[] = [
   {
@@ -311,12 +383,7 @@ const initialOpportunities: OpportunityData[] = [
     whyActNow: "A regulação do setor energético exige conformidade até Q1/2026. Empresas que não digitalizarem suas operações enfrentarão multas e perda de competitividade.",
     solutionSummary: "Plataforma de Gestão Operacional Inteligente, com módulos de controle, faturamento, dashboards e integrações nativas.",
     solutionHow: "A solução atende cada dor identificada através de módulos especializados que se integram ao ecossistema existente, com onboarding assistido e suporte contínuo.",
-    scopeBlocks: [
-      { id: "sb-1", title: "Módulo Operacional", description: "Gestão completa da operação com automação de processos e controle em tempo real.", icon: "Settings", items: ["Workflow automatizado", "Regras de negócio configuráveis", "Integração com sensores IoT", "Alertas inteligentes"] },
-      { id: "sb-2", title: "Módulo Financeiro", description: "Faturamento automatizado com conciliação e relatórios financeiros integrados.", icon: "DollarSign", items: ["Faturamento automático", "Conciliação bancária", "DRE operacional", "Previsão de receita"] },
-      { id: "sb-3", title: "Dashboards & BI", description: "Visibilidade executiva em tempo real com indicadores estratégicos e operacionais.", icon: "BarChart3", items: ["KPIs em tempo real", "Relatórios customizáveis", "Alertas de desvio", "Exportação automatizada"] },
-      { id: "sb-4", title: "Onboarding & Suporte", description: "Implantação assistida com treinamento, migração de dados e suporte dedicado.", icon: "GraduationCap", items: ["Migração de dados", "Treinamento de equipe", "Suporte premium 24/7", "Gestor de sucesso dedicado"] },
-    ],
+    scopeBlocks: [],
     benefits: [
       { id: "b-1", title: "Redução de custos operacionais", description: "Economia de até 25% com automação de processos manuais e eliminação de retrabalho.", icon: "TrendingDown" },
       { id: "b-2", title: "Decisões baseadas em dados", description: "Dashboards em tempo real para gestão executiva com visibilidade total da operação.", icon: "Eye" },
@@ -342,6 +409,86 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Agendar reunião de alinhamento",
     createdAt: "2026-03-15",
     expectedCloseDate: "2026-05-10",
+    // Linked project — scope comes from here
+    linkedProject: {
+      id: "proj-nova-energia",
+      description: "Implantação Plataforma Gestão Operacional — Nova Energia",
+      status: "Em Revisão",
+      totalHours: 480,
+      totalItems: 32,
+      scopeGroups: [
+        {
+          id: "sg-1",
+          title: "Módulo Operacional",
+          source: "template",
+          itemCount: 12,
+          totalHours: 160,
+          items: [
+            { id: "si-1", description: "Workflow automatizado de operação", hours: 24, included: true },
+            { id: "si-2", description: "Regras de negócio configuráveis", hours: 32, included: true },
+            { id: "si-3", description: "Integração com sensores IoT", hours: 40, included: true },
+            { id: "si-4", description: "Alertas inteligentes por parâmetro", hours: 16, included: true },
+            { id: "si-5", description: "Painel de monitoramento em tempo real", hours: 24, included: true },
+            { id: "si-6", description: "Gestão de ordens de serviço", hours: 24, included: true },
+          ],
+        },
+        {
+          id: "sg-2",
+          title: "Módulo Financeiro",
+          source: "template",
+          itemCount: 8,
+          totalHours: 120,
+          items: [
+            { id: "si-7", description: "Faturamento automático", hours: 32, included: true },
+            { id: "si-8", description: "Conciliação bancária", hours: 24, included: true },
+            { id: "si-9", description: "DRE operacional", hours: 32, included: true },
+            { id: "si-10", description: "Previsão de receita", hours: 32, included: true },
+          ],
+        },
+        {
+          id: "sg-3",
+          title: "Dashboards & BI",
+          source: "template",
+          itemCount: 6,
+          totalHours: 96,
+          items: [
+            { id: "si-11", description: "KPIs em tempo real", hours: 24, included: true },
+            { id: "si-12", description: "Relatórios customizáveis", hours: 32, included: true },
+            { id: "si-13", description: "Alertas de desvio", hours: 16, included: true },
+            { id: "si-14", description: "Exportação automatizada", hours: 24, included: true },
+          ],
+        },
+        {
+          id: "sg-4",
+          title: "Onboarding & Suporte",
+          source: "manual",
+          itemCount: 6,
+          totalHours: 104,
+          items: [
+            { id: "si-15", description: "Migração de dados legados", hours: 40, included: true },
+            { id: "si-16", description: "Treinamento de equipe", hours: 24, included: true },
+            { id: "si-17", description: "Suporte premium 24/7", hours: 16, included: true },
+            { id: "si-18", description: "Gestor de sucesso dedicado", hours: 24, included: true },
+          ],
+        },
+      ],
+    },
+    templateContext: {
+      templateDocId: "1abc_template_implantacao",
+      mitTemplateDocId: "1abc_mit_implantacao",
+      placeholders: ["{{RAZAO_SOCIAL}}", "{{CNPJ}}", "{{TABELA_RECURSOS}}", "{{VALOR_TOTAL}}", "{{PRAZO_IMPLANTACAO}}"],
+      premises: [
+        "Acesso remoto ao ambiente de produção do cliente",
+        "Disponibilidade de pelo menos 2 interlocutores técnicos",
+        "Infraestrutura de rede compatível com os requisitos mínimos",
+      ],
+      outOfScope: [
+        "Desenvolvimento de customizações fora do escopo contratado",
+        "Suporte a versões de sistema operacional descontinuadas",
+        "Treinamento presencial fora da sede do cliente",
+      ],
+      methodology: "Implantação em ondas com validação ao final de cada ciclo, utilizando metodologia de gestão de mudança ADKAR.",
+    },
   },
   {
     id: "opp-2",
@@ -363,12 +510,7 @@ const initialOpportunities: OpportunityData[] = [
     whyActNow: "O mercado de saúde está em consolidação acelerada. Redes que não padronizarem seus processos perderão competitividade e poder de negociação com operadoras.",
     solutionSummary: "Consultoria especializada em redesenho de processos assistenciais com metodologia proprietária e implantação de indicadores de qualidade.",
     solutionHow: "Nossa abordagem combina diagnóstico in-loco, benchmark setorial e desenho participativo de processos, garantindo aderência e adoção pela equipe.",
-    scopeBlocks: [
-      { id: "sb-5", title: "Diagnóstico", description: "Mapeamento completo dos processos atuais em todas as unidades.", icon: "Search", items: ["Entrevistas com lideranças", "Mapeamento AS-IS", "Análise de indicadores", "Benchmark setorial"] },
-      { id: "sb-6", title: "Redesenho de Processos", description: "Definição do modelo TO-BE com padronização assistencial e operacional.", icon: "PenTool", items: ["Processos TO-BE padronizados", "Protocolos assistenciais", "Fluxos de escalação", "Matriz de responsabilidades"] },
-      { id: "sb-7", title: "Implantação", description: "Execução assistida do plano de mudança com acompanhamento em cada unidade.", icon: "CheckCircle", items: ["Plano de mudança por unidade", "Treinamento presencial", "Mentoria de lideranças", "Suporte à transição"] },
-      { id: "sb-8", title: "Indicadores & Governança", description: "Framework de indicadores de qualidade e governança.", icon: "BarChart3", items: ["Dashboard de qualidade", "Comitês de governança", "Ciclos de melhoria contínua", "Relatório executivo mensal"] },
-    ],
+    scopeBlocks: [],
     benefits: [
       { id: "b-5", title: "Padronização assistencial", description: "Todos os pacientes recebem o mesmo nível de atendimento, independente da unidade.", icon: "Heart" },
       { id: "b-6", title: "Redução de custos", description: "Eliminação de desperdícios e retrabalho, com economia estimada de 18% nos custos operacionais.", icon: "TrendingDown" },
@@ -391,6 +533,23 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Agendar visita técnica",
     createdAt: "2026-03-20",
     expectedCloseDate: "2026-06-30",
+    // No linked project yet — scope will fall back to type defaults
+    linkedProject: undefined,
+    templateContext: {
+      templateDocId: "1abc_template_consultoria",
+      placeholders: ["{{RAZAO_SOCIAL}}", "{{CNPJ}}", "{{NUMERO_UNIDADES}}", "{{PRAZO_DIAGNOSTICO}}"],
+      premises: [
+        "Acesso presencial às unidades durante fase de diagnóstico",
+        "Participação de lideranças locais nos workshops",
+        "Designação de ponto focal por unidade",
+      ],
+      outOfScope: [
+        "Implantação de sistemas de TI",
+        "Contratação de pessoal para o cliente",
+        "Auditoria regulatória formal",
+      ],
+      methodology: "Metodologia proprietária de consultoria operacional com ciclos de diagnóstico, redesenho, implantação piloto e rollout.",
+    },
   },
   {
     id: "opp-3",
@@ -412,12 +571,7 @@ const initialOpportunities: OpportunityData[] = [
     whyActNow: "A empresa está expandindo a operação para 3 novos estados. Sem automação, será necessário triplicar a equipe de roteirização, inviabilizando a expansão.",
     solutionSummary: "Desenvolvimento de plataforma de roteirização inteligente sob medida, com motor de regras proprietário e integração nativa ao Protheus.",
     solutionHow: "Construção iterativa em sprints de 2 semanas, com validação contínua da equipe operacional e releases incrementais em produção.",
-    scopeBlocks: [
-      { id: "sb-9", title: "Fase 1 — Fundação", description: "Arquitetura, modelagem de dados, setup de infraestrutura e motor de regras base.", icon: "Layers", items: ["Arquitetura do sistema", "Modelagem de dados", "Motor de regras v1", "Infraestrutura cloud"] },
-      { id: "sb-10", title: "Fase 2 — Roteirização Core", description: "Algoritmo de roteirização com restrições operacionais e otimização de rotas.", icon: "Route", items: ["Algoritmo de otimização", "Restrições de janela", "Capacidade de veículo", "Priorização de entregas"] },
-      { id: "sb-11", title: "Fase 3 — Integração ERP", description: "Integração bidirecional com Protheus para pedidos, frota e faturamento.", icon: "Link", items: ["API de pedidos", "Sincronização de frota", "Faturamento automático", "Painel de monitoramento"] },
-      { id: "sb-12", title: "Fase 4 — Inteligência", description: "Machine learning para previsão de demanda e otimização contínua de rotas.", icon: "Brain", items: ["Previsão de demanda", "Otimização contínua", "Análise de performance", "Recomendações automáticas"] },
-    ],
+    scopeBlocks: [],
     benefits: [
       { id: "b-9", title: "Redução de custo de frete", description: "Otimização inteligente de rotas com economia estimada de 15-20% no custo de frete.", icon: "TrendingDown" },
       { id: "b-10", title: "Escalabilidade operacional", description: "Expansão para novos estados sem aumento proporcional de equipe operacional.", icon: "Rocket" },
@@ -441,6 +595,88 @@ const initialOpportunities: OpportunityData[] = [
     nextStepCta: "Confirmar início do projeto",
     createdAt: "2026-02-28",
     expectedCloseDate: "2026-04-20",
+    // Linked project with scope groups
+    linkedProject: {
+      id: "proj-logtech",
+      description: "Projeto Sigma Cenário 2 BO no Mídia + Contábil/Fiscal e DP/Ponto no Protheus",
+      status: "Em Revisão",
+      totalHours: 912,
+      totalItems: 78,
+      scopeGroups: [
+        {
+          id: "sg-lt-1",
+          title: "Integração Mídia+",
+          source: "manual",
+          itemCount: 9,
+          totalHours: 160,
+          items: [
+            { id: "lt-1", description: "Configuração de integração com Mídia+", hours: 24, included: true },
+            { id: "lt-2", description: "Migração de dados de vendas", hours: 32, included: true },
+            { id: "lt-3", description: "Setup de regras de negócio", hours: 40, included: true },
+            { id: "lt-4", description: "Validação de fluxos operacionais", hours: 24, included: true },
+            { id: "lt-5", description: "Testes integrados end-to-end", hours: 40, included: true },
+          ],
+        },
+        {
+          id: "sg-lt-2",
+          title: "TT - Contabilidade",
+          source: "template",
+          itemCount: 21,
+          totalHours: 272,
+          items: [
+            { id: "lt-6", description: "Plano de contas parametrizado", hours: 16, included: true },
+            { id: "lt-7", description: "Lançamentos contábeis automatizados", hours: 40, included: true },
+            { id: "lt-8", description: "Conciliação contábil", hours: 32, included: true },
+            { id: "lt-9", description: "Relatórios contábeis legais", hours: 24, included: true },
+            { id: "lt-10", description: "Integração com módulo fiscal", hours: 32, included: true },
+            { id: "lt-11", description: "Fechamento contábil mensal", hours: 24, included: true },
+          ],
+        },
+        {
+          id: "sg-lt-3",
+          title: "TT - Fiscal",
+          source: "template",
+          itemCount: 7,
+          totalHours: 132,
+          items: [
+            { id: "lt-12", description: "Configuração tributária por UF", hours: 32, included: true },
+            { id: "lt-13", description: "Apuração de impostos", hours: 24, included: true },
+            { id: "lt-14", description: "Obrigações acessórias (SPED, EFD)", hours: 40, included: true },
+            { id: "lt-15", description: "Notas fiscais eletrônicas", hours: 36, included: true },
+          ],
+        },
+        {
+          id: "sg-lt-4",
+          title: "TT - RH",
+          source: "template",
+          itemCount: 41,
+          totalHours: 348,
+          items: [
+            { id: "lt-16", description: "Cadastro de colaboradores", hours: 16, included: true },
+            { id: "lt-17", description: "Folha de pagamento", hours: 48, included: true },
+            { id: "lt-18", description: "Controle de ponto eletrônico", hours: 40, included: true },
+            { id: "lt-19", description: "Gestão de férias e afastamentos", hours: 32, included: true },
+            { id: "lt-20", description: "Benefícios e descontos", hours: 24, included: true },
+            { id: "lt-21", description: "Obrigações trabalhistas (eSocial)", hours: 40, included: true },
+          ],
+        },
+      ],
+    },
+    templateContext: {
+      templateDocId: "1abc_template_projeto",
+      placeholders: ["{{RAZAO_SOCIAL}}", "{{CNPJ}}", "{{TABELA_RECURSOS}}", "{{VALOR_TOTAL}}", "{{PRAZO_PROJETO}}"],
+      premises: [
+        "Equipe de produto do cliente disponível para validações semanais",
+        "Ambiente de homologação fornecido pelo cliente",
+        "Acesso VPN ao ERP Protheus para integrações",
+      ],
+      outOfScope: [
+        "Manutenção evolutiva após período de garantia",
+        "Treinamento para equipes não previstas no escopo",
+        "Integrações com sistemas de terceiros não listados",
+      ],
+      methodology: "Desenvolvimento ágil em sprints de 2 semanas com entregas incrementais e validação contínua.",
+    },
   },
 ];
 
@@ -494,9 +730,7 @@ export const executivePresentationStore = {
     config: PresentationConfig,
   ): ExecutivePresentation {
     const typeConfig = executivePresentationStore.getConfigForSlug(config.opportunityTypeSlug);
-    const composedData = typeConfig
-      ? composePresentation(opportunity, typeConfig)
-      : opportunity;
+    const composedData = composePresentation(opportunity, typeConfig);
 
     const now = new Date().toISOString();
     const id = `pres-${Date.now()}`;
@@ -507,6 +741,12 @@ export const executivePresentationStore = {
       config,
       composedData,
       overrides: {},
+      dataSources: {
+        opportunity: true,
+        proposalType: !!typeConfig,
+        linkedProject: !!opportunity.linkedProject,
+        proposalTemplate: !!opportunity.templateContext,
+      },
       shareSlug: id,
       createdAt: now,
       updatedAt: now,

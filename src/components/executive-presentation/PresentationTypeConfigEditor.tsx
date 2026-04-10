@@ -262,7 +262,7 @@ function ExistingTypeContext({ templateDocId, mitTemplateDocId, serviceItems, ha
         <span className="text-xs font-semibold text-foreground">Insumos já existentes no tipo</span>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Estes dados já cadastrados serão utilizados automaticamente na composição da apresentação executiva.
+        Estes dados já cadastrados serão utilizados na composição da apresentação executiva, combinados com os dados da oportunidade e do projeto vinculado.
       </p>
 
       {/* Templates */}

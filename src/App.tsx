@@ -53,6 +53,9 @@ import SegmentsPage from "@/pages/SegmentsPage";
 import ExtractionRulesPage from "@/pages/ExtractionRulesPage";
 import NotFound from "./pages/NotFound.tsx";
 import ScopeAuditPage from "@/pages/ScopeAuditPage";
+import OpportunityDetailPage from "@/pages/OpportunityDetailPage";
+import ExecutivePresentationPage from "@/pages/ExecutivePresentationPage";
+import ExecutivePresentationSharePage from "@/pages/ExecutivePresentationSharePage";
 import React from "react";
 
 class ErrorBoundary extends React.Component<

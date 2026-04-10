@@ -2026,6 +2026,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          crm_code: string | null
           id: string
           is_primary: boolean
           member_id: string
@@ -2037,6 +2038,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          crm_code?: string | null
           id?: string
           is_primary?: boolean
           member_id: string
@@ -2048,6 +2050,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          crm_code?: string | null
           id?: string
           is_primary?: boolean
           member_id?: string

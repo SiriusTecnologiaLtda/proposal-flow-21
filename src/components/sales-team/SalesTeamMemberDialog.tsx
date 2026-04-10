@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import AssignmentsTab from "./AssignmentsTab";
 import { useSalesTeam } from "@/hooks/useSupabaseData";
-
-interface CrmCode {
-  id?: string;
-  code: string;
-  description: string;
-  unit_id: string;
-  isNew?: boolean;
-}
 
 interface Props {
   open: boolean;
@@ -37,9 +29,6 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("dados");
-  const [crmCodes, setCrmCodes] = useState<CrmCode[]>([]);
-  const [loadingCrm, setLoadingCrm] = useState(false);
-  const [savingCrm, setSavingCrm] = useState(false);
 
   const isEditing = !!member;
 
@@ -56,26 +45,11 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
         commission_pct: String(member.commission_pct ?? 3),
       });
       setActiveTab("dados");
-      loadCrmCodes(member.id);
     } else {
       setForm(emptyForm);
-      setCrmCodes([]);
       setActiveTab("dados");
     }
   }, [member, open]);
-
-  const loadCrmCodes = async (salesTeamId: string) => {
-    setLoadingCrm(true);
-    const { data, error } = await supabase
-      .from("sales_team_crm_codes")
-      .select("*")
-      .eq("sales_team_id", salesTeamId)
-      .order("code");
-    setLoadingCrm(false);
-    if (!error && data) {
-      setCrmCodes(data.map((d: any) => ({ id: d.id, code: d.code, description: d.description, unit_id: d.unit_id || "" })));
-    }
-  };
 
   const handleSave = async () => {
     if (!form.name || !form.code || !form.role) {
@@ -106,48 +80,6 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
     }
   };
 
-  // CRM codes management
-  const addCrmCode = () => {
-    setCrmCodes((prev) => [...prev, { code: "", description: "", unit_id: "", isNew: true }]);
-  };
-
-  const removeCrmCode = (index: number) => {
-    setCrmCodes((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateCrmCode = (index: number, field: "code" | "description" | "unit_id", value: string) => {
-    setCrmCodes((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
-  };
-
-  const saveCrmCodes = async () => {
-    if (!member) return;
-    setSavingCrm(true);
-
-    // Delete all existing then re-insert
-    await supabase.from("sales_team_crm_codes").delete().eq("sales_team_id", member.id);
-
-    const validCodes = crmCodes.filter((c) => c.code.trim());
-    if (validCodes.length > 0) {
-      const { error } = await supabase.from("sales_team_crm_codes").insert(
-        validCodes.map((c) => ({
-          sales_team_id: member.id,
-          code: c.code.trim(),
-          description: c.description.trim(),
-          unit_id: c.unit_id || null,
-        }))
-      );
-      if (error) {
-        toast({ title: "Erro ao salvar códigos CRM", description: error.message, variant: "destructive" });
-        setSavingCrm(false);
-        return;
-      }
-    }
-
-    toast({ title: "Códigos CRM salvos!" });
-    qc.invalidateQueries({ queryKey: ["sales_team_crm_codes"] });
-    setSavingCrm(false);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -161,9 +93,6 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
             <TabsTrigger value="dados" className="flex-1">Dados Cadastrais</TabsTrigger>
             {isEditing && (
               <TabsTrigger value="vinculos" className="flex-1">Vínculos Comerciais</TabsTrigger>
-            )}
-            {isEditing && (
-              <TabsTrigger value="crm" className="flex-1">Códigos CRM</TabsTrigger>
             )}
           </TabsList>
 
@@ -272,79 +201,6 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
                 units={units}
                 allMembers={allMembers}
               />
-            </TabsContent>
-          )}
-
-          {isEditing && (
-            <TabsContent value="crm" className="space-y-4 mt-4">
-              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Códigos de Usuário CRM
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={addCrmCode}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />Adicionar
-                  </Button>
-                </div>
-
-                {loadingCrm ? (
-                  <div className="flex items-center justify-center py-8 text-muted-foreground">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />Carregando...
-                  </div>
-                ) : crmCodes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    Nenhum código CRM cadastrado. Clique em "Adicionar" para incluir.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
-                      <span>Unidade</span>
-                      <span>Código</span>
-                      <span>Descrição</span>
-                      <span className="w-8" />
-                    </div>
-                    {crmCodes.map((crm, index) => (
-                      <div key={crm.id || `new-${index}`} className="grid grid-cols-[1fr_1fr_2fr_auto] gap-2 items-center">
-                        <Select value={crm.unit_id} onValueChange={(v) => updateCrmCode(index, "unit_id", v)}>
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Unidade" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {units.map((u) => (
-                              <SelectItem key={u.id} value={u.id}>{u.code || u.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          placeholder="Código"
-                          value={crm.code}
-                          onChange={(e) => updateCrmCode(index, "code", e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                        <Input
-                          placeholder="Descrição"
-                          value={crm.description}
-                          onChange={(e) => updateCrmCode(index, "description", e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                        <button
-                          className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={() => removeCrmCode(index)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer: Salvar CRM */}
-              <div className="flex justify-end border-t border-border pt-4">
-                <Button onClick={saveCrmCodes} disabled={savingCrm}>
-                  {savingCrm ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : <><Save className="mr-2 h-4 w-4" />Salvar Códigos</>}
-                </Button>
-              </div>
             </TabsContent>
           )}
         </Tabs>

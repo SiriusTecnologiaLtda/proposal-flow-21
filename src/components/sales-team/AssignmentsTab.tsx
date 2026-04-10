@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Save, Loader2, Building2, ChevronDown, ChevronUp, Star, StarOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +17,7 @@ interface Assignment {
   reports_to_id: string;
   is_primary: boolean;
   active: boolean;
+  crm_code: string;
   isNew?: boolean;
 }
 
@@ -54,7 +56,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     const [memberResult, allResult] = await Promise.all([
       (supabase as any)
         .from("sales_team_assignments")
-        .select("id, unit_id, role, reports_to_id, is_primary, active")
+        .select("id, unit_id, role, reports_to_id, is_primary, active, crm_code")
         .eq("member_id", memberId)
         .order("is_primary", { ascending: false }),
       (supabase as any)
@@ -72,6 +74,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
           reports_to_id: d.reports_to_id || "",
           is_primary: d.is_primary,
           active: d.active,
+          crm_code: d.crm_code || "",
         }))
       );
     }
@@ -87,7 +90,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
   const addAssignment = () => {
     setAssignments((prev) => [
       ...prev,
-      { unit_id: "", role: "", reports_to_id: "", is_primary: false, active: true, isNew: true },
+      { unit_id: "", role: "", reports_to_id: "", is_primary: false, active: true, crm_code: "", isNew: true },
     ]);
     setExpandedIdx(assignments.length);
   };
@@ -102,14 +105,12 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       prev.map((a, i) => {
         if (i !== index) return a;
         const updated = { ...a, [field]: value };
-        // If setting primary, unset others
         if (field === "is_primary" && value === true) {
           return updated;
         }
         return updated;
       })
     );
-    // If setting primary, unset others
     if (field === "is_primary" && value === true) {
       setAssignments((prev) =>
         prev.map((a, i) => (i === index ? a : { ...a, is_primary: false }))
@@ -117,14 +118,11 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     }
   };
 
-  // Get possible superiors for a given unit+role
   const getSuperiorOptions = (unitId: string, role: string) => {
     if (!unitId || !role) return [];
-    // DSN has no superior
     if (role === "dsn") return [];
-    // GSN reports to DSN assignments in same unit
     const targetRole = role === "gsn" ? "dsn" : role === "esn" ? "gsn" : null;
-    if (!targetRole) return []; // arquiteto has no required superior
+    if (!targetRole) return [];
     return allAssignments
       .filter((a) => a.unit_id === unitId && a.role === targetRole && a.member_id !== memberId)
       .map((a) => {
@@ -140,7 +138,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       if (!a.unit_id) return `Vínculo ${i + 1}: selecione a unidade.`;
       if (!a.role) return `Vínculo ${i + 1}: selecione o papel.`;
     }
-    // Check duplicates (same unit among active)
     const seen = new Set<string>();
     for (const a of activeAssignments) {
       const key = `${a.unit_id}`;
@@ -150,7 +147,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       }
       seen.add(key);
     }
-    // Must have exactly one primary among active
     const primaryCount = activeAssignments.filter((a) => a.is_primary).length;
     if (activeAssignments.length > 0 && primaryCount !== 1) {
       return "Defina exatamente um vínculo como Principal entre os ativos.";
@@ -166,7 +162,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     }
     setSaving(true);
 
-    // Strategy: delete all existing for this member, re-insert
     const { error: delError } = await (supabase as any)
       .from("sales_team_assignments")
       .delete()
@@ -190,6 +185,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
             reports_to_id: a.reports_to_id || null,
             is_primary: a.is_primary,
             active: a.active,
+            crm_code: a.crm_code.trim() || null,
           }))
         );
       if (insError) {
@@ -269,6 +265,11 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
                           {roleLabels[a.role] || a.role}
                         </Badge>
                       )}
+                      {a.crm_code && (
+                        <Badge variant="secondary" className="text-[10px] shrink-0 font-mono">
+                          {a.crm_code}
+                        </Badge>
+                      )}
                       {!a.active && (
                         <Badge variant="secondary" className="text-[10px] shrink-0">Inativo</Badge>
                       )}
@@ -313,25 +314,36 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
                         </div>
                       </div>
 
-                      {superiorOptions.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
                         <div className="grid gap-1">
-                          <Label className="text-xs">Superior Hierárquico</Label>
-                          <Select
-                            value={a.reports_to_id}
-                            onValueChange={(v) => updateField(index, "reports_to_id", v === "__none__" ? "" : v)}
-                          >
-                            <SelectTrigger className="h-9 text-sm">
-                              <SelectValue placeholder="Selecione o superior" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Nenhum</SelectItem>
-                              {superiorOptions.map((opt) => (
-                                <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-xs">Código CRM</Label>
+                          <Input
+                            placeholder="Ex: T22558"
+                            value={a.crm_code}
+                            onChange={(e) => updateField(index, "crm_code", e.target.value)}
+                            className="h-9 text-sm font-mono"
+                          />
                         </div>
-                      )}
+                        {superiorOptions.length > 0 && (
+                          <div className="grid gap-1">
+                            <Label className="text-xs">Superior Hierárquico</Label>
+                            <Select
+                              value={a.reports_to_id}
+                              onValueChange={(v) => updateField(index, "reports_to_id", v === "__none__" ? "" : v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Selecione o superior" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Nenhum</SelectItem>
+                                {superiorOptions.map((opt) => (
+                                  <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex items-center justify-between gap-4 pt-1">
                         <div className="flex items-center gap-4">

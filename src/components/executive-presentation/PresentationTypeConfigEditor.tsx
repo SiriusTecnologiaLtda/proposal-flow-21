@@ -9,8 +9,10 @@ import { Separator } from "@/components/ui/separator";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Presentation, ChevronDown, ChevronRight, Save, FileText, Upload, Trash2 } from "lucide-react";
+import { Presentation, ChevronDown, ChevronRight, Save, FileText, Upload, Trash2, ExternalLink, Layers, Wrench, Info } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   type PresentationTypeConfig,
   type ReferenceAttachment,
@@ -20,8 +22,11 @@ import {
 } from "@/data/executivePresentationData";
 
 interface Props {
+  proposalTypeId: string;
   proposalTypeSlug: string;
   proposalTypeName: string;
+  templateDocId?: string | null;
+  mitTemplateDocId?: string | null;
 }
 
 const emptyConfig: PresentationTypeConfig = {
@@ -39,11 +44,33 @@ const emptyConfig: PresentationTypeConfig = {
   references: [],
 };
 
-export default function PresentationTypeConfigEditor({ proposalTypeSlug, proposalTypeName }: Props) {
+export default function PresentationTypeConfigEditor({
+  proposalTypeId,
+  proposalTypeSlug,
+  proposalTypeName,
+  templateDocId,
+  mitTemplateDocId,
+}: Props) {
   const existing = executivePresentationStore.getConfigForSlug(proposalTypeSlug);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<PresentationTypeConfig>(existing ?? emptyConfig);
   const [dirty, setDirty] = useState(false);
+
+  // Fetch service items for this proposal type
+  const { data: serviceItems = [] } = useQuery({
+    queryKey: ["proposal_type_service_items", proposalTypeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proposal_type_service_items")
+        .select("id, label, hourly_rate, golive_pct, is_base_scope, sort_order")
+        .eq("proposal_type_id", proposalTypeId)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     const cfg = executivePresentationStore.getConfigForSlug(proposalTypeSlug);
@@ -78,6 +105,7 @@ export default function PresentationTypeConfigEditor({ proposalTypeSlug, proposa
   };
 
   const hasContent = !!existing;
+  const hasTemplates = !!(templateDocId || mitTemplateDocId);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -97,6 +125,16 @@ export default function PresentationTypeConfigEditor({ proposalTypeSlug, proposa
         <p className="text-xs text-muted-foreground">
           Conteúdo-base usado para gerar apresentações executivas deste tipo de oportunidade.
         </p>
+
+        {/* ── Existing type context ── */}
+        <ExistingTypeContext
+          templateDocId={templateDocId}
+          mitTemplateDocId={mitTemplateDocId}
+          serviceItems={serviceItems}
+          hasTemplates={hasTemplates}
+        />
+
+        <Separator />
 
         {/* Narrative */}
         <div className="space-y-3">
@@ -200,5 +238,105 @@ export default function PresentationTypeConfigEditor({ proposalTypeSlug, proposa
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/* ── Sub-component: existing type context panel ── */
+
+interface ExistingTypeContextProps {
+  templateDocId?: string | null;
+  mitTemplateDocId?: string | null;
+  serviceItems: { id: string; label: string; hourly_rate: number; golive_pct: number; is_base_scope: boolean; sort_order: number }[];
+  hasTemplates: boolean;
+}
+
+function ExistingTypeContext({ templateDocId, mitTemplateDocId, serviceItems, hasTemplates }: ExistingTypeContextProps) {
+  const hasServiceItems = serviceItems.length > 0;
+
+  if (!hasTemplates && !hasServiceItems) return null;
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+      <div className="flex items-center gap-2">
+        <Info className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-semibold text-foreground">Insumos já existentes no tipo</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        Estes dados já cadastrados serão utilizados automaticamente na composição da apresentação executiva.
+      </p>
+
+      {/* Templates */}
+      {hasTemplates && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <FileText className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-foreground">Templates de documento vinculados</span>
+          </div>
+          <div className="space-y-1 pl-4">
+            {templateDocId && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] shrink-0">Proposta</Badge>
+                <code className="text-[10px] font-mono text-muted-foreground truncate flex-1">{templateDocId}</code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 shrink-0"
+                  onClick={() => window.open(`https://docs.google.com/document/d/${templateDocId}/edit`, "_blank")}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            {mitTemplateDocId && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] shrink-0">MIT-065</Badge>
+                <code className="text-[10px] font-mono text-muted-foreground truncate flex-1">{mitTemplateDocId}</code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 shrink-0"
+                  onClick={() => window.open(`https://docs.google.com/document/d/${mitTemplateDocId}/edit`, "_blank")}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground italic pl-4">
+            Narrativa, estrutura e linguagem comercial dos templates servirão de base complementar.
+          </p>
+        </div>
+      )}
+
+      {/* Service Items */}
+      {hasServiceItems && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Layers className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-foreground">
+              Itens de serviço do tipo
+            </span>
+            <Badge variant="secondary" className="text-[10px]">{serviceItems.length}</Badge>
+          </div>
+          <div className="pl-4 space-y-0.5">
+            {serviceItems.map((si) => (
+              <div key={si.id} className="flex items-center gap-2 text-[11px]">
+                <Wrench className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                <span className="text-foreground flex-1 truncate">{si.label}</span>
+                <span className="text-muted-foreground tabular-nums shrink-0">
+                  R$ {si.hourly_rate.toLocaleString("pt-BR")}/h
+                </span>
+                {si.is_base_scope && (
+                  <Badge variant="outline" className="text-[9px] shrink-0">base</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground italic pl-4">
+            Itens serão usados para compor a seção de escopo visual e investimento da apresentação.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

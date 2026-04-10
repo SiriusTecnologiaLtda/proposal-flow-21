@@ -264,7 +264,13 @@ export default function ProposalTypesPage() {
                     <div className="px-4 pb-4 pt-1 border-t bg-muted/30 space-y-4">
                       <ServiceItemsManager proposalTypeId={item.id} proposalTypeName={item.name} />
                       <Separator />
-                      <PresentationTypeConfigEditor proposalTypeSlug={item.slug} proposalTypeName={item.name} />
+                      <PresentationTypeConfigEditor
+                        proposalTypeId={item.id}
+                        proposalTypeSlug={item.slug}
+                        proposalTypeName={item.name}
+                        templateDocId={item.template_doc_id}
+                        mitTemplateDocId={item.mit_template_doc_id}
+                      />
                     </div>
                   )}
                 </div>

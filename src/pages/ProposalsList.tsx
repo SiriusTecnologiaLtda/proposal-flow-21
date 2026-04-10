@@ -903,7 +903,7 @@ export default function ProposalsList() {
     }
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false;
     if (periodRange) {
-      const closeDate = (p as any).expected_close_date;
+      const closeDate = (p as any).expected_close_date || (p as any).created_at?.substring(0, 10);
       if (!closeDate) return false;
       try {
         const d = parseISO(closeDate);

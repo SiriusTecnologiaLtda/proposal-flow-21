@@ -23,8 +23,8 @@ import {
   audienceOptions,
   detailOptions,
   defaultPresentationConfig,
-  executivePresentationStore,
 } from "@/data/executivePresentationData";
+import { usePresentationTypeConfig } from "@/hooks/useExecutivePresentation";
 
 interface GenerateDialogProps {
   open: boolean;

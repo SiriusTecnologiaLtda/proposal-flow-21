@@ -43,6 +43,22 @@ function canTransitionSignatory(current: string, next: string): boolean {
   return true;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P1.1 — Individual signer status mapping (same as webhook)
+// ════════════════════════════════════════════════════════════════════
+function mapIndividualSignerStatus(input: {
+  assinado?: boolean | null;
+  rejeitado?: boolean | null;
+  pendente?: boolean | null;
+  statusAssinatura?: number | null;
+  taeStatus?: number | null;
+}): "pending" | "signed" | "rejected" {
+  if (input.rejeitado === true || input.statusAssinatura === 3) return "rejected";
+  if (input.assinado === true || input.statusAssinatura === 0 || input.pendente === false) return "signed";
+  if (input.taeStatus === 4 || input.taeStatus === 7) return "rejected";
+  return "pending";
+}
+
 const SIGNATURE_VALID_TRANSITIONS: Record<string, Set<string>> = {
   pending: new Set(["sent", "completed", "cancelled"]),
   sent: new Set(["completed", "cancelled"]),
@@ -114,8 +130,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get TAE config
-    const { data: taeConfig } = await supabase.from("tae_config").select("*").maybeSingle();
+    // Get TAE config — use service role to bypass RLS on tae_config
+    const adminSupabaseForConfig = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: taeConfig } = await adminSupabaseForConfig.from("tae_config").select("*").maybeSingle();
     if (!taeConfig) {
       return new Response(JSON.stringify({ error: "Configuração TAE não encontrada" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -280,26 +297,27 @@ Deno.serve(async (req) => {
     // Extract signer details
     const rawSigners = pubData?.assinantes || pubData?.destinatarios || pubData?.pendentes || [];
     const signers = rawSigners.map((s: any) => {
-      const isPendentesFormat = s.pendente !== undefined;
+      const mappedStatus = mapIndividualSignerStatus({
+        assinado: s.assinado ?? null,
+        rejeitado: s.rejeitado ?? null,
+        pendente: s.pendente ?? null,
+        statusAssinatura: typeof s.statusAssinatura === "number" ? s.statusAssinatura : null,
+        taeStatus: pubStatus ?? null,
+      });
       return {
         email: s.email || s.emailDestinatario,
         name: s.nomeCompleto || s.nome || s.email,
         status: s.statusAssinatura ?? s.status,
-        statusLabel: isPendentesFormat
-          ? (s.pendente ? "Pendente" : "Assinado")
-          : (s.assinado ? "Assinado" : (s.rejeitado ? "Rejeitado" : "Pendente")),
+        statusLabel: mappedStatus === "signed" ? "Assinado" : mappedStatus === "rejected" ? "Rejeitado" : "Pendente",
+        mappedStatus,
         signedAt: s.dataAssinatura || null,
         action: s.acao ?? s.tipoAssinatura,
       };
     });
 
-    // P2.3 + P2.4: Sync local signatories with state machine guard and normalized email
+    // P2.3 + P2.4: Sync local signatories using unified mapIndividualSignerStatus
     for (const signer of signers) {
-      const nextStatus = signer.statusLabel === "Assinado"
-        ? "signed"
-        : signer.statusLabel === "Rejeitado"
-          ? "rejected"
-          : "pending";
+      const nextStatus = signer.mappedStatus;
 
       const normalized = normalizeEmail(signer.email || "");
       if (!normalized) continue;

@@ -368,7 +368,7 @@ Deno.serve(async (req) => {
 
     // 8. Login to TAE
     log(logs, "TAE Login", "info", "Autenticando no TAE...");
-    const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
+    const loginRes = await taeFetchWithTimeout(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -491,7 +491,7 @@ Deno.serve(async (req) => {
 
     formData.append("NomeEnvelope", fileName);
 
-    const uploadRes = await fetch(`${baseUrl}/documents/v1/envelopes/upload`, {
+    const uploadRes = await taeFetchWithTimeout(`${baseUrl}/documents/v1/envelopes/upload`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${taeToken}`,
@@ -566,7 +566,7 @@ Deno.serve(async (req) => {
       },
     };
 
-    const publishRes = await fetch(`${baseUrl}/documents/v1/publicacoes`, {
+    const publishRes = await taeFetchWithTimeout(`${baseUrl}/documents/v1/publicacoes`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${taeToken}`,

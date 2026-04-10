@@ -78,6 +78,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
           crm_code: d.crm_code || "",
         }))
       );
+      setRemovedIds([]);
     }
     if (!allResult.error && allResult.data) {
       setAllAssignments(allResult.data);

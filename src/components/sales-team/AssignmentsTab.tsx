@@ -78,7 +78,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
           crm_code: d.crm_code || "",
         }))
       );
-      setRemovedIds([]);
     }
     if (!allResult.error && allResult.data) {
       setAllAssignments(allResult.data);
@@ -200,41 +199,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       const toUpdate = assignments.filter((a) => a.id && !a.isNew && a.unit_id && a.role);
       const toInsert = assignments.filter((a) => (!a.id || a.isNew) && a.unit_id && a.role);
 
-      // Delete assignments that the user explicitly removed
-      if (removedIds.length > 0) {
-        // Final safety check: block if any removed ID still has active dependents
-        const { data: refsData } = await (supabase as any)
-          .from("sales_team_assignments")
-          .select("id, member_id")
-          .in("reports_to_id", removedIds)
-          .eq("active", true);
-
-        if (refsData && refsData.length > 0) {
-          const names = refsData.map((r: any) => {
-            const m = allMembers.find((m: any) => m.id === r.member_id);
-            return m ? m.name : r.member_id;
-          }).join(", ");
-          toast({
-            title: "Remoção bloqueada",
-            description: `Os seguintes membros ainda reportam a vínculos marcados para remoção: ${names}. Reatribua-os antes de salvar.`,
-            variant: "destructive",
-          });
-          setSaving(false);
-          return;
-        }
-
-        const { error: delError } = await (supabase as any)
-          .from("sales_team_assignments")
-          .delete()
-          .in("id", removedIds);
-        if (delError) {
-          toast({ title: "Erro ao remover vínculos", description: delError.message, variant: "destructive" });
-          setSaving(false);
-          return;
-        }
-      }
-
-      // Update existing assignments one by one to preserve IDs
       for (const a of toUpdate) {
         const { error: updError } = await (supabase as any)
           .from("sales_team_assignments")
@@ -276,7 +240,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
         }
       }
 
-      setRemovedIds([]);
+      
       toast({ title: "Vínculos comerciais salvos!" });
       qc.invalidateQueries({ queryKey: ["sales_team"] });
     } catch (err: any) {

@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import AssignmentsTab from "./AssignmentsTab";
+import { useSalesTeam } from "@/hooks/useSupabaseData";
 
 interface CrmCode {
   id?: string;
@@ -31,6 +33,7 @@ const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id:
 export default function SalesTeamMemberDialog({ open, onOpenChange, member, units, gsnMembers }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { data: allMembers = [] } = useSalesTeam();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("dados");
@@ -157,6 +160,9 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
           <TabsList className="w-full">
             <TabsTrigger value="dados" className="flex-1">Dados Cadastrais</TabsTrigger>
             {isEditing && (
+              <TabsTrigger value="vinculos" className="flex-1">Vínculos Comerciais</TabsTrigger>
+            )}
+            {isEditing && (
               <TabsTrigger value="crm" className="flex-1">Códigos CRM</TabsTrigger>
             )}
           </TabsList>
@@ -257,6 +263,17 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
               </Button>
             </div>
           </TabsContent>
+
+          {isEditing && (
+            <TabsContent value="vinculos">
+              <AssignmentsTab
+                memberId={member.id}
+                memberName={member.name}
+                units={units}
+                allMembers={allMembers}
+              />
+            </TabsContent>
+          )}
 
           {isEditing && (
             <TabsContent value="crm" className="space-y-4 mt-4">

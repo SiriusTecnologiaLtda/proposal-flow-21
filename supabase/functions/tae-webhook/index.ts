@@ -74,7 +74,7 @@ function normalizeEmail(email: string): string {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// P2.2 — Idempotency: compute a stable hash from the payload
+// P2.2 + P3.3 — Idempotency: compute a stable hash from the payload
 // ════════════════════════════════════════════════════════════════════
 async function computePayloadHash(payload: unknown): Promise<string> {
   const raw = JSON.stringify(payload);
@@ -82,13 +82,29 @@ async function computePayloadHash(payload: unknown): Promise<string> {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P3.2 — Extract best completion date from TAE payload
+// ════════════════════════════════════════════════════════════════════
+function extractCompletionDate(flatPayload: Record<string, any>, flatData: Record<string, any>): string {
+  const candidates = [
+    flatPayload["datafinalizacao"], flatData["datafinalizacao"],
+    flatPayload["dataconclusao"], flatData["dataconclusao"],
+    flatPayload["datafinalizado"], flatData["datafinalizado"],
+  ];
+  for (const c of candidates) {
+    if (c && typeof c === "string" && !isNaN(Date.parse(c))) return new Date(c).toISOString();
+  }
+  return new Date().toISOString();
+}
+
 Deno.serve(async (req) => {
+  const t0 = Date.now();
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // ─── P2.1: Webhook authentication via shared secret ───────────
+    // ─── P2.1: Webhook authentication via shared secret (fail-closed) ──
     const webhookSecret = Deno.env.get("TAE_WEBHOOK_SECRET");
     if (!webhookSecret) {
       console.error("[tae-webhook] FATAL: TAE_WEBHOOK_SECRET not configured. Rejecting all requests.");
@@ -101,7 +117,7 @@ Deno.serve(async (req) => {
     const tokenParam = url.searchParams.get("token");
     const tokenHeader = req.headers.get("x-webhook-secret");
     if (tokenParam !== webhookSecret && tokenHeader !== webhookSecret) {
-      console.log("[tae-webhook] AUTH REJECTED: invalid or missing token");
+      console.log("[tae-webhook] AUTH_REJECTED", JSON.stringify({ hasParam: !!tokenParam, hasHeader: !!tokenHeader }));
       return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -115,19 +131,19 @@ Deno.serve(async (req) => {
 
     // TAE sends webhook payload as JSON
     const payload = await req.json();
-    console.log("[tae-webhook] Received FULL payload:", JSON.stringify(payload));
+    console.log("[tae-webhook] PAYLOAD_RECEIVED", JSON.stringify(payload));
 
-    // ─── P2.2: Idempotency check ─────────────────────────────────
+    // ─── P2.2 + P3.3: Idempotency check using dedicated column ──
     const payloadHash = await computePayloadHash(payload);
     const { data: existingEvent } = await supabase
       .from("signature_events")
       .select("id")
-      .like("description", `hash:${payloadHash}|%`)
+      .eq("payload_hash", payloadHash)
       .limit(1)
       .maybeSingle();
 
     if (existingEvent) {
-      console.log(`[tae-webhook] IDEMPOTENT: payload hash ${payloadHash} already processed (event ${existingEvent.id}). Skipping.`);
+      console.log(`[tae-webhook] IDEMPOTENT hash=${payloadHash} event=${existingEvent.id} elapsed=${Date.now() - t0}ms`);
       return new Response(JSON.stringify({ ok: true, idempotent: true, hash: payloadHash }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -160,7 +176,8 @@ Deno.serve(async (req) => {
     const singleSignerEmail = flatPayload["assinante"] || flatData["assinante"] ||
       payload?.assinante || payload?.data?.assinante;
 
-    console.log(`[tae-webhook] ctx: publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}, assinante=${singleSignerEmail || "(none)"}`);
+    const logCtxBase = { publicationId, documentId, taeStatus, assinante: singleSignerEmail || null };
+    console.log(`[tae-webhook] CONTEXT`, JSON.stringify(logCtxBase));
 
     // ─── Match the signature record ONLY by exact ID ────────────
     let sigRecord: any = null;
@@ -182,7 +199,7 @@ Deno.serve(async (req) => {
     }
 
     if (!sigRecord) {
-      console.log("[tae-webhook] No matching signature record found by exact ID. Ignoring.", JSON.stringify({ publicationId, documentId, taeStatus }));
+      console.log("[tae-webhook] NO_MATCH", JSON.stringify(logCtxBase));
       return new Response(JSON.stringify({ ok: true, ignored: true, reason: "no matching record by exact ID" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -194,7 +211,7 @@ Deno.serve(async (req) => {
       tae_document_id: sigRecord.tae_document_id,
       tae_publication_id: sigRecord.tae_publication_id,
     };
-    console.log(`[tae-webhook] Matched record:`, JSON.stringify(logCtx));
+    console.log(`[tae-webhook] MATCHED`, JSON.stringify(logCtx));
 
     // Update publication/document IDs if changed
     const sigUpdates: Record<string, string> = {};
@@ -209,6 +226,8 @@ Deno.serve(async (req) => {
     }
 
     // ─── Helper: update a single signatory with state machine guard ──
+    let signatoryUpdates = 0;
+    let signatoryBlocked = 0;
     async function updateSignatory(email: string, input: Parameters<typeof mapIndividualSignerStatus>[0], signedAt?: string | null) {
       const normalized = normalizeEmail(email);
       if (!normalized) return;
@@ -225,7 +244,8 @@ Deno.serve(async (req) => {
 
       const curStatus = current?.status || "pending";
       if (!canTransitionSignatory(curStatus, nextStatus)) {
-        console.log(`[tae-webhook] Signatory ${normalized}: ${curStatus} → ${nextStatus} blocked by state machine`, JSON.stringify(logCtx));
+        signatoryBlocked++;
+        console.log(`[tae-webhook] SIGNATORY_BLOCKED ${normalized}: ${curStatus} → ${nextStatus}`, JSON.stringify(logCtx));
         return;
       }
 
@@ -240,7 +260,8 @@ Deno.serve(async (req) => {
         .eq("signature_id", sigRecord.id)
         .ilike("email", normalized);
 
-      console.log(`[tae-webhook] Signatory ${normalized}: ${curStatus} → ${nextStatus}`, JSON.stringify(logCtx));
+      signatoryUpdates++;
+      console.log(`[tae-webhook] SIGNATORY_UPDATED ${normalized}: ${curStatus} → ${nextStatus}`, JSON.stringify(logCtx));
     }
 
     // Handle single signer
@@ -275,14 +296,15 @@ Deno.serve(async (req) => {
       }, signer.dataAssinatura || null);
     }
 
-    // ─── Log event (with idempotency hash in description) ───────
+    // ─── Log event (with dedicated payload_hash column) ─────────
     async function logEvent(eventType: string, title: string, description: string) {
       await supabase.from("signature_events").insert({
         signature_id: sigRecord.id,
         proposal_id: sigRecord.proposal_id,
         event_type: eventType,
         title,
-        description: `hash:${payloadHash}|${description}`,
+        description,
+        payload_hash: payloadHash,
       });
     }
 
@@ -304,26 +326,31 @@ Deno.serve(async (req) => {
 
     // ─── P2.4: Update envelope/proposal status via state machine ──
     const hadRealTaeSend = !!(sigRecord.tae_document_id || sigRecord.tae_publication_id);
+    let envelopeAction = "none";
 
     if (taeStatus === 2) {
+      const completionDate = extractCompletionDate(flatPayload, flatData);
       const { confirmed, pending } = await allSignatoriesConfirmed();
       if (confirmed) {
         if (canTransitionSignature(sigRecord.status, "completed")) {
           await supabase.from("proposal_signatures")
-            .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: publicationId || sigRecord.tae_publication_id })
+            .update({ status: "completed", completed_at: completionDate, tae_publication_id: publicationId || sigRecord.tae_publication_id })
             .eq("id", sigRecord.id);
           await supabase.from("proposals")
-            .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
+            .update({ status: "ganha", expected_close_date: completionDate.substring(0, 10) })
             .eq("id", sigRecord.proposal_id);
           await logEvent("success", "Assinatura finalizada", "Todos os signatários assinaram. Oportunidade marcada como Ganha.");
-          console.log(`[tae-webhook] Signature → completed, proposal → ganha`, JSON.stringify(logCtx));
+          envelopeAction = "completed";
+          console.log(`[tae-webhook] ENVELOPE_COMPLETED date=${completionDate}`, JSON.stringify(logCtx));
         } else {
-          console.log(`[tae-webhook] Transition ${sigRecord.status} → completed blocked`, JSON.stringify(logCtx));
+          envelopeAction = "transition_blocked";
+          console.log(`[tae-webhook] TRANSITION_BLOCKED ${sigRecord.status} → completed`, JSON.stringify(logCtx));
         }
       } else {
         await logEvent("warning", "Finalização recebida mas pendente de verificação",
           `Pendentes: ${pending.join(", ")}. Use "Sincronizar TAE" para atualizar.`);
-        console.log(`[tae-webhook] TAE status=2 but ${pending.length} pending locally`, JSON.stringify(logCtx));
+        envelopeAction = "pending_verification";
+        console.log(`[tae-webhook] PENDING_VERIFICATION count=${pending.length}`, JSON.stringify(logCtx));
       }
     } else if (taeStatus === 4 || taeStatus === 7) {
       const eventType = taeStatus === 4 ? "rejected" : "cancelled";
@@ -340,22 +367,29 @@ Deno.serve(async (req) => {
           ? `Rejeitada por ${singleSignerEmail || "signatário"}. Status → ${newProposalStatus}.`
           : `Cancelada. Status → ${newProposalStatus}.`;
         await logEvent(eventType, label, desc);
-        console.log(`[tae-webhook] Signature → cancelled, proposal → ${newProposalStatus}`, JSON.stringify(logCtx));
+        envelopeAction = eventType;
+        console.log(`[tae-webhook] ENVELOPE_${eventType.toUpperCase()} proposal→${newProposalStatus}`, JSON.stringify(logCtx));
       } else {
-        console.log(`[tae-webhook] Transition ${sigRecord.status} → cancelled blocked`, JSON.stringify(logCtx));
+        envelopeAction = "transition_blocked";
+        console.log(`[tae-webhook] TRANSITION_BLOCKED ${sigRecord.status} → cancelled`, JSON.stringify(logCtx));
       }
     } else if (taeStatus === 1) {
       await logEvent("info", "Assinatura parcial", `${singleSignerEmail || "Um signatário"} assinou. Aguardando demais.`);
+      envelopeAction = "partial";
     } else if (taeStatus === 0 || taeStatus === 6) {
       await logEvent("info", "Pendente de assinatura", "Aguardando ação dos signatários.");
+      envelopeAction = "pending";
     }
 
+    const elapsed = Date.now() - t0;
+    console.log(`[tae-webhook] DONE action=${envelopeAction} signatoryUpdates=${signatoryUpdates} signatoryBlocked=${signatoryBlocked} elapsed=${elapsed}ms`, JSON.stringify(logCtx));
+
     return new Response(
-      JSON.stringify({ ok: true, signatureId: sigRecord.id, taeStatus, statusLabel: TAE_STATUS_MAP[taeStatus!] ?? "Desconhecido", hash: payloadHash }),
+      JSON.stringify({ ok: true, signatureId: sigRecord.id, taeStatus, statusLabel: TAE_STATUS_MAP[taeStatus!] ?? "Desconhecido", hash: payloadHash, elapsed }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
-    console.error("[tae-webhook] Error:", err.message);
+    console.error(`[tae-webhook] ERROR: ${err.message}`, err.stack);
     return new Response(
       JSON.stringify({ ok: false, error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -15,34 +15,27 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    // Validate user
+    const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { searchName } = await req.json();
-
-    // Get TAE config
-    const { data: taeConfig } = await supabase.from("tae_config").select("*").maybeSingle();
+    // Use admin client for tae_config
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: taeConfig } = await admin.from("tae_config").select("*").maybeSingle();
     if (!taeConfig) {
       return new Response(JSON.stringify({ error: "TAE config not found" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -59,66 +52,54 @@ Deno.serve(async (req) => {
     const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
     if (!taeToken) {
       return new Response(JSON.stringify({ error: "TAE login failed", loginData }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const results: any = {};
 
-    // Try multiple search endpoints
-    const endpoints = [
-      { label: "envelopes-search", url: `${baseUrl}/documents/v1/envelopes?nome=${encodeURIComponent(searchName)}&pageSize=5` },
-      { label: "envelopes-search2", url: `${baseUrl}/documents/v1/envelopes?filter=${encodeURIComponent(searchName)}&pageSize=5` },
-      { label: "documentos-search", url: `${baseUrl}/documents/v1/documentos?nome=${encodeURIComponent(searchName)}&pageSize=5` },
-      { label: "documentos-search2", url: `${baseUrl}/documents/v1/documentos?filter=${encodeURIComponent(searchName)}&pageSize=5` },
-      { label: "publicacoes-search", url: `${baseUrl}/documents/v2/publicacoes?nome=${encodeURIComponent(searchName)}&pageSize=5` },
-      { label: "signint-docs-empresa", url: `${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa` },
+    // Search by name in various endpoints
+    const searchEndpoints = [
+      `${baseUrl}/documents/v1/envelopes?nome=507346&pageSize=10`,
+      `${baseUrl}/documents/v1/envelopes?filter=507346&pageSize=10`,
+      `${baseUrl}/documents/v2/publicacoes?nome=507346&pageSize=10`,
+      `${baseUrl}/documents/v1/documentos?nome=507346&pageSize=10`,
     ];
 
-    for (const ep of endpoints) {
+    for (let i = 0; i < searchEndpoints.length; i++) {
+      const url = searchEndpoints[i];
       try {
-        let res: Response;
-        if (ep.label === "signint-docs-empresa") {
-          // Skip this one - needs doc IDs
-          continue;
-        }
-        res = await fetch(ep.url, {
-          headers: { Authorization: `Bearer ${taeToken}` },
-        });
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
         const raw = await res.text();
         let parsed: any;
-        try { parsed = JSON.parse(raw); } catch { parsed = raw.substring(0, 500); }
-        results[ep.label] = { status: res.status, data: parsed };
+        try { parsed = JSON.parse(raw); } catch { parsed = raw.substring(0, 800); }
+        results[`endpoint_${i}`] = { url, status: res.status, data: parsed };
       } catch (e: any) {
-        results[ep.label] = { error: e.message };
+        results[`endpoint_${i}`] = { url, error: e.message };
       }
     }
 
-    // Also try searching with "507346" as keyword
+    // Also try listing recent envelopes
     try {
-      const searchRes = await fetch(`${baseUrl}/documents/v1/envelopes?nome=507346&pageSize=10`, {
+      const res = await fetch(`${baseUrl}/documents/v1/envelopes?pageSize=30`, {
         headers: { Authorization: `Bearer ${taeToken}` },
       });
-      const raw = await searchRes.text();
+      const raw = await res.text();
       let parsed: any;
-      try { parsed = JSON.parse(raw); } catch { parsed = raw.substring(0, 500); }
-      results["envelopes-507346"] = { status: searchRes.status, data: parsed };
+      try { parsed = JSON.parse(raw); } catch { parsed = raw.substring(0, 2000); }
+      // Filter items containing "507346" or "TRACOMAL"
+      const data = parsed?.data || parsed;
+      if (Array.isArray(data)) {
+        const matches = data.filter((item: any) => {
+          const str = JSON.stringify(item);
+          return str.includes("507346") || str.includes("TRACOMAL") || str.includes("tracomal");
+        });
+        results["recent_matches"] = { total: data.length, matches, firstKeys: data.length > 0 ? Object.keys(data[0]) : [] };
+      } else {
+        results["recent_raw"] = { keys: typeof data === 'object' ? Object.keys(data || {}) : typeof data, sample: JSON.stringify(data).substring(0, 1000) };
+      }
     } catch (e: any) {
-      results["envelopes-507346"] = { error: e.message };
-    }
-
-    // Try listing recent documents
-    try {
-      const recentRes = await fetch(`${baseUrl}/documents/v1/envelopes?pageSize=20&orderBy=dataCriacao desc`, {
-        headers: { Authorization: `Bearer ${taeToken}` },
-      });
-      const raw = await recentRes.text();
-      let parsed: any;
-      try { parsed = JSON.parse(raw); } catch { parsed = raw.substring(0, 1000); }
-      results["recent-envelopes"] = { status: recentRes.status, data: parsed };
-    } catch (e: any) {
-      results["recent-envelopes"] = { error: e.message };
+      results["recent"] = { error: e.message };
     }
 
     return new Response(JSON.stringify(results, null, 2), {
@@ -126,8 +107,7 @@ Deno.serve(async (req) => {
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

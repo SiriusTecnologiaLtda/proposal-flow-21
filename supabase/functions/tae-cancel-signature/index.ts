@@ -172,14 +172,15 @@ Deno.serve(async (req) => {
 
     // 5. Login to TAE
     log(logs, "TAE Login", "info", "Autenticando no TAE...");
-    const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
+    const loginRes = await taeFetch(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
-    });
+    }, "login");
     if (!loginRes.ok) {
       const loginBody = await loginRes.text();
       log(logs, "TAE Login", "error", `Falha (${loginRes.status}): ${loginBody.substring(0, 300)}`);
+      console.error(`[tae-cancel] LOGIN_FAILED status=${loginRes.status}`);
       return respondWithLogs(logs, {}, 500);
     }
     const loginBody = await loginRes.text();
@@ -196,11 +197,11 @@ Deno.serve(async (req) => {
     if (!taePublicationId && taeDocumentId) {
       log(logs, "TAE Resolução", "info", `Resolvendo publication ID do document ${taeDocumentId}...`);
       try {
-        const siRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+        const siRes = await taeFetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
           method: "POST",
           headers: { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" },
           body: JSON.stringify([Number(taeDocumentId)]),
-        });
+        }, "resolve_publication");
         if (siRes.ok) {
           const siRaw = await siRes.text();
           let siParsed: any;
@@ -238,10 +239,10 @@ Deno.serve(async (req) => {
 
     if (taePublicationId) {
       log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${taePublicationId}...`);
-      cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
+      cancelRes = await taeFetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
         method: "POST",
         headers: { Authorization: `Bearer ${taeToken}`, Accept: "application/json", "Content-Type": "application/json" },
-      });
+      }, "cancel_publication");
       cancelRaw = await cancelRes.text();
 
       if (cancelRes.ok) {

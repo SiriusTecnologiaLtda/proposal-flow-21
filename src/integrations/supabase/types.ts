@@ -3277,6 +3277,10 @@ export type Database = {
         Args: { _esn_id: string; _user_id: string }
         Returns: boolean
       }
+      is_member_match: {
+        Args: { _member_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "vendedor" | "arquiteto" | "gsn" | "consulta" | "dsn"

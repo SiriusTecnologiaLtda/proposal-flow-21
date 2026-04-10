@@ -11,15 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, Info } from "lucide-react";
 import {
   type PresentationConfig,
   type OpportunityData,
+  type OpportunityTypeReference,
   templateStyleOptions,
   audienceOptions,
   detailOptions,
   opportunityTypeOptions,
   defaultPresentationConfig,
+  mockOpportunityTypes,
+  getTypeForOpportunity,
 } from "@/data/executivePresentationData";
 
 interface GenerateDialogProps {
@@ -30,10 +34,15 @@ interface GenerateDialogProps {
 }
 
 export default function GenerateDialog({ open, onOpenChange, opportunity, onGenerate }: GenerateDialogProps) {
+  const typeRef = getTypeForOpportunity(opportunity);
+
   const [config, setConfig] = useState<PresentationConfig>({
     ...defaultPresentationConfig,
     opportunityType: opportunity.opportunityType,
+    templateStyle: typeRef?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
   });
+
+  const currentTypeRef = mockOpportunityTypes.find((t) => t.slug === config.opportunityType);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,7 +63,14 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
             <Label>Tipo de oportunidade</Label>
             <Select
               value={config.opportunityType}
-              onValueChange={(v) => setConfig((c) => ({ ...c, opportunityType: v as any }))}
+              onValueChange={(v) => {
+                const newType = mockOpportunityTypes.find((t) => t.slug === v);
+                setConfig((c) => ({
+                  ...c,
+                  opportunityType: v as any,
+                  templateStyle: newType?.preferredTemplate ?? c.templateStyle,
+                }));
+              }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -64,6 +80,22 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
               </SelectContent>
             </Select>
           </div>
+
+          {/* Type info badge */}
+          {currentTypeRef && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Conteúdo-base do tipo</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{currentTypeRef.executiveSummary}</p>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-[10px]">{currentTypeRef.defaultScopeBlocks.length} blocos de escopo</Badge>
+                <Badge variant="secondary" className="text-[10px]">{currentTypeRef.defaultBenefits.length} benefícios</Badge>
+                <Badge variant="secondary" className="text-[10px]">{currentTypeRef.references.length} referências</Badge>
+              </div>
+            </div>
+          )}
 
           {/* Template style */}
           <div className="space-y-1.5">

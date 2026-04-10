@@ -56,6 +56,7 @@ import ScopeAuditPage from "@/pages/ScopeAuditPage";
 import OpportunityDetailPage from "@/pages/OpportunityDetailPage";
 import ExecutivePresentationPage from "@/pages/ExecutivePresentationPage";
 import ExecutivePresentationSharePage from "@/pages/ExecutivePresentationSharePage";
+import OpportunityTypesAdminPage from "@/pages/OpportunityTypesAdminPage";
 import React from "react";
 
 class ErrorBoundary extends React.Component<

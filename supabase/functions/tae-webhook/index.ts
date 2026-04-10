@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
     }
 
     // Handle array of signers (from finalizar event or detailed payload)
+    // P1.1: Use unified mapIndividualSignerStatus + regression guard
     const signers = payload?.assinantes || payload?.destinatarios ||
       payload?.data?.assinantes || payload?.data?.destinatarios ||
       flatPayload["assinantes"] || flatPayload["destinatarios"] ||
@@ -225,18 +226,42 @@ Deno.serve(async (req) => {
       if (!email) continue;
 
       const signedAt = signer.dataAssinatura || null;
-      let nextStatus = "pending";
-      if (signer.assinado || signer.statusAssinatura === 0) {
-        nextStatus = "signed";
-      } else if (signer.rejeitado || signer.statusAssinatura === 3) {
-        nextStatus = "rejected";
+      const nextStatus = mapIndividualSignerStatus({
+        assinado: signer.assinado ?? null,
+        rejeitado: signer.rejeitado ?? null,
+        pendente: signer.pendente ?? null,
+        statusAssinatura: typeof signer.statusAssinatura === "number" ? signer.statusAssinatura : null,
+        taeStatus: taeStatus ?? null,
+      });
+
+      // Regression guard
+      const { data: currentSig } = await supabase
+        .from("proposal_signatories")
+        .select("status")
+        .eq("signature_id", sigRecord.id)
+        .ilike("email", email)
+        .maybeSingle();
+
+      const curStatus = currentSig?.status || "pending";
+      if (!shouldUpdateSignerStatus(curStatus, nextStatus)) {
+        console.log(`[tae-webhook] Array signer ${email}: skipping ${curStatus} → ${nextStatus} (regression)`);
+        continue;
+      }
+
+      const updatePayload: Record<string, any> = { status: nextStatus };
+      if (nextStatus === "signed" && signedAt) {
+        updatePayload.signed_at = signedAt;
+      } else if (nextStatus === "signed") {
+        updatePayload.signed_at = new Date().toISOString();
       }
 
       await supabase
         .from("proposal_signatories")
-        .update({ status: nextStatus, signed_at: signedAt })
+        .update(updatePayload)
         .eq("signature_id", sigRecord.id)
         .ilike("email", email);
+
+      console.log(`[tae-webhook] Array signer ${email}: ${curStatus} → ${nextStatus}, signature_id=${sigRecord.id}`);
     }
 
     // Helper to log signature events

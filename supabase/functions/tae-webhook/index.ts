@@ -90,17 +90,22 @@ Deno.serve(async (req) => {
   try {
     // ─── P2.1: Webhook authentication via shared secret ───────────
     const webhookSecret = Deno.env.get("TAE_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const url = new URL(req.url);
-      const tokenParam = url.searchParams.get("token");
-      const tokenHeader = req.headers.get("x-webhook-secret");
-      if (tokenParam !== webhookSecret && tokenHeader !== webhookSecret) {
-        console.log("[tae-webhook] AUTH REJECTED: invalid or missing token");
-        return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!webhookSecret) {
+      console.error("[tae-webhook] FATAL: TAE_WEBHOOK_SECRET not configured. Rejecting all requests.");
+      return new Response(JSON.stringify({ ok: false, error: "Webhook not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const url = new URL(req.url);
+    const tokenParam = url.searchParams.get("token");
+    const tokenHeader = req.headers.get("x-webhook-secret");
+    if (tokenParam !== webhookSecret && tokenHeader !== webhookSecret) {
+      console.log("[tae-webhook] AUTH REJECTED: invalid or missing token");
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(
@@ -117,7 +122,7 @@ Deno.serve(async (req) => {
     const { data: existingEvent } = await supabase
       .from("signature_events")
       .select("id")
-      .eq("description", `hash:${payloadHash}`)
+      .like("description", `hash:${payloadHash}|%`)
       .limit(1)
       .maybeSingle();
 

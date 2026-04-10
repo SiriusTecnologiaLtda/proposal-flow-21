@@ -13,6 +13,14 @@ import {
   TrendingUp, TrendingDown, Target, Building2, Layers, ArrowUpRight,
   ArrowDownRight, Minus, BarChart3,
 } from "lucide-react";
+import {
+  PRODUCTION_DIVISOR,
+  type RevenueLineTotals,
+  createEmptyLineTotals,
+  normalizeCategoryName,
+  addTargetAmountToLines,
+  buildSoftwareLineTotals as sharedBuildSoftwareLineTotals,
+} from "@/lib/revenueClassification";
 
 const REVENUE_LINES = [
   { key: "producao", label: "Produção", color: "hsl(215, 50%, 42%)" },
@@ -22,62 +30,6 @@ const REVENUE_LINES = [
   { key: "rrf", label: "RRF", color: "hsl(190, 50%, 40%)" },
   { key: "nrf", label: "NRF", color: "hsl(340, 45%, 50%)" },
 ] as const;
-
-type RevenueLineTotals = {
-  producao: number;
-  recorrente: number;
-  nao_recorrente: number;
-  servico: number;
-  rrf: number;
-  nrf: number;
-};
-
-const PRODUCTION_DIVISOR = 21.82;
-
-function createEmptyLineTotals(): RevenueLineTotals {
-  return { producao: 0, recorrente: 0, nao_recorrente: 0, servico: 0, rrf: 0, nrf: 0 };
-}
-
-function normalizeCategoryName(name?: string | null) {
-  return (name || "").trim().toUpperCase();
-}
-
-function addTargetAmountToLines(
-  lines: RevenueLineTotals,
-  amount: number,
-  category?: { name?: string | null; cost_classification?: string | null } | null,
-) {
-  const categoryName = normalizeCategoryName(category?.name);
-  const costClassification = category?.cost_classification || null;
-
-  if (categoryName === "SCS") {
-    lines.servico += amount;
-    return;
-  }
-
-  if (categoryName === "RRF") {
-    lines.rrf += amount;
-    lines.producao += amount;
-    return;
-  }
-
-  if (categoryName === "NRF" || categoryName === "RNF") {
-    lines.nrf += amount;
-    lines.producao += amount / PRODUCTION_DIVISOR;
-    return;
-  }
-
-  if (costClassification === "opex") {
-    lines.recorrente += amount;
-    lines.producao += amount;
-    return;
-  }
-
-  if (costClassification === "capex") {
-    lines.nao_recorrente += amount;
-    lines.producao += amount / PRODUCTION_DIVISOR;
-  }
-}
 
 function sumActiveLines(lines: RevenueLineTotals, activeKeys: Set<string>) {
   return (Object.entries(lines) as [keyof RevenueLineTotals, number][]).reduce(
@@ -482,51 +434,12 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       return null;
     };
 
-    const buildSoftwareLineTotals = (items: any[]): RevenueLineTotals => {
-      const totals = createEmptyLineTotals();
-      let totalCapex = 0;
-      let totalOpex = 0;
-
-      for (const item of items) {
-        const categoryId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) ?? null : null;
-        if (selectedCategoryId !== "all" && categoryId !== selectedCategoryId) continue;
-
-        const category = categoryId ? categoryById.get(categoryId) : null;
-        const categoryName = normalizeCategoryName(category?.name);
-        const costClassification = item.cost_classification || category?.cost_classification || null;
-        const price = Number(item.total_price) || 0;
-        if (!price) continue;
-
-        if (costClassification === "capex") totalCapex += price;
-        if (costClassification === "opex") totalOpex += price;
-
-        if (categoryName === "RRF") {
-          totals.rrf += price;
-          continue;
-        }
-
-        if (categoryName === "NRF" || categoryName === "RNF") {
-          totals.nrf += price;
-          continue;
-        }
-
-        if (["monthly", "annual"].includes(item.recurrence)) {
-          totals.recorrente += price;
-        } else if (item.recurrence === "one_time") {
-          totals.nao_recorrente += price;
-        }
-      }
-
-      totals.producao += (totalCapex / PRODUCTION_DIVISOR) + totalOpex;
-      return totals;
-    };
-
-    // Software proposals → Recorrente, Não Recorrente, Produção
+    // Software proposals → Recorrente, Não Recorrente, Produção, RRF, NRF
     for (const sp of filteredSwProposals) {
       const unitId = resolveMemberUnitId(sp) || "unknown";
       ensureUnit(unitId);
 
-      const lines = buildSoftwareLineTotals(sp.software_proposal_items || []);
+      const lines = sharedBuildSoftwareLineTotals(sp.software_proposal_items || [], catalogCategoryMap, categoryById, selectedCategoryId);
       for (const [key, value] of Object.entries(lines) as [keyof RevenueLineTotals, number][]) {
         result[unitId][key] += value;
       }
@@ -661,46 +574,7 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
             const unitId = (sp.esn_id && memberUnitMap.get(sp.esn_id)) || (sp.gsn_id && memberUnitMap.get(sp.gsn_id));
           if (selectedUnitId !== "all" && unitId !== selectedUnitId) continue;
 
-            const lineTotals = createEmptyLineTotals();
-            const softwareLines = (() => {
-              const totals = createEmptyLineTotals();
-              let totalCapex = 0;
-              let totalOpex = 0;
-
-              for (const item of sp.software_proposal_items || []) {
-                const categoryId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) ?? null : null;
-                if (selectedCategoryId !== "all" && categoryId !== selectedCategoryId) continue;
-
-                const category = categoryId ? categoryById.get(categoryId) : null;
-                const categoryName = normalizeCategoryName(category?.name);
-                const costClassification = item.cost_classification || category?.cost_classification || null;
-                const price = Number(item.total_price) || 0;
-                if (!price) continue;
-
-                if (costClassification === "capex") totalCapex += price;
-                if (costClassification === "opex") totalOpex += price;
-
-                if (categoryName === "RRF") {
-                  totals.rrf += price;
-                  continue;
-                }
-
-                if (categoryName === "NRF" || categoryName === "RNF") {
-                  totals.nrf += price;
-                  continue;
-                }
-
-                if (["monthly", "annual"].includes(item.recurrence)) {
-                  totals.recorrente += price;
-                } else if (item.recurrence === "one_time") {
-                  totals.nao_recorrente += price;
-                }
-              }
-
-              totals.producao += (totalCapex / PRODUCTION_DIVISOR) + totalOpex;
-              return totals;
-            })();
-            Object.assign(lineTotals, softwareLines);
+            const lineTotals = sharedBuildSoftwareLineTotals(sp.software_proposal_items || [], catalogCategoryMap, categoryById, selectedCategoryId);
             realizado += sumActiveLines(lineTotals, activeKeys);
         }
       }

@@ -22,6 +22,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { UnifiedRevenueTab } from "@/components/dashboard/UnifiedRevenueTab";
+import {
+  normalizeCategoryName as normCatName,
+  classifyRevenueItem,
+} from "@/lib/revenueClassification";
 
 function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;
@@ -779,25 +783,29 @@ export default function Dashboard() {
 
     // Revenue filter: map revenue filter to category IDs
     // "scs" → only SCS category
-    // "recorrente" → opex categories excluding SCS
-    // "nao_recorrente" → capex categories
+    // "recorrente" → opex categories excluding SCS and RRF
+    // "nao_recorrente" → capex categories excluding NRF
     if (selectedRevenueFilter !== "all") {
       const scsCategory = categories.find((c: any) => c.name === "SCS");
       const scsCategoryId = scsCategory?.id;
+      const rrfCategory = categories.find((c: any) => normCatName(c.name) === "RRF");
+      const rrfCategoryId = rrfCategory?.id;
+      const nrfCategoryIds = categories
+        .filter((c: any) => { const n = normCatName(c.name); return n === "NRF" || n === "RNF"; })
+        .map((c: any) => c.id);
 
       if (selectedRevenueFilter === "scs") {
-        // Only show targets for SCS category
         relevantTargets = relevantTargets.filter((t: any) => t.category_id === scsCategoryId);
       } else if (selectedRevenueFilter === "recorrente") {
-        // Opex categories excluding SCS (recurrent software)
+        // Opex categories excluding SCS and RRF
         const opexCatIds = categories
-          .filter((c: any) => c.cost_classification === "opex" && c.id !== scsCategoryId)
+          .filter((c: any) => c.cost_classification === "opex" && c.id !== scsCategoryId && c.id !== rrfCategoryId)
           .map((c: any) => c.id);
         relevantTargets = relevantTargets.filter((t: any) => opexCatIds.includes(t.category_id));
       } else if (selectedRevenueFilter === "nao_recorrente") {
-        // Capex categories
+        // Capex categories excluding NRF
         const capexCatIds = categories
-          .filter((c: any) => c.cost_classification === "capex")
+          .filter((c: any) => c.cost_classification === "capex" && !nrfCategoryIds.includes(c.id))
           .map((c: any) => c.id);
         relevantTargets = relevantTargets.filter((t: any) => capexCatIds.includes(t.category_id));
       }
@@ -874,16 +882,30 @@ export default function Dashboard() {
         const month = Number(dateStr.substring(5, 7));
         if (year !== targetYear || month < 1 || month > 12) continue;
 
-        // Get items for this SW proposal, apply category filter
+        // Get items for this SW proposal, apply category + segregation filter
         const items = swProposalItems.filter((item: any) => item.software_proposal_id === sp.id);
         let totalValue = 0;
         for (const item of items) {
+          const itemCatId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
           // Category filter
-          if (selectedCategoryId !== "all") {
-            const itemCatId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
-            if (itemCatId !== selectedCategoryId) continue;
-          }
-          totalValue += Number(item.total_price) || 0;
+          if (selectedCategoryId !== "all" && itemCatId !== selectedCategoryId) continue;
+
+          // Resolve category for segregation
+          const cat = itemCatId ? categories.find((c: any) => c.id === itemCatId) : null;
+          const catName = normCatName(cat?.name);
+          const costClass = item.cost_classification || cat?.cost_classification || null;
+          const price = Number(item.total_price) || 0;
+          if (!price) continue;
+
+          const classified = classifyRevenueItem(catName, costClass, item.recurrence, price);
+
+          // Apply revenue filter segregation
+          if (selectedRevenueFilter === "recorrente" && classified.line !== "recorrente") continue;
+          if (selectedRevenueFilter === "nao_recorrente" && classified.line !== "nao_recorrente") continue;
+          // "all" → include regular SW lines only (exclude SCS/RRF/NRF which have their own sources or cards)
+          if (selectedRevenueFilter === "all" && (catName === "SCS" || catName === "RRF" || catName === "NRF" || catName === "RNF")) continue;
+
+          totalValue += price;
         }
         if (totalValue > 0) {
           months[month - 1].realizado += totalValue;

@@ -1,6 +1,6 @@
 import { type OpportunityData, formatCurrency } from "@/data/executivePresentationData";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Layers } from "lucide-react";
+import { DollarSign, Layers, FileText } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
@@ -8,6 +8,7 @@ interface Props {
 
 export default function InvestmentSection({ data }: Props) {
   const hasProjectScope = !!data.linkedProject && data.linkedProject.scopeGroups.length > 0;
+  const hasPremises = data.templateContext && data.templateContext.premises.length > 0;
 
   return (
     <section className="space-y-6">
@@ -51,28 +52,52 @@ export default function InvestmentSection({ data }: Props) {
         </div>
       </div>
 
-      {/* Scope-hours breakdown from project */}
+      {/* Scope-hours breakdown from project — executive summary */}
       {hasProjectScope && (
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Composição por frente de trabalho</h3>
-            <Badge variant="secondary" className="text-[10px]">Projeto Vinculado</Badge>
           </div>
           <div className="space-y-2">
-            {data.linkedProject!.scopeGroups.map((g) => (
-              <div key={g.id} className="flex items-center gap-3">
-                <span className="text-sm text-foreground flex-1 truncate">{g.title}</span>
-                <Badge variant="outline" className="text-[10px] shrink-0">{g.itemCount} itens</Badge>
-                <span className="text-sm font-semibold text-foreground tabular-nums w-16 text-right">{g.totalHours}h</span>
-              </div>
-            ))}
+            {data.linkedProject!.scopeGroups.map((g) => {
+              const pct = Math.round((g.totalHours / data.linkedProject!.totalHours) * 100);
+              return (
+                <div key={g.id} className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-foreground flex-1 truncate">{g.title}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
+                    <span className="text-sm font-semibold text-foreground tabular-nums w-16 text-right">{g.totalHours}h</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
             <div className="flex items-center gap-3 border-t pt-2 mt-2">
               <span className="text-sm font-semibold text-foreground flex-1">Total</span>
-              <Badge variant="secondary" className="text-[10px] shrink-0">{data.linkedProject!.totalItems} itens</Badge>
               <span className="text-sm font-bold text-primary tabular-nums w-16 text-right">{data.linkedProject!.totalHours}h</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Commercial conditions from template */}
+      {hasPremises && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold text-foreground">Condições Comerciais</h3>
+          </div>
+          <ul className="space-y-1.5">
+            {data.templateContext!.premises.map((p, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <div className="h-1.5 w-1.5 mt-1.5 shrink-0 rounded-full bg-primary/50" />
+                {p}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </section>

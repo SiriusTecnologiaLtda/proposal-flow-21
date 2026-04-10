@@ -17,6 +17,40 @@ const TAE_STATUS_MAP: Record<number, string> = {
   7: "Cancelado",
 };
 
+// ─── P1.1: Helper to map individual signer status from payload fields ───
+// Uses signer-level fields as primary source of truth.
+// Falls back to envelope-level taeStatus only when signer payload is ambiguous.
+// Never marks "signed" without positive evidence.
+function mapIndividualSignerStatus(input: {
+  assinado?: boolean | null;
+  rejeitado?: boolean | null;
+  pendente?: boolean | null;
+  statusAssinatura?: number | null;
+  taeStatus?: number | null;
+}): "pending" | "signed" | "rejected" {
+  // Explicit rejection from signer fields
+  if (input.rejeitado === true || input.statusAssinatura === 3) {
+    return "rejected";
+  }
+
+  // Explicit signature confirmation from signer fields
+  if (
+    input.assinado === true ||
+    input.statusAssinatura === 0 ||
+    input.pendente === false
+  ) {
+    return "signed";
+  }
+
+  // Envelope-level fallback: rejection/cancellation
+  if (input.taeStatus === 4 || input.taeStatus === 7) {
+    return "rejected";
+  }
+
+  // No positive evidence → keep pending
+  return "pending";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -115,14 +149,34 @@ Deno.serve(async (req) => {
     }
 
     // Handle single signer (from "assinar" event with body param assinante → [ASSINANTE])
+    // P1.1: Use signer-level fields as primary source; never assume signed from absence of error.
     if (singleSignerEmail && typeof singleSignerEmail === "string") {
       const cleanEmail = singleSignerEmail.trim();
       if (cleanEmail) {
-        const nextStatus = taeStatus === 4 || taeStatus === 7 ? "rejected" : "signed";
-        console.log(`[tae-webhook] Single signer event: ${cleanEmail} → ${nextStatus}`);
+        // Extract signer-level detail fields from payload
+        const signerAssinado = flatPayload["assinado"] ?? flatData["assinado"] ?? null;
+        const signerRejeitado = flatPayload["rejeitado"] ?? flatData["rejeitado"] ?? null;
+        const signerPendente = flatPayload["pendente"] ?? flatData["pendente"] ?? null;
+        const signerStatusAssinatura = flatPayload["statusassinatura"] ?? flatData["statusassinatura"] ?? null;
+
+        const nextStatus = mapIndividualSignerStatus({
+          assinado: signerAssinado,
+          rejeitado: signerRejeitado,
+          pendente: signerPendente,
+          statusAssinatura: typeof signerStatusAssinatura === "number" ? signerStatusAssinatura : null,
+          taeStatus: taeStatus ?? null,
+        });
+
+        console.log(`[tae-webhook] Single signer event: ${cleanEmail} → ${nextStatus} (assinado=${signerAssinado}, rejeitado=${signerRejeitado}, pendente=${signerPendente}, statusAssinatura=${signerStatusAssinatura}, taeStatus=${taeStatus})`);
+        
+        const updatePayload: Record<string, any> = { status: nextStatus };
+        if (nextStatus === "signed") {
+          updatePayload.signed_at = new Date().toISOString();
+        }
+
         const { data: updated, error: updateErr } = await supabase
           .from("proposal_signatories")
-          .update({ status: nextStatus, signed_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq("signature_id", sigRecord.id)
           .ilike("email", cleanEmail)
           .select();

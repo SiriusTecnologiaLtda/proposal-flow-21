@@ -65,7 +65,10 @@ Deno.serve(async (req) => {
 
     console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}, assinante=${singleSignerEmail || "(none)"}`);
 
-    // Find the matching proposal_signatures record
+    // ─── Match the signature record ONLY by exact ID ────────────────
+    // CRITICAL: Never fallback to "most recent sent" — this caused
+    // cross-proposal contamination where events from one envelope
+    // were applied to a completely different proposal.
     let sigRecord: any = null;
 
     if (publicationId) {
@@ -86,38 +89,14 @@ Deno.serve(async (req) => {
       sigRecord = data;
     }
 
-    // Fallback: if document ID didn't match (TAE sends NEW doc ID on finalization),
-    // try to find the most recent "sent" signature
-    if (!sigRecord && (documentId || taeStatus !== undefined || singleSignerEmail)) {
-      console.log("[tae-webhook] No exact ID match, searching for most recent sent signature...");
-      const { data } = await supabase
-        .from("proposal_signatures")
-        .select("*")
-        .eq("status", "sent")
-        .order("sent_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        sigRecord = data;
-        console.log(`[tae-webhook] Matched to most recent sent signature: ${sigRecord.id} (doc: ${sigRecord.tae_document_id})`);
-      }
-    }
-
     if (!sigRecord) {
-      console.log("[tae-webhook] No matching signature record found, ignoring.");
-      return new Response(JSON.stringify({ ok: true, ignored: true }), {
+      console.log("[tae-webhook] No matching signature record found by exact ID. Ignoring webhook to prevent cross-proposal contamination.", JSON.stringify({ publicationId, documentId, taeStatus }));
+      return new Response(JSON.stringify({ ok: true, ignored: true, reason: "no matching record by exact ID" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!sigRecord) {
-      console.log("[tae-webhook] No matching signature record found, ignoring.");
-      return new Response(JSON.stringify({ ok: true, ignored: true, reason: "no matching record" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, current status: ${sigRecord.status}`);
+    console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, proposal_id: ${sigRecord.proposal_id}, current status: ${sigRecord.status}`);
 
     // Update publication ID and document ID if changed (TAE sends new IDs on finalization)
     const sigUpdates: Record<string, string> = {};
@@ -191,27 +170,58 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── Verification gate before finalization ──────────────────────
+    // Before marking as completed/ganha, verify ALL signatories are
+    // actually signed in our database. This prevents false positives
+    // when the webhook status doesn't reflect the real envelope state.
+    async function allSignatoriesConfirmed(): Promise<{ confirmed: boolean; pending: string[] }> {
+      const { data: allSignatories } = await supabase
+        .from("proposal_signatories")
+        .select("email, status")
+        .eq("signature_id", sigRecord.id);
+
+      if (!allSignatories || allSignatories.length === 0) {
+        return { confirmed: false, pending: ["(no signatories found)"] };
+      }
+
+      const pending = allSignatories
+        .filter((s: any) => s.status !== "signed")
+        .map((s: any) => s.email);
+
+      return { confirmed: pending.length === 0, pending };
+    }
+
     // Update proposal/signature status based on TAE status
     if (taeStatus === 2) {
-      // Finalizado → completed / ganha
-      await supabase
-        .from("proposal_signatures")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          tae_publication_id: publicationId || sigRecord.tae_publication_id,
-        })
-        .eq("id", sigRecord.id);
+      // Finalizado → verify before completing
+      const { confirmed, pending } = await allSignatoriesConfirmed();
 
-      await supabase
-        .from("proposals")
-        .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
-        .eq("id", sigRecord.proposal_id);
+      if (confirmed) {
+        await supabase
+          .from("proposal_signatures")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            tae_publication_id: publicationId || sigRecord.tae_publication_id,
+          })
+          .eq("id", sigRecord.id);
 
-      await logEvent("success", "Assinatura finalizada", "Todos os signatários assinaram. Oportunidade marcada como Ganha.");
-      console.log(`[tae-webhook] Signature ${sigRecord.id} → completed, proposal → ganha`);
+        await supabase
+          .from("proposals")
+          .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
+          .eq("id", sigRecord.proposal_id);
+
+        await logEvent("success", "Assinatura finalizada", "Todos os signatários assinaram. Oportunidade marcada como Ganha.");
+        console.log(`[tae-webhook] Signature ${sigRecord.id} → completed, proposal → ganha (all ${pending.length === 0 ? "signatories confirmed" : ""})`);
+      } else {
+        // TAE says finalized but our records show pending signatories.
+        // Do NOT finalize — log warning and let manual sync resolve.
+        await logEvent("warning", "Finalização recebida mas pendente de verificação",
+          `O TAE reportou finalização, porém os seguintes signatários ainda não constam como assinados internamente: ${pending.join(", ")}. Use "Sincronizar TAE" para atualizar.`);
+        console.log(`[tae-webhook] TAE status=2 but ${pending.length} signatory(ies) still pending locally: ${pending.join(", ")}. Skipping finalization.`);
+      }
     } else if (taeStatus === 4) {
-      // Rejeitado → cancelled / proposta_gerada
+      // Rejeitado → cancelled / pendente
       await supabase
         .from("proposal_signatures")
         .update({
@@ -230,7 +240,7 @@ Deno.serve(async (req) => {
       await logEvent("rejected", "Assinatura rejeitada", `A assinatura foi rejeitada por ${rejectorEmail}. Status da oportunidade revertido para Pendente.`);
       console.log(`[tae-webhook] Signature ${sigRecord.id} → rejected, proposal → pendente`);
     } else if (taeStatus === 7) {
-      // Cancelado → cancelled / proposta_gerada
+      // Cancelado → cancelled / pendente
       await supabase
         .from("proposal_signatures")
         .update({

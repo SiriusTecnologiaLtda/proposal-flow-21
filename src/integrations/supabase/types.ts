@@ -2218,6 +2218,7 @@ export type Database = {
           description: string | null
           event_type: string
           id: string
+          payload_hash: string | null
           proposal_id: string
           signature_id: string
           title: string
@@ -2227,6 +2228,7 @@ export type Database = {
           description?: string | null
           event_type?: string
           id?: string
+          payload_hash?: string | null
           proposal_id: string
           signature_id: string
           title: string
@@ -2236,6 +2238,7 @@ export type Database = {
           description?: string | null
           event_type?: string
           id?: string
+          payload_hash?: string | null
           proposal_id?: string
           signature_id?: string
           title?: string

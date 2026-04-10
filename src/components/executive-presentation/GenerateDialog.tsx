@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Info } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Sparkles, Info, FolderKanban, FileText, Layers, Building2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -33,7 +34,6 @@ interface GenerateDialogProps {
 }
 
 export default function GenerateDialog({ open, onOpenChange, opportunity, onGenerate }: GenerateDialogProps) {
-  // Read real proposal_types from DB
   const { data: proposalTypes = [] } = useQuery({
     queryKey: ["proposal_types"],
     queryFn: async () => {
@@ -44,15 +44,15 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
     staleTime: 5 * 60 * 1000,
   });
 
-  const currentConfig = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
+  const [config, setConfig] = useState<PresentationConfig>(() => {
+    const tc = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
+    return {
+      ...defaultPresentationConfig,
+      opportunityTypeSlug: opportunity.opportunityTypeSlug,
+      templateStyle: tc?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
+    };
+  });
 
-  const [config, setConfig] = useState<PresentationConfig>(() => ({
-    ...defaultPresentationConfig,
-    opportunityTypeSlug: opportunity.opportunityTypeSlug,
-    templateStyle: currentConfig?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
-  }));
-
-  // Reset config when opportunity changes
   useEffect(() => {
     const tc = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
     setConfig({
@@ -62,8 +62,16 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
     });
   }, [opportunity.id, opportunity.opportunityTypeSlug]);
 
-  const selectedConfig = executivePresentationStore.getConfigForSlug(config.opportunityTypeSlug);
   const hasPresConfig = executivePresentationStore.hasConfig(config.opportunityTypeSlug);
+  const hasProject = !!opportunity.linkedProject;
+  const hasTemplate = !!opportunity.templateContext;
+
+  const sources = [
+    { key: "opportunity", label: "Oportunidade", icon: Building2, active: true, description: "Cliente, valor, contexto comercial" },
+    { key: "type", label: "Tipo de Oportunidade", icon: Layers, active: hasPresConfig, description: "Lógica, narrativa e modelo do tipo" },
+    { key: "project", label: "Projeto Vinculado", icon: FolderKanban, active: hasProject, description: hasProject ? `${opportunity.linkedProject!.totalItems} itens · ${opportunity.linkedProject!.totalHours}h` : "Sem projeto vinculado" },
+    { key: "template", label: "Template de Proposta", icon: FileText, active: hasTemplate, description: hasTemplate ? "Premissas, metodologia, fora de escopo" : "Sem template vinculado" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,8 +86,38 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          {/* Opportunity type — from real DB */}
+        <div className="space-y-4 py-2">
+          {/* Data sources composition */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-foreground">Fontes de dados da composição</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {sources.map((s) => (
+                <div
+                  key={s.key}
+                  className={`flex items-start gap-2 rounded-lg border p-2.5 ${
+                    s.active
+                      ? "border-primary/20 bg-primary/5"
+                      : "border-dashed bg-muted/20 opacity-60"
+                  }`}
+                >
+                  <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded ${s.active ? "text-primary" : "text-muted-foreground"}`}>
+                    {s.active ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-foreground truncate">{s.label}</p>
+                    <p className="text-[10px] text-muted-foreground leading-snug">{s.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Opportunity type */}
           <div className="space-y-1.5">
             <Label>Tipo de oportunidade</Label>
             <Select
@@ -107,31 +145,6 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
             </Select>
           </div>
 
-          {/* Type info badge */}
-          {selectedConfig && (
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">Conteúdo-base do tipo</span>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">{selectedConfig.executiveSummary}</p>
-              <div className="flex gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-[10px]">{selectedConfig.defaultScopeBlocks.length} blocos de escopo</Badge>
-                <Badge variant="secondary" className="text-[10px]">{selectedConfig.defaultBenefits.length} benefícios</Badge>
-                <Badge variant="secondary" className="text-[10px]">{selectedConfig.references.length} referências</Badge>
-              </div>
-            </div>
-          )}
-
-          {!hasPresConfig && (
-            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <p className="text-xs text-warning">
-                Este tipo de oportunidade ainda não possui conteúdo-base para apresentação executiva.
-                A apresentação será gerada apenas com os dados da oportunidade.
-              </p>
-            </div>
-          )}
-
           {/* Template style */}
           <div className="space-y-1.5">
             <Label>Template visual</Label>
@@ -151,54 +164,42 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
             </Select>
           </div>
 
-          {/* Audience */}
-          <div className="space-y-1.5">
-            <Label>Público-alvo</Label>
-            <Select
-              value={config.audience}
-              onValueChange={(v) => setConfig((c) => ({ ...c, audience: v as any }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {audienceOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Detail level */}
-          <div className="space-y-1.5">
-            <Label>Nível de detalhamento</Label>
-            <Select
-              value={config.detailLevel}
-              onValueChange={(v) => setConfig((c) => ({ ...c, detailLevel: v as any }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {detailOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Audience & Detail in row */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Público-alvo</Label>
+              <Select value={config.audience} onValueChange={(v) => setConfig((c) => ({ ...c, audience: v as any }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {audienceOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Detalhamento</Label>
+              <Select value={config.detailLevel} onValueChange={(v) => setConfig((c) => ({ ...c, detailLevel: v as any }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {detailOptions.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Toggles */}
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label htmlFor="show-investment">Mostrar investimento</Label>
-            <Switch
-              id="show-investment"
-              checked={config.showInvestment}
-              onCheckedChange={(v) => setConfig((c) => ({ ...c, showInvestment: v }))}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label htmlFor="show-timeline">Mostrar cronograma</Label>
-            <Switch
-              id="show-timeline"
-              checked={config.showTimeline}
-              onCheckedChange={(v) => setConfig((c) => ({ ...c, showTimeline: v }))}
-            />
+          <div className="flex gap-3">
+            <div className="flex flex-1 items-center justify-between rounded-lg border p-3">
+              <Label htmlFor="show-investment" className="text-xs">Investimento</Label>
+              <Switch id="show-investment" checked={config.showInvestment} onCheckedChange={(v) => setConfig((c) => ({ ...c, showInvestment: v }))} />
+            </div>
+            <div className="flex flex-1 items-center justify-between rounded-lg border p-3">
+              <Label htmlFor="show-timeline" className="text-xs">Cronograma</Label>
+              <Switch id="show-timeline" checked={config.showTimeline} onCheckedChange={(v) => setConfig((c) => ({ ...c, showTimeline: v }))} />
+            </div>
           </div>
         </div>
 

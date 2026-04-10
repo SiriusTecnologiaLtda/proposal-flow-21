@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft,
+  FolderKanban, FileText, Layers,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -64,6 +65,19 @@ export default function OpportunityDetailPage() {
               <h3 className="font-semibold text-foreground">{opp.company}</h3>
               <p className="text-xs text-muted-foreground">{opp.opportunityTypeLabel}</p>
               <p className="text-sm font-medium text-primary">{formatCurrency(opp.investmentTotal)}</p>
+              {/* Data source indicators */}
+              <div className="flex gap-1.5 pt-1">
+                {opp.linkedProject && (
+                  <Badge variant="secondary" className="text-[9px] gap-0.5">
+                    <FolderKanban className="h-2.5 w-2.5" /> Projeto
+                  </Badge>
+                )}
+                {opp.templateContext && (
+                  <Badge variant="secondary" className="text-[9px] gap-0.5">
+                    <FileText className="h-2.5 w-2.5" /> Template
+                  </Badge>
+                )}
+              </div>
             </div>
           </button>
         ))}
@@ -91,6 +105,70 @@ export default function OpportunityDetailPage() {
           <InfoBlock icon={Calendar} label="Previsão de fechamento" value={new Date(selectedOpp.expectedCloseDate).toLocaleDateString("pt-BR")} />
           <InfoBlock icon={Target} label="Dor principal" value={selectedOpp.mainPain} />
         </div>
+
+        {/* Linked Project */}
+        {selectedOpp.linkedProject && (
+          <div className="border-t p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <FolderKanban className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Projeto Vinculado</h3>
+              <Badge variant="outline" className="text-[10px]">{selectedOpp.linkedProject.status}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">{selectedOpp.linkedProject.description}</p>
+            <div className="space-y-1.5">
+              {selectedOpp.linkedProject.scopeGroups.map((g) => (
+                <div key={g.id} className="flex items-center gap-3 rounded-lg bg-muted/30 px-3 py-2">
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground flex-1 truncate">{g.title}</span>
+                  <span className="text-xs text-muted-foreground">{g.itemCount} itens</span>
+                  <span className="text-xs font-medium text-foreground tabular-nums">{g.totalHours}h</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <span className="text-xs text-muted-foreground">Total:</span>
+                <span className="text-sm font-bold text-primary">{selectedOpp.linkedProject.totalHours}h</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Template context */}
+        {selectedOpp.templateContext && (
+          <div className="border-t p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Template de Proposta</h3>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {selectedOpp.templateContext.premises.length > 0 && (
+                <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Premissas</p>
+                  <ul className="space-y-0.5">
+                    {selectedOpp.templateContext.premises.slice(0, 3).map((p, i) => (
+                      <li key={i} className="text-[11px] text-foreground">• {p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedOpp.templateContext.outOfScope.length > 0 && (
+                <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Fora do Escopo</p>
+                  <ul className="space-y-0.5">
+                    {selectedOpp.templateContext.outOfScope.slice(0, 3).map((p, i) => (
+                      <li key={i} className="text-[11px] text-foreground">• {p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedOpp.templateContext.methodology && (
+                <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Metodologia</p>
+                  <p className="text-[11px] text-foreground line-clamp-4">{selectedOpp.templateContext.methodology}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Type reference info */}
         {presConfig && (

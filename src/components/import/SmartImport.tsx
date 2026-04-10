@@ -1219,15 +1219,15 @@ export default function SmartImport() {
         if (memberId) {
           insertedCodeMap.set(code.toLowerCase(), memberId);
 
-          // Auto-sync: sempre gravar o código principal como CRM code
+          // Auto-sync: update crm_code on the member's assignment for this unit
           const normalizedCode = code.trim().toUpperCase();
           const mainCrmKey = `${normalizedCode.toLowerCase()}|${memberId}`;
-          if (!existingCrmSet.has(mainCrmKey)) {
-            crmCodesToInsert.push({ code: normalizedCode, sales_team_id: memberId, unit_id: unit_id || null, description: `Código principal (importação)` });
+          if (!existingCrmSet.has(mainCrmKey) && unit_id) {
+            crmCodesToUpdate.push({ crm_code: normalizedCode, member_id: memberId, unit_id });
             existingCrmSet.add(mainCrmKey);
           }
 
-          // CRM codes adicionais da coluna dedicada
+          // CRM codes adicionais da coluna dedicada — update on matching assignments
           if (hasCrmCodesCol) {
             const rawCrm = ev(row, "crm_codes") || "";
             if (rawCrm) {
@@ -1235,8 +1235,8 @@ export default function SmartImport() {
               for (const rawCrmCode of codes) {
                 const normalizedCrm = rawCrmCode.toUpperCase();
                 const crmKey = `${normalizedCrm.toLowerCase()}|${memberId}`;
-                if (!existingCrmSet.has(crmKey)) {
-                  crmCodesToInsert.push({ code: normalizedCrm, sales_team_id: memberId, unit_id: unit_id || null, description: `CRM adicional (importação)` });
+                if (!existingCrmSet.has(crmKey) && unit_id) {
+                  // Additional CRM codes: only track, primary code takes precedence
                   existingCrmSet.add(crmKey);
                 }
               }
@@ -1248,21 +1248,16 @@ export default function SmartImport() {
       }
     }
 
-    // Batch upsert CRM codes (onConflict on code+sales_team_id)
-    if (crmCodesToInsert.length > 0) {
-      addImportLog(entity, "info", `Gravando ${crmCodesToInsert.length} código(s) CRM...`, "system");
-      const CRM_BATCH = 100;
-      for (let b = 0; b < crmCodesToInsert.length; b += CRM_BATCH) {
-        const batch = crmCodesToInsert.slice(b, b + CRM_BATCH);
-        const { error } = await supabase.from("sales_team_crm_codes").upsert(batch, { onConflict: "code,sales_team_id" });
-        if (error) {
-          for (const item of batch) {
-            const { error: rowErr } = await supabase.from("sales_team_crm_codes").upsert(item, { onConflict: "code,sales_team_id" });
-            if (rowErr) addImportLog(entity, "error", `CRM "${item.code}" para ${item.sales_team_id}: ${rowErr.message}`, "batch_error");
-          }
-        }
+    // Batch update CRM codes on assignments
+    if (crmCodesToUpdate.length > 0) {
+      addImportLog(entity, "info", `Atualizando ${crmCodesToUpdate.length} código(s) CRM nos vínculos...`, "system");
+      for (const item of crmCodesToUpdate) {
+        await (supabase as any).from("sales_team_assignments")
+          .update({ crm_code: item.crm_code })
+          .eq("member_id", item.member_id)
+          .eq("unit_id", item.unit_id);
       }
-      addImportLog(entity, "ok", `${crmCodesToInsert.length} código(s) CRM gravados.`, "insert");
+      addImportLog(entity, "ok", `${crmCodesToUpdate.length} código(s) CRM atualizados.`, "insert");
     }
 
     // Link GSNs

@@ -22,6 +22,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { UnifiedRevenueTab } from "@/components/dashboard/UnifiedRevenueTab";
+import {
+  normalizeCategoryName as normCatName,
+  classifyRevenueItem,
+} from "@/lib/revenueClassification";
 
 function computeNetValue(proposal: any): number | null {
   const serviceItems = proposal.proposal_service_items;

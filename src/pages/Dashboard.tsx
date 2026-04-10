@@ -783,25 +783,29 @@ export default function Dashboard() {
 
     // Revenue filter: map revenue filter to category IDs
     // "scs" → only SCS category
-    // "recorrente" → opex categories excluding SCS
-    // "nao_recorrente" → capex categories
+    // "recorrente" → opex categories excluding SCS and RRF
+    // "nao_recorrente" → capex categories excluding NRF
     if (selectedRevenueFilter !== "all") {
       const scsCategory = categories.find((c: any) => c.name === "SCS");
       const scsCategoryId = scsCategory?.id;
+      const rrfCategory = categories.find((c: any) => normCatName(c.name) === "RRF");
+      const rrfCategoryId = rrfCategory?.id;
+      const nrfCategoryIds = categories
+        .filter((c: any) => { const n = normCatName(c.name); return n === "NRF" || n === "RNF"; })
+        .map((c: any) => c.id);
 
       if (selectedRevenueFilter === "scs") {
-        // Only show targets for SCS category
         relevantTargets = relevantTargets.filter((t: any) => t.category_id === scsCategoryId);
       } else if (selectedRevenueFilter === "recorrente") {
-        // Opex categories excluding SCS (recurrent software)
+        // Opex categories excluding SCS and RRF
         const opexCatIds = categories
-          .filter((c: any) => c.cost_classification === "opex" && c.id !== scsCategoryId)
+          .filter((c: any) => c.cost_classification === "opex" && c.id !== scsCategoryId && c.id !== rrfCategoryId)
           .map((c: any) => c.id);
         relevantTargets = relevantTargets.filter((t: any) => opexCatIds.includes(t.category_id));
       } else if (selectedRevenueFilter === "nao_recorrente") {
-        // Capex categories
+        // Capex categories excluding NRF
         const capexCatIds = categories
-          .filter((c: any) => c.cost_classification === "capex")
+          .filter((c: any) => c.cost_classification === "capex" && !nrfCategoryIds.includes(c.id))
           .map((c: any) => c.id);
         relevantTargets = relevantTargets.filter((t: any) => capexCatIds.includes(t.category_id));
       }

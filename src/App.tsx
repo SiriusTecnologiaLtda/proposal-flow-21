@@ -241,6 +241,7 @@ function ProtectedRoutes() {
         <Route path="/admin/scope-audit" element={<GuardedRoute path="/configuracoes"><ScopeAuditPage /></GuardedRoute>} />
         <Route path="/oportunidade-detalhe" element={<OpportunityDetailPage />} />
         <Route path="/apresentacao-executiva/:id" element={<ExecutivePresentationPage />} />
+        <Route path="/tipos-oportunidade-apresentacao" element={<OpportunityTypesAdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

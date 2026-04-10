@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log("[tae-webhook] PAYLOAD_RECEIVED", JSON.stringify(payload));
 
-    // ─── P2.2 + P3.3: Idempotency check using dedicated column ──
+    // ─── P3.3 fix: Atomic idempotency — check before sigRecord resolution ──
     const payloadHash = await computePayloadHash(payload);
     const { data: existingEvent } = await supabase
       .from("signature_events")
@@ -212,6 +212,30 @@ Deno.serve(async (req) => {
       tae_publication_id: sigRecord.tae_publication_id,
     };
     console.log(`[tae-webhook] MATCHED`, JSON.stringify(logCtx));
+
+    // ─── P3.3 fix: Atomic idempotency receipt — insert BEFORE side effects ──
+    // The UNIQUE(signature_id, payload_hash) constraint guarantees only one webhook
+    // processes a given payload per envelope, even under concurrent delivery.
+    const { error: receiptError } = await supabase.from("signature_events").insert({
+      signature_id: sigRecord.id,
+      proposal_id: sigRecord.proposal_id,
+      event_type: "webhook_received",
+      title: "Webhook recebido",
+      description: `hash:${payloadHash}`,
+      payload_hash: payloadHash,
+    });
+
+    if (receiptError) {
+      // Constraint violation = duplicate → idempotent return
+      if (receiptError.code === "23505") {
+        console.log(`[tae-webhook] IDEMPOTENT_ATOMIC hash=${payloadHash} elapsed=${Date.now() - t0}ms`, JSON.stringify(logCtx));
+        return new Response(JSON.stringify({ ok: true, idempotent: true, hash: payloadHash }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Other DB error — log but continue (non-fatal)
+      console.error(`[tae-webhook] RECEIPT_INSERT_ERROR code=${receiptError.code} msg=${receiptError.message}`, JSON.stringify(logCtx));
+    }
 
     // Update publication/document IDs if changed
     const sigUpdates: Record<string, string> = {};
@@ -296,7 +320,7 @@ Deno.serve(async (req) => {
       }, signer.dataAssinatura || null);
     }
 
-    // ─── Log event (with dedicated payload_hash column) ─────────
+    // ─── Log event (no payload_hash — receipt already holds it) ────
     async function logEvent(eventType: string, title: string, description: string) {
       await supabase.from("signature_events").insert({
         signature_id: sigRecord.id,
@@ -304,7 +328,6 @@ Deno.serve(async (req) => {
         event_type: eventType,
         title,
         description,
-        payload_hash: payloadHash,
       });
     }
 

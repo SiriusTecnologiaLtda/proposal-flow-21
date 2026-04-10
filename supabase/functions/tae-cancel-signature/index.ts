@@ -39,6 +39,39 @@ function canTransitionSignature(current: string, next: string): boolean {
   return SIGNATURE_VALID_TRANSITIONS[current]?.has(next) ?? false;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P3.1 — Robust TAE HTTP client with timeout and retry
+// ════════════════════════════════════════════════════════════════════
+const TAE_TIMEOUT_MS = 15000;
+const TAE_MAX_RETRIES = 2;
+
+async function taeFetch(url: string, options: RequestInit = {}, label = ""): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= TAE_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+      await new Promise(r => setTimeout(r, delay));
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TAE_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if ((res.status === 429 || (res.status >= 500 && res.status !== 501)) && attempt < TAE_MAX_RETRIES) {
+        await res.text();
+        lastError = new Error(`TAE ${res.status}`);
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      clearTimeout(timer);
+      lastError = err;
+      if (attempt >= TAE_MAX_RETRIES) break;
+    }
+  }
+  throw lastError || new Error(`taeFetch failed: ${label}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -139,14 +172,15 @@ Deno.serve(async (req) => {
 
     // 5. Login to TAE
     log(logs, "TAE Login", "info", "Autenticando no TAE...");
-    const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
+    const loginRes = await taeFetch(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
-    });
+    }, "login");
     if (!loginRes.ok) {
       const loginBody = await loginRes.text();
       log(logs, "TAE Login", "error", `Falha (${loginRes.status}): ${loginBody.substring(0, 300)}`);
+      console.error(`[tae-cancel] LOGIN_FAILED status=${loginRes.status}`);
       return respondWithLogs(logs, {}, 500);
     }
     const loginBody = await loginRes.text();
@@ -163,11 +197,11 @@ Deno.serve(async (req) => {
     if (!taePublicationId && taeDocumentId) {
       log(logs, "TAE Resolução", "info", `Resolvendo publication ID do document ${taeDocumentId}...`);
       try {
-        const siRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+        const siRes = await taeFetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
           method: "POST",
           headers: { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" },
           body: JSON.stringify([Number(taeDocumentId)]),
-        });
+        }, "resolve_publication");
         if (siRes.ok) {
           const siRaw = await siRes.text();
           let siParsed: any;
@@ -205,10 +239,10 @@ Deno.serve(async (req) => {
 
     if (taePublicationId) {
       log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${taePublicationId}...`);
-      cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
+      cancelRes = await taeFetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
         method: "POST",
         headers: { Authorization: `Bearer ${taeToken}`, Accept: "application/json", "Content-Type": "application/json" },
-      });
+      }, "cancel_publication");
       cancelRaw = await cancelRes.text();
 
       if (cancelRes.ok) {

@@ -50,7 +50,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
   const [saving, setSaving] = useState(false);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);
@@ -78,7 +78,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
           crm_code: d.crm_code || "",
         }))
       );
-      setRemovedIds([]);
     }
     if (!allResult.error && allResult.data) {
       setAllAssignments(allResult.data);
@@ -101,14 +100,14 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
 
   const removeAssignment = async (index: number) => {
     const removed = assignments[index];
-    // New assignments can always be removed
+    // New assignments (not yet saved) can be discarded
     if (!removed.id || removed.isNew) {
       setAssignments((prev) => prev.filter((_, i) => i !== index));
       setExpandedIdx(null);
       return;
     }
 
-    // Check if this assignment is used as reports_to_id by others
+    // Existing assignments: check for dependents before inactivating
     const { data: refs } = await (supabase as any)
       .from("sales_team_assignments")
       .select("id, member_id, unit_id")
@@ -116,7 +115,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       .eq("active", true);
 
     if (refs && refs.length > 0) {
-      // Resolve names for the dependents
       const depDetails = refs.map((ref: any) => {
         const member = allMembers.find((m) => m.id === ref.member_id);
         const unit = units.find((u) => u.id === ref.unit_id);
@@ -129,9 +127,8 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       return;
     }
 
-    // No dependents — safe to remove
-    setRemovedIds((prev) => [...prev, removed.id!]);
-    setAssignments((prev) => prev.filter((_, i) => i !== index));
+    // No dependents — inactivate instead of removing from list
+    updateField(index, "active", false);
     setExpandedIdx(null);
   };
 
@@ -202,41 +199,6 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
       const toUpdate = assignments.filter((a) => a.id && !a.isNew && a.unit_id && a.role);
       const toInsert = assignments.filter((a) => (!a.id || a.isNew) && a.unit_id && a.role);
 
-      // Delete assignments that the user explicitly removed
-      if (removedIds.length > 0) {
-        // Final safety check: block if any removed ID still has active dependents
-        const { data: refsData } = await (supabase as any)
-          .from("sales_team_assignments")
-          .select("id, member_id")
-          .in("reports_to_id", removedIds)
-          .eq("active", true);
-
-        if (refsData && refsData.length > 0) {
-          const names = refsData.map((r: any) => {
-            const m = allMembers.find((m: any) => m.id === r.member_id);
-            return m ? m.name : r.member_id;
-          }).join(", ");
-          toast({
-            title: "Remoção bloqueada",
-            description: `Os seguintes membros ainda reportam a vínculos marcados para remoção: ${names}. Reatribua-os antes de salvar.`,
-            variant: "destructive",
-          });
-          setSaving(false);
-          return;
-        }
-
-        const { error: delError } = await (supabase as any)
-          .from("sales_team_assignments")
-          .delete()
-          .in("id", removedIds);
-        if (delError) {
-          toast({ title: "Erro ao remover vínculos", description: delError.message, variant: "destructive" });
-          setSaving(false);
-          return;
-        }
-      }
-
-      // Update existing assignments one by one to preserve IDs
       for (const a of toUpdate) {
         const { error: updError } = await (supabase as any)
           .from("sales_team_assignments")
@@ -278,7 +240,7 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
         }
       }
 
-      setRemovedIds([]);
+      
       toast({ title: "Vínculos comerciais salvos!" });
       qc.invalidateQueries({ queryKey: ["sales_team"] });
     } catch (err: any) {
@@ -461,7 +423,8 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeAssignment(index)}
                         >
-                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />Remover
+                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                          {a.id && !a.isNew ? "Inativar" : "Remover"}
                         </Button>
                       </div>
                     </div>

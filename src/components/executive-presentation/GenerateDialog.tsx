@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Info } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   type PresentationConfig,
   type OpportunityData,
@@ -31,26 +33,37 @@ interface GenerateDialogProps {
 }
 
 export default function GenerateDialog({ open, onOpenChange, opportunity, onGenerate }: GenerateDialogProps) {
-  const types = executivePresentationStore.getTypes();
-  const currentType = executivePresentationStore.getTypeBySlug(opportunity.opportunityTypeSlug);
+  // Read real proposal_types from DB
+  const { data: proposalTypes = [] } = useQuery({
+    queryKey: ["proposal_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("proposal_types").select("id, name, slug").order("name");
+      if (error) throw error;
+      return data as { id: string; name: string; slug: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const currentConfig = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
 
   const [config, setConfig] = useState<PresentationConfig>(() => ({
     ...defaultPresentationConfig,
     opportunityTypeSlug: opportunity.opportunityTypeSlug,
-    templateStyle: currentType?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
+    templateStyle: currentConfig?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
   }));
 
   // Reset config when opportunity changes
   useEffect(() => {
-    const t = executivePresentationStore.getTypeBySlug(opportunity.opportunityTypeSlug);
+    const tc = executivePresentationStore.getConfigForSlug(opportunity.opportunityTypeSlug);
     setConfig({
       ...defaultPresentationConfig,
       opportunityTypeSlug: opportunity.opportunityTypeSlug,
-      templateStyle: t?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
+      templateStyle: tc?.preferredTemplate ?? defaultPresentationConfig.templateStyle,
     });
   }, [opportunity.id, opportunity.opportunityTypeSlug]);
 
-  const selectedType = executivePresentationStore.getTypeBySlug(config.opportunityTypeSlug);
+  const selectedConfig = executivePresentationStore.getConfigForSlug(config.opportunityTypeSlug);
+  const hasPresConfig = executivePresentationStore.hasConfig(config.opportunityTypeSlug);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,42 +79,56 @@ export default function GenerateDialog({ open, onOpenChange, opportunity, onGene
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Opportunity type — dynamic from store */}
+          {/* Opportunity type — from real DB */}
           <div className="space-y-1.5">
             <Label>Tipo de oportunidade</Label>
             <Select
               value={config.opportunityTypeSlug}
               onValueChange={(v) => {
-                const newType = executivePresentationStore.getTypeBySlug(v);
+                const tc = executivePresentationStore.getConfigForSlug(v);
                 setConfig((c) => ({
                   ...c,
                   opportunityTypeSlug: v,
-                  templateStyle: newType?.preferredTemplate ?? c.templateStyle,
+                  templateStyle: tc?.preferredTemplate ?? c.templateStyle,
                 }));
               }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {types.map((t) => (
-                  <SelectItem key={t.slug} value={t.slug}>{t.name}</SelectItem>
+                {proposalTypes.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
+                    <span>{t.name}</span>
+                    {!executivePresentationStore.hasConfig(t.slug) && (
+                      <span className="ml-2 text-xs text-muted-foreground">(sem conteúdo)</span>
+                    )}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Type info badge */}
-          {selectedType && (
+          {selectedConfig && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <Info className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground">Conteúdo-base do tipo</span>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">{selectedType.executiveSummary}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{selectedConfig.executiveSummary}</p>
               <div className="flex gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-[10px]">{selectedType.defaultScopeBlocks.length} blocos de escopo</Badge>
-                <Badge variant="secondary" className="text-[10px]">{selectedType.defaultBenefits.length} benefícios</Badge>
-                <Badge variant="secondary" className="text-[10px]">{selectedType.references.length} referências</Badge>
+                <Badge variant="secondary" className="text-[10px]">{selectedConfig.defaultScopeBlocks.length} blocos de escopo</Badge>
+                <Badge variant="secondary" className="text-[10px]">{selectedConfig.defaultBenefits.length} benefícios</Badge>
+                <Badge variant="secondary" className="text-[10px]">{selectedConfig.references.length} referências</Badge>
               </div>
+            </div>
+          )}
+
+          {!hasPresConfig && (
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+              <p className="text-xs text-warning">
+                Este tipo de oportunidade ainda não possui conteúdo-base para apresentação executiva.
+                A apresentação será gerada apenas com os dados da oportunidade.
+              </p>
             </div>
           )}
 

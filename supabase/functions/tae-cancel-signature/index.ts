@@ -39,6 +39,39 @@ function canTransitionSignature(current: string, next: string): boolean {
   return SIGNATURE_VALID_TRANSITIONS[current]?.has(next) ?? false;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P3.1 — Robust TAE HTTP client with timeout and retry
+// ════════════════════════════════════════════════════════════════════
+const TAE_TIMEOUT_MS = 15000;
+const TAE_MAX_RETRIES = 2;
+
+async function taeFetch(url: string, options: RequestInit = {}, label = ""): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= TAE_MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+      await new Promise(r => setTimeout(r, delay));
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TAE_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if ((res.status === 429 || (res.status >= 500 && res.status !== 501)) && attempt < TAE_MAX_RETRIES) {
+        await res.text();
+        lastError = new Error(`TAE ${res.status}`);
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      clearTimeout(timer);
+      lastError = err;
+      if (attempt >= TAE_MAX_RETRIES) break;
+    }
+  }
+  throw lastError || new Error(`taeFetch failed: ${label}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

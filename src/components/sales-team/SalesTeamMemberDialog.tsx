@@ -33,6 +33,7 @@ const emptyForm = { name: "", code: "", email: "", phone: "", role: "", unit_id:
 export default function SalesTeamMemberDialog({ open, onOpenChange, member, units, gsnMembers }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { data: allMembers = [] } = useSalesTeam();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("dados");

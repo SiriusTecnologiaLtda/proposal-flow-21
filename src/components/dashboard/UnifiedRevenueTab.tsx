@@ -434,51 +434,12 @@ export function UnifiedRevenueTab({ selectedYear, selectedUnitId, dateFrom, date
       return null;
     };
 
-    const buildSoftwareLineTotals = (items: any[]): RevenueLineTotals => {
-      const totals = createEmptyLineTotals();
-      let totalCapex = 0;
-      let totalOpex = 0;
-
-      for (const item of items) {
-        const categoryId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) ?? null : null;
-        if (selectedCategoryId !== "all" && categoryId !== selectedCategoryId) continue;
-
-        const category = categoryId ? categoryById.get(categoryId) : null;
-        const categoryName = normalizeCategoryName(category?.name);
-        const costClassification = item.cost_classification || category?.cost_classification || null;
-        const price = Number(item.total_price) || 0;
-        if (!price) continue;
-
-        if (costClassification === "capex") totalCapex += price;
-        if (costClassification === "opex") totalOpex += price;
-
-        if (categoryName === "RRF") {
-          totals.rrf += price;
-          continue;
-        }
-
-        if (categoryName === "NRF" || categoryName === "RNF") {
-          totals.nrf += price;
-          continue;
-        }
-
-        if (["monthly", "annual"].includes(item.recurrence)) {
-          totals.recorrente += price;
-        } else if (item.recurrence === "one_time") {
-          totals.nao_recorrente += price;
-        }
-      }
-
-      totals.producao += (totalCapex / PRODUCTION_DIVISOR) + totalOpex;
-      return totals;
-    };
-
-    // Software proposals → Recorrente, Não Recorrente, Produção
+    // Software proposals → Recorrente, Não Recorrente, Produção, RRF, NRF
     for (const sp of filteredSwProposals) {
       const unitId = resolveMemberUnitId(sp) || "unknown";
       ensureUnit(unitId);
 
-      const lines = buildSoftwareLineTotals(sp.software_proposal_items || []);
+      const lines = sharedBuildSoftwareLineTotals(sp.software_proposal_items || [], catalogCategoryMap, categoryById, selectedCategoryId);
       for (const [key, value] of Object.entries(lines) as [keyof RevenueLineTotals, number][]) {
         result[unitId][key] += value;
       }

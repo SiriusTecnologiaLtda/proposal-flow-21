@@ -265,6 +265,17 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
           </TabsContent>
 
           {isEditing && (
+            <TabsContent value="vinculos">
+              <AssignmentsTab
+                memberId={member.id}
+                memberName={member.name}
+                units={units}
+                allMembers={allMembers}
+              />
+            </TabsContent>
+          )}
+
+          {isEditing && (
             <TabsContent value="crm" className="space-y-4 mt-4">
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
                 <div className="flex items-center justify-between">

@@ -7,6 +7,8 @@ import {
   mockOpportunities,
   defaultPresentationConfig,
   type PresentationConfig,
+  getTypeForOpportunity,
+  composePresentation,
 } from "@/data/executivePresentationData";
 import PresentationRenderer from "@/components/executive-presentation/PresentationRenderer";
 
@@ -16,7 +18,11 @@ export default function ExecutivePresentationPage() {
   const location = useLocation();
 
   const config: PresentationConfig = (location.state as any)?.config ?? defaultPresentationConfig;
-  const data = mockOpportunities.find((o) => o.id === id) ?? mockOpportunities[0];
+  const rawData = mockOpportunities.find((o) => o.id === id) ?? mockOpportunities[0];
+
+  // Compose opportunity data with type defaults
+  const typeRef = getTypeForOpportunity(rawData);
+  const data = typeRef ? composePresentation(rawData, typeRef) : rawData;
 
   const [editing, setEditing] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, string>>({});

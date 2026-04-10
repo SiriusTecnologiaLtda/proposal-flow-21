@@ -3,15 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft,
+  Building2, User, Target, Calendar, DollarSign, Sparkles, ArrowLeft, Settings2,
 } from "lucide-react";
-import { mockOpportunities, formatCurrency, type PresentationConfig } from "@/data/executivePresentationData";
+import { mockOpportunities, formatCurrency, type PresentationConfig, getTypeForOpportunity } from "@/data/executivePresentationData";
 import GenerateDialog from "@/components/executive-presentation/GenerateDialog";
 
 export default function OpportunityDetailPage() {
   const navigate = useNavigate();
   const [selectedOpp, setSelectedOpp] = useState(mockOpportunities[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const typeRef = getTypeForOpportunity(selectedOpp);
 
   const stageColors: Record<string, string> = {
     Proposta: "bg-primary/10 text-primary border-primary/20",
@@ -32,10 +34,18 @@ export default function OpportunityDetailPage() {
           <Button variant="ghost" size="icon" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold">Apresentação Executiva</h1>
             <p className="text-sm text-primary-foreground/70">Selecione uma oportunidade e gere a apresentação</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1.5"
+            onClick={() => navigate("/tipos-oportunidade-apresentacao")}
+          >
+            <Settings2 className="h-4 w-4" /> Gerenciar Tipos
+          </Button>
         </div>
       </div>
 
@@ -83,6 +93,28 @@ export default function OpportunityDetailPage() {
           <InfoBlock icon={Calendar} label="Previsão de fechamento" value={new Date(selectedOpp.expectedCloseDate).toLocaleDateString("pt-BR")} />
           <InfoBlock icon={Target} label="Dor principal" value={selectedOpp.mainPain} />
         </div>
+
+        {/* Type reference info */}
+        {typeRef && (
+          <div className="border-t p-6">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Conteúdo-base do tipo: {typeRef.name}</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg bg-muted/30 p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Posicionamento</p>
+                <p className="text-sm text-foreground line-clamp-3">{typeRef.positioningText}</p>
+              </div>
+              <div className="rounded-lg bg-muted/30 p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Abordagem</p>
+                <p className="text-sm text-foreground line-clamp-3">{typeRef.solutionApproach}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3 flex-wrap">
+              <Badge variant="secondary" className="text-xs">{typeRef.defaultScopeBlocks.length} blocos de escopo padrão</Badge>
+              <Badge variant="secondary" className="text-xs">{typeRef.defaultBenefits.length} benefícios padrão</Badge>
+              <Badge variant="secondary" className="text-xs">{typeRef.references.length} referências</Badge>
+            </div>
+          </div>
+        )}
 
         <div className="border-t p-6">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Objetivos</h3>

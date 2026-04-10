@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
         statusLabel: pubStatusLabel,
         localStatus: newLocalStatus,
         signers,
+        ...(syncWarning ? { syncWarning } : {}),
         rawData: pubData,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

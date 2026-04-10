@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -6,43 +6,42 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  mockOpportunityTypes,
+  type OpportunityType,
   pricingDisplayModeOptions,
-  type OpportunityTypeReference,
+  executivePresentationStore,
 } from "@/data/executivePresentationData";
 import OpportunityTypeDrawer from "@/components/executive-presentation/OpportunityTypeDrawer";
 
 export default function OpportunityTypesAdminPage() {
-  const [types, setTypes] = useState<OpportunityTypeReference[]>(mockOpportunityTypes);
+  const [types, setTypes] = useState(executivePresentationStore.getTypes());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingType, setEditingType] = useState<OpportunityTypeReference | null>(null);
+  const [editingType, setEditingType] = useState<OpportunityType | null>(null);
+
+  // Subscribe to store changes
+  useEffect(() => {
+    return executivePresentationStore.subscribe(() => {
+      setTypes([...executivePresentationStore.getTypes()]);
+    });
+  }, []);
 
   const handleNew = () => {
     setEditingType(null);
     setDrawerOpen(true);
   };
 
-  const handleEdit = (t: OpportunityTypeReference) => {
+  const handleEdit = (t: OpportunityType) => {
     setEditingType(t);
     setDrawerOpen(true);
   };
 
   const handleDelete = (id: string) => {
-    setTypes((prev) => prev.filter((t) => t.id !== id));
+    executivePresentationStore.deleteType(id);
     toast.success("Tipo de oportunidade removido");
   };
 
-  const handleSave = (t: OpportunityTypeReference) => {
-    setTypes((prev) => {
-      const idx = prev.findIndex((x) => x.id === t.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = t;
-        return copy;
-      }
-      return [...prev, t];
-    });
+  const handleSave = (t: OpportunityType) => {
+    executivePresentationStore.upsertType(t);
     setDrawerOpen(false);
     toast.success(editingType ? "Tipo atualizado" : "Tipo criado");
   };

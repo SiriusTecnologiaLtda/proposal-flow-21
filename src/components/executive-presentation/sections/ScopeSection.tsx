@@ -41,7 +41,7 @@ export default function ScopeSection({ data }: Props) {
                 <div className="flex-1 space-y-3">
                   <div>
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      {data.opportunityType === "projeto_sob_medida" ? `Fase ${i + 1}` : `Módulo ${i + 1}`}
+                      {data.opportunityTypeSlug === "projeto_sob_medida" ? `Fase ${i + 1}` : `Módulo ${i + 1}`}
                     </span>
                     <h3 className="text-lg font-semibold text-foreground">{block.title}</h3>
                   </div>

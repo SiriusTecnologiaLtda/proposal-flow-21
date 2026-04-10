@@ -1,17 +1,26 @@
 import { useParams } from "react-router-dom";
-import { mockOpportunities, defaultPresentationConfig } from "@/data/executivePresentationData";
+import { executivePresentationStore, defaultPresentationConfig } from "@/data/executivePresentationData";
 import PresentationRenderer from "@/components/executive-presentation/PresentationRenderer";
 
 export default function ExecutivePresentationSharePage() {
   const { id } = useParams<{ id: string }>();
-  const data = mockOpportunities.find((o) => o.id === id) ?? mockOpportunities[0];
+  const presentation = executivePresentationStore.getPresentationByShare(id ?? "");
+
+  if (!presentation) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Apresentação não encontrada ou link inválido.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <PresentationRenderer
-          data={data}
-          config={defaultPresentationConfig}
+          data={presentation.composedData}
+          config={presentation.config}
+          overrides={presentation.overrides}
         />
         <footer className="mt-16 border-t pt-6 text-center text-xs text-muted-foreground">
           <p>Este documento é confidencial e destinado exclusivamente ao destinatário indicado.</p>

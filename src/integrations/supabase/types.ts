@@ -215,12 +215,16 @@ export type Database = {
           esn_id: string | null
           gsn_id: string | null
           id: string
+          institutional_description: string | null
+          logo_url: string | null
           name: string
           phone: string | null
           state_registration: string | null
           store_code: string | null
+          strategic_notes: string | null
           unit_id: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           address?: string | null
@@ -232,12 +236,16 @@ export type Database = {
           esn_id?: string | null
           gsn_id?: string | null
           id?: string
+          institutional_description?: string | null
+          logo_url?: string | null
           name: string
           phone?: string | null
           state_registration?: string | null
           store_code?: string | null
+          strategic_notes?: string | null
           unit_id?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           address?: string | null
@@ -249,12 +257,16 @@ export type Database = {
           esn_id?: string | null
           gsn_id?: string | null
           id?: string
+          institutional_description?: string | null
+          logo_url?: string | null
           name?: string
           phone?: string | null
           state_registration?: string | null
           store_code?: string | null
+          strategic_notes?: string | null
           unit_id?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {
@@ -483,6 +495,63 @@ export type Database = {
           use_tls?: boolean
         }
         Relationships: []
+      }
+      executive_presentations: {
+        Row: {
+          composed_data: Json
+          config: Json
+          created_at: string
+          created_by: string
+          data_sources: Json
+          id: string
+          overrides: Json
+          proposal_id: string
+          proposal_type_id: string
+          share_slug: string
+          updated_at: string
+        }
+        Insert: {
+          composed_data?: Json
+          config?: Json
+          created_at?: string
+          created_by: string
+          data_sources?: Json
+          id?: string
+          overrides?: Json
+          proposal_id: string
+          proposal_type_id: string
+          share_slug?: string
+          updated_at?: string
+        }
+        Update: {
+          composed_data?: Json
+          config?: Json
+          created_at?: string
+          created_by?: string
+          data_sources?: Json
+          id?: string
+          overrides?: Json
+          proposal_id?: string
+          proposal_type_id?: string
+          share_slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "executive_presentations_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "executive_presentations_proposal_type_id_fkey"
+            columns: ["proposal_type_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       extraction_corrections_log: {
         Row: {
@@ -902,6 +971,71 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      presentation_type_configs: {
+        Row: {
+          created_at: string
+          default_benefits: Json
+          default_cta: string
+          default_scope_blocks: Json
+          default_timeline: Json
+          differentiators: Json
+          executive_summary: string
+          id: string
+          positioning_text: string
+          preferred_template: string
+          pricing_display_mode: string
+          problem_statement: string
+          proposal_type_id: string
+          references: Json
+          solution_approach: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_benefits?: Json
+          default_cta?: string
+          default_scope_blocks?: Json
+          default_timeline?: Json
+          differentiators?: Json
+          executive_summary?: string
+          id?: string
+          positioning_text?: string
+          preferred_template?: string
+          pricing_display_mode?: string
+          problem_statement?: string
+          proposal_type_id: string
+          references?: Json
+          solution_approach?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_benefits?: Json
+          default_cta?: string
+          default_scope_blocks?: Json
+          default_timeline?: Json
+          differentiators?: Json
+          executive_summary?: string
+          id?: string
+          positioning_text?: string
+          preferred_template?: string
+          pricing_display_mode?: string
+          problem_statement?: string
+          proposal_type_id?: string
+          references?: Json
+          solution_approach?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presentation_type_configs_proposal_type_id_fkey"
+            columns: ["proposal_type_id"]
+            isOneToOne: true
+            referencedRelation: "proposal_types"
             referencedColumns: ["id"]
           },
         ]

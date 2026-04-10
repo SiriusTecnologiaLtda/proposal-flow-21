@@ -160,6 +160,9 @@ export default function SalesTeamMemberDialog({ open, onOpenChange, member, unit
           <TabsList className="w-full">
             <TabsTrigger value="dados" className="flex-1">Dados Cadastrais</TabsTrigger>
             {isEditing && (
+              <TabsTrigger value="vinculos" className="flex-1">Vínculos Comerciais</TabsTrigger>
+            )}
+            {isEditing && (
               <TabsTrigger value="crm" className="flex-1">Códigos CRM</TabsTrigger>
             )}
           </TabsList>

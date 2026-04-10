@@ -78,10 +78,10 @@ let _crmCodesCache: { code: string; sales_team_id: string; unit_id: string | nul
 
 async function loadCrmCodes(): Promise<{ code: string; sales_team_id: string; unit_id: string | null }[]> {
   if (_crmCodesCache) return _crmCodesCache;
-  const { data } = await supabase.from("sales_team_crm_codes").select("code, sales_team_id, unit_id");
-  _crmCodesCache = (data || []).map(c => ({
-    code: c.code.trim().toLowerCase(),
-    sales_team_id: c.sales_team_id,
+  const { data } = await (supabase as any).from("sales_team_assignments").select("crm_code, member_id, unit_id").not("crm_code", "is", null);
+  _crmCodesCache = (data || []).map((c: any) => ({
+    code: c.crm_code.trim().toLowerCase(),
+    sales_team_id: c.member_id,
     unit_id: c.unit_id,
   }));
   return _crmCodesCache;
@@ -656,12 +656,13 @@ export default function SmartImport() {
           // Track for dedup
           alreadyCreatedForPair.set(selectionKey, created.id);
 
-          // Create CRM code entry for the new member
+          // Update CRM code on the member's assignment (if exists)
           const crmCode = insertData.code.trim().toUpperCase();
-          if (crmCode && !crmCode.startsWith("AUTO_")) {
-            await supabase.from("sales_team_crm_codes").upsert({
-              code: crmCode, sales_team_id: created.id, unit_id: memberUnitId, description: "Criado via importação",
-            }, { onConflict: "code,sales_team_id" });
+          if (crmCode && !crmCode.startsWith("AUTO_") && memberUnitId) {
+            await (supabase as any).from("sales_team_assignments")
+              .update({ crm_code: crmCode })
+              .eq("member_id", created.id)
+              .eq("unit_id", memberUnitId);
           }
 
           const newEntry = { id: created.id, code: insertData.code.toLowerCase(), name: insertData.name.toLowerCase() };
@@ -1151,8 +1152,8 @@ export default function SmartImport() {
 
     // Pre-load existing CRM codes for dedup: "code|sales_team_id" -> true
     const existingCrmSet = new Set<string>();
-    const { data: allCrmCodes } = await supabase.from("sales_team_crm_codes").select("code, sales_team_id");
-    for (const c of (allCrmCodes || [])) existingCrmSet.add(`${c.code.trim().toLowerCase()}|${c.sales_team_id}`);
+    const { data: allCrmCodes } = await (supabase as any).from("sales_team_assignments").select("crm_code, member_id").not("crm_code", "is", null);
+    for (const c of (allCrmCodes || [])) existingCrmSet.add(`${(c as any).crm_code.trim().toLowerCase()}|${(c as any).member_id}`);
 
     let imported = 0, updated = 0, errors = 0;
     const insertedCodeMap = new Map<string, string>();

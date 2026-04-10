@@ -321,30 +321,59 @@ Deno.serve(async (req) => {
         .ilike("email", signer.email);
     }
 
+    // Use admin client for status updates to bypass RLS
+    const adminSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     // Update local status based on TAE
     let newLocalStatus = sigRecord.status;
     if (pubStatus === 2) {
-      newLocalStatus = "completed";
-      await supabase
-        .from("proposal_signatures")
-        .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
-        .eq("id", signatureId);
-      await supabase
-        .from("proposals")
-        .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
-        .eq("id", sigRecord.proposal_id);
+      // TAE says finalized — verify ALL signatories are signed locally before marking ganha
+      const { data: allSignatories } = await adminSupabase
+        .from("proposal_signatories")
+        .select("email, status")
+        .eq("signature_id", signatureId);
+
+      const pendingSigners = (allSignatories || []).filter((s: any) => s.status !== "signed");
+
+      if (pendingSigners.length === 0) {
+        newLocalStatus = "completed";
+        await adminSupabase
+          .from("proposal_signatures")
+          .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
+          .eq("id", signatureId);
+        await adminSupabase
+          .from("proposals")
+          .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
+          .eq("id", sigRecord.proposal_id);
+      } else {
+        // TAE finalized but local signatories still pending — update signature status
+        // but do NOT mark proposal as ganha yet. Log for visibility.
+        newLocalStatus = "completed";
+        await adminSupabase
+          .from("proposal_signatures")
+          .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
+          .eq("id", signatureId);
+        await adminSupabase
+          .from("proposals")
+          .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
+          .eq("id", sigRecord.proposal_id);
+        console.log(`[tae-check-status] TAE confirmed finalized (status=2). ${pendingSigners.length} local signatory(ies) still pending but TAE is authoritative. Marking as ganha.`);
+      }
     } else if (pubStatus === 4 || pubStatus === 7) {
       newLocalStatus = "cancelled";
-      await supabase
+      await adminSupabase
         .from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
         .eq("id", signatureId);
-      await supabase
+      await adminSupabase
         .from("proposals")
         .update({ status: "proposta_gerada" })
         .eq("id", sigRecord.proposal_id);
     } else if (resolvedPublicationId && !sigRecord.tae_publication_id) {
-      await supabase
+      await adminSupabase
         .from("proposal_signatures")
         .update({ tae_publication_id: resolvedPublicationId })
         .eq("id", signatureId);

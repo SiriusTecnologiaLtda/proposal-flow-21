@@ -93,19 +93,24 @@ Deno.serve(async (req) => {
     log(logs, "Dados", "ok", `Registro de assinatura encontrado: ${sigRecord.id} (status: ${sigRecord.status})`);
 
     const taeDocumentId = sigRecord.tae_document_id;
+    let taePublicationId = sigRecord.tae_publication_id;
 
-    if (!taeDocumentId) {
+    // P1.3: Determine if there was a real TAE send (has document or publication ID)
+    const hadRealTaeSend = !!(taeDocumentId || taePublicationId);
+
+    if (!hadRealTaeSend) {
       log(logs, "TAE", "info", "Sem ID de documento TAE — cancelamento apenas local");
       await adminSupabase
         .from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .eq("id", sigRecord.id);
+      // P1.3: No real TAE send → proposta_gerada
       await adminSupabase
         .from("proposals")
         .update({ status: "proposta_gerada" })
         .eq("id", proposalId);
 
-      log(logs, "Finalização", "ok", "Cancelamento local concluído (sem registro no TAE)");
+      log(logs, "Finalização", "ok", "Cancelamento local concluído (sem registro no TAE). Status: proposta_gerada");
       return respondWithLogs(logs, { cancelled: true, taeStatus: "local_only" });
     }
 
@@ -150,37 +155,90 @@ Deno.serve(async (req) => {
     }
     log(logs, "TAE Login", "ok", "Login TAE realizado com sucesso");
 
-    // 6. Cancel publication in TAE using POST /v1/publicacoes/{id}/cancelar
-    // This is the correct endpoint for cancelling published documents (not DELETE which is for drafts only)
-    log(logs, "TAE Cancelamento", "info", `Cancelando documento ${taeDocumentId} no TAE via POST /v1/publicacoes/{id}/cancelar...`);
+    // 6. P1.2: Resolve publication ID if missing
+    if (!taePublicationId && taeDocumentId) {
+      log(logs, "TAE Resolução", "info", `Sem publication ID. Tentando resolver a partir do document ID ${taeDocumentId}...`);
+      try {
+        const siRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${taeToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify([Number(taeDocumentId)]),
+        });
+        if (siRes.ok) {
+          const siRaw = await siRes.text();
+          let siParsed: any;
+          try { siParsed = JSON.parse(siRaw); } catch { /* ignore */ }
+          const siData = siParsed?.data || siParsed;
+          const items = Array.isArray(siData) ? siData : [siData];
+          const match = items.find((item: any) =>
+            String(item?.idDocumento || item?.documentoId || item?.id || "") === String(taeDocumentId)
+          ) || (items.length > 0 ? items[0] : null);
 
-    const cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taeDocumentId}/cancelar`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${taeToken}`,
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-    });
-
-    const cancelRaw = await cancelRes.text();
-
-    if (cancelRes.ok) {
-      log(logs, "TAE Cancelamento", "ok", `Documento cancelado no TAE com sucesso`);
-    } else if (cancelRes.status === 400) {
-      log(logs, "TAE Cancelamento", "info", `TAE retornou 400: ${cancelRaw.substring(0, 300)}. O documento pode já estar finalizado/cancelado. Prosseguindo com cancelamento local.`);
-    } else if (cancelRes.status === 403 || cancelRes.status === 401) {
-      log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: sem permissão para cancelar. Prosseguindo com cancelamento local.`);
-    } else {
-      log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: ${cancelRaw.substring(0, 300)}. Prosseguindo com cancelamento local.`);
+          if (match) {
+            const resolved = String(
+              match?.idPublicacao || match?.publicacaoId ||
+              match?.publicacao?.id || match?.publicacoes?.[0]?.id ||
+              match?.publicacoes?.[0]?.idPublicacao || ""
+            ).trim() || null;
+            if (resolved) {
+              taePublicationId = resolved;
+              log(logs, "TAE Resolução", "ok", `Publication ID resolvido: ${taePublicationId}`);
+              // Persist the resolved publication ID
+              await adminSupabase
+                .from("proposal_signatures")
+                .update({ tae_publication_id: taePublicationId })
+                .eq("id", sigRecord.id);
+            }
+          }
+        }
+      } catch (e: any) {
+        log(logs, "TAE Resolução", "info", `Falha na resolução: ${e.message}`);
+      }
     }
 
-    // 7. Update local records regardless of TAE result
+    // 7. Cancel publication in TAE using POST /v1/publicacoes/{id}/cancelar
+    // P1.2: MUST use tae_publication_id — never use tae_document_id for this endpoint
+    let cancelRes: Response | null = null;
+    let cancelRaw = "";
+
+    if (taePublicationId) {
+      log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${taePublicationId} no TAE via POST /v1/publicacoes/{id}/cancelar...`);
+
+      cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${taeToken}`,
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+
+      cancelRaw = await cancelRes.text();
+
+      if (cancelRes.ok) {
+        log(logs, "TAE Cancelamento", "ok", `Publicação cancelada no TAE com sucesso`);
+      } else if (cancelRes.status === 400) {
+        log(logs, "TAE Cancelamento", "info", `TAE retornou 400: ${cancelRaw.substring(0, 300)}. O documento pode já estar finalizado/cancelado. Prosseguindo com cancelamento local.`);
+      } else if (cancelRes.status === 403 || cancelRes.status === 401) {
+        log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: sem permissão para cancelar. Prosseguindo com cancelamento local.`);
+      } else {
+        log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: ${cancelRaw.substring(0, 300)}. Prosseguindo com cancelamento local.`);
+      }
+    } else {
+      // P1.2: Could not resolve publication ID — cancel locally only and log structured warning
+      log(logs, "TAE Cancelamento", "info", `Não foi possível resolver o publication ID (document ID: ${taeDocumentId}). Cancelamento remoto não pôde ser confirmado. Apenas cancelamento local será executado.`);
+    }
+
+    // 8. Update local records regardless of TAE result
     await adminSupabase
       .from("proposal_signatures")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", sigRecord.id);
 
+    // P1.3: Real TAE send occurred → revert to pendente
     await adminSupabase
       .from("proposals")
       .update({ status: "pendente" })
@@ -189,19 +247,22 @@ Deno.serve(async (req) => {
     log(logs, "Finalização", "ok", "Processo de assinatura cancelado. Status voltou para Pendente.");
 
     // Log signature event
+    const cancelSuccess = cancelRes?.ok ?? false;
     await adminSupabase.from("signature_events").insert({
       signature_id: sigRecord.id,
       proposal_id: proposalId,
       event_type: "cancelled",
       title: "Assinatura cancelada pelo usuário",
-      description: cancelRes.ok
+      description: cancelSuccess
         ? "O processo foi cancelado no TAE e localmente. Status revertido para Pendente."
-        : "Cancelamento local realizado. O TAE pode requerer cancelamento manual.",
+        : taePublicationId
+          ? "Cancelamento local realizado. O TAE pode requerer cancelamento manual."
+          : "Cancelamento local realizado. Não foi possível resolver o publication ID para cancelamento remoto.",
     });
 
     return respondWithLogs(logs, {
       cancelled: true,
-      taeStatus: cancelRes.ok ? "cancelled_in_tae" : "local_only",
+      taeStatus: cancelSuccess ? "cancelled_in_tae" : "local_only",
     });
   } catch (err: any) {
     log(logs, "Erro inesperado", "error", err.message);

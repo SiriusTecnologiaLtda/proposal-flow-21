@@ -882,16 +882,30 @@ export default function Dashboard() {
         const month = Number(dateStr.substring(5, 7));
         if (year !== targetYear || month < 1 || month > 12) continue;
 
-        // Get items for this SW proposal, apply category filter
+        // Get items for this SW proposal, apply category + segregation filter
         const items = swProposalItems.filter((item: any) => item.software_proposal_id === sp.id);
         let totalValue = 0;
         for (const item of items) {
+          const itemCatId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
           // Category filter
-          if (selectedCategoryId !== "all") {
-            const itemCatId = item.catalog_item_id ? catalogCategoryMap.get(item.catalog_item_id) : null;
-            if (itemCatId !== selectedCategoryId) continue;
-          }
-          totalValue += Number(item.total_price) || 0;
+          if (selectedCategoryId !== "all" && itemCatId !== selectedCategoryId) continue;
+
+          // Resolve category for segregation
+          const cat = itemCatId ? categories.find((c: any) => c.id === itemCatId) : null;
+          const catName = normCatName(cat?.name);
+          const costClass = item.cost_classification || cat?.cost_classification || null;
+          const price = Number(item.total_price) || 0;
+          if (!price) continue;
+
+          const classified = classifyRevenueItem(catName, costClass, item.recurrence, price);
+
+          // Apply revenue filter segregation
+          if (selectedRevenueFilter === "recorrente" && classified.line !== "recorrente") continue;
+          if (selectedRevenueFilter === "nao_recorrente" && classified.line !== "nao_recorrente") continue;
+          // "all" → include regular SW lines only (exclude SCS/RRF/NRF which have their own sources or cards)
+          if (selectedRevenueFilter === "all" && (catName === "SCS" || catName === "RRF" || catName === "NRF" || catName === "RNF")) continue;
+
+          totalValue += price;
         }
         if (totalValue > 0) {
           months[month - 1].realizado += totalValue;

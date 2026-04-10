@@ -16,10 +16,13 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   type PresentationTypeConfig,
   type ReferenceAttachment,
-  executivePresentationStore,
   templateStyleOptions,
   pricingDisplayModeOptions,
 } from "@/data/executivePresentationData";
+import {
+  usePresentationTypeConfig,
+  useUpsertPresentationTypeConfig,
+} from "@/hooks/useExecutivePresentation";
 
 interface Props {
   proposalTypeId: string;
@@ -44,6 +47,23 @@ const emptyConfig: PresentationTypeConfig = {
   references: [],
 };
 
+function dbRowToConfig(row: any): PresentationTypeConfig {
+  return {
+    executiveSummary: row.executive_summary ?? "",
+    positioningText: row.positioning_text ?? "",
+    problemStatement: row.problem_statement ?? "",
+    solutionApproach: row.solution_approach ?? "",
+    defaultBenefits: (row.default_benefits as any[]) ?? [],
+    defaultScopeBlocks: (row.default_scope_blocks as any[]) ?? [],
+    defaultTimeline: (row.default_timeline as any[]) ?? [],
+    pricingDisplayMode: row.pricing_display_mode ?? "setup_unico",
+    differentiators: (row.differentiators as any[]) ?? [],
+    defaultCta: row.default_cta ?? "",
+    preferredTemplate: row.preferred_template ?? "modern",
+    references: (row.references as any[]) ?? [],
+  };
+}
+
 export default function PresentationTypeConfigEditor({
   proposalTypeId,
   proposalTypeSlug,
@@ -51,10 +71,12 @@ export default function PresentationTypeConfigEditor({
   templateDocId,
   mitTemplateDocId,
 }: Props) {
-  const existing = executivePresentationStore.getConfigForSlug(proposalTypeSlug);
+  const { data: dbConfig, isLoading } = usePresentationTypeConfig(proposalTypeId);
+  const upsertMutation = useUpsertPresentationTypeConfig();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<PresentationTypeConfig>(existing ?? emptyConfig);
+  const [form, setForm] = useState<PresentationTypeConfig>(emptyConfig);
   const [dirty, setDirty] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   // Fetch service items for this proposal type
   const { data: serviceItems = [] } = useQuery({
@@ -72,11 +94,22 @@ export default function PresentationTypeConfigEditor({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Sync form from DB when data arrives
   useEffect(() => {
-    const cfg = executivePresentationStore.getConfigForSlug(proposalTypeSlug);
-    setForm(cfg ?? emptyConfig);
+    if (dbConfig && !initialized) {
+      setForm(dbRowToConfig(dbConfig));
+      setInitialized(true);
+    } else if (!dbConfig && !isLoading && !initialized) {
+      setForm(emptyConfig);
+      setInitialized(true);
+    }
+  }, [dbConfig, isLoading, initialized]);
+
+  // Reset when proposal type changes
+  useEffect(() => {
+    setInitialized(false);
     setDirty(false);
-  }, [proposalTypeSlug]);
+  }, [proposalTypeId]);
 
   const set = <K extends keyof PresentationTypeConfig>(key: K, value: PresentationTypeConfig[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -84,9 +117,16 @@ export default function PresentationTypeConfigEditor({
   };
 
   const handleSave = () => {
-    executivePresentationStore.upsertConfig(proposalTypeSlug, form);
-    setDirty(false);
-    toast.success("Conteúdo de apresentação salvo");
+    upsertMutation.mutate(
+      { proposalTypeId, config: form },
+      {
+        onSuccess: () => {
+          setDirty(false);
+          toast.success("Conteúdo de apresentação salvo");
+        },
+        onError: () => toast.error("Erro ao salvar configuração"),
+      },
+    );
   };
 
   const handleSimulateUpload = () => {
@@ -104,7 +144,7 @@ export default function PresentationTypeConfigEditor({
     set("references", form.references.filter((r) => r.id !== id));
   };
 
-  const hasContent = !!existing;
+  const hasContent = !!dbConfig;
   const hasTemplates = !!(templateDocId || mitTemplateDocId);
 
   return (

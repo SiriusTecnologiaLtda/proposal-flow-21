@@ -329,8 +329,10 @@ Deno.serve(async (req) => {
 
     // Update local status based on TAE
     let newLocalStatus = sigRecord.status;
+    let syncWarning: string | null = null;
+
     if (pubStatus === 2) {
-      // TAE says finalized — verify ALL signatories are signed locally before marking ganha
+      // TAE says finalized — re-read signatories AFTER sync above to get fresh state
       const { data: allSignatories } = await adminSupabase
         .from("proposal_signatories")
         .select("email, status")
@@ -339,6 +341,7 @@ Deno.serve(async (req) => {
       const pendingSigners = (allSignatories || []).filter((s: any) => s.status !== "signed");
 
       if (pendingSigners.length === 0) {
+        // All signatories confirmed signed → safe to finalize
         newLocalStatus = "completed";
         await adminSupabase
           .from("proposal_signatures")
@@ -349,18 +352,19 @@ Deno.serve(async (req) => {
           .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
           .eq("id", sigRecord.proposal_id);
       } else {
-        // TAE finalized but local signatories still pending — update signature status
-        // but do NOT mark proposal as ganha yet. Log for visibility.
-        newLocalStatus = "completed";
-        await adminSupabase
-          .from("proposal_signatures")
-          .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
-          .eq("id", signatureId);
-        await adminSupabase
-          .from("proposals")
-          .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
-          .eq("id", sigRecord.proposal_id);
-        console.log(`[tae-check-status] TAE confirmed finalized (status=2). ${pendingSigners.length} local signatory(ies) still pending but TAE is authoritative. Marking as ganha.`);
+        // TAE finalized but local signatories still pending after sync.
+        // This means the TAE signer list doesn't match our local signatories.
+        // Do NOT mark as ganha — preserve current status and warn.
+        syncWarning = `O TAE reportou finalização, porém ${pendingSigners.length} signatário(s) local(is) ainda estão pendentes após sincronização: ${pendingSigners.map((s: any) => s.email).join(", ")}. Verifique se os signatários cadastrados correspondem aos do envelope no TAE.`;
+        console.log(`[tae-check-status] ${syncWarning}`);
+
+        // Still update the publication ID if resolved
+        if (resolvedPublicationId && resolvedPublicationId !== sigRecord.tae_publication_id) {
+          await adminSupabase
+            .from("proposal_signatures")
+            .update({ tae_publication_id: resolvedPublicationId })
+            .eq("id", signatureId);
+        }
       }
     } else if (pubStatus === 4 || pubStatus === 7) {
       newLocalStatus = "cancelled";
@@ -387,6 +391,7 @@ Deno.serve(async (req) => {
         statusLabel: pubStatusLabel,
         localStatus: newLocalStatus,
         signers,
+        ...(syncWarning ? { syncWarning } : {}),
         rawData: pubData,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

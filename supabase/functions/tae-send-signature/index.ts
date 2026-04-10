@@ -138,6 +138,14 @@ async function getPreferredGoogleDocTab(
   };
 }
 
+// P3: Timeout helper for TAE HTTP calls (no retry — send is not idempotent)
+const TAE_TIMEOUT_MS = 30_000;
+function taeFetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TAE_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -360,7 +368,7 @@ Deno.serve(async (req) => {
 
     // 8. Login to TAE
     log(logs, "TAE Login", "info", "Autenticando no TAE...");
-    const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
+    const loginRes = await taeFetchWithTimeout(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -483,7 +491,7 @@ Deno.serve(async (req) => {
 
     formData.append("NomeEnvelope", fileName);
 
-    const uploadRes = await fetch(`${baseUrl}/documents/v1/envelopes/upload`, {
+    const uploadRes = await taeFetchWithTimeout(`${baseUrl}/documents/v1/envelopes/upload`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${taeToken}`,
@@ -558,7 +566,7 @@ Deno.serve(async (req) => {
       },
     };
 
-    const publishRes = await fetch(`${baseUrl}/documents/v1/publicacoes`, {
+    const publishRes = await taeFetchWithTimeout(`${baseUrl}/documents/v1/publicacoes`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${taeToken}`,

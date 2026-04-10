@@ -106,12 +106,22 @@ async function parseTaeDownloadResponse(res: Response): Promise<ParsedDownload |
   }
 }
 
+// P3: Timeout helper for TAE HTTP calls (no retry — download is idempotent, caller can retry)
+const TAE_TIMEOUT_MS = 30_000;
+function taeFetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TAE_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 async function taeLogin(baseUrl: string, email: string, password: string): Promise<string | null> {
-  const res = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
+  const t0 = Date.now();
+  const res = await taeFetchWithTimeout(`${baseUrl}/identityintegration/v3/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userName: email, password }),
   });
+  console.log(`[tae-download] LOGIN elapsed=${Date.now() - t0}ms status=${res.status}`);
   if (!res.ok) return null;
   const body = await res.text();
   let data: any;
@@ -122,7 +132,7 @@ async function taeLogin(baseUrl: string, email: string, password: string): Promi
 // Resolve publication ID from document ID using signintegration
 async function resolvePublicationId(baseUrl: string, token: string, docId: string): Promise<string | null> {
   try {
-    const res = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+    const res = await taeFetchWithTimeout(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify([Number(docId)]),
@@ -143,7 +153,7 @@ async function resolvePublicationId(baseUrl: string, token: string, docId: strin
 // Try to get publication info via v2 endpoint
 async function getPublicationInfo(baseUrl: string, token: string, id: string): Promise<any | null> {
   try {
-    const res = await fetch(`${baseUrl}/documents/v2/publicacoes/${encodeURIComponent(id)}`, {
+    const res = await taeFetchWithTimeout(`${baseUrl}/documents/v2/publicacoes/${encodeURIComponent(id)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -262,7 +272,7 @@ Deno.serve(async (req) => {
         const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(cid)}/download?tipoDownload=${tipo}`;
         console.log(`[tae-download] Trying: ${url}`);
         try {
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
+          const res = await taeFetchWithTimeout(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
             const ct = res.headers.get("content-type") || "";
             const parsed = await parseTaeDownloadResponse(res);
@@ -290,7 +300,7 @@ Deno.serve(async (req) => {
         const url = `${taeConfig.base_url}/documents/v1/publicacoes/${encodeURIComponent(cid)}/download`;
         console.log(`[tae-download] Fallback (no tipoDownload): ${url}`);
         try {
-          const res = await fetch(url, { headers: { Authorization: `Bearer ${taeToken}` } });
+          const res = await taeFetchWithTimeout(url, { headers: { Authorization: `Bearer ${taeToken}` } });
           if (res.ok) {
             const parsed = await parseTaeDownloadResponse(res);
             if (parsed) {

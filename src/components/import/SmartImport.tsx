@@ -1299,13 +1299,13 @@ export default function SmartImport() {
     const dur = Date.now() - importRun.startedAt;
     const warningCount = run?.logs.filter(l => l.status === "warning").length || 0;
     addImportLog(entity, actualStatus === "error" ? "error" : "ok",
-      `${cancelSignal?.aborted ? "⛔ Interrompido" : "✅ Concluído"} — ${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}${crmCodesToInsert.length > 0 ? `, ${crmCodesToInsert.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
+      `${cancelSignal?.aborted ? "⛔ Interrompido" : "✅ Concluído"} — ${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}${crmCodesToUpdate.length > 0 ? `, ${crmCodesToUpdate.length} CRM codes` : ""} | Tempo: ${formatDuration(dur)}`, "summary");
     if (imported > 0 || updated > 0) { qc.invalidateQueries({ queryKey: ["sales_team"] }); invalidateCrmCache(); }
     const errorMsgs = run?.logs.filter(l => l.status === "error").map(l => l.message).slice(0, 200) || [];
     if (dbLogId) await supabase.from("import_logs").update({
       status: actualStatus, total_rows: dataRows.length, imported, updated, errors,
       finished_at: new Date().toISOString(), duration_ms: dur,
-      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}, ${crmCodesToInsert.length} CRM codes`,
+      summary: `${imported} inseridos, ${updated} atualizados, ${errors} erros${warningCount > 0 ? `, ${warningCount} alertas` : ""}, ${crmCodesToUpdate.length} CRM codes`,
       error_details: errorMsgs,
     } as any).eq("id", dbLogId);
   }

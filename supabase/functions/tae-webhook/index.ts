@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     const singleSignerEmail = flatPayload["assinante"] || flatData["assinante"] ||
       payload?.assinante || payload?.data?.assinante;
 
-    console.log(`[tae-webhook] publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}, assinante=${singleSignerEmail || "(none)"}`);
+    console.log(`[tae-webhook] ctx: publicationId=${publicationId}, documentId=${documentId}, status=${taeStatus}, assinante=${singleSignerEmail || "(none)"}`);
 
     // ─── Match the signature record ONLY by exact ID ────────────────
     // CRITICAL: Never fallback to "most recent sent" — this caused
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[tae-webhook] Found signature record: ${sigRecord.id}, proposal_id: ${sigRecord.proposal_id}, current status: ${sigRecord.status}`);
+    console.log(`[tae-webhook] Found record: signature_id=${sigRecord.id}, proposal_id=${sigRecord.proposal_id}, tae_document_id=${sigRecord.tae_document_id}, tae_publication_id=${sigRecord.tae_publication_id}, current_status=${sigRecord.status}`);
 
     // Update publication ID and document ID if changed (TAE sends new IDs on finalization)
     const sigUpdates: Record<string, string> = {};
@@ -180,23 +180,36 @@ Deno.serve(async (req) => {
           taeStatus: taeStatus ?? null,
         });
 
-        console.log(`[tae-webhook] Single signer event: ${cleanEmail} → ${nextStatus} (assinado=${signerAssinado}, rejeitado=${signerRejeitado}, pendente=${signerPendente}, statusAssinatura=${signerStatusAssinatura}, taeStatus=${taeStatus})`);
+        console.log(`[tae-webhook] Single signer: email=${cleanEmail}, nextStatus=${nextStatus}, assinado=${signerAssinado}, rejeitado=${signerRejeitado}, pendente=${signerPendente}, statusAssinatura=${signerStatusAssinatura}, taeStatus=${taeStatus}, signature_id=${sigRecord.id}, proposal_id=${sigRecord.proposal_id}`);
         
-        const updatePayload: Record<string, any> = { status: nextStatus };
-        if (nextStatus === "signed") {
-          updatePayload.signed_at = new Date().toISOString();
-        }
-
-        const { data: updated, error: updateErr } = await supabase
+        // Regression guard: fetch current status before updating
+        const { data: currentSignatory } = await supabase
           .from("proposal_signatories")
-          .update(updatePayload)
+          .select("status")
           .eq("signature_id", sigRecord.id)
           .ilike("email", cleanEmail)
-          .select();
-        if (updateErr) {
-          console.log(`[tae-webhook] Error updating signatory: ${updateErr.message}`);
+          .maybeSingle();
+
+        const currentStatus = currentSignatory?.status || "pending";
+        if (!shouldUpdateSignerStatus(currentStatus, nextStatus)) {
+          console.log(`[tae-webhook] Skipping update for ${cleanEmail}: ${currentStatus} → ${nextStatus} would be a regression`);
         } else {
-          console.log(`[tae-webhook] Updated ${updated?.length || 0} signatory(ies) for ${cleanEmail}`);
+          const updatePayload: Record<string, any> = { status: nextStatus };
+          if (nextStatus === "signed") {
+            updatePayload.signed_at = new Date().toISOString();
+          }
+
+          const { data: updated, error: updateErr } = await supabase
+            .from("proposal_signatories")
+            .update(updatePayload)
+            .eq("signature_id", sigRecord.id)
+            .ilike("email", cleanEmail)
+            .select();
+          if (updateErr) {
+            console.log(`[tae-webhook] Error updating signatory ${cleanEmail}: ${updateErr.message}`);
+          } else {
+            console.log(`[tae-webhook] Updated ${updated?.length || 0} signatory(ies) for ${cleanEmail}: ${currentStatus} → ${nextStatus}`);
+          }
         }
       }
     }

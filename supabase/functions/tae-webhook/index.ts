@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log("[tae-webhook] PAYLOAD_RECEIVED", JSON.stringify(payload));
 
-    // ─── P2.2 + P3.3: Idempotency check using dedicated column ──
+    // ─── P3.3 fix: Atomic idempotency — check before sigRecord resolution ──
     const payloadHash = await computePayloadHash(payload);
     const { data: existingEvent } = await supabase
       .from("signature_events")

@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import AssignmentsTab from "./AssignmentsTab";
+import { useSalesTeam } from "@/hooks/useSupabaseData";
 
 interface CrmCode {
   id?: string;

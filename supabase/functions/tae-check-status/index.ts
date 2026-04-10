@@ -24,6 +24,37 @@ const TAE_SIGNER_STATUS_MAP: Record<number, string> = {
   4: "Testemunha",
 };
 
+// ════════════════════════════════════════════════════════════════════
+// P2.3 — Email normalization
+// ════════════════════════════════════════════════════════════════════
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// P2.4 — Centralized state machine (shared logic with webhook)
+// ════════════════════════════════════════════════════════════════════
+const SIGNATORY_TERMINAL = new Set(["signed", "rejected"]);
+
+function canTransitionSignatory(current: string, next: string): boolean {
+  if (current === next) return false;
+  if (SIGNATORY_TERMINAL.has(current)) return false;
+  if (!SIGNATORY_TERMINAL.has(next) && next !== "pending") return false;
+  return true;
+}
+
+const SIGNATURE_VALID_TRANSITIONS: Record<string, Set<string>> = {
+  pending: new Set(["sent", "completed", "cancelled"]),
+  sent: new Set(["completed", "cancelled"]),
+  completed: new Set([]),
+  cancelled: new Set([]),
+};
+
+function canTransitionSignature(current: string, next: string): boolean {
+  if (current === next) return false;
+  return SIGNATURE_VALID_TRANSITIONS[current]?.has(next) ?? false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -78,10 +109,7 @@ Deno.serve(async (req) => {
     const taeDocumentId = sigRecord.tae_document_id;
     if (!taePublicationId && !taeDocumentId) {
       return new Response(
-        JSON.stringify({
-          error: "Publicação/documento TAE não encontrado. O documento pode não ter sido enviado ao TAE.",
-          sigRecord,
-        }),
+        JSON.stringify({ error: "Publicação/documento TAE não encontrado.", sigRecord }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -90,16 +118,14 @@ Deno.serve(async (req) => {
     const { data: taeConfig } = await supabase.from("tae_config").select("*").maybeSingle();
     if (!taeConfig) {
       return new Response(JSON.stringify({ error: "Configuração TAE não encontrada" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const taePassword = Deno.env.get("TAE_SERVICE_USER_PASSWORD");
     if (!taeConfig.service_user_email || !taePassword) {
       return new Response(JSON.stringify({ error: "Credenciais TAE não configuradas" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -109,10 +135,7 @@ Deno.serve(async (req) => {
     const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userName: taeConfig.service_user_email,
-        password: taePassword,
-      }),
+      body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
     });
     if (!loginRes.ok) {
       const loginBody = await loginRes.text();
@@ -131,9 +154,9 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    console.log(`[tae-check-status] TAE login OK, token length=${taeToken.length}`);
+    console.log(`[tae-check-status] TAE login OK`);
 
-    // Get publication status from TAE (fallback to document when publication id is missing)
+    // Get publication status from TAE
     let resolvedPublicationId = taePublicationId;
     let pubData: any = null;
 
@@ -148,31 +171,22 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
       let statusData: any;
       try { statusData = JSON.parse(statusRaw); } catch { statusData = null; }
       pubData = statusData?.data || statusData;
     } else {
-      // No publication ID — use signintegration endpoint to resolve from document ID
-      console.log(`[tae-check-status] No publication ID, trying to resolve from document ${taeDocumentId}`);
-
+      // Resolve from document ID
+      console.log(`[tae-check-status] No publication ID, resolving from document ${taeDocumentId}`);
       let resolved = false;
 
-      // Primary: POST /signintegration/v2/Publicacoes/documentos-empresa (official TAE endpoint)
       try {
         const siEndpoint = `${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`;
-        console.log(`[tae-check-status] Trying signintegration: ${siEndpoint}`);
         const siRes = await fetch(siEndpoint, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${taeToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" },
           body: JSON.stringify([Number(taeDocumentId)]),
         });
         const siRaw = await siRes.text();
-        console.log(`[tae-check-status] signintegration → ${siRes.status} ${siRaw.substring(0, 800)}`);
-
         if (siRes.ok && siRaw) {
           let siParsed: any;
           try { siParsed = JSON.parse(siRaw); } catch { /* ignore */ }
@@ -189,8 +203,6 @@ Deno.serve(async (req) => {
               match?.publicacoes?.[0]?.idPublicacao || ""
             ).trim() || null;
 
-            console.log(`[tae-check-status] signintegration match. pubId=${resolvedPublicationId}, keys=${Object.keys(match)}`);
-
             if (match?.status !== undefined || match?.assinantes || match?.destinatarios || match?.pendentes) {
               pubData = match;
               resolved = true;
@@ -200,10 +212,7 @@ Deno.serve(async (req) => {
               });
               if (pubRes.ok) {
                 const pubRaw = await pubRes.text();
-                try {
-                  pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw);
-                  resolved = true;
-                } catch { /* continue */ }
+                try { pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw); resolved = true; } catch { /* */ }
               }
             }
           }
@@ -212,7 +221,6 @@ Deno.serve(async (req) => {
         console.log(`[tae-check-status] signintegration error: ${e.message}`);
       }
 
-      // Fallback: GET endpoints
       if (!resolved) {
         for (const endpoint of [
           `${baseUrl}/documents/v1/envelopes/${taeDocumentId}`,
@@ -220,13 +228,8 @@ Deno.serve(async (req) => {
           `${baseUrl}/documents/v1/documentos/${taeDocumentId}`,
         ]) {
           if (resolved) break;
-          console.log(`[tae-check-status] Trying fallback: ${endpoint}`);
-          const res = await fetch(endpoint, {
-            headers: { Authorization: `Bearer ${taeToken}` },
-          });
+          const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${taeToken}` } });
           const raw = await res.text();
-          console.log(`[tae-check-status] → ${res.status} ${raw.substring(0, 500)}`);
-
           if (res.ok && raw) {
             let parsed: any;
             try { parsed = JSON.parse(raw); } catch { continue; }
@@ -235,14 +238,12 @@ Deno.serve(async (req) => {
             const match = items.find((item: any) =>
               String(item?.idDocumento || item?.documentoId || item?.id || "") === String(taeDocumentId)
             ) || items[0];
-
             if (match) {
               resolvedPublicationId = String(
                 match?.idPublicacao || match?.publicacaoId ||
                 match?.publicacao?.id || match?.publicacoes?.[0]?.id ||
                 match?.publicacoes?.[0]?.idPublicacao || ""
               ).trim() || null;
-
               if (match?.status !== undefined || match?.assinantes || match?.destinatarios) {
                 pubData = match;
                 resolved = true;
@@ -252,10 +253,7 @@ Deno.serve(async (req) => {
                 });
                 if (pubRes.ok) {
                   const pubRaw = await pubRes.text();
-                  try {
-                    pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw);
-                    resolved = true;
-                  } catch { /* continue */ }
+                  try { pubData = JSON.parse(pubRaw)?.data || JSON.parse(pubRaw); resolved = true; } catch { /* */ }
                 }
               }
             }
@@ -265,34 +263,23 @@ Deno.serve(async (req) => {
 
       if (!resolved && !pubData) {
         return new Response(
-          JSON.stringify({
-            error: "Não foi possível localizar a publicação no TAE. O documento pode ainda não ter sido publicado.",
-            taeDocumentId,
-            suggestion: "Tente enviar novamente para assinatura.",
-          }),
+          JSON.stringify({ error: "Não foi possível localizar a publicação no TAE.", taeDocumentId, suggestion: "Tente enviar novamente." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       if (resolvedPublicationId) {
-        const adminSupabase = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-        await adminSupabase
-          .from("proposal_signatures")
-          .update({ tae_publication_id: resolvedPublicationId })
-          .eq("id", signatureId);
+        const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await adminSupabase.from("proposal_signatures").update({ tae_publication_id: resolvedPublicationId }).eq("id", signatureId);
       }
     }
 
     const pubStatus = pubData?.status;
     const pubStatusLabel = TAE_STATUS_MAP[pubStatus] ?? `Desconhecido (${pubStatus})`;
 
-    // Extract signer details — handle both publication format (assinantes/destinatarios) and signintegration format (pendentes)
+    // Extract signer details
     const rawSigners = pubData?.assinantes || pubData?.destinatarios || pubData?.pendentes || [];
     const signers = rawSigners.map((s: any) => {
-      // signintegration format uses `pendente` boolean
       const isPendentesFormat = s.pendente !== undefined;
       return {
         email: s.email || s.emailDestinatario,
@@ -306,7 +293,7 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Sync local signatories based on TAE
+    // P2.3 + P2.4: Sync local signatories with state machine guard and normalized email
     for (const signer of signers) {
       const nextStatus = signer.statusLabel === "Assinado"
         ? "signed"
@@ -314,25 +301,42 @@ Deno.serve(async (req) => {
           ? "rejected"
           : "pending";
 
+      const normalized = normalizeEmail(signer.email || "");
+      if (!normalized) continue;
+
+      // Fetch current status for state machine check
+      const { data: currentSig } = await supabase
+        .from("proposal_signatories")
+        .select("status")
+        .eq("signature_id", signatureId)
+        .ilike("email", normalized)
+        .maybeSingle();
+
+      const curStatus = currentSig?.status || "pending";
+      if (!canTransitionSignatory(curStatus, nextStatus)) {
+        console.log(`[tae-check-status] Signatory ${normalized}: ${curStatus} → ${nextStatus} blocked`);
+        continue;
+      }
+
+      const updatePayload: Record<string, any> = { status: nextStatus };
+      if (nextStatus === "signed" && signer.signedAt) updatePayload.signed_at = signer.signedAt;
+      else if (nextStatus === "signed") updatePayload.signed_at = new Date().toISOString();
+
       await supabase
         .from("proposal_signatories")
-        .update({ status: nextStatus, signed_at: signer.signedAt })
+        .update(updatePayload)
         .eq("signature_id", signatureId)
-        .ilike("email", signer.email);
+        .ilike("email", normalized);
     }
 
     // Use admin client for status updates to bypass RLS
-    const adminSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Update local status based on TAE
     let newLocalStatus = sigRecord.status;
     let syncWarning: string | null = null;
 
     if (pubStatus === 2) {
-      // TAE says finalized — re-read signatories AFTER sync above to get fresh state
+      // Re-read signatories AFTER sync
       const { data: allSignatories } = await adminSupabase
         .from("proposal_signatories")
         .select("email, status")
@@ -340,48 +344,30 @@ Deno.serve(async (req) => {
 
       const pendingSigners = (allSignatories || []).filter((s: any) => s.status !== "signed");
 
-      if (pendingSigners.length === 0) {
-        // All signatories confirmed signed → safe to finalize
+      if (pendingSigners.length === 0 && canTransitionSignature(sigRecord.status, "completed")) {
         newLocalStatus = "completed";
-        await adminSupabase
-          .from("proposal_signatures")
+        await adminSupabase.from("proposal_signatures")
           .update({ status: "completed", completed_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
           .eq("id", signatureId);
-        await adminSupabase
-          .from("proposals")
+        await adminSupabase.from("proposals")
           .update({ status: "ganha", expected_close_date: new Date().toISOString().substring(0, 10) })
           .eq("id", sigRecord.proposal_id);
-      } else {
-        // TAE finalized but local signatories still pending after sync.
-        // This means the TAE signer list doesn't match our local signatories.
-        // Do NOT mark as ganha — preserve current status and warn.
-        syncWarning = `O TAE reportou finalização, porém ${pendingSigners.length} signatário(s) local(is) ainda estão pendentes após sincronização: ${pendingSigners.map((s: any) => s.email).join(", ")}. Verifique se os signatários cadastrados correspondem aos do envelope no TAE.`;
+      } else if (pendingSigners.length > 0) {
+        syncWarning = `TAE finalizado mas ${pendingSigners.length} signatário(s) pendente(s): ${pendingSigners.map((s: any) => s.email).join(", ")}`;
         console.log(`[tae-check-status] ${syncWarning}`);
-
-        // Still update the publication ID if resolved
         if (resolvedPublicationId && resolvedPublicationId !== sigRecord.tae_publication_id) {
-          await adminSupabase
-            .from("proposal_signatures")
-            .update({ tae_publication_id: resolvedPublicationId })
-            .eq("id", signatureId);
+          await adminSupabase.from("proposal_signatures").update({ tae_publication_id: resolvedPublicationId }).eq("id", signatureId);
         }
       }
-    } else if (pubStatus === 4 || pubStatus === 7) {
+    } else if ((pubStatus === 4 || pubStatus === 7) && canTransitionSignature(sigRecord.status, "cancelled")) {
       newLocalStatus = "cancelled";
-      await adminSupabase
-        .from("proposal_signatures")
+      await adminSupabase.from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString(), tae_publication_id: resolvedPublicationId || sigRecord.tae_publication_id })
         .eq("id", signatureId);
-      // P1.3: After real TAE send, cancel/reject → pendente (unified with webhook and cancel-signature)
-      await adminSupabase
-        .from("proposals")
-        .update({ status: "pendente" })
-        .eq("id", sigRecord.proposal_id);
+      // P1.3 preserved: real TAE send → pendente
+      await adminSupabase.from("proposals").update({ status: "pendente" }).eq("id", sigRecord.proposal_id);
     } else if (resolvedPublicationId && !sigRecord.tae_publication_id) {
-      await adminSupabase
-        .from("proposal_signatures")
-        .update({ tae_publication_id: resolvedPublicationId })
-        .eq("id", signatureId);
+      await adminSupabase.from("proposal_signatures").update({ tae_publication_id: resolvedPublicationId }).eq("id", signatureId);
     }
 
     return new Response(

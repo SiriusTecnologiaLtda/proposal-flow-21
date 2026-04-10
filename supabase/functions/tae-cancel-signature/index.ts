@@ -24,6 +24,21 @@ function respondWithLogs(logs: LogEntry[], extra: Record<string, any> = {}, stat
   });
 }
 
+// ════════════════════════════════════════════════════════════════════
+// P2.4 — State machine (shared logic)
+// ════════════════════════════════════════════════════════════════════
+const SIGNATURE_VALID_TRANSITIONS: Record<string, Set<string>> = {
+  pending: new Set(["sent", "completed", "cancelled"]),
+  sent: new Set(["completed", "cancelled"]),
+  completed: new Set([]),
+  cancelled: new Set([]),
+};
+
+function canTransitionSignature(current: string, next: string): boolean {
+  if (current === next) return false;
+  return SIGNATURE_VALID_TRANSITIONS[current]?.has(next) ?? false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,17 +51,12 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const adminSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const adminSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Validate user via anon client
     const anonSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -56,8 +66,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await anonSupabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -70,7 +79,7 @@ Deno.serve(async (req) => {
       return respondWithLogs(logs, {}, 400);
     }
 
-    // 3. Find active signature record using admin client (bypasses RLS)
+    // 3. Find active signature record
     const { data: sigRecord, error: sigErr } = await adminSupabase
       .from("proposal_signatures")
       .select("*")
@@ -84,33 +93,31 @@ Deno.serve(async (req) => {
       log(logs, "Dados", "error", `Erro ao buscar assinatura: ${sigErr.message}`);
       return respondWithLogs(logs, {}, 500);
     }
-
     if (!sigRecord) {
-      log(logs, "Dados", "error", `Nenhum registro de assinatura ativo encontrado (status pending/sent) para esta proposta`);
+      log(logs, "Dados", "error", "Nenhum registro ativo encontrado (status pending/sent)");
       return respondWithLogs(logs, {}, 400);
     }
 
-    log(logs, "Dados", "ok", `Registro de assinatura encontrado: ${sigRecord.id} (status: ${sigRecord.status})`);
+    // P2.4: Check if cancellation transition is valid
+    if (!canTransitionSignature(sigRecord.status, "cancelled")) {
+      log(logs, "Validação", "error", `Transição ${sigRecord.status} → cancelled não permitida pela máquina de estados`);
+      return respondWithLogs(logs, {}, 400);
+    }
+
+    log(logs, "Dados", "ok", `Registro: ${sigRecord.id} (status: ${sigRecord.status})`);
 
     const taeDocumentId = sigRecord.tae_document_id;
     let taePublicationId = sigRecord.tae_publication_id;
-
-    // P1.3: Determine if there was a real TAE send (has document or publication ID)
     const hadRealTaeSend = !!(taeDocumentId || taePublicationId);
 
     if (!hadRealTaeSend) {
       log(logs, "TAE", "info", "Sem ID de documento TAE — cancelamento apenas local");
-      await adminSupabase
-        .from("proposal_signatures")
+      await adminSupabase.from("proposal_signatures")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .eq("id", sigRecord.id);
       // P1.3: No real TAE send → proposta_gerada
-      await adminSupabase
-        .from("proposals")
-        .update({ status: "proposta_gerada" })
-        .eq("id", proposalId);
-
-      log(logs, "Finalização", "ok", "Cancelamento local concluído (sem registro no TAE). Status: proposta_gerada");
+      await adminSupabase.from("proposals").update({ status: "proposta_gerada" }).eq("id", proposalId);
+      log(logs, "Finalização", "ok", "Cancelamento local concluído. Status: proposta_gerada");
       return respondWithLogs(logs, { cancelled: true, taeStatus: "local_only" });
     }
 
@@ -123,7 +130,7 @@ Deno.serve(async (req) => {
 
     const taePassword = Deno.env.get("TAE_SERVICE_USER_PASSWORD");
     if (!taeConfig.service_user_email || !taePassword) {
-      log(logs, "TAE Config", "error", "Credenciais do usuário de serviço TAE não configuradas");
+      log(logs, "TAE Config", "error", "Credenciais TAE não configuradas");
       return respondWithLogs(logs, {}, 500);
     }
 
@@ -135,14 +142,11 @@ Deno.serve(async (req) => {
     const loginRes = await fetch(`${baseUrl}/identityintegration/v3/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userName: taeConfig.service_user_email,
-        password: taePassword,
-      }),
+      body: JSON.stringify({ userName: taeConfig.service_user_email, password: taePassword }),
     });
     if (!loginRes.ok) {
       const loginBody = await loginRes.text();
-      log(logs, "TAE Login", "error", `Falha no login TAE (${loginRes.status}): ${loginBody.substring(0, 300)}`);
+      log(logs, "TAE Login", "error", `Falha (${loginRes.status}): ${loginBody.substring(0, 300)}`);
       return respondWithLogs(logs, {}, 500);
     }
     const loginBody = await loginRes.text();
@@ -150,27 +154,24 @@ Deno.serve(async (req) => {
     try { loginData = JSON.parse(loginBody); } catch { loginData = {}; }
     const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
     if (!taeToken) {
-      log(logs, "TAE Login", "error", `Token não retornado pelo TAE`);
+      log(logs, "TAE Login", "error", "Token não retornado");
       return respondWithLogs(logs, {}, 500);
     }
-    log(logs, "TAE Login", "ok", "Login TAE realizado com sucesso");
+    log(logs, "TAE Login", "ok", "Login realizado");
 
     // 6. P1.2: Resolve publication ID if missing
     if (!taePublicationId && taeDocumentId) {
-      log(logs, "TAE Resolução", "info", `Sem publication ID. Tentando resolver a partir do document ID ${taeDocumentId}...`);
+      log(logs, "TAE Resolução", "info", `Resolvendo publication ID do document ${taeDocumentId}...`);
       try {
         const siRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${taeToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" },
           body: JSON.stringify([Number(taeDocumentId)]),
         });
         if (siRes.ok) {
           const siRaw = await siRes.text();
           let siParsed: any;
-          try { siParsed = JSON.parse(siRaw); } catch { /* ignore */ }
+          try { siParsed = JSON.parse(siRaw); } catch { /* */ }
           const siData = siParsed?.data || siParsed;
           const items = Array.isArray(siData) ? siData : [siData];
           const match = items.find((item: any) =>
@@ -186,67 +187,51 @@ Deno.serve(async (req) => {
             if (resolved) {
               taePublicationId = resolved;
               log(logs, "TAE Resolução", "ok", `Publication ID resolvido: ${taePublicationId}`);
-              // Persist the resolved publication ID
-              await adminSupabase
-                .from("proposal_signatures")
+              // Persist resolved ID
+              await adminSupabase.from("proposal_signatures")
                 .update({ tae_publication_id: taePublicationId })
                 .eq("id", sigRecord.id);
             }
           }
         }
       } catch (e: any) {
-        log(logs, "TAE Resolução", "info", `Falha na resolução: ${e.message}`);
+        log(logs, "TAE Resolução", "info", `Falha: ${e.message}`);
       }
     }
 
-    // 7. Cancel publication in TAE using POST /v1/publicacoes/{id}/cancelar
-    // P1.2: MUST use tae_publication_id — never use tae_document_id for this endpoint
+    // 7. Cancel publication in TAE
     let cancelRes: Response | null = null;
     let cancelRaw = "";
 
     if (taePublicationId) {
-      log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${taePublicationId} no TAE via POST /v1/publicacoes/{id}/cancelar...`);
-
+      log(logs, "TAE Cancelamento", "info", `Cancelando publicação ${taePublicationId}...`);
       cancelRes = await fetch(`${baseUrl}/documents/v1/publicacoes/${taePublicationId}/cancelar`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${taeToken}`,
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${taeToken}`, Accept: "application/json", "Content-Type": "application/json" },
       });
-
       cancelRaw = await cancelRes.text();
 
       if (cancelRes.ok) {
-        log(logs, "TAE Cancelamento", "ok", `Publicação cancelada no TAE com sucesso`);
+        log(logs, "TAE Cancelamento", "ok", "Cancelado no TAE");
       } else if (cancelRes.status === 400) {
-        log(logs, "TAE Cancelamento", "info", `TAE retornou 400: ${cancelRaw.substring(0, 300)}. O documento pode já estar finalizado/cancelado. Prosseguindo com cancelamento local.`);
-      } else if (cancelRes.status === 403 || cancelRes.status === 401) {
-        log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: sem permissão para cancelar. Prosseguindo com cancelamento local.`);
+        log(logs, "TAE Cancelamento", "info", `TAE 400: ${cancelRaw.substring(0, 300)}. Pode já estar finalizado/cancelado.`);
       } else {
-        log(logs, "TAE Cancelamento", "info", `TAE retornou ${cancelRes.status}: ${cancelRaw.substring(0, 300)}. Prosseguindo com cancelamento local.`);
+        log(logs, "TAE Cancelamento", "info", `TAE ${cancelRes.status}: ${cancelRaw.substring(0, 300)}.`);
       }
     } else {
-      // P1.2: Could not resolve publication ID — cancel locally only and log structured warning
-      log(logs, "TAE Cancelamento", "info", `Não foi possível resolver o publication ID (document ID: ${taeDocumentId}). Cancelamento remoto não pôde ser confirmado. Apenas cancelamento local será executado.`);
+      log(logs, "TAE Cancelamento", "info", `Publication ID não resolvido (doc: ${taeDocumentId}). Apenas cancelamento local.`);
     }
 
-    // 8. Update local records regardless of TAE result
-    await adminSupabase
-      .from("proposal_signatures")
+    // 8. Update local records
+    await adminSupabase.from("proposal_signatures")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", sigRecord.id);
 
-    // P1.3: Real TAE send occurred → revert to pendente
-    await adminSupabase
-      .from("proposals")
-      .update({ status: "pendente" })
-      .eq("id", proposalId);
+    // P1.3: Real TAE send → pendente
+    await adminSupabase.from("proposals").update({ status: "pendente" }).eq("id", proposalId);
 
-    log(logs, "Finalização", "ok", "Processo de assinatura cancelado. Status voltou para Pendente.");
+    log(logs, "Finalização", "ok", "Cancelado. Status → Pendente.");
 
-    // Log signature event
     const cancelSuccess = cancelRes?.ok ?? false;
     await adminSupabase.from("signature_events").insert({
       signature_id: sigRecord.id,
@@ -254,16 +239,13 @@ Deno.serve(async (req) => {
       event_type: "cancelled",
       title: "Assinatura cancelada pelo usuário",
       description: cancelSuccess
-        ? "O processo foi cancelado no TAE e localmente. Status revertido para Pendente."
+        ? "Cancelado no TAE e localmente. Status → Pendente."
         : taePublicationId
-          ? "Cancelamento local realizado. O TAE pode requerer cancelamento manual."
-          : "Cancelamento local realizado. Não foi possível resolver o publication ID para cancelamento remoto.",
+          ? "Cancelamento local. TAE pode requerer cancelamento manual."
+          : "Cancelamento local. Publication ID não resolvido.",
     });
 
-    return respondWithLogs(logs, {
-      cancelled: true,
-      taeStatus: cancelSuccess ? "cancelled_in_tae" : "local_only",
-    });
+    return respondWithLogs(logs, { cancelled: true, taeStatus: cancelSuccess ? "cancelled_in_tae" : "local_only" });
   } catch (err: any) {
     log(logs, "Erro inesperado", "error", err.message);
     return respondWithLogs(logs, {}, 500);

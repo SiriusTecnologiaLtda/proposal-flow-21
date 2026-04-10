@@ -182,6 +182,8 @@ const scopeIconHeuristic: [RegExp, string][] = [
   [/rh|folha|ponto|pessoal|trabalh/i, "Heart"],
   [/migra[çc]/i, "Route"],
   [/seguran[çc]|complian/i, "ShieldCheck"],
+  [/opera|workflow|processo|automa/i, "Settings"],
+  [/vendas|comercial|crm/i, "Rocket"],
 ];
 
 function inferIcon(title: string, index: number): string {
@@ -192,18 +194,47 @@ function inferIcon(title: string, index: number): string {
   return fallbacks[index % fallbacks.length];
 }
 
-// ── Executive objective heuristic ───────────────────────────────────
+// ── Executive narrative heuristics ──────────────────────────────────
+// Maps group title keywords → commercial objective
+const objectiveHeuristic: [RegExp, string][] = [
+  [/contab|cont[aá]bil/i, "Estruturar a gestão contábil com automação de lançamentos, conciliações e fechamentos."],
+  [/fiscal|tribut/i, "Garantir conformidade fiscal com apuração automatizada de impostos e obrigações acessórias."],
+  [/rh|folha|ponto|pessoal/i, "Modernizar a gestão de pessoas com folha automatizada, controle de ponto e conformidade trabalhista."],
+  [/financ|fatura|concilia|dre/i, "Garantir controle financeiro integrado com visibilidade em tempo real sobre receitas e custos."],
+  [/dashboard|bi|kpi|indicador/i, "Fornecer visibilidade executiva por meio de indicadores estratégicos e relatórios personalizados."],
+  [/treina|onboard|suporte|capacita/i, "Assegurar a adoção efetiva pela equipe por meio de capacitação estruturada e suporte dedicado."],
+  [/integra[çc]/i, "Conectar sistemas e eliminar silos de informação, garantindo fluxo de dados consistente."],
+  [/operacion|workflow|processo/i, "Automatizar e otimizar processos operacionais, eliminando controles manuais e reduzindo erros."],
+  [/migra[çc]/i, "Migrar dados com segurança e integridade, garantindo continuidade operacional."],
+];
+
+const impactHeuristic: [RegExp, string][] = [
+  [/contab|cont[aá]bil/i, "Fechamentos mais ágeis e redução de riscos em obrigações legais."],
+  [/fiscal|tribut/i, "Conformidade garantida com redução de riscos fiscais e multas."],
+  [/rh|folha|ponto|pessoal/i, "Conformidade trabalhista e eficiência na gestão do capital humano."],
+  [/financ|fatura|concilia|dre/i, "Maior previsibilidade financeira e redução de perdas por inconsistências."],
+  [/dashboard|bi|kpi|indicador/i, "Decisões mais rápidas e fundamentadas com dados atualizados em tempo real."],
+  [/treina|onboard|suporte/i, "Equipe preparada para operar com autonomia e extrair o máximo da solução."],
+  [/integra[çc]/i, "Eliminação de digitação duplicada e ganho de confiabilidade nos dados."],
+  [/operacion|workflow|processo/i, "Redução de retrabalho e ganho de produtividade na operação diária."],
+];
+
 function inferExecutiveObjective(group: ProjectScopeGroup): string {
-  const topItems = group.items.filter((i) => i.included).slice(0, 3);
-  if (topItems.length === 0) return "Entregáveis definidos no escopo do projeto.";
-  const actions = topItems.map((i) => i.description.toLowerCase()).join(", ");
-  return `Estruturar e entregar: ${actions}.`;
+  for (const [re, text] of objectiveHeuristic) {
+    if (re.test(group.title)) return text;
+  }
+  // Generic but still executive
+  const count = group.items.filter((i) => i.included).length;
+  return `Frente de trabalho com ${count} entregáveis planejados para esta etapa do projeto.`;
 }
 
 function inferExpectedImpact(group: ProjectScopeGroup): string {
-  if (group.totalHours >= 200) return "Frente estratégica com alto volume de entregáveis — impacto direto na operação.";
-  if (group.totalHours >= 100) return "Frente relevante com impacto significativo na eficiência operacional.";
-  return "Frente complementar que fortalece o resultado global do projeto.";
+  for (const [re, text] of impactHeuristic) {
+    if (re.test(group.title)) return text;
+  }
+  if (group.totalHours >= 200) return "Impacto estratégico na operação — frente com volume significativo de entregáveis.";
+  if (group.totalHours >= 100) return "Contribuição relevante para a eficiência e a qualidade operacional.";
+  return "Fortalece o resultado global da iniciativa com entregáveis complementares.";
 }
 
 // ── Composition helper ──────────────────────────────────────────────
@@ -218,10 +249,10 @@ export function composePresentation(
         title: g.title,
         description: inferExecutiveObjective(g),
         icon: inferIcon(g.title, i),
-        items: g.items.filter((it) => it.included).slice(0, 6).map((it) => it.description),
+        items: g.items.filter((it) => it.included).slice(0, 5).map((it) => it.description),
         executiveObjective: inferExecutiveObjective(g),
         expectedImpact: inferExpectedImpact(g),
-        volumeSummary: `${g.totalHours}h · ${g.itemCount} entregáveis`,
+        volumeSummary: `${g.totalHours}h estimadas`,
       }))
     : [];
 

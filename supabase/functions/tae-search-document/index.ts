@@ -42,93 +42,60 @@ Deno.serve(async (req) => {
     const loginData = await loginRes.json();
     const taeToken = loginData.access_token || loginData.token || loginData.data?.access_token || loginData.data?.token;
 
-    const results: any = {};
     const h = { Authorization: `Bearer ${taeToken}`, "Content-Type": "application/json" };
 
-    // Try /documents/v1/publicacoes (the actual endpoint used by tae-send-signature)
-    const listEndpoints = [
-      `${baseUrl}/documents/v1/publicacoes`,
-      `${baseUrl}/documents/v1/publicacoes?page=1&pageSize=50`,
-      // Try with POST to see if there's a search endpoint
-    ];
-    
-    for (let i = 0; i < listEndpoints.length; i++) {
-      const res = await fetch(listEndpoints[i], { headers: h });
+    // Search in batches from 13996386 upwards (increments of 200)
+    const startId = 13996387;
+    const results: any = { batches: [], allFound: [] };
+
+    for (let batch = 0; batch < 10; batch++) {
+      const ids = [];
+      const batchStart = startId + (batch * 200);
+      for (let i = 0; i < 200; i++) {
+        ids.push(batchStart + i);
+      }
+      
+      const res = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
+        method: "POST", headers: h,
+        body: JSON.stringify(ids),
+      });
       const raw = await res.text();
-      results[`list_${i}`] = { url: listEndpoints[i], status: res.status, body: raw.substring(0, 1000) };
-    }
-
-    // Try POST search to publicacoes
-    try {
-      const res = await fetch(`${baseUrl}/documents/v1/publicacoes/search`, {
-        method: "POST", headers: h,
-        body: JSON.stringify({ nome: "507346" }),
-      });
-      results["search_publicacoes"] = { status: res.status, body: (await res.text()).substring(0, 500) };
-    } catch (e: any) { results["search_publicacoes"] = { error: e.message }; }
-
-    // Try /documents/v1/documentos/search
-    try {
-      const res = await fetch(`${baseUrl}/documents/v1/documentos/search`, {
-        method: "POST", headers: h,
-        body: JSON.stringify({ nome: "507346" }),
-      });
-      results["search_documentos"] = { status: res.status, body: (await res.text()).substring(0, 500) };
-    } catch (e: any) { results["search_documentos"] = { error: e.message }; }
-
-    // Try direct ID guesses (sequential IDs near recent ones from other signatures)
-    // First check what other signature records have TAE IDs
-    const { data: otherSigs } = await admin
-      .from("proposal_signatures")
-      .select("id, tae_document_id, tae_publication_id, created_at")
-      .not("tae_document_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(5);
-    
-    results["other_signatures"] = otherSigs;
-
-    // If we have other document IDs, try nearby IDs
-    if (otherSigs && otherSigs.length > 0) {
-      const knownDocId = parseInt(otherSigs[0].tae_document_id || "0");
-      if (knownDocId > 0) {
-        // Try a range of IDs around the known one
-        const tryIds = [];
-        for (let offset = -20; offset <= 20; offset++) {
-          tryIds.push(knownDocId + offset);
-        }
+      let parsed: any;
+      try { parsed = JSON.parse(raw); } catch { parsed = null; }
+      
+      if (parsed && res.ok) {
+        const data = parsed?.data || parsed;
+        const items = Array.isArray(data) ? data : data ? [data] : [];
         
-        // Use the signintegration batch endpoint
-        const batchRes = await fetch(`${baseUrl}/signintegration/v2/Publicacoes/documentos-empresa`, {
-          method: "POST", headers: h,
-          body: JSON.stringify(tryIds),
-        });
-        const batchRaw = await batchRes.text();
-        let batchParsed: any;
-        try { batchParsed = JSON.parse(batchRaw); } catch { batchParsed = null; }
-        
-        if (batchParsed) {
-          const data = batchParsed?.data || batchParsed;
-          const items = Array.isArray(data) ? data : [data];
-          const matches = items.filter((item: any) => {
-            const str = JSON.stringify(item).toLowerCase();
-            return str.includes("507346") || str.includes("tracomal");
-          });
-          results["batch_search"] = {
-            status: batchRes.status,
-            knownDocId,
-            totalReturned: items.length,
-            matchCount: matches.length,
-            matches: matches.length > 0 ? matches : undefined,
-            allItems: items.map((item: any) => ({
-              id: item?.id || item?.idDocumento || item?.documentoId,
+        if (items.length > 0) {
+          for (const item of items) {
+            const info = {
+              idDocumento: item?.idDocumento || item?.id,
               nome: item?.nome || item?.nomeDocumento,
               status: item?.status,
-              pubId: item?.idPublicacao || item?.publicacaoId,
-            })),
-          };
-        } else {
-          results["batch_search"] = { status: batchRes.status, raw: batchRaw.substring(0, 500) };
+              idPublicacao: item?.idPublicacao || item?.publicacaoId,
+              raw: JSON.stringify(item).substring(0, 500),
+            };
+            results.allFound.push(info);
+            
+            const str = JSON.stringify(item).toLowerCase();
+            if (str.includes("507346") || str.includes("tracomal")) {
+              results.match = item;
+            }
+          }
         }
+        
+        results.batches.push({ 
+          range: `${batchStart}-${batchStart + 199}`, 
+          status: res.status, 
+          found: items.length 
+        });
+      } else {
+        results.batches.push({ 
+          range: `${batchStart}-${batchStart + 199}`, 
+          status: res.status,
+          body: (raw || "").substring(0, 200)
+        });
       }
     }
 

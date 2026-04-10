@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
       }, signer.dataAssinatura || null);
     }
 
-    // ─── Log event (with dedicated payload_hash column) ─────────
+    // ─── Log event (no payload_hash — receipt already holds it) ────
     async function logEvent(eventType: string, title: string, description: string) {
       await supabase.from("signature_events").insert({
         signature_id: sigRecord.id,
@@ -328,7 +328,6 @@ Deno.serve(async (req) => {
         event_type: eventType,
         title,
         description,
-        payload_hash: payloadHash,
       });
     }
 

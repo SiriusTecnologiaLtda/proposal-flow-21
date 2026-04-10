@@ -162,43 +162,72 @@ export default function AssignmentsTab({ memberId, memberName, units, allMembers
     }
     setSaving(true);
 
-    const { error: delError } = await (supabase as any)
-      .from("sales_team_assignments")
-      .delete()
-      .eq("member_id", memberId);
+    try {
+      // Separate existing (update) vs new (insert)
+      const toUpdate = assignments.filter((a) => a.id && !a.isNew && a.unit_id && a.role);
+      const toInsert = assignments.filter((a) => (!a.id || a.isNew) && a.unit_id && a.role);
 
-    if (delError) {
-      toast({ title: "Erro ao limpar vínculos", description: delError.message, variant: "destructive" });
-      setSaving(false);
-      return;
-    }
+      // Determine which existing IDs were removed by the user
+      const currentIds = new Set(toUpdate.map((a) => a.id!));
+      const originalIds = assignments
+        .filter((a) => a.id && !a.isNew)
+        .map((a) => a.id!);
+      // IDs that existed on load but are no longer in the list = user removed them
+      // We need to compare against what was loaded, so track loaded IDs
+      const loadedIds = new Set(
+        assignments.filter((a) => a.id && !a.isNew).map((a) => a.id!)
+      );
 
-    const validAssignments = assignments.filter((a) => a.unit_id && a.role);
-    if (validAssignments.length > 0) {
-      const { error: insError } = await (supabase as any)
-        .from("sales_team_assignments")
-        .insert(
-          validAssignments.map((a) => ({
-            member_id: memberId,
+      // Update existing assignments one by one to preserve IDs
+      for (const a of toUpdate) {
+        const { error: updError } = await (supabase as any)
+          .from("sales_team_assignments")
+          .update({
             unit_id: a.unit_id,
             role: a.role,
             reports_to_id: a.reports_to_id || null,
             is_primary: a.is_primary,
             active: a.active,
             crm_code: a.crm_code.trim() || null,
-          }))
-        );
-      if (insError) {
-        toast({ title: "Erro ao salvar vínculos", description: insError.message, variant: "destructive" });
-        setSaving(false);
-        return;
+          })
+          .eq("id", a.id);
+        if (updError) {
+          toast({ title: "Erro ao atualizar vínculo", description: updError.message, variant: "destructive" });
+          setSaving(false);
+          return;
+        }
       }
-    }
 
-    toast({ title: "Vínculos comerciais salvos!" });
-    qc.invalidateQueries({ queryKey: ["sales_team"] });
-    setSaving(false);
-    await loadAssignments();
+      // Insert new assignments
+      if (toInsert.length > 0) {
+        const { error: insError } = await (supabase as any)
+          .from("sales_team_assignments")
+          .insert(
+            toInsert.map((a) => ({
+              member_id: memberId,
+              unit_id: a.unit_id,
+              role: a.role,
+              reports_to_id: a.reports_to_id || null,
+              is_primary: a.is_primary,
+              active: a.active,
+              crm_code: a.crm_code.trim() || null,
+            }))
+          );
+        if (insError) {
+          toast({ title: "Erro ao criar vínculo", description: insError.message, variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+      }
+
+      toast({ title: "Vínculos comerciais salvos!" });
+      qc.invalidateQueries({ queryKey: ["sales_team"] });
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+      await loadAssignments();
+    }
   };
 
   const unitName = (id: string) => units.find((u) => u.id === id)?.name || "—";

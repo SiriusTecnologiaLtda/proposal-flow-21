@@ -1918,6 +1918,81 @@ export default function ProposalCreate() {
               </div>
             </div>
           </div>
+
+          {/* ── Contexto para Apresentação Executiva ────────────────── */}
+          <Collapsible open={execContextOpen} onOpenChange={setExecContextOpen}>
+            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <button className="flex w-full items-center justify-between p-5 text-left hover:bg-accent/30 transition-colors">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    Contexto para Apresentação Executiva
+                    <Badge variant="outline" className="ml-2 text-[10px] font-normal text-muted-foreground">Opcional</Badge>
+                  </div>
+                  {execContextOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="border-t border-border px-5 pb-5 pt-4 space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Essas informações enriquecem a geração da apresentação executiva para reuniões comerciais. Todos os campos são opcionais.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Dor principal do cliente</Label>
+                    <Textarea rows={3} placeholder="Qual o principal problema ou desafio que o cliente enfrenta hoje?" value={mainPain} onChange={(e) => setMainPain(e.target.value)} className="resize-none" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Objetivos do cliente</Label>
+                    <div className="space-y-2">
+                      {objectives.map((obj, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Input
+                            value={obj}
+                            onChange={(e) => {
+                              const next = [...objectives];
+                              next[idx] = e.target.value;
+                              setObjectives(next);
+                            }}
+                            placeholder={`Objetivo ${idx + 1}`}
+                          />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setObjectives(objectives.filter((_, i) => i !== idx))}>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setObjectives([...objectives, ""])}>
+                        <Plus className="h-3.5 w-3.5" />Adicionar objetivo
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Cenário atual</Label>
+                    <Textarea rows={3} placeholder="Como o cliente opera hoje? Quais processos ou sistemas estão envolvidos?" value={currentScenario} onChange={(e) => setCurrentScenario(e.target.value)} className="resize-none" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Por que agir agora</Label>
+                    <Textarea rows={2} placeholder="Qual a urgência ou motivador para essa iniciativa?" value={whyActNow} onChange={(e) => setWhyActNow(e.target.value)} className="resize-none" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Resumo da solução proposta</Label>
+                    <Textarea rows={2} placeholder="Visão geral da solução em linguagem comercial..." value={solutionSummary} onChange={(e) => setSolutionSummary(e.target.value)} className="resize-none" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Como a solução resolve</Label>
+                    <Textarea rows={3} placeholder="Como a solução endereça a dor e os objetivos do cliente?" value={solutionHow} onChange={(e) => setSolutionHow(e.target.value)} className="resize-none" />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </div>
       )}
 

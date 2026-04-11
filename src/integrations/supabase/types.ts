@@ -839,6 +839,7 @@ export type Database = {
           drive_folder_id: string
           id: string
           is_default: boolean
+          knowledge_folder_id: string | null
           label: string
           oauth_client_id: string | null
           oauth_client_secret: string | null
@@ -855,6 +856,7 @@ export type Database = {
           drive_folder_id: string
           id?: string
           is_default?: boolean
+          knowledge_folder_id?: string | null
           label: string
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
@@ -871,6 +873,7 @@ export type Database = {
           drive_folder_id?: string
           id?: string
           is_default?: boolean
+          knowledge_folder_id?: string | null
           label?: string
           oauth_client_id?: string | null
           oauth_client_secret?: string | null
@@ -2318,6 +2321,103 @@ export type Database = {
           },
           {
             foreignKeyName: "scope_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "scope_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scope_template_knowledge: {
+        Row: {
+          commercial_description: string
+          created_at: string
+          executive_benefits: Json
+          executive_notes: string
+          extracted_at: string | null
+          extraction_status: string
+          generation_preprompt: string
+          id: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          commercial_description?: string
+          created_at?: string
+          executive_benefits?: Json
+          executive_notes?: string
+          extracted_at?: string | null
+          extraction_status?: string
+          generation_preprompt?: string
+          id?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          commercial_description?: string
+          created_at?: string
+          executive_benefits?: Json
+          executive_notes?: string
+          extracted_at?: string | null
+          extraction_status?: string
+          generation_preprompt?: string
+          id?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_template_knowledge_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "scope_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scope_template_sources: {
+        Row: {
+          created_at: string
+          drive_file_id: string | null
+          drive_file_name: string | null
+          error_message: string | null
+          id: string
+          label: string
+          processed_at: string | null
+          source_type: string
+          status: string
+          template_id: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_file_name?: string | null
+          error_message?: string | null
+          id?: string
+          label?: string
+          processed_at?: string | null
+          source_type: string
+          status?: string
+          template_id: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_file_name?: string | null
+          error_message?: string | null
+          id?: string
+          label?: string
+          processed_at?: string | null
+          source_type?: string
+          status?: string
+          template_id?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_template_sources_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "scope_templates"

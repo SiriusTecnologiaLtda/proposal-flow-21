@@ -36,6 +36,7 @@ export default function ExecutiveKnowledgeStep({ templateId }: Props) {
   const addSource = useAddScopeTemplateSource();
   const deleteSource = useDeleteScopeTemplateSource();
 
+  const [initialized, setInitialized] = useState(false);
   const [preprompt, setPreprompt] = useState("");
   const [commercialDesc, setCommercialDesc] = useState("");
   const [executiveNotes, setExecutiveNotes] = useState("");
@@ -52,13 +53,16 @@ export default function ExecutiveKnowledgeStep({ templateId }: Props) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (knowledge) {
+    if (knowledge && !initialized) {
       setPreprompt(knowledge.generation_preprompt || "");
       setCommercialDesc(knowledge.commercial_description || "");
       setExecutiveNotes(knowledge.executive_notes || "");
       setBenefits(Array.isArray(knowledge.executive_benefits) ? (knowledge.executive_benefits as string[]) : []);
+      setInitialized(true);
+    } else if (!knowledge && !initialized) {
+      setInitialized(true);
     }
-  }, [knowledge]);
+  }, [knowledge, initialized]);
 
   useEffect(() => {
     if (knowledge?.extraction_status === "processing") {
@@ -69,6 +73,7 @@ export default function ExecutiveKnowledgeStep({ templateId }: Props) {
       }, 3000);
     } else {
       setExtracting(false);
+      setInitialized(false);
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;

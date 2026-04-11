@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { PresentationTypeConfig } from "@/data/executivePresentationData";
+import type { PresentationTypeConfig, OpportunityData, LinkedProject, ProjectScopeGroup } from "@/data/executivePresentationData";
 
 // ── Presentation Type Config (per proposal_type) ─────────────────────
 
@@ -183,5 +183,160 @@ export function useClientEnrichment(clientId: string | undefined) {
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ── Transform a real proposal into OpportunityData ───────────────────
+
+export function useProposalAsOpportunity(proposalId: string | undefined) {
+  return useQuery({
+    queryKey: ["proposal_as_opportunity", proposalId],
+    queryFn: async (): Promise<OpportunityData | null> => {
+      if (!proposalId) return null;
+
+      // 1. Fetch proposal + client + proposal_type
+      const { data: proposal, error: pErr } = await supabase
+        .from("proposals")
+        .select(`
+          id, number, description, client_id, expected_close_date, status, type, product,
+          main_pain, objectives, current_scenario, why_act_now, solution_summary, solution_how,
+          hourly_rate, created_at,
+          clients!inner(name, cnpj, website, logo_url, institutional_description, strategic_notes)
+        `)
+        .eq("id", proposalId)
+        .maybeSingle();
+      if (pErr) throw pErr;
+      if (!proposal) return null;
+
+      // Resolve proposal_type by slug (proposal.type)
+      const { data: proposalType } = await supabase
+        .from("proposal_types")
+        .select("id, name, slug")
+        .eq("slug", proposal.type)
+        .maybeSingle();
+
+      const client = proposal.clients as any;
+
+      // 2. Fetch linked project
+      let linkedProject: LinkedProject | undefined;
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id, description, status, group_notes")
+        .eq("proposal_id", proposalId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const project = projects?.[0];
+      if (project) {
+        // Fetch scope items
+        const { data: scopeItems = [] } = await supabase
+          .from("project_scope_items")
+          .select("id, description, hours, included, parent_id, phase, sort_order")
+          .eq("project_id", project.id)
+          .order("sort_order");
+
+        // Group by phase
+        const phaseMap = new Map<number, typeof scopeItems>();
+        for (const item of scopeItems) {
+          const phase = item.phase ?? 1;
+          if (!phaseMap.has(phase)) phaseMap.set(phase, []);
+          phaseMap.get(phase)!.push(item);
+        }
+
+        const groupNotes = (project.group_notes as any) ?? {};
+        const scopeGroups: ProjectScopeGroup[] = [];
+
+        for (const [phase, items] of Array.from(phaseMap.entries()).sort((a, b) => a[0] - b[0])) {
+          // Title from the first parent item (parent_id null) or fallback
+          const parentItem = items
+            .filter((i) => !i.parent_id)
+            .sort((a, b) => a.sort_order - b.sort_order)[0];
+          const title = parentItem?.description || `Fase ${phase}`;
+
+          const includedItems = items.filter((i) => i.included);
+
+          // Executive fields from group_notes
+          const phaseKey = `fase_${phase}`;
+          const phaseNotes = groupNotes?.grupos?.[phaseKey] ?? groupNotes?.[phaseKey] ?? {};
+
+          scopeGroups.push({
+            id: `phase_${phase}`,
+            title,
+            source: "project",
+            itemCount: includedItems.length,
+            totalHours: includedItems.reduce((sum, i) => sum + (i.hours ?? 0), 0),
+            items: items.map((i) => ({
+              id: i.id,
+              description: i.description,
+              hours: i.hours ?? 0,
+              included: i.included,
+            })),
+            executiveObjective: phaseNotes.executive_objective || undefined,
+            expectedImpact: phaseNotes.expected_impact || undefined,
+            executiveSummary: phaseNotes.executive_summary || undefined,
+          });
+        }
+
+        linkedProject = {
+          id: project.id,
+          description: project.description || "",
+          status: project.status,
+          scopeGroups,
+          totalHours: scopeGroups.reduce((s, g) => s + g.totalHours, 0),
+          totalItems: scopeGroups.reduce((s, g) => s + g.itemCount, 0),
+        };
+      }
+
+      // 3. Calculate investmentTotal from macro_scope
+      let investmentTotal = 0;
+      const { data: macroScope } = await supabase
+        .from("proposal_macro_scope")
+        .select("analyst_hours, gp_hours")
+        .eq("proposal_id", proposalId);
+
+      if (macroScope && macroScope.length > 0) {
+        const totalHours = macroScope.reduce(
+          (sum, row) => sum + (row.analyst_hours ?? 0) + (row.gp_hours ?? 0),
+          0
+        );
+        investmentTotal = totalHours * (proposal.hourly_rate ?? 0);
+      }
+
+      // 4. Build OpportunityData
+      const objectives = Array.isArray(proposal.objectives)
+        ? (proposal.objectives as string[])
+        : [];
+
+      return {
+        id: proposal.id,
+        company: client?.name ?? "",
+        contact: "",
+        contactRole: "",
+        segment: "",
+        opportunityTypeSlug: proposalType?.slug ?? "",
+        opportunityTypeLabel: proposalType?.name ?? proposal.type ?? "",
+        stage: proposal.status,
+        mainPain: (proposal as any).main_pain ?? "",
+        objectives,
+        currentScenario: (proposal as any).current_scenario ?? "",
+        whyActNow: (proposal as any).why_act_now ?? "",
+        solutionSummary: (proposal as any).solution_summary ?? "",
+        solutionHow: (proposal as any).solution_how ?? "",
+        scopeBlocks: [],
+        benefits: [],
+        timeline: [],
+        investmentTotal,
+        investmentSetup: undefined,
+        investmentRecurring: undefined,
+        differentiators: [],
+        nextStep: "",
+        nextStepCta: "",
+        createdAt: proposal.created_at,
+        expectedCloseDate: proposal.expected_close_date ?? "",
+        linkedProject,
+      };
+    },
+    enabled: !!proposalId,
+    staleTime: 60 * 1000,
   });
 }

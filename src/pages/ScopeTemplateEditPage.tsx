@@ -56,6 +56,13 @@ export default function ScopeTemplateEditPage() {
 
   const existingTemplate = useMemo(() => allTemplates.find((t: any) => t.id === id), [allTemplates, id]);
 
+  const steps = useMemo(() => {
+    if (isEditing) {
+      return [...baseSteps, { id: 3, label: "Base Executiva", icon: Sparkles }];
+    }
+    return baseSteps;
+  }, [isEditing]);
+
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState({ name: "", product: "", category: "" });
   const [status, setStatus] = useState("em_revisao");

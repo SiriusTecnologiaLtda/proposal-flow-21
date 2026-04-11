@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { PresentationTypeConfig } from "@/data/executivePresentationData";
+import type { PresentationTypeConfig, OpportunityData, LinkedProject, ProjectScopeGroup } from "@/data/executivePresentationData";
 
 // ── Presentation Type Config (per proposal_type) ─────────────────────
 

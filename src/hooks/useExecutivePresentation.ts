@@ -308,7 +308,6 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
 
       if (serviceItems && serviceItems.length > 0) {
         investmentTotal = serviceItems
-          .filter((si) => si.is_base_scope)
           .reduce((sum, si) => sum + (si.calculated_hours ?? 0) * (si.hourly_rate ?? 0), 0);
       } else if (macroScope && macroScope.length > 0) {
         const totalHours = macroScope.reduce(

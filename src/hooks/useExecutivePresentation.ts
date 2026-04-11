@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { PresentationTypeConfig, OpportunityData, LinkedProject, ProjectScopeGroup } from "@/data/executivePresentationData";
+import type { PresentationTypeConfig, OpportunityData, LinkedProject, ProjectScopeGroup, TemplateKnowledge } from "@/data/executivePresentationData";
 
 // ── Presentation Type Config (per proposal_type) ─────────────────────
 
@@ -186,6 +186,156 @@ export function useClientEnrichment(clientId: string | undefined) {
   });
 }
 
+// ── Scope grouping helper ───────────────────────────────────────────
+
+interface RawScopeItem {
+  id: string;
+  description: string;
+  hours: number;
+  included: boolean;
+  parent_id: string | null;
+  template_id: string | null;
+  sort_order: number;
+  phase?: number;
+}
+
+async function buildScopeGroups(
+  items: RawScopeItem[],
+  groupNotes: any,
+  source: "project" | "proposal",
+): Promise<ProjectScopeGroup[]> {
+  if (!items || items.length === 0) return [];
+
+  // Step 2: Separate parents and children
+  const parents = items.filter((i) => !i.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+  const childrenByParent = new Map<string, RawScopeItem[]>();
+  for (const item of items) {
+    if (item.parent_id) {
+      if (!childrenByParent.has(item.parent_id)) childrenByParent.set(item.parent_id, []);
+      childrenByParent.get(item.parent_id)!.push(item);
+    }
+  }
+
+  // Step 3: Determine groupKey for each parent
+  const processGroupMap: Record<string, string> = groupNotes?._process_group_map ?? {};
+  const groupOrder: string[] = groupNotes?._group_order ?? [];
+  const manualGroups: Record<string, string> = groupNotes?._manual_groups ?? {};
+
+  const groupedParents = new Map<string, RawScopeItem[]>();
+
+  for (const parent of parents) {
+    let groupKey: string;
+    if (parent.template_id) {
+      groupKey = parent.template_id;
+    } else if (processGroupMap[parent.id]) {
+      groupKey = processGroupMap[parent.id];
+    } else {
+      groupKey = "_ungrouped";
+    }
+    if (!groupedParents.has(groupKey)) groupedParents.set(groupKey, []);
+    groupedParents.get(groupKey)!.push(parent);
+  }
+
+  // Step 5: Sort groups by _group_order
+  const sortedGroupKeys = Array.from(groupedParents.keys()).sort((a, b) => {
+    const idxA = groupOrder.indexOf(a);
+    const idxB = groupOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return 0;
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
+  // Step 7: Collect unique template_ids for name resolution and knowledge
+  const templateIds = sortedGroupKeys.filter(
+    (k) => k !== "_ungrouped" && !manualGroups[k] && k.match(/^[0-9a-f-]{36}$/i)
+  );
+
+  let templateNameMap = new Map<string, string>();
+  let knowledgeMap = new Map<string, TemplateKnowledge>();
+
+  if (templateIds.length > 0) {
+    const [templatesResult, knowledgeResult] = await Promise.all([
+      supabase
+        .from("scope_templates")
+        .select("id, name")
+        .in("id", templateIds),
+      supabase
+        .from("scope_template_knowledge")
+        .select("template_id, commercial_description, executive_benefits, executive_notes")
+        .in("template_id", templateIds),
+    ]);
+
+    for (const t of templatesResult.data ?? []) {
+      templateNameMap.set(t.id, t.name);
+    }
+    for (const k of knowledgeResult.data ?? []) {
+      const templateName = templateNameMap.get(k.template_id) ?? "";
+      knowledgeMap.set(k.template_id, {
+        template_id: k.template_id,
+        template_name: templateName,
+        commercial_description: k.commercial_description ?? "",
+        executive_benefits: Array.isArray(k.executive_benefits) ? (k.executive_benefits as string[]) : [],
+        executive_notes: k.executive_notes ?? "",
+      });
+    }
+  }
+
+  // Step 6 & 8: Build groups
+  const scopeGroups: ProjectScopeGroup[] = [];
+  let ungroupedIdx = 0;
+
+  for (const groupKey of sortedGroupKeys) {
+    const groupParents = groupedParents.get(groupKey)!;
+
+    // Collect all items (parents + their children)
+    const allItems: RawScopeItem[] = [];
+    for (const p of groupParents) {
+      allItems.push(p);
+      const children = childrenByParent.get(p.id) ?? [];
+      allItems.push(...children.sort((a, b) => a.sort_order - b.sort_order));
+    }
+
+    // Title resolution (Step 6)
+    let title: string;
+    if (templateNameMap.has(groupKey)) {
+      title = templateNameMap.get(groupKey)!;
+    } else if (manualGroups[groupKey]) {
+      title = manualGroups[groupKey];
+    } else {
+      ungroupedIdx++;
+      title = `Grupo ${ungroupedIdx}`;
+    }
+
+    // Executive notes from group_notes
+    const phaseKey = `fase_${groupParents[0]?.phase ?? 1}`;
+    const grupos = groupNotes?.grupos ?? {};
+    const phaseNotes = grupos[groupKey] ?? grupos[phaseKey] ?? groupNotes?.[groupKey] ?? {};
+
+    const includedItems = allItems.filter((i) => i.included);
+
+    scopeGroups.push({
+      id: groupKey,
+      title,
+      source,
+      itemCount: includedItems.length,
+      totalHours: includedItems.reduce((sum, i) => sum + (i.hours ?? 0), 0),
+      items: allItems.map((i) => ({
+        id: i.id,
+        description: i.description,
+        hours: i.hours ?? 0,
+        included: i.included,
+      })),
+      executiveObjective: phaseNotes.executive_objective || undefined,
+      expectedImpact: phaseNotes.expected_impact || undefined,
+      executiveSummary: phaseNotes.executive_summary || undefined,
+      templateKnowledge: knowledgeMap.get(groupKey),
+    });
+  }
+
+  return scopeGroups;
+}
+
 // ── Transform a real proposal into OpportunityData ───────────────────
 
 export function useProposalAsOpportunity(proposalId: string | undefined) {
@@ -200,7 +350,7 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         .select(`
           id, number, description, client_id, expected_close_date, status, type, product,
           main_pain, objectives, current_scenario, why_act_now, solution_summary, solution_how,
-          hourly_rate, created_at,
+          hourly_rate, created_at, group_notes,
           clients(name, cnpj, website, logo_url, institutional_description, strategic_notes)
         `)
         .eq("id", proposalId)
@@ -227,67 +377,62 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
 
       const proposalType = proposalTypeResult.data;
 
-      // 3. Fetch linked project scope
+      // 3. Build scope groups — prefer project, fallback to proposal
       let linkedProject: LinkedProject | undefined;
-      const projects = projectResult.data;
+      const project = projectResult.data?.[0];
 
-      const project = projects?.[0];
+      let scopeGroups: ProjectScopeGroup[] = [];
+
       if (project) {
-        // Fetch scope items
-        const { data: scopeItems = [] } = await supabase
+        // Fetch project scope items
+        const { data: projectScopeItems = [] } = await supabase
           .from("project_scope_items")
-          .select("id, description, hours, included, parent_id, phase, sort_order")
+          .select("id, description, hours, included, parent_id, template_id, sort_order, phase")
           .eq("project_id", project.id)
           .order("sort_order");
 
-        // Group by phase
-        const phaseMap = new Map<number, typeof scopeItems>();
-        for (const item of scopeItems) {
-          const phase = item.phase ?? 1;
-          if (!phaseMap.has(phase)) phaseMap.set(phase, []);
-          phaseMap.get(phase)!.push(item);
+        scopeGroups = await buildScopeGroups(
+          projectScopeItems as RawScopeItem[],
+          project.group_notes ?? {},
+          "project",
+        );
+
+        if (scopeGroups.length > 0) {
+          linkedProject = {
+            id: project.id,
+            description: project.description || "",
+            status: project.status,
+            scopeGroups,
+            totalHours: scopeGroups.reduce((s, g) => s + g.totalHours, 0),
+            totalItems: scopeGroups.reduce((s, g) => s + g.itemCount, 0),
+          };
         }
+      }
 
-        const groupNotes = (project.group_notes as any) ?? {};
-        const scopeGroups: ProjectScopeGroup[] = [];
+      // Fallback: use proposal_scope_items if no project scope
+      if (!linkedProject) {
+        const { data: proposalScopeItems = [] } = await supabase
+          .from("proposal_scope_items")
+          .select("id, description, hours, included, parent_id, template_id, sort_order, phase")
+          .eq("proposal_id", proposalId)
+          .order("sort_order");
 
-        for (const [phase, items] of Array.from(phaseMap.entries()).sort((a, b) => a[0] - b[0])) {
-          const parentItem = items
-            .filter((i) => !i.parent_id)
-            .sort((a, b) => a.sort_order - b.sort_order)[0];
-          const title = parentItem?.description || `Fase ${phase}`;
+        scopeGroups = await buildScopeGroups(
+          proposalScopeItems as RawScopeItem[],
+          proposal.group_notes ?? {},
+          "proposal",
+        );
 
-          const includedItems = items.filter((i) => i.included);
-
-          const phaseKey = `fase_${phase}`;
-          const phaseNotes = groupNotes?.grupos?.[phaseKey] ?? groupNotes?.[phaseKey] ?? {};
-
-          scopeGroups.push({
-            id: `phase_${phase}`,
-            title,
-            source: "project",
-            itemCount: includedItems.length,
-            totalHours: includedItems.reduce((sum, i) => sum + (i.hours ?? 0), 0),
-            items: items.map((i) => ({
-              id: i.id,
-              description: i.description,
-              hours: i.hours ?? 0,
-              included: i.included,
-            })),
-            executiveObjective: phaseNotes.executive_objective || undefined,
-            expectedImpact: phaseNotes.expected_impact || undefined,
-            executiveSummary: phaseNotes.executive_summary || undefined,
-          });
+        if (scopeGroups.length > 0) {
+          linkedProject = {
+            id: proposalId,
+            description: proposal.description || "",
+            status: proposal.status,
+            scopeGroups,
+            totalHours: scopeGroups.reduce((s, g) => s + g.totalHours, 0),
+            totalItems: scopeGroups.reduce((s, g) => s + g.itemCount, 0),
+          };
         }
-
-        linkedProject = {
-          id: project.id,
-          description: project.description || "",
-          status: project.status,
-          scopeGroups,
-          totalHours: scopeGroups.reduce((s, g) => s + g.totalHours, 0),
-          totalItems: scopeGroups.reduce((s, g) => s + g.itemCount, 0),
-        };
       }
 
       // 4. Calculate investmentTotal: prefer service_items, fallback to macro_scope
@@ -317,7 +462,7 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         investmentTotal = totalHours * (proposal.hourly_rate ?? 0);
       }
 
-      // 4. Build OpportunityData
+      // 5. Build OpportunityData
       const objectives = Array.isArray(proposal.objectives)
         ? (proposal.objectives as string[])
         : [];

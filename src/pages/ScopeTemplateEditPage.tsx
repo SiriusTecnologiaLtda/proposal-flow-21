@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare, Sparkles } from "lucide-react";
+import ExecutiveKnowledgeStep from "@/components/scope-template/ExecutiveKnowledgeStep";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,7 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string }>
   inativo: { label: "Inativo", icon: XCircle, color: "text-muted-foreground" },
 };
 
-const steps = [
+const baseSteps = [
   { id: 1, label: "Dados Gerais", icon: FileText },
   { id: 2, label: "Itens do Escopo", icon: ClipboardList },
 ];

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft, Loader2, Sparkles, Globe, Image } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +67,7 @@ export default function ClientsList() {
     name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
     address: "", state_registration: "", store_code: "",
     unit_id: "", esn_id: "", gsn_id: "",
+    website: "", logo_url: "", institutional_description: "", strategic_notes: "",
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -181,6 +182,10 @@ export default function ClientsList() {
         unit_id: selectedClient.unit_id || "",
         esn_id: selectedClient.esn_id || "",
         gsn_id: selectedClient.gsn_id || "",
+        website: (selectedClient as any).website || "",
+        logo_url: (selectedClient as any).logo_url || "",
+        institutional_description: (selectedClient as any).institutional_description || "",
+        strategic_notes: (selectedClient as any).strategic_notes || "",
       });
     }
   }, [selectedClient, isCreating]);

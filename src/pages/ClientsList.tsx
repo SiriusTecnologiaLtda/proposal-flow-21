@@ -456,15 +456,20 @@ export default function ClientsList() {
                 <FileText className="h-3.5 w-3.5" />Dados Cadastrais
               </TabsTrigger>
               {!isCreating && (
-                <TabsTrigger value="contatos" className="gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  Contatos
-                  {contacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
-                      {contacts.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
+                <>
+                  <TabsTrigger value="contatos" className="gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Contatos
+                    {contacts.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
+                        {contacts.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="perfil" className="gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />Perfil para Apresentações
+                  </TabsTrigger>
+                </>
               )}
             </TabsList>
 

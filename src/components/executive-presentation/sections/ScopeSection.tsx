@@ -84,7 +84,7 @@ export default function ScopeSection({ data }: Props) {
                       <ul className="space-y-1">
                         {block.templateKnowledge.executive_benefits.slice(0, 4).map((benefit, bi) => (
                           <li key={bi} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-primary" />
                             {benefit}
                           </li>
                         ))}

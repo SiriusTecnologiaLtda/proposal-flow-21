@@ -61,10 +61,18 @@ export interface ReferenceAttachment {
 // are explicit fields that should be filled by the user or system.
 // When present, they take priority over any heuristic inference.
 // This is the path to eliminating regex-based guessing.
+export interface TemplateKnowledge {
+  template_id: string;
+  template_name: string;
+  commercial_description: string;
+  executive_benefits: string[];
+  executive_notes: string;
+}
+
 export interface ProjectScopeGroup {
   id: string;
   title: string;
-  /** e.g. "template" or "manual" */
+  /** e.g. "project" or "proposal" */
   source: string;
   itemCount: number;
   totalHours: number;
@@ -75,6 +83,8 @@ export interface ProjectScopeGroup {
   expectedImpact?: string;
   /** Short executive summary of this group */
   executiveSummary?: string;
+  /** Knowledge base data for this template, if available */
+  templateKnowledge?: TemplateKnowledge;
 }
 
 export interface LinkedProject {

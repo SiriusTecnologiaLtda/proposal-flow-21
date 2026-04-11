@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare, Sparkles } from "lucide-react";
+import ExecutiveKnowledgeStep from "@/components/scope-template/ExecutiveKnowledgeStep";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,7 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string }>
   inativo: { label: "Inativo", icon: XCircle, color: "text-muted-foreground" },
 };
 
-const steps = [
+const baseSteps = [
   { id: 1, label: "Dados Gerais", icon: FileText },
   { id: 2, label: "Itens do Escopo", icon: ClipboardList },
 ];
@@ -54,6 +55,13 @@ export default function ScopeTemplateEditPage() {
   const { data: categories = [] } = useCategories();
 
   const existingTemplate = useMemo(() => allTemplates.find((t: any) => t.id === id), [allTemplates, id]);
+
+  const steps = useMemo(() => {
+    if (isEditing) {
+      return [...baseSteps, { id: 3, label: "Base Executiva", icon: Sparkles }];
+    }
+    return baseSteps;
+  }, [isEditing]);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState({ name: "", product: "", category: "" });
@@ -433,7 +441,7 @@ export default function ScopeTemplateEditPage() {
         <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${steps.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
           {steps.map((step) => {
             const Icon = step.icon;
             const active = step.id === currentStep;
@@ -596,6 +604,11 @@ export default function ScopeTemplateEditPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ═══ Step 3: Base Executiva ═════════════════════════════ */}
+      {currentStep === 3 && isEditing && id && (
+        <ExecutiveKnowledgeStep templateId={id} />
       )}
 
       {/* ─── Bottom Save Bar ─────────────────────────────────────── */}

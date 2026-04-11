@@ -2,7 +2,7 @@ import { type OpportunityData } from "@/data/executivePresentationData";
 import { Badge } from "@/components/ui/badge";
 import {
   Settings, DollarSign, BarChart3, GraduationCap, Search, PenTool,
-  CheckCircle, Layers, Route, Link, Brain, Heart, Award, Shield,
+  CheckCircle, CheckCircle2, Layers, Route, Link, Brain, Heart, Award, Shield,
   Rocket, Eye, TrendingDown, ShieldCheck, FolderKanban, Target,
 } from "lucide-react";
 
@@ -73,6 +73,22 @@ export default function ScopeSection({ data }: Props) {
                     <div className="flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-2">
                       <Target className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
                       <p className="text-xs text-foreground/80 leading-relaxed">{block.expectedImpact}</p>
+                    </div>
+                  )}
+
+                  {/* Template knowledge benefits */}
+                  {block.templateKnowledge?.executive_benefits &&
+                    block.templateKnowledge.executive_benefits.length >= 3 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Benefícios desta frente</p>
+                      <ul className="space-y-1">
+                        {block.templateKnowledge.executive_benefits.slice(0, 4).map((benefit, bi) => (
+                          <li key={bi} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-primary" />
+                            {benefit}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 

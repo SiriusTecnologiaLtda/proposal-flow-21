@@ -278,24 +278,30 @@ export default function ExecutiveKnowledgeStep({ templateId }: Props) {
               />
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">ID do arquivo no Drive</Label>
-                <Input
-                  value={sourceDriveId}
-                  onChange={(e) => setSourceDriveId(e.target.value)}
-                  placeholder="ID do arquivo"
-                  className="h-9"
-                />
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">ID do arquivo no Drive</Label>
+                  <Input
+                    value={sourceDriveId}
+                    onChange={(e) => setSourceDriveId(e.target.value)}
+                    placeholder="ID do arquivo"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Nome do arquivo</Label>
+                  <Input
+                    value={sourceDriveName}
+                    onChange={(e) => setSourceDriveName(e.target.value)}
+                    placeholder="Nome do arquivo"
+                    className="h-9"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nome do arquivo</Label>
-                <Input
-                  value={sourceDriveName}
-                  onChange={(e) => setSourceDriveName(e.target.value)}
-                  placeholder="Nome do arquivo"
-                  className="h-9"
-                />
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Recomendado: use Google Docs para melhor extração de texto. PDFs enviados por upload podem ter qualidade de extração reduzida.
               </div>
             </div>
           )}

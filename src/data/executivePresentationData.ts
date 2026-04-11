@@ -21,6 +21,8 @@ export interface ScopeBlock {
   expectedImpact?: string;
   /** Volume summary (e.g. "160h estimadas") */
   volumeSummary?: string;
+  /** Knowledge base data from scope template, if available */
+  templateKnowledge?: TemplateKnowledge;
 }
 
 export interface TimelinePhase {
@@ -245,8 +247,9 @@ const impactHeuristic: [RegExp, string][] = [
  * Resolves the executive objective for a scope group.
  * Priority: explicit field > heuristic > generic fallback
  */
-function resolveExecutiveObjective(group: ProjectScopeGroup): string {
+function resolveExecutiveObjective(group: ProjectScopeGroup, tk?: TemplateKnowledge): string {
   if (group.executiveObjective) return group.executiveObjective;
+  if (tk?.executive_benefits?.[0]) return tk.executive_benefits[0];
   for (const [re, text] of objectiveHeuristic) {
     if (re.test(group.title)) return text;
   }
@@ -258,8 +261,9 @@ function resolveExecutiveObjective(group: ProjectScopeGroup): string {
  * Resolves the expected impact for a scope group.
  * Priority: explicit field > heuristic > generic fallback
  */
-function resolveExpectedImpact(group: ProjectScopeGroup): string {
+function resolveExpectedImpact(group: ProjectScopeGroup, tk?: TemplateKnowledge): string {
   if (group.expectedImpact) return group.expectedImpact;
+  if (tk?.executive_benefits?.[1]) return tk.executive_benefits[1];
   for (const [re, text] of impactHeuristic) {
     if (re.test(group.title)) return text;
   }
@@ -276,17 +280,23 @@ export function composePresentation(
   // Transform project groups into executive scope blocks
   const projectScopeBlocks: ScopeBlock[] = opportunity.linkedProject
     ? opportunity.linkedProject.scopeGroups.map((g, i) => {
-        const objective = resolveExecutiveObjective(g);
-        const impact = resolveExpectedImpact(g);
+        const tk = g.templateKnowledge;
+        const objective = resolveExecutiveObjective(g, tk);
+        const impact = resolveExpectedImpact(g, tk);
+        const description =
+          g.executiveSummary ||
+          (tk?.commercial_description ? tk.commercial_description : null) ||
+          objective;
         return {
           id: `proj-scope-${g.id}`,
           title: g.title,
-          description: g.executiveSummary || objective,
+          description,
           icon: inferIcon(g.title, i),
           items: g.items.filter((it) => it.included).slice(0, 5).map((it) => it.description),
           executiveObjective: objective,
           expectedImpact: impact,
           volumeSummary: `${g.totalHours}h estimadas`,
+          templateKnowledge: tk,
         };
       })
     : [];

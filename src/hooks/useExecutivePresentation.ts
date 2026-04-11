@@ -194,37 +194,42 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
     queryFn: async (): Promise<OpportunityData | null> => {
       if (!proposalId) return null;
 
-      // 1. Fetch proposal + client + proposal_type
+      // 1. Fetch proposal + client (left join, no !inner)
       const { data: proposal, error: pErr } = await supabase
         .from("proposals")
         .select(`
           id, number, description, client_id, expected_close_date, status, type, product,
           main_pain, objectives, current_scenario, why_act_now, solution_summary, solution_how,
           hourly_rate, created_at,
-          clients!inner(name, cnpj, website, logo_url, institutional_description, strategic_notes)
+          clients(name, cnpj, website, logo_url, institutional_description, strategic_notes)
         `)
         .eq("id", proposalId)
         .maybeSingle();
       if (pErr) throw pErr;
       if (!proposal) return null;
 
-      // Resolve proposal_type by slug (proposal.type)
-      const { data: proposalType } = await supabase
-        .from("proposal_types")
-        .select("id, name, slug")
-        .eq("slug", proposal.type)
-        .maybeSingle();
-
       const client = proposal.clients as any;
 
-      // 2. Fetch linked project
+      // 2. Parallel: proposal_type + project
+      const [proposalTypeResult, projectResult] = await Promise.all([
+        supabase
+          .from("proposal_types")
+          .select("id, name, slug")
+          .eq("slug", proposal.type)
+          .maybeSingle(),
+        supabase
+          .from("projects")
+          .select("id, description, status, group_notes")
+          .eq("proposal_id", proposalId)
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const proposalType = proposalTypeResult.data;
+
+      // 3. Fetch linked project scope
       let linkedProject: LinkedProject | undefined;
-      const { data: projects } = await supabase
-        .from("projects")
-        .select("id, description, status, group_notes")
-        .eq("proposal_id", proposalId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const projects = projectResult.data;
 
       const project = projects?.[0];
       if (project) {
@@ -247,7 +252,6 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         const scopeGroups: ProjectScopeGroup[] = [];
 
         for (const [phase, items] of Array.from(phaseMap.entries()).sort((a, b) => a[0] - b[0])) {
-          // Title from the first parent item (parent_id null) or fallback
           const parentItem = items
             .filter((i) => !i.parent_id)
             .sort((a, b) => a.sort_order - b.sort_order)[0];
@@ -255,7 +259,6 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
 
           const includedItems = items.filter((i) => i.included);
 
-          // Executive fields from group_notes
           const phaseKey = `fase_${phase}`;
           const phaseNotes = groupNotes?.grupos?.[phaseKey] ?? groupNotes?.[phaseKey] ?? {};
 
@@ -287,14 +290,27 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         };
       }
 
-      // 3. Calculate investmentTotal from macro_scope
-      let investmentTotal = 0;
-      const { data: macroScope } = await supabase
-        .from("proposal_macro_scope")
-        .select("analyst_hours, gp_hours")
-        .eq("proposal_id", proposalId);
+      // 4. Calculate investmentTotal: prefer service_items, fallback to macro_scope
+      const [serviceItemsResult, macroScopeResult] = await Promise.all([
+        supabase
+          .from("proposal_service_items")
+          .select("calculated_hours, hourly_rate, is_base_scope")
+          .eq("proposal_id", proposalId),
+        supabase
+          .from("proposal_macro_scope")
+          .select("analyst_hours, gp_hours")
+          .eq("proposal_id", proposalId),
+      ]);
 
-      if (macroScope && macroScope.length > 0) {
+      let investmentTotal = 0;
+      const serviceItems = serviceItemsResult.data;
+      const macroScope = macroScopeResult.data;
+
+      if (serviceItems && serviceItems.length > 0) {
+        investmentTotal = serviceItems
+          .filter((si) => si.is_base_scope)
+          .reduce((sum, si) => sum + (si.calculated_hours ?? 0) * (si.hourly_rate ?? 0), 0);
+      } else if (macroScope && macroScope.length > 0) {
         const totalHours = macroScope.reduce(
           (sum, row) => sum + (row.analyst_hours ?? 0) + (row.gp_hours ?? 0),
           0

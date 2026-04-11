@@ -90,6 +90,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
           proposalType: !!typeConfigRow,
           linkedProject: !!opportunityData.linkedProject,
           proposalTemplate: !!opportunityData.templateContext,
+          templateKnowledge: !!opportunityData.linkedProject?.scopeGroups.some(g => !!g.templateKnowledge),
         },
       });
 

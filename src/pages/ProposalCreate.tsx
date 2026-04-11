@@ -25,6 +25,7 @@ import QuickEditClientDialog from "@/components/proposal/QuickEditClientDialog";
 import QuickCreateClientDialog from "@/components/proposal/QuickCreateClientDialog";
 import { regenerateCommissionProjections } from "@/lib/commissionProjections";
 import { useProposalServiceItems, type ProposalServiceItem } from "@/hooks/useProposalServiceItems";
+import ProposalPresentationPanel from "@/components/executive-presentation/ProposalPresentationPanel";
 // Two-level scope item for proposal
 interface ScopeChild {
   id: string;
@@ -1586,6 +1587,12 @@ export default function ProposalCreate() {
             ))}
           </div>
         </div>
+        {/* Executive Presentation action — only when editing a non-cancelled proposal */}
+        {isEditing && proposalStatus !== "cancelada" && !isConsulta && (
+          <div className="mt-3 flex items-center border-t border-white/10 pt-3 relative">
+            <ProposalPresentationPanel proposalId={id!} proposalStatus={proposalStatus} />
+          </div>
+        )}
       </div>
 
       {/* ─── Auto-save overlay ───────────────────────────────────── */}

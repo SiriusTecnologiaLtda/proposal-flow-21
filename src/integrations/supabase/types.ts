@@ -1848,6 +1848,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string
+          current_scenario: string | null
           date_validity: string | null
           description: string | null
           esn_id: string | null
@@ -1858,18 +1859,23 @@ export type Database = {
           gsn_id: string | null
           hourly_rate: number
           id: string
+          main_pain: string | null
           needs_regen: boolean
           negotiation: string | null
           num_companies: number
           number: string
+          objectives: Json | null
           product: string
           scope_type: Database["public"]["Enums"]["scope_type"]
+          solution_how: string | null
+          solution_summary: string | null
           status: Database["public"]["Enums"]["proposal_status"]
           travel_hourly_rate: number
           travel_local_hours: number
           travel_trip_hours: number
           type: Database["public"]["Enums"]["proposal_type"]
           updated_at: string
+          why_act_now: string | null
         }
         Insert: {
           accomp_analyst?: number
@@ -1880,6 +1886,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by: string
+          current_scenario?: string | null
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
@@ -1890,18 +1897,23 @@ export type Database = {
           gsn_id?: string | null
           hourly_rate?: number
           id?: string
+          main_pain?: string | null
           needs_regen?: boolean
           negotiation?: string | null
           num_companies?: number
           number: string
+          objectives?: Json | null
           product: string
           scope_type?: Database["public"]["Enums"]["scope_type"]
+          solution_how?: string | null
+          solution_summary?: string | null
           status?: Database["public"]["Enums"]["proposal_status"]
           travel_hourly_rate?: number
           travel_local_hours?: number
           travel_trip_hours?: number
           type?: Database["public"]["Enums"]["proposal_type"]
           updated_at?: string
+          why_act_now?: string | null
         }
         Update: {
           accomp_analyst?: number
@@ -1912,6 +1924,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string
+          current_scenario?: string | null
           date_validity?: string | null
           description?: string | null
           esn_id?: string | null
@@ -1922,18 +1935,23 @@ export type Database = {
           gsn_id?: string | null
           hourly_rate?: number
           id?: string
+          main_pain?: string | null
           needs_regen?: boolean
           negotiation?: string | null
           num_companies?: number
           number?: string
+          objectives?: Json | null
           product?: string
           scope_type?: Database["public"]["Enums"]["scope_type"]
+          solution_how?: string | null
+          solution_summary?: string | null
           status?: Database["public"]["Enums"]["proposal_status"]
           travel_hourly_rate?: number
           travel_local_hours?: number
           travel_trip_hours?: number
           type?: Database["public"]["Enums"]["proposal_type"]
           updated_at?: string
+          why_act_now?: string | null
         }
         Relationships: [
           {

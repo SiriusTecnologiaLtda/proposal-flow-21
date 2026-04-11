@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Search, Plus, Building2, List, LayoutGrid, Edit2, ChevronLeft, Users, FileText, Trash2, Mail, Phone, UserCircle, Save, X, MapPin, Hash, MessageSquare, ArrowRightLeft, Loader2, Sparkles, Globe, Image } from "lucide-react";
 import { useClients, useCreateClient, useUpdateClient, useUnits, useSalesTeam } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +67,7 @@ export default function ClientsList() {
     name: "", code: "", cnpj: "", contact: "", email: "", phone: "",
     address: "", state_registration: "", store_code: "",
     unit_id: "", esn_id: "", gsn_id: "",
+    website: "", logo_url: "", institutional_description: "", strategic_notes: "",
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -181,6 +182,10 @@ export default function ClientsList() {
         unit_id: selectedClient.unit_id || "",
         esn_id: selectedClient.esn_id || "",
         gsn_id: selectedClient.gsn_id || "",
+        website: (selectedClient as any).website || "",
+        logo_url: (selectedClient as any).logo_url || "",
+        institutional_description: (selectedClient as any).institutional_description || "",
+        strategic_notes: (selectedClient as any).strategic_notes || "",
       });
     }
   }, [selectedClient, isCreating]);
@@ -451,15 +456,20 @@ export default function ClientsList() {
                 <FileText className="h-3.5 w-3.5" />Dados Cadastrais
               </TabsTrigger>
               {!isCreating && (
-                <TabsTrigger value="contatos" className="gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  Contatos
-                  {contacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
-                      {contacts.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
+                <>
+                  <TabsTrigger value="contatos" className="gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    Contatos
+                    {contacts.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
+                        {contacts.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="perfil" className="gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />Perfil para Apresentações
+                  </TabsTrigger>
+                </>
               )}
             </TabsList>
 
@@ -704,6 +714,79 @@ export default function ClientsList() {
                       </Button>
                     </div>
                   )}
+                </div>
+              </TabsContent>
+            )}
+
+            {/* TAB: Perfil para Apresentações */}
+            {!isCreating && (
+              <TabsContent value="perfil" className="mt-4">
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="p-5">
+                    <h3 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />Perfil para Apresentações
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Informações do cliente usadas para enriquecer apresentações executivas e propostas comerciais.
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Globe className="h-3 w-3" />Site institucional
+                        </Label>
+                        <Input
+                          type="url"
+                          placeholder="https://www.empresa.com.br"
+                          value={form.website}
+                          onChange={(v) => setForm((f) => ({ ...f, website: v.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Image className="h-3 w-3" />Logo da empresa (URL)
+                        </Label>
+                        <Input
+                          type="url"
+                          placeholder="https://...logo.png"
+                          value={form.logo_url}
+                          onChange={(v) => setForm((f) => ({ ...f, logo_url: v.target.value }))}
+                        />
+                        {form.logo_url && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <img src={form.logo_url} alt="Logo preview" className="h-10 w-10 rounded border border-border object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            <span className="text-[10px] text-muted-foreground">Preview</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs text-muted-foreground">Descrição institucional</Label>
+                        <Textarea
+                          rows={3}
+                          placeholder="Breve descrição da empresa para uso em apresentações executivas..."
+                          value={form.institutional_description}
+                          onChange={(v) => setForm((f) => ({ ...f, institutional_description: v.target.value }))}
+                          className="resize-none"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs text-muted-foreground">Observações estratégicas</Label>
+                        <Textarea
+                          rows={3}
+                          placeholder="Contexto comercial, histórico de relacionamento, pontos de atenção..."
+                          value={form.strategic_notes}
+                          onChange={(v) => setForm((f) => ({ ...f, strategic_notes: v.target.value }))}
+                          className="resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
+                    <Button onClick={handleSave} disabled={saving} size="sm">
+                      <Save className="mr-1.5 h-3.5 w-3.5" />
+                      {saving ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
             )}

@@ -189,6 +189,15 @@ export default function ProposalCreate() {
   const formDirtyRef = useRef(false);
   const markDirty = useCallback(() => { formDirtyRef.current = true; }, []);
   // Solicitar EV dialog state
+  // Executive presentation narrative fields
+  const [mainPain, setMainPain] = useState("");
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [currentScenario, setCurrentScenario] = useState("");
+  const [whyActNow, setWhyActNow] = useState("");
+  const [solutionSummary, setSolutionSummary] = useState("");
+  const [solutionHow, setSolutionHow] = useState("");
+  const [execContextOpen, setExecContextOpen] = useState(false);
+
   const [solicitarEvDialogOpen, setSolicitarEvDialogOpen] = useState(false);
   const [solicitarEvMessage, setSolicitarEvMessage] = useState("");
   const [solicitarEvSending, setSolicitarEvSending] = useState(false);
@@ -288,6 +297,12 @@ export default function ProposalCreate() {
     setAdditionalGpRate(existingProposal.additional_gp_rate);
     setExpectedCloseDate(existingProposal.expected_close_date || "");
     setDateValidity(existingProposal.date_validity || "");
+    setMainPain((existingProposal as any).main_pain || "");
+    setObjectives(Array.isArray((existingProposal as any).objectives) ? (existingProposal as any).objectives : []);
+    setCurrentScenario((existingProposal as any).current_scenario || "");
+    setWhyActNow((existingProposal as any).why_act_now || "");
+    setSolutionSummary((existingProposal as any).solution_summary || "");
+    setSolutionHow((existingProposal as any).solution_how || "");
     const loadedGroupNotes = (existingProposal as any).group_notes || {};
     setGroupNotes(loadedGroupNotes);
     const loadedManualGroups: Record<string, string> = loadedGroupNotes._manual_groups || {};

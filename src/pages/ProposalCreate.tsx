@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Search, Plus, Trash2, ChevronDown, ChevronRight, Layers, Library, ChevronsDownUp, ChevronsUpDown, ChevronUp, MessageSquare, UserPlus, FolderKanban, Save, FileText, ClipboardList, Landmark, Sparkles, Presentation, Users, UserRoundSearch, CalendarDays, Edit2, HardHat, Settings2, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -56,7 +56,8 @@ const steps = [
   { id: 1, label: "Dados Gerais", icon: FileText },
   { id: 2, label: "Escopo", icon: ClipboardList },
   { id: 3, label: "Financeiro", icon: Landmark },
-  { id: 4, label: "Revisão", icon: Sparkles },
+  { id: 4, label: "Revisão", icon: ClipboardList },
+  { id: 5, label: "Apresentação", icon: Sparkles },
 ];
 
 let idCounter = 0;
@@ -128,7 +129,7 @@ export default function ProposalCreate() {
   const [loaded, setLoaded] = useState(false);
   const [lastHydratedAt, setLastHydratedAt] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(initialStep ? parseInt(initialStep, 10) : 1);
-  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 4 : (initialStep ? parseInt(initialStep, 10) : 1));
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(isEditing ? 5 : (initialStep ? parseInt(initialStep, 10) : 1));
   const [proposalNumber, setProposalNumber] = useState("");
   const [proposalType, setProposalType] = useState<string>("");
   const [product, setProduct] = useState<string>("");
@@ -414,7 +415,7 @@ export default function ProposalCreate() {
     }
 
     setLoaded(true);
-    setMaxUnlockedStep(4); // all steps unlocked for editing/duplicating
+    setMaxUnlockedStep(5); // all steps unlocked for editing/duplicating
     setLastHydratedAt((existingProposal as any)?.updated_at || null);
   }, [existingProposal, loaded, isDuplicating, lastHydratedAt]);
 
@@ -1455,7 +1456,7 @@ export default function ProposalCreate() {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   async function handleNext() {
-    const next = Math.min(4, currentStep + 1);
+    const next = Math.min(5, currentStep + 1);
     console.log("[ProposalCreate] handleNext called:", { currentStep, next, isEditing, loaded });
 
     // When going from Escopo (2) to Financeiro (3), validate scope and auto-save only if dirty
@@ -1587,12 +1588,7 @@ export default function ProposalCreate() {
             ))}
           </div>
         </div>
-        {/* Executive Presentation action — only when editing a non-cancelled proposal */}
-        {isEditing && proposalStatus !== "cancelada" && !isConsulta && (
-          <div className="mt-3 flex items-center border-t border-white/10 pt-3 relative">
-            <ProposalPresentationPanel proposalId={id!} proposalStatus={proposalStatus} />
-          </div>
-        )}
+        {/* Executive Presentation moved to Step 5 */}
       </div>
 
       {/* ─── Auto-save overlay ───────────────────────────────────── */}
@@ -2802,6 +2798,24 @@ export default function ProposalCreate() {
         </div>
       )}
 
+      {/* Step 5: Apresentação Executiva */}
+      {currentStep === 5 && isEditing && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Apresentação Executiva</h2>
+                <p className="text-xs text-muted-foreground">Gere e gerencie apresentações para reuniões comerciais</p>
+              </div>
+            </div>
+            <ProposalPresentationPanel proposalId={id!} proposalStatus={proposalStatus} />
+          </div>
+        </div>
+      )}
+
       {/* Solicitar EV Dialog */}
       <Dialog open={solicitarEvDialogOpen} onOpenChange={setSolicitarEvDialogOpen}>
         <DialogContent className="max-w-md">
@@ -3035,7 +3049,7 @@ export default function ProposalCreate() {
                     <Save className="mr-2 h-4 w-4" />
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
-                  {currentStep < 4 && (
+                  {currentStep < 5 && (
                     <Button onClick={handleNext} disabled={isSaving}>
                       {isAutoSaving ? (
                         <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando...</>

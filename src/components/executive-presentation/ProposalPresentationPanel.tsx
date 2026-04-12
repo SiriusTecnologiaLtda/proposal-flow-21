@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Eye, Link2, ChevronDown, ChevronUp, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, Eye, Link2, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import {
   useExecutivePresentations,
@@ -25,7 +24,6 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
   const navigate = useNavigate();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [listOpen, setListOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const { data: opportunityData, isLoading: loadingOpp } = useProposalAsOpportunity(proposalId);
@@ -62,7 +60,6 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
     setDialogOpen(false);
 
     try {
-      // Map typeConfigRow to PresentationTypeConfig shape
       const typeConfig = typeConfigRow
         ? {
             executiveSummary: typeConfigRow.executive_summary,
@@ -111,77 +108,74 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
     toast({ title: "Link copiado", description: "O link da apresentação foi copiado para a área de transferência." });
   };
 
-  const recentPresentations = presentations.slice(0, 5);
-
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="space-y-6 w-full">
+        {/* Botão gerar */}
         <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+          variant="default"
+          className="gap-2"
           onClick={() => setDialogOpen(true)}
           disabled={generating || loadingOpp}
         >
-          {generating ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          {generating ? "Gerando..." : "Apresentação Executiva"}
+          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generating ? "Gerando..." : "Gerar Nova Apresentação"}
         </Button>
 
-        {recentPresentations.length > 0 && (
-          <div className="relative">
-            <Collapsible open={listOpen} onOpenChange={setListOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
-                  {recentPresentations.length} gerada{recentPresentations.length !== 1 ? "s" : ""}
-                  {listOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="absolute z-50 top-full left-0 mt-1 w-80 rounded-lg border border-border bg-card p-2 shadow-xl">
-                <div className="space-y-1">
-                  {recentPresentations.map((pres: any) => (
-                    <div key={pres.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
-                      <span className="text-xs text-foreground">
-                        {new Date(pres.created_at).toLocaleDateString("pt-BR")}
-                      </span>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => navigate(`/apresentacao-executiva/${pres.id}`)}
-                        >
-                          <Eye className="mr-1 h-3 w-3" /> Ver
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => copyShareLink(pres.share_slug)}
-                        >
-                          <Link2 className="mr-1 h-3 w-3" /> Link
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                          onClick={() => {
-                            if (window.confirm("Excluir esta apresentação?")) {
-                              deletePresentation.mutate({ id: pres.id, proposalId });
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+        {/* Grid de apresentações geradas */}
+        {loadingPres ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : presentations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-12 text-center">
+            <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">Nenhuma apresentação gerada ainda.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {presentations.map((pres: any) => (
+              <div key={pres.id} className="rounded-xl border border-border bg-muted/30 p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {new Date(pres.created_at).toLocaleDateString("pt-BR", {
+                      day: "2-digit", month: "short", year: "numeric",
+                      hour: "2-digit", minute: "2-digit"
+                    })}
+                  </span>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+                <div className="flex gap-2 mt-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => navigate(`/apresentacao-executiva/${pres.id}`)}
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> Visualizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => copyShareLink(pres.share_slug)}
+                    title="Copiar link público"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-destructive hover:text-destructive hover:border-destructive/50"
+                    title="Excluir"
+                    onClick={() => {
+                      if (window.confirm("Excluir esta apresentação? Esta ação não pode ser desfeita.")) {
+                        deletePresentation.mutate({ id: pres.id, proposalId });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -493,10 +493,26 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         nextStepCta: "",
         createdAt: proposal.created_at,
         expectedCloseDate: proposal.expected_close_date ?? "",
-        linkedProject,
-      };
+      linkedProject,
+    };
+  },
+  enabled: !!proposalId,
+  staleTime: 60 * 1000,
+});
+}
+
+export function useDeleteExecutivePresentation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; proposalId: string }) => {
+      const { error } = await supabase
+        .from("executive_presentations")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
     },
-    enabled: !!proposalId,
-    staleTime: 60 * 1000,
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["executive_presentations", vars.proposalId] });
+    },
   });
 }

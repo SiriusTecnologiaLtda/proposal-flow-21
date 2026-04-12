@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Eye, Link2, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Sparkles, Eye, Link2, ChevronDown, ChevronUp, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ import {
   useProposalAsOpportunity,
   usePresentationTypeConfig,
   useCreateExecutivePresentation,
+  useDeleteExecutivePresentation,
 } from "@/hooks/useExecutivePresentation";
 import { composePresentation, type PresentationConfig } from "@/data/executivePresentationData";
 import GenerateDialog from "./GenerateDialog";

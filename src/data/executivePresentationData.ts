@@ -5,7 +5,7 @@
 // ── Shared scalar types ─────────────────────────────────────────────
 export type TemplateStyle = "modern" | "corporate" | "minimal";
 export type AudienceLevel = "c_level" | "gerencia" | "operacional";
-export type DetailLevel = "resumido" | "detalhado";
+export type DetailLevel = "resumido" | "detalhado" | "executivo";
 export type PricingDisplayMode = "recorrencia" | "setup_unico" | "faseado" | "sob_consulta";
 
 // ── Reusable sub-entities ───────────────────────────────────────────

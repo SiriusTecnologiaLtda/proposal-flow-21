@@ -3049,7 +3049,7 @@ export default function ProposalCreate() {
                     <Save className="mr-2 h-4 w-4" />
                     {isGenerating ? "Gerando documento..." : isSaving ? "Salvando..." : "Salvar"}
                   </Button>
-                  {currentStep < 4 && (
+                  {currentStep < 5 && (
                     <Button onClick={handleNext} disabled={isSaving}>
                       {isAutoSaving ? (
                         <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando...</>

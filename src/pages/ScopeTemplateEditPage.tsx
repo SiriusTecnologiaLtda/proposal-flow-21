@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare, Sparkles } from "lucide-react";
 import ExecutiveKnowledgeStep from "@/components/scope-template/ExecutiveKnowledgeStep";
@@ -6,7 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
+import { useProducts, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,11 +51,24 @@ export default function ScopeTemplateEditPage() {
   const { role: userRole } = useUserRole();
   const qc = useQueryClient();
 
-  const { data: allTemplates = [] } = useScopeTemplates();
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
 
-  const existingTemplate = useMemo(() => allTemplates.find((t: any) => t.id === id), [allTemplates, id]);
+  const { data: existingTemplate, isLoading: loadingTemplate } = useQuery({
+    queryKey: ["scope_template", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("scope_templates")
+        .select("*, scope_template_items(*)")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  });
 
   const steps = useMemo(() => {
     if (isEditing) {

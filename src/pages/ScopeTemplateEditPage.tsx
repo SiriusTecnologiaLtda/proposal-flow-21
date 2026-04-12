@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare, Sparkles } from "lucide-react";
 import ExecutiveKnowledgeStep from "@/components/scope-template/ExecutiveKnowledgeStep";
@@ -6,7 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useProducts, useCategories, useScopeTemplates } from "@/hooks/useSupabaseData";
+import { useProducts, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,11 +51,24 @@ export default function ScopeTemplateEditPage() {
   const { role: userRole } = useUserRole();
   const qc = useQueryClient();
 
-  const { data: allTemplates = [] } = useScopeTemplates();
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
 
-  const existingTemplate = useMemo(() => allTemplates.find((t: any) => t.id === id), [allTemplates, id]);
+  const { data: existingTemplate, isLoading: loadingTemplate } = useQuery({
+    queryKey: ["scope_template", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("scope_templates")
+        .select("*, scope_template_items(*)")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  });
 
   const steps = useMemo(() => {
     if (isEditing) {
@@ -107,7 +121,7 @@ export default function ScopeTemplateEditPage() {
 
   // Load existing template
   useEffect(() => {
-    if (existingTemplate) {
+    if (!loadingTemplate && existingTemplate) {
       const newForm = { name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category };
       setForm(newForm);
       setStatus((existingTemplate as any).status || "em_revisao");
@@ -121,7 +135,7 @@ export default function ScopeTemplateEditPage() {
         loadedSnapshotRef.current = JSON.stringify({ form: newForm, parentItems: hierarchy });
       }, 0);
     }
-  }, [existingTemplate]);
+  }, [existingTemplate, loadingTemplate]);
 
   function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
     const parents = flatItems.filter((it: any) => !it.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);
@@ -354,6 +368,8 @@ export default function ScopeTemplateEditPage() {
   const isAdmin = userRole === "admin";
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.em_revisao;
   const StatusIcon = statusCfg.icon;
+
+  if (isEditing && loadingTemplate) return <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">Carregando template...</div>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">

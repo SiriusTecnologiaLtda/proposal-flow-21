@@ -371,10 +371,8 @@ export default function ScopeTemplateEditPage() {
 
   if (isEditing && loadingTemplate) {
     return (
-      <div className="mx-auto max-w-5xl space-y-5 pb-24">
-        <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
-          Carregando template...
-        </div>
+      <div className="mx-auto max-w-5xl py-24 flex items-center justify-center text-muted-foreground text-sm">
+        Carregando template...
       </div>
     );
   }

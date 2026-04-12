@@ -121,7 +121,7 @@ export default function ScopeTemplateEditPage() {
 
   // Load existing template
   useEffect(() => {
-    if (existingTemplate) {
+    if (!loadingTemplate && existingTemplate) {
       const newForm = { name: existingTemplate.name, product: existingTemplate.product, category: existingTemplate.category };
       setForm(newForm);
       setStatus((existingTemplate as any).status || "em_revisao");
@@ -135,7 +135,7 @@ export default function ScopeTemplateEditPage() {
         loadedSnapshotRef.current = JSON.stringify({ form: newForm, parentItems: hierarchy });
       }, 0);
     }
-  }, [existingTemplate]);
+  }, [existingTemplate, loadingTemplate]);
 
   function buildHierarchy(flatItems: any[]): ScopeItemForm[] {
     const parents = flatItems.filter((it: any) => !it.parent_id).sort((a: any, b: any) => a.sort_order - b.sort_order);

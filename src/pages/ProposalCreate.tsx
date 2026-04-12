@@ -2798,6 +2798,24 @@ export default function ProposalCreate() {
         </div>
       )}
 
+      {/* Step 5: Apresentação Executiva */}
+      {currentStep === 5 && isEditing && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Apresentação Executiva</h2>
+                <p className="text-xs text-muted-foreground">Gere e gerencie apresentações para reuniões comerciais</p>
+              </div>
+            </div>
+            <ProposalPresentationPanel proposalId={id!} proposalStatus={proposalStatus} />
+          </div>
+        </div>
+      )}
+
       {/* Solicitar EV Dialog */}
       <Dialog open={solicitarEvDialogOpen} onOpenChange={setSolicitarEvDialogOpen}>
         <DialogContent className="max-w-md">

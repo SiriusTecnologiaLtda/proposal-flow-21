@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Plus, Trash2, FolderPlus, FileText, ClipboardList, Check, CheckCircle2, XCircle, Clock, LayoutTemplate, MessageSquare, Sparkles } from "lucide-react";
 import ExecutiveKnowledgeStep from "@/components/scope-template/ExecutiveKnowledgeStep";
@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+
 
 interface ScopeItemForm {
   id?: string;
@@ -369,7 +369,15 @@ export default function ScopeTemplateEditPage() {
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.em_revisao;
   const StatusIcon = statusCfg.icon;
 
-  if (isEditing && loadingTemplate) return <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">Carregando template...</div>;
+  if (isEditing && loadingTemplate) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-5 pb-24">
+        <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">
+          Carregando template...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">

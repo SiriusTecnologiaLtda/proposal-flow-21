@@ -369,6 +369,8 @@ export default function ScopeTemplateEditPage() {
   const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.em_revisao;
   const StatusIcon = statusCfg.icon;
 
+  if (isEditing && loadingTemplate) return <div className="flex items-center justify-center py-24 text-muted-foreground text-sm">Carregando template...</div>;
+
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-24">
       {/* ─── Hero Header ─────────────────────────────────────────── */}

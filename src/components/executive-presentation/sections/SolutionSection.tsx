@@ -1,17 +1,27 @@
-import { type OpportunityData } from "@/data/executivePresentationData";
+import { type OpportunityData, type PresentationConfig } from "@/data/executivePresentationData";
 import { Lightbulb, BookOpen } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
+  config?: PresentationConfig;
   editable?: boolean;
   overrides?: Record<string, string>;
   onEdit?: (field: string, value: string) => void;
 }
 
-export default function SolutionSection({ data, editable, overrides, onEdit }: Props) {
+export default function SolutionSection({ data, config, editable, overrides, onEdit }: Props) {
   const summary = overrides?.solutionSummary ?? data.solutionSummary;
   const how = overrides?.solutionHow ?? data.solutionHow;
   const methodology = data.templateContext?.methodology;
+
+  const isModern = !config?.templateStyle || config.templateStyle === "modern";
+  const isMinimal = config?.templateStyle === "minimal";
+
+  const containerClass = isModern
+    ? "rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-8"
+    : isMinimal
+      ? "py-6"
+      : "rounded-xl border bg-card p-8";
 
   return (
     <section className="space-y-6">
@@ -20,11 +30,13 @@ export default function SolutionSection({ data, editable, overrides, onEdit }: P
         <p className="text-muted-foreground">Como endereçamos os desafios identificados</p>
       </div>
 
-      <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-8">
+      <div className={containerClass}>
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Lightbulb className="h-6 w-6 text-primary" />
-          </div>
+          {!isMinimal && (
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isModern ? "bg-primary/10" : "bg-muted"}`}>
+              <Lightbulb className={`h-6 w-6 ${isModern ? "text-primary" : "text-muted-foreground"}`} />
+            </div>
+          )}
           <div className="space-y-4 flex-1">
             {editable ? (
               <>
@@ -64,7 +76,7 @@ export default function SolutionSection({ data, editable, overrides, onEdit }: P
 
       {/* Methodology from template — integrated into the solution narrative */}
       {methodology && !editable && (
-        <div className="flex items-start gap-3 rounded-xl border bg-card p-5">
+        <div className={`flex items-start gap-3 ${isMinimal ? "py-3" : "rounded-xl border bg-card p-5"}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </div>

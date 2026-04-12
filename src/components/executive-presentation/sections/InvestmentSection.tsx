@@ -1,14 +1,18 @@
-import { type OpportunityData, formatCurrency } from "@/data/executivePresentationData";
+import { type OpportunityData, type PresentationConfig, formatCurrency } from "@/data/executivePresentationData";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, Layers, FileText } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
+  config?: PresentationConfig;
 }
 
-export default function InvestmentSection({ data }: Props) {
+export default function InvestmentSection({ data, config }: Props) {
   const hasProjectScope = !!data.linkedProject && data.linkedProject.scopeGroups.length > 0;
   const hasPremises = data.templateContext && data.templateContext.premises.length > 0;
+
+  const isModern = !config?.templateStyle || config.templateStyle === "modern";
+  const isMinimal = config?.templateStyle === "minimal";
 
   return (
     <section className="space-y-6">
@@ -17,11 +21,18 @@ export default function InvestmentSection({ data }: Props) {
         <p className="text-muted-foreground">Resumo do investimento para esta iniciativa</p>
       </div>
 
-      <div className="rounded-xl border bg-gradient-to-br from-primary/5 via-transparent to-transparent p-8">
+      <div className={isModern
+        ? "rounded-xl border bg-gradient-to-br from-primary/5 via-transparent to-transparent p-8"
+        : isMinimal
+          ? "py-6"
+          : "rounded-xl border bg-card p-8"
+      }>
         <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-            <DollarSign className="h-8 w-8 text-primary" />
-          </div>
+          {!isMinimal && (
+            <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${isModern ? "bg-primary/10" : "bg-muted"}`}>
+              <DollarSign className={`h-8 w-8 ${isModern ? "text-primary" : "text-muted-foreground"}`} />
+            </div>
+          )}
 
           <div className="flex-1 space-y-4">
             <div>
@@ -32,13 +43,13 @@ export default function InvestmentSection({ data }: Props) {
             {(data.investmentSetup || data.investmentRecurring) && (
               <div className="flex flex-wrap justify-center gap-6 md:justify-start">
                 {data.investmentSetup && (
-                  <div className="rounded-lg border bg-card px-4 py-2.5">
+                  <div className={`px-4 py-2.5 ${isMinimal ? "" : "rounded-lg border bg-card"}`}>
                     <p className="text-xs text-muted-foreground">Setup / Implantação</p>
                     <p className="text-lg font-semibold text-foreground">{formatCurrency(data.investmentSetup)}</p>
                   </div>
                 )}
                 {data.investmentRecurring && (
-                  <div className="rounded-lg border bg-card px-4 py-2.5">
+                  <div className={`px-4 py-2.5 ${isMinimal ? "" : "rounded-lg border bg-card"}`}>
                     <p className="text-xs text-muted-foreground">Recorrência</p>
                     <p className="text-lg font-semibold text-foreground">
                       {formatCurrency(data.investmentRecurring)}
@@ -54,7 +65,7 @@ export default function InvestmentSection({ data }: Props) {
 
       {/* Scope-hours breakdown from project — executive summary */}
       {hasProjectScope && (
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        <div className={`space-y-3 ${isMinimal ? "py-4" : "rounded-xl border bg-card p-5"}`}>
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Composição por frente de trabalho</h3>
@@ -70,7 +81,7 @@ export default function InvestmentSection({ data }: Props) {
                     <span className="text-sm font-semibold text-foreground tabular-nums w-16 text-right">{g.totalHours}h</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full ${isModern ? "bg-primary/60" : "bg-foreground/30"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -85,7 +96,7 @@ export default function InvestmentSection({ data }: Props) {
 
       {/* Commercial conditions from template */}
       {hasPremises && (
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        <div className={`space-y-3 ${isMinimal ? "py-4" : "rounded-xl border bg-card p-5"}`}>
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Condições Comerciais</h3>

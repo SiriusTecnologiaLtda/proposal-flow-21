@@ -286,7 +286,7 @@ executive_benefits deve ter entre 3 e 6 itens.
 Linguagem: português brasileiro, tom consultivo e executivo.`;
 
     const aiResp = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
         method: "POST",
         headers: {

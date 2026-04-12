@@ -1,18 +1,28 @@
-import { type OpportunityData } from "@/data/executivePresentationData";
+import { type OpportunityData, type PresentationConfig } from "@/data/executivePresentationData";
 import { AlertTriangle, TrendingUp, Clock } from "lucide-react";
 
 interface Props {
   data: OpportunityData;
+  config?: PresentationConfig;
   editable?: boolean;
   overrides?: Record<string, string>;
   onEdit?: (field: string, value: string) => void;
 }
 
-export default function ContextSection({ data, editable, overrides, onEdit }: Props) {
+export default function ContextSection({ data, config, editable, overrides, onEdit }: Props) {
   const field = (key: string, fallback: string) => overrides?.[key] ?? fallback;
 
+  const isModern = !config?.templateStyle || config.templateStyle === "modern";
+  const isMinimal = config?.templateStyle === "minimal";
+
+  const cardClass = isModern
+    ? "space-y-3 rounded-xl border bg-card p-6 shadow-sm"
+    : isMinimal
+      ? "space-y-3 py-4"
+      : "space-y-3 rounded-xl border bg-card p-6";
+
   const EditableBlock = ({ fieldKey, value, label, icon: Icon }: { fieldKey: string; value: string; label: string; icon: typeof AlertTriangle }) => (
-    <div className="space-y-3 rounded-xl border bg-card p-6 shadow-sm">
+    <div className={cardClass}>
       <div className="flex items-center gap-2 text-primary">
         <Icon className="h-5 w-5" />
         <h3 className="font-semibold">{label}</h3>
@@ -37,7 +47,7 @@ export default function ContextSection({ data, editable, overrides, onEdit }: Pr
         <p className="text-muted-foreground">Entendendo o cenário e a urgência de agir</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${isMinimal ? "md:grid-cols-1" : "md:grid-cols-3"}`}>
         <EditableBlock
           fieldKey="currentScenario"
           value={field("currentScenario", data.currentScenario)}

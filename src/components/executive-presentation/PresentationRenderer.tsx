@@ -20,16 +20,15 @@ interface Props {
 export default function PresentationRenderer({ data, config, editable = false, overrides, onEdit }: Props) {
   return (
     <div className="space-y-12">
-      <CoverSection data={data} editable={editable} overrides={overrides} onEdit={onEdit} />
-      <ContextSection data={data} editable={editable} overrides={overrides} onEdit={onEdit} />
-      <SolutionSection data={data} editable={editable} overrides={overrides} onEdit={onEdit} />
-      <ScopeSection data={data} />
-      <BenefitsSection data={data} />
-      {config.showTimeline && <TimelineSection data={data} />}
-      {config.showInvestment && <InvestmentSection data={data} />}
-
-      <DifferentiatorsSection data={data} />
-      <NextStepsSection data={data} editable={editable} overrides={overrides} onEdit={onEdit} />
+      <CoverSection data={data} config={config} editable={editable} overrides={overrides} onEdit={onEdit} />
+      <ContextSection data={data} config={config} editable={editable} overrides={overrides} onEdit={onEdit} />
+      <SolutionSection data={data} config={config} editable={editable} overrides={overrides} onEdit={onEdit} />
+      <ScopeSection data={data} config={config} />
+      <BenefitsSection data={data} config={config} />
+      {config.showTimeline && <TimelineSection data={data} config={config} />}
+      {config.showInvestment && <InvestmentSection data={data} config={config} />}
+      <DifferentiatorsSection data={data} config={config} />
+      <NextStepsSection data={data} config={config} editable={editable} overrides={overrides} onEdit={onEdit} />
     </div>
   );
 }

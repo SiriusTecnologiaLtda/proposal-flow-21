@@ -24,7 +24,7 @@ export default function ScopeSection({ data, config }: Props) {
   const isMinimal = config?.templateStyle === "minimal";
 
   // detailLevel filtering
-  const detailLevel = config?.detailLevel ?? "detalhado";
+  const detailLevel = config?.detailLevel ?? "resumido";
   const maxGroups = detailLevel === "executivo" ? 2 : detailLevel === "resumido" ? 5 : 999;
   const showItems = detailLevel === "detalhado";
   const showBenefits = detailLevel === "detalhado";

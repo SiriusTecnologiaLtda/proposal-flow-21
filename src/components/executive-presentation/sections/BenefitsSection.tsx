@@ -17,7 +17,7 @@ export default function BenefitsSection({ data, config }: Props) {
   const isMinimal = config?.templateStyle === "minimal";
 
   // detailLevel filtering
-  const detailLevel = config?.detailLevel ?? "detalhado";
+  const detailLevel = config?.detailLevel ?? "resumido";
   const maxBenefits = detailLevel === "executivo" ? 2 : detailLevel === "resumido" ? 3 : 999;
   const showDescription = detailLevel !== "executivo";
 

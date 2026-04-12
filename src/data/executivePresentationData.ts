@@ -361,6 +361,7 @@ export const audienceOptions: { value: AudienceLevel; label: string }[] = [
 export const detailOptions: { value: DetailLevel; label: string }[] = [
   { value: "resumido", label: "Resumido" },
   { value: "detalhado", label: "Detalhado" },
+  { value: "executivo", label: "Executivo (síntese)" },
 ];
 
 export const pricingDisplayModeOptions: { value: PricingDisplayMode; label: string }[] = [

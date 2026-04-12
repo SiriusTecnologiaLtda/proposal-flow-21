@@ -48,6 +48,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
   const { data: typeConfigRow } = usePresentationTypeConfig(selectedTypeId);
 
   const createPresentation = useCreateExecutivePresentation();
+  const deletePresentation = useDeleteExecutivePresentation();
 
   if (proposalStatus === "cancelada") return null;
 
@@ -118,7 +119,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+          className="gap-2 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
           onClick={() => setDialogOpen(true)}
           disabled={generating || loadingOpp}
         >
@@ -131,43 +132,53 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
         </Button>
 
         {recentPresentations.length > 0 && (
-          <Collapsible open={listOpen} onOpenChange={setListOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
-                {recentPresentations.length} gerada{recentPresentations.length !== 1 ? "s" : ""}
-                {listOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="absolute z-20 mt-1 w-72 rounded-lg border border-border bg-card p-2 shadow-lg">
-              <div className="space-y-1">
-                {recentPresentations.map((pres: any) => (
-                  <div key={pres.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
-                    <span className="text-xs text-foreground">
-                      {new Date(pres.created_at).toLocaleDateString("pt-BR")}
-                    </span>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => navigate(`/apresentacao-executiva/${pres.id}`)}
-                      >
-                        <Eye className="mr-1 h-3 w-3" /> Ver
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => copyShareLink(pres.share_slug)}
-                      >
-                        <Link2 className="mr-1 h-3 w-3" /> Link
-                      </Button>
+          <div className="relative">
+            <Collapsible open={listOpen} onOpenChange={setListOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
+                  {recentPresentations.length} gerada{recentPresentations.length !== 1 ? "s" : ""}
+                  {listOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="absolute z-20 mt-1 w-72 rounded-lg border border-border bg-card p-2 shadow-lg">
+                <div className="space-y-1">
+                  {recentPresentations.map((pres: any) => (
+                    <div key={pres.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                      <span className="text-xs text-foreground">
+                        {new Date(pres.created_at).toLocaleDateString("pt-BR")}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => navigate(`/apresentacao-executiva/${pres.id}`)}
+                        >
+                          <Eye className="mr-1 h-3 w-3" /> Ver
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => copyShareLink(pres.share_slug)}
+                        >
+                          <Link2 className="mr-1 h-3 w-3" /> Link
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                          onClick={() => deletePresentation.mutate({ id: pres.id, proposalId })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         )}
       </div>
 

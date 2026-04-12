@@ -310,7 +310,7 @@ export default function ScopeTemplatesPage() {
                         <span
                           role="button"
                           className="rounded p-1 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/templates/${template.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/cadastros/templates/${template.id}`); }}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </span>

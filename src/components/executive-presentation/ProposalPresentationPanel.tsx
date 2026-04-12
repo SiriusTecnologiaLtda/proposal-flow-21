@@ -140,7 +140,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
                   {listOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="absolute z-20 mt-1 w-72 rounded-lg border border-border bg-card p-2 shadow-lg">
+              <CollapsibleContent className="absolute z-50 top-full left-0 mt-1 w-80 rounded-lg border border-border bg-card p-2 shadow-xl">
                 <div className="space-y-1">
                   {recentPresentations.map((pres: any) => (
                     <div key={pres.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
@@ -168,7 +168,11 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
                           variant="ghost"
                           size="sm"
                           className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                          onClick={() => deletePresentation.mutate({ id: pres.id, proposalId })}
+                          onClick={() => {
+                            if (window.confirm("Excluir esta apresentação?")) {
+                              deletePresentation.mutate({ id: pres.id, proposalId });
+                            }
+                          }}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

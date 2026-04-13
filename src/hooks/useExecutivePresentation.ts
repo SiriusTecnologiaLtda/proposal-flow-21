@@ -410,23 +410,20 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
           .sort((a, b) => b[1] - a[1])[0]?.[0];
 
         if (dominantTemplateId) {
-          const { data: tmpl } = await supabase
-            .from("scope_templates")
-            .select("name, scope_template_items(notes, parent_id)")
-            .eq("id", dominantTemplateId)
+          const { data: knowledge } = await supabase
+            .from("scope_template_knowledge")
+            .select("commercial_description, executive_notes, generation_preprompt")
+            .eq("template_id", dominantTemplateId)
             .maybeSingle();
 
-          if (tmpl) {
-            const parentNotes = ((tmpl as any).scope_template_items ?? [])
-              .filter((i: any) => !i.parent_id && i.notes)
-              .map((i: any) => i.notes as string);
-
-            templateContext = {
-              placeholders: [],
-              premises: parentNotes.slice(0, Math.ceil(parentNotes.length / 2)),
-              outOfScope: parentNotes.slice(Math.ceil(parentNotes.length / 2)),
-            };
-          }
+          templateContext = {
+            placeholders: [],
+            premises: knowledge?.executive_notes
+              ? [knowledge.executive_notes]
+              : [],
+            outOfScope: [],
+            methodology: knowledge?.commercial_description ?? undefined,
+          };
         }
 
         if (scopeGroups.length > 0) {

@@ -416,19 +416,19 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         if (dominantTemplateId) {
           const { data: tmpl } = await supabase
             .from("scope_templates")
-            .select("name, notes, scope_template_items(notes, parent_id)")
+            .select("name, scope_template_items(notes, parent_id)")
             .eq("id", dominantTemplateId)
             .maybeSingle();
 
           if (tmpl) {
-            const parentNotes = (tmpl.scope_template_items ?? [])
+            const parentNotes = ((tmpl as any).scope_template_items ?? [])
               .filter((i: any) => !i.parent_id && i.notes)
               .map((i: any) => i.notes as string);
 
             templateContext = {
+              placeholders: [],
               premises: parentNotes.slice(0, Math.ceil(parentNotes.length / 2)),
               outOfScope: parentNotes.slice(Math.ceil(parentNotes.length / 2)),
-              methodology: (tmpl as any).notes ?? undefined,
             };
           }
         }

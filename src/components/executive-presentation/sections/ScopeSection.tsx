@@ -25,7 +25,8 @@ export default function ScopeSection({ data, config }: Props) {
   const showItems = detailLevel === "detalhado";
   const showBenefits = detailLevel === "detalhado";
 
-  const visibleBlocks = data.scopeBlocks.slice(0, maxGroups);
+  const rawGroups = data.linkedProject?.scopeGroups ?? [];
+  const visibleGroups = rawGroups.slice(0, maxGroups);
 
   return (
     <section className="space-y-8">
@@ -57,11 +58,13 @@ export default function ScopeSection({ data, config }: Props) {
 
       {/* Scope blocks */}
       <div className="grid gap-4 md:grid-cols-2">
-        {visibleBlocks.map((block, i) => {
-          const Icon = iconMap[block.icon] || Settings;
+        {visibleGroups.map((g, i) => {
+          const description = g.executiveObjective ?? g.executiveSummary ?? "";
+          const volumeSummary = `${g.totalHours}h · ${g.itemCount} itens`;
+          const itemDescriptions = g.items.map((item) => item.description);
           return (
             <div
-              key={block.id}
+              key={g.id}
               className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
             >
               {/* Left accent bar */}
@@ -74,36 +77,34 @@ export default function ScopeSection({ data, config }: Props) {
 
               <div className="relative flex items-start gap-4 pl-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
+                  <FolderKanban className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 space-y-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-foreground">{block.title}</h3>
-                      {block.volumeSummary && (
-                        <Badge variant="secondary" className="text-[10px] shrink-0">{block.volumeSummary}</Badge>
-                      )}
+                      <h3 className="text-lg font-semibold text-foreground">{g.title}</h3>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">{volumeSummary}</Badge>
                     </div>
-                    {detailLevel !== "executivo" && (
-                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{block.description}</p>
+                    {detailLevel !== "executivo" && description && (
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
                     )}
                   </div>
 
                   {/* Expected impact */}
-                  {block.expectedImpact && (
+                  {g.expectedImpact && (
                     <div className="flex items-start gap-2 rounded-xl bg-primary/5 px-3 py-2">
                       <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <p className="text-xs leading-relaxed text-foreground/80">{block.expectedImpact}</p>
+                      <p className="text-xs leading-relaxed text-foreground/80">{g.expectedImpact}</p>
                     </div>
                   )}
 
                   {/* Benefits */}
-                  {showBenefits && block.templateKnowledge?.executive_benefits &&
-                    block.templateKnowledge.executive_benefits.length >= 3 && (
+                  {showBenefits && g.templateKnowledge?.executive_benefits &&
+                    g.templateKnowledge.executive_benefits.length >= 3 && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Benefícios desta frente</p>
                       <ul className="space-y-1">
-                        {block.templateKnowledge.executive_benefits.slice(0, 4).map((benefit, bi) => (
+                        {g.templateKnowledge.executive_benefits.slice(0, 4).map((benefit, bi) => (
                           <li key={bi} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <CheckCircle2 className="h-3 w-3 shrink-0 text-primary" />
                             {benefit}
@@ -114,14 +115,14 @@ export default function ScopeSection({ data, config }: Props) {
                   )}
 
                   {/* Deliverables */}
-                  {showItems && block.items.length > 0 && (
+                  {showItems && itemDescriptions.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Principais entregáveis</p>
                       <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                        {block.items.map((item) => (
-                          <li key={item} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {itemDescriptions.map((desc, di) => (
+                          <li key={di} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary/50" />
-                            {item}
+                            {desc}
                           </li>
                         ))}
                       </ul>

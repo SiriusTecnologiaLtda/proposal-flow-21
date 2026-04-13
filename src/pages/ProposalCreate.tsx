@@ -1283,7 +1283,7 @@ export default function ProposalCreate() {
             .maybeSingle();
 
           if (!existingProj) {
-          const projectId = crypto.randomUUID();
+            const projectId = crypto.randomUUID();
           await supabase.from("projects").insert({
             id: projectId,
             client_id: clientId,
@@ -1362,14 +1362,16 @@ export default function ProposalCreate() {
       // Handle Solicitar EV flow after save
       if (status === "em_analise_ev" && savedId) {
         try {
-          // Check if a project was already created (via scope auto-create)
-          const { data: linkedProjects } = await supabase
+          // Guard: verify once more (Ponto A may have failed silently)
+          const { data: doubleCheck } = await supabase
             .from("projects")
             .select("id")
-            .eq("proposal_id", savedId);
-          
-          if (linkedProjects && linkedProjects.length > 0) {
-            await supabase.from("projects").update({ status: "em_revisao" }).eq("id", linkedProjects[0].id);
+            .eq("proposal_id", savedId)
+            .maybeSingle();
+
+          if (doubleCheck) {
+            // Project exists (Ponto A succeeded) — just update status
+            await supabase.from("projects").update({ status: "em_revisao" }).eq("id", doubleCheck.id);
           } else {
             // No project exists (no scope was added) — create an empty project for the EV
             const evProjectId = crypto.randomUUID();

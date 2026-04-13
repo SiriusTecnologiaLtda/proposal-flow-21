@@ -52,22 +52,24 @@ function computeNetValue(proposal: any): number | null {
 }
 
 /** Check if scope was changed after the last generated proposal document */
+/** Check if scope was changed after the last generated proposal document.
+ *  proposal.projects is a single object (1:1 via UNIQUE constraint). */
 function hasScopeChangedAfterLastDoc(proposal: any): boolean {
-  const docs = proposal.proposal_documents || [];
-  const propostaDocs = docs.filter((d: any) => d.doc_type === "proposta");
-  if (propostaDocs.length === 0) return false;
+  const project = proposal.projects;
+  if (!project?.updated_at) return false;
 
-  // With the unique constraint on proposal_id, PostgREST returns projects as
-  // a single object (1:1) instead of an array. Normalise to handle both shapes.
-  const rawProj = proposal.projects;
-  if (!rawProj) return false;
-  const projects = Array.isArray(rawProj) ? rawProj : [rawProj];
-  if (projects.length === 0) return false;
+  const docs = proposal.proposal_documents;
+  if (!docs?.length) return false;
 
-  const latestDocDate = propostaDocs.reduce((max: string, d: any) => d.created_at > max ? d.created_at : max, "");
-  const latestProjectUpdate = projects.reduce((max: string, p: any) => (p.updated_at ?? "") > max ? p.updated_at : max, "");
+  let latestDocDate = "";
+  for (const d of docs) {
+    if (d.doc_type === "proposta" && d.created_at > latestDocDate) {
+      latestDocDate = d.created_at;
+    }
+  }
+  if (!latestDocDate) return false;
 
-  return latestProjectUpdate > latestDocDate;
+  return project.updated_at > latestDocDate;
 }
 
 export default function ProposalsList() {

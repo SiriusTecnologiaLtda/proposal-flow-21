@@ -1275,6 +1275,14 @@ export default function ProposalCreate() {
       // Auto-create project when scope exists but no project is linked
       if (savedId && allScopeItems.length > 0 && addedProjectIds.size === 0) {
         try {
+          // Guard: check if project already exists for this proposal
+          const { data: existingProj } = await supabase
+            .from("projects")
+            .select("id")
+            .eq("proposal_id", savedId)
+            .maybeSingle();
+
+          if (!existingProj) {
           const projectId = crypto.randomUUID();
           await supabase.from("projects").insert({
             id: projectId,
@@ -1345,6 +1353,7 @@ export default function ProposalCreate() {
                 .eq("id", item.id);
             }
           }
+          } // end if (!existingProj)
         } catch (projErr) {
           console.error("Failed to auto-create project:", projErr);
         }

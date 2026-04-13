@@ -52,6 +52,18 @@ export function useCreateProject() {
       const { scopeItems, ...projectData } = project;
       const projectId = project.id || crypto.randomUUID();
 
+      // Guard: prevent duplicate projects for the same proposal
+      if (projectData.proposal_id) {
+        const { data: existing } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("proposal_id", projectData.proposal_id)
+          .maybeSingle();
+        if (existing) {
+          throw new Error("Já existe um projeto vinculado a esta proposta.");
+        }
+      }
+
       const { error } = await supabase.from("projects").insert({ ...projectData, id: projectId });
       if (error) throw error;
 

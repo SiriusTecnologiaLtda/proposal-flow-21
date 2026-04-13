@@ -634,8 +634,8 @@ export default function ProposalsList() {
 
         const { data: existingProjects } = await supabase
           .from("projects")
-          .select("id, status, proposal_id, proposal_number")
-          .or(`proposal_id.eq.${capturedProposal.id},proposal_number.eq.${capturedProposal.number}`);
+          .select("id, status")
+          .eq("proposal_id", capturedProposal.id);
 
         if (existingProjects && existingProjects.length > 0) {
           for (const proj of existingProjects) {

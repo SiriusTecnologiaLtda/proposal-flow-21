@@ -134,7 +134,7 @@ export default function ProjectsPage() {
         (p.product || "").toLowerCase().includes(s) ||
         (p.sales_team?.name || "").toLowerCase().includes(s) ||
         (p.proposals?.proposal_esn?.name || p.clients?.sales_team_esn?.name || "").toLowerCase().includes(s) ||
-        (p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
+        (p.proposals?.proposal_gsn?.name || p.clients?.sales_team_gsn?.name || "").toLowerCase().includes(s) ||
         (p.clients?.unit_info?.name || "").toLowerCase().includes(s);
       if (!textMatch) return false;
     }
@@ -501,7 +501,7 @@ export default function ProjectsPage() {
                   {/* ESN */}
                   <p className="text-sm text-muted-foreground truncate min-w-0">{project.proposals?.proposal_esn?.name || project.clients?.sales_team_esn?.name || "—"}</p>
                   {/* GSN */}
-                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.clients?.sales_team_gsn?.name || "—"}</p>
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{project.proposals?.proposal_gsn?.name || project.clients?.sales_team_gsn?.name || "—"}</p>
                   {/* Unidade */}
                   <p className="text-sm text-muted-foreground truncate min-w-0">{project.clients?.unit_info?.name || "—"}</p>
                   {/* Produto */}

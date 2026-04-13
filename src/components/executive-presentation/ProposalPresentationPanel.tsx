@@ -14,6 +14,7 @@ import { composePresentation, type PresentationConfig } from "@/data/executivePr
 import GenerateDialog from "./GenerateDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEnrichPresentation } from "@/hooks/useEnrichPresentation";
 
 interface ProposalPresentationPanelProps {
   proposalId: string;
@@ -24,7 +25,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
   const navigate = useNavigate();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [generatingPhase, setGeneratingPhase] = useState<"idle" | "enriching" | "composing">("idle");
 
   const { data: opportunityData, isLoading: loadingOpp } = useProposalAsOpportunity(proposalId);
   const { data: presentations = [], isLoading: loadingPres } = useExecutivePresentations(proposalId);
@@ -47,8 +48,11 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
 
   const createPresentation = useCreateExecutivePresentation();
   const deletePresentation = useDeleteExecutivePresentation();
+  const enrichPresentation = useEnrichPresentation();
 
   if (proposalStatus === "cancelada") return null;
+
+  const generating = generatingPhase !== "idle";
 
   const handleGenerate = async (config: PresentationConfig) => {
     if (!opportunityData) {
@@ -56,10 +60,44 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
       return;
     }
 
-    setGenerating(true);
+    setGeneratingPhase("enriching");
     setDialogOpen(false);
 
     try {
+      // 1. Enriquecer campos vazios com IA
+      let enrichedOpportunity = opportunityData;
+      try {
+        const enrichResult = await enrichPresentation.mutateAsync({
+          proposalId,
+          fields: {
+            company: opportunityData.company,
+            segment: opportunityData.segment,
+            opportunityTypeLabel: opportunityData.opportunityTypeLabel,
+            mainPain: opportunityData.mainPain,
+            currentScenario: opportunityData.currentScenario,
+            whyActNow: opportunityData.whyActNow,
+            solutionSummary: opportunityData.solutionSummary,
+            solutionHow: opportunityData.solutionHow,
+            objectives: opportunityData.objectives,
+            scopeGroups: opportunityData.linkedProject?.scopeGroups.map(
+              (g: any) => ({ title: g.title, totalHours: g.totalHours })
+            ) ?? [],
+            investmentTotal: opportunityData.investmentTotal,
+            benefits: opportunityData.benefits,
+            differentiators: opportunityData.differentiators,
+            nextStep: opportunityData.nextStep,
+          },
+        });
+        if (enrichResult.enriched) {
+          enrichedOpportunity = { ...opportunityData, ...enrichResult.data };
+        }
+      } catch {
+        // enriquecimento falhou — continua com dados originais
+      }
+
+      // 2. Compor apresentação com dados enriquecidos
+      setGeneratingPhase("composing");
+
       const typeConfig = typeConfigRow
         ? {
             executiveSummary: typeConfigRow.executive_summary,
@@ -77,8 +115,9 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
           }
         : undefined;
 
-      const composed = composePresentation(opportunityData, typeConfig);
+      const composed = composePresentation(enrichedOpportunity, typeConfig);
 
+      // 3. Salvar e navegar
       const result = await createPresentation.mutateAsync({
         proposalId,
         proposalTypeId: selectedTypeId || "",
@@ -98,7 +137,7 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
     } catch (err: any) {
       toast({ title: "Erro ao gerar apresentação", description: err.message, variant: "destructive" });
     } finally {
-      setGenerating(false);
+      setGeneratingPhase("idle");
     }
   };
 
@@ -108,10 +147,14 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
     toast({ title: "Link copiado", description: "O link da apresentação foi copiado para a área de transferência." });
   };
 
+  const buttonLabel =
+    generatingPhase === "enriching" ? "Analisando contexto..." :
+    generatingPhase === "composing" ? "Gerando apresentação..." :
+    "Gerar Nova Apresentação";
+
   return (
     <>
       <div className="space-y-6 w-full">
-        {/* Botão gerar */}
         <Button
           variant="default"
           className="gap-2"
@@ -119,10 +162,9 @@ export default function ProposalPresentationPanel({ proposalId, proposalStatus }
           disabled={generating || loadingOpp}
         >
           {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {generating ? "Gerando..." : "Gerar Nova Apresentação"}
+          {buttonLabel}
         </Button>
 
-        {/* Grid de apresentações geradas */}
         {loadingPres ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : presentations.length === 0 ? (

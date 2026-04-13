@@ -379,6 +379,11 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
 
       // 3. Build scope groups — prefer project, fallback to proposal
       let linkedProject: LinkedProject | undefined;
+      let templateContext: {
+        premises: string[];
+        outOfScope: string[];
+        methodology?: string;
+      } | undefined = undefined;
       const project = projectResult.data?.[0];
 
       let scopeGroups: ProjectScopeGroup[] = [];
@@ -396,6 +401,37 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
           project.group_notes ?? {},
           "project",
         );
+
+        // Buscar template vinculado ao projeto para templateContext
+        const templateIdCounts: Record<string, number> = {};
+        for (const item of projectScopeItems ?? []) {
+          if (item.template_id) {
+            templateIdCounts[item.template_id] =
+              (templateIdCounts[item.template_id] ?? 0) + 1;
+          }
+        }
+        const dominantTemplateId = Object.entries(templateIdCounts)
+          .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+        if (dominantTemplateId) {
+          const { data: tmpl } = await supabase
+            .from("scope_templates")
+            .select("name, notes, scope_template_items(notes, parent_id)")
+            .eq("id", dominantTemplateId)
+            .maybeSingle();
+
+          if (tmpl) {
+            const parentNotes = (tmpl.scope_template_items ?? [])
+              .filter((i: any) => !i.parent_id && i.notes)
+              .map((i: any) => i.notes as string);
+
+            templateContext = {
+              premises: parentNotes.slice(0, Math.ceil(parentNotes.length / 2)),
+              outOfScope: parentNotes.slice(Math.ceil(parentNotes.length / 2)),
+              methodology: (tmpl as any).notes ?? undefined,
+            };
+          }
+        }
 
         if (scopeGroups.length > 0) {
           linkedProject = {
@@ -494,6 +530,7 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
         createdAt: proposal.created_at,
         expectedCloseDate: proposal.expected_close_date ?? "",
       linkedProject,
+      templateContext,
     };
   },
   enabled: !!proposalId,

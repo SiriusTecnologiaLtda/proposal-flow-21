@@ -25,7 +25,8 @@ export default function ScopeSection({ data, config }: Props) {
   const showItems = detailLevel === "detalhado";
   const showBenefits = detailLevel === "detalhado";
 
-  const visibleBlocks = data.scopeBlocks.slice(0, maxGroups);
+  const rawGroups = data.linkedProject?.scopeGroups ?? [];
+  const visibleGroups = rawGroups.slice(0, maxGroups);
 
   return (
     <section className="space-y-8">

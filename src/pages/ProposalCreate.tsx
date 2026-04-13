@@ -1353,6 +1353,7 @@ export default function ProposalCreate() {
                 .eq("id", item.id);
             }
           }
+          } // end if (!existingProj)
         } catch (projErr) {
           console.error("Failed to auto-create project:", projErr);
         }

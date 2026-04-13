@@ -379,11 +379,7 @@ export function useProposalAsOpportunity(proposalId: string | undefined) {
 
       // 3. Build scope groups — prefer project, fallback to proposal
       let linkedProject: LinkedProject | undefined;
-      let templateContext: {
-        premises: string[];
-        outOfScope: string[];
-        methodology?: string;
-      } | undefined = undefined;
+      let templateContext: ProposalTemplateContext | undefined = undefined;
       const project = projectResult.data?.[0];
 
       let scopeGroups: ProjectScopeGroup[] = [];

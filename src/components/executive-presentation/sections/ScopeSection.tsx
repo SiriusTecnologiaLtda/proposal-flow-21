@@ -20,10 +20,6 @@ interface Props {
 export default function ScopeSection({ data, config }: Props) {
   const hasProjectScope = !!data.linkedProject && data.linkedProject.scopeGroups.length > 0;
 
-  const isModern = !config?.templateStyle || config.templateStyle === "modern";
-  const isMinimal = config?.templateStyle === "minimal";
-
-  // detailLevel filtering
   const detailLevel = config?.detailLevel ?? "resumido";
   const maxGroups = detailLevel === "executivo" ? 2 : detailLevel === "resumido" ? 5 : 999;
   const showItems = detailLevel === "detalhado";
@@ -31,25 +27,25 @@ export default function ScopeSection({ data, config }: Props) {
 
   const visibleBlocks = data.scopeBlocks.slice(0, maxGroups);
 
-  const cardClass = isModern
-    ? "group relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm transition-all hover:shadow-md"
-    : isMinimal
-      ? "group relative py-5 border-b border-border/30 last:border-b-0"
-      : "group relative overflow-hidden rounded-xl border bg-card p-6";
-
   return (
-    <section className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-foreground">Escopo da Solução</h2>
-        <p className="text-muted-foreground">Frentes de trabalho e seus objetivos estratégicos</p>
+    <section className="space-y-8">
+      {/* Section header */}
+      <div className="flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <Layers className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Escopo da Solução</h2>
+          <p className="text-sm text-muted-foreground">Frentes de trabalho e seus objetivos estratégicos</p>
+        </div>
       </div>
 
       {/* Source indicator */}
-      {hasProjectScope && !isMinimal && (
-        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isModern ? "border border-primary/20 bg-primary/5" : "border bg-muted/30"}`}>
-          <FolderKanban className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-foreground truncate">
+      {hasProjectScope && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <FolderKanban className="h-4 w-4 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-foreground">
               Baseado no Projeto Vinculado — {data.linkedProject!.description}
             </p>
             <p className="text-[10px] text-muted-foreground">
@@ -59,45 +55,49 @@ export default function ScopeSection({ data, config }: Props) {
         </div>
       )}
 
-      {/* Scope blocks — executive rendering */}
-      <div className={`grid gap-5 ${isMinimal ? "grid-cols-1" : "md:grid-cols-2"}`}>
-        {visibleBlocks.map((block) => {
+      {/* Scope blocks */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {visibleBlocks.map((block, i) => {
           const Icon = iconMap[block.icon] || Settings;
-          const hasExecutiveFields = block.executiveObjective || block.expectedImpact;
           return (
-            <div key={block.id} className={cardClass}>
-              {!isMinimal && (
-                <div className="absolute left-0 top-0 h-full w-1 bg-primary/60 transition-all group-hover:w-1.5 group-hover:bg-primary" />
-              )}
+            <div
+              key={block.id}
+              className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
+            >
+              {/* Left accent bar */}
+              <div className="absolute left-0 top-0 h-full w-1 bg-primary/50 transition-all duration-200 group-hover:w-1.5 group-hover:bg-primary" />
 
-              <div className={`flex items-start gap-4 ${!isMinimal ? "pl-3" : ""}`}>
-                {!isMinimal && (
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-primary ${isModern ? "bg-primary/10" : "bg-muted"}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                )}
+              {/* Background number */}
+              <span className="pointer-events-none absolute right-4 top-2 select-none text-6xl font-black text-muted/10">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+
+              <div className="relative flex items-start gap-4 pl-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
                 <div className="flex-1 space-y-3">
                   <div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-foreground">{block.title}</h3>
-                      {block.volumeSummary && !isMinimal && (
+                      {block.volumeSummary && (
                         <Badge variant="secondary" className="text-[10px] shrink-0">{block.volumeSummary}</Badge>
                       )}
                     </div>
                     {detailLevel !== "executivo" && (
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-1">{block.description}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{block.description}</p>
                     )}
                   </div>
 
-                  {/* Expected impact — executive framing */}
-                  {hasExecutiveFields && block.expectedImpact && (
-                    <div className={`flex items-start gap-2 rounded-lg px-3 py-2 ${isModern ? "bg-primary/5" : "bg-muted/30"}`}>
-                      <Target className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
-                      <p className="text-xs text-foreground/80 leading-relaxed">{block.expectedImpact}</p>
+                  {/* Expected impact */}
+                  {block.expectedImpact && (
+                    <div className="flex items-start gap-2 rounded-xl bg-primary/5 px-3 py-2">
+                      <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <p className="text-xs leading-relaxed text-foreground/80">{block.expectedImpact}</p>
                     </div>
                   )}
 
-                  {/* Template knowledge benefits */}
+                  {/* Benefits */}
                   {showBenefits && block.templateKnowledge?.executive_benefits &&
                     block.templateKnowledge.executive_benefits.length >= 3 && (
                     <div className="space-y-1">
@@ -113,7 +113,7 @@ export default function ScopeSection({ data, config }: Props) {
                     </div>
                   )}
 
-                  {/* Key deliverables — concise list */}
+                  {/* Deliverables */}
                   {showItems && block.items.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Principais entregáveis</p>
@@ -134,16 +134,16 @@ export default function ScopeSection({ data, config }: Props) {
         })}
       </div>
 
-      {/* Template context: premises & out of scope */}
+      {/* Premises & out of scope */}
       {detailLevel === "detalhado" && data.templateContext && (data.templateContext.premises.length > 0 || data.templateContext.outOfScope.length > 0) && (
         <div className="grid gap-4 md:grid-cols-2">
           {data.templateContext.premises.length > 0 && (
-            <div className={`space-y-3 ${isMinimal ? "py-4" : "rounded-xl border bg-card p-5"}`}>
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-6">
               <h3 className="text-sm font-semibold text-foreground">Premissas</h3>
               <ul className="space-y-1.5">
                 {data.templateContext.premises.map((p, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <CheckCircle className="h-3 w-3 mt-0.5 text-primary shrink-0" />
+                    <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
                     {p}
                   </li>
                 ))}
@@ -151,12 +151,12 @@ export default function ScopeSection({ data, config }: Props) {
             </div>
           )}
           {data.templateContext.outOfScope.length > 0 && (
-            <div className={`space-y-3 ${isMinimal ? "py-4" : "rounded-xl border bg-card p-5"}`}>
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-6">
               <h3 className="text-sm font-semibold text-foreground">Fora do Escopo</h3>
               <ul className="space-y-1.5">
                 {data.templateContext.outOfScope.map((p, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <div className="h-1.5 w-1.5 mt-1.5 shrink-0 rounded-full bg-destructive/50" />
+                    <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive/50" />
                     {p}
                   </li>
                 ))}
@@ -166,11 +166,11 @@ export default function ScopeSection({ data, config }: Props) {
         </div>
       )}
 
-      {/* Methodology from template */}
+      {/* Methodology */}
       {detailLevel === "detalhado" && data.templateContext?.methodology && (
-        <div className={`space-y-2 ${isMinimal ? "py-4" : "rounded-xl border bg-muted/30 p-5"}`}>
+        <div className="space-y-2 rounded-2xl border border-border bg-muted/30 p-6">
           <h3 className="text-sm font-semibold text-foreground">Metodologia</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">{data.templateContext.methodology}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{data.templateContext.methodology}</p>
         </div>
       )}
     </section>

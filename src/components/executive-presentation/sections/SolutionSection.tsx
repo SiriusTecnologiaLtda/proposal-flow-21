@@ -14,75 +14,72 @@ export default function SolutionSection({ data, config, editable, overrides, onE
   const how = overrides?.solutionHow ?? data.solutionHow;
   const methodology = data.templateContext?.methodology;
 
-  const isModern = !config?.templateStyle || config.templateStyle === "modern";
-  const isMinimal = config?.templateStyle === "minimal";
-
-  const containerClass = isModern
-    ? "rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-8"
-    : isMinimal
-      ? "py-6"
-      : "rounded-xl border bg-card p-8";
-
   return (
-    <section className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-foreground">Visão da Solução</h2>
-        <p className="text-muted-foreground">Como endereçamos os desafios identificados</p>
-      </div>
-
-      <div className={containerClass}>
-        <div className="flex items-start gap-4">
-          {!isMinimal && (
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isModern ? "bg-primary/10" : "bg-muted"}`}>
-              <Lightbulb className={`h-6 w-6 ${isModern ? "text-primary" : "text-muted-foreground"}`} />
-            </div>
-          )}
-          <div className="space-y-4 flex-1">
-            {editable ? (
-              <>
-                <input
-                  className="w-full bg-transparent text-xl font-semibold text-foreground outline-none"
-                  value={summary}
-                  onChange={(e) => onEdit?.("solutionSummary", e.target.value)}
-                />
-                <textarea
-                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
-                  rows={3}
-                  value={how}
-                  onChange={(e) => onEdit?.("solutionHow", e.target.value)}
-                />
-              </>
-            ) : (
-              <>
-                <h3 className="text-xl font-semibold text-foreground">{summary}</h3>
-                <p className="text-muted-foreground leading-relaxed">{how}</p>
-              </>
-            )}
-
-            {/* Objectives from opportunity */}
-            {data.objectives.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50">
-                {data.objectives.map((obj, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 mt-1.5 shrink-0 rounded-full bg-primary" />
-                    <p className="text-xs text-muted-foreground">{obj}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+    <section className="space-y-8">
+      {/* Section header */}
+      <div className="flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <Lightbulb className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Visão da Solução</h2>
+          <p className="text-sm text-muted-foreground">Como endereçamos os desafios identificados</p>
         </div>
       </div>
 
-      {/* Methodology from template — integrated into the solution narrative */}
+      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-primary/[0.03] to-transparent p-8 md:p-10">
+        {/* Eyebrow */}
+        <div className="mb-6 flex items-center gap-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-primary/40 to-transparent" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-primary">Nossa Abordagem</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-primary/40 to-transparent" />
+        </div>
+
+        {editable ? (
+          <>
+            <input
+              className="mb-3 w-full bg-transparent text-2xl font-bold tracking-tight text-foreground outline-none md:text-3xl"
+              value={summary}
+              onChange={(e) => onEdit?.("solutionSummary", e.target.value)}
+            />
+            <textarea
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
+              rows={3}
+              value={how}
+              onChange={(e) => onEdit?.("solutionHow", e.target.value)}
+            />
+          </>
+        ) : (
+          <>
+            <h3 className="mb-3 text-2xl font-bold tracking-tight text-foreground md:text-3xl">{summary}</h3>
+            <p className="mb-6 text-base leading-relaxed text-muted-foreground">{how}</p>
+          </>
+        )}
+
+        {/* Objectives — pill grid */}
+        {data.objectives.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-border/50 pt-4">
+            {data.objectives.map((obj, i) => (
+              <span
+                key={i}
+                className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"
+              >
+                {obj}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Methodology */}
       {methodology && !editable && (
-        <div className={`flex items-start gap-3 ${isMinimal ? "py-3" : "rounded-xl border bg-card p-5"}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-start gap-4 rounded-2xl border border-border bg-card p-6 transition-all duration-200 hover:shadow-sm">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <BookOpen className="h-4 w-4 text-primary" />
           </div>
           <div className="space-y-1">
             <h4 className="text-sm font-semibold text-foreground">Abordagem Metodológica</h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">{methodology}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{methodology}</p>
           </div>
         </div>
       )}

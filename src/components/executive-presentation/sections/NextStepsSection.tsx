@@ -14,21 +14,19 @@ export default function NextStepsSection({ data, config, editable, overrides, on
   const nextStep = overrides?.nextStep ?? data.nextStep;
   const cta = overrides?.nextStepCta ?? data.nextStepCta;
 
-  const isModern = !config?.templateStyle || config.templateStyle === "modern";
-  const isMinimal = config?.templateStyle === "minimal";
-
   return (
-    <section
-      className={`px-8 py-12 text-center ${
-        isModern
-          ? "rounded-xl bg-gradient-to-br from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] text-primary-foreground"
-          : isMinimal
-            ? "text-foreground"
-            : "rounded-xl border bg-card text-foreground"
-      }`}
-    >
-      <div className="mx-auto max-w-2xl space-y-6">
-        <h2 className="text-2xl font-bold">Próximos Passos</h2>
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(var(--hero-from))] via-[hsl(var(--hero-via))] to-[hsl(var(--hero-to))] px-8 py-16 text-center text-primary-foreground">
+      {/* Glow */}
+      <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-primary-foreground/5 blur-3xl" />
+      <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-primary-foreground/5 blur-2xl" />
+
+      <div className="relative z-10 mx-auto max-w-2xl space-y-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/40">
+          Próximos Passos
+        </p>
+        <h2 className="text-3xl font-bold tracking-tight text-primary-foreground">
+          Vamos começar?
+        </h2>
 
         {editable ? (
           <textarea
@@ -38,18 +36,12 @@ export default function NextStepsSection({ data, config, editable, overrides, on
             onChange={(e) => onEdit?.("nextStep", e.target.value)}
           />
         ) : (
-          <p className={`text-lg leading-relaxed ${isModern ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-            {nextStep}
-          </p>
+          <p className="text-lg leading-relaxed text-primary-foreground/70">{nextStep}</p>
         )}
 
         <Button
           size="lg"
-          className={`gap-2 ${
-            isModern
-              ? "bg-primary-foreground text-foreground hover:bg-primary-foreground/90"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          }`}
+          className="gap-2 bg-primary-foreground text-foreground hover:bg-primary-foreground/90"
         >
           {cta} <ArrowRight className="h-4 w-4" />
         </Button>

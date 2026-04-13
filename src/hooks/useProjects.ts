@@ -14,7 +14,7 @@ export function useProjects() {
       while (hasMore) {
         const { data, error } = await supabase
           .from("projects")
-          .select("id, status, product, description, created_at, updated_at, created_by, arquiteto_id, client_id, proposal_id, proposal_number, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), proposals!projects_proposal_id_fkey(id, status, number)")
+          .select("id, status, product, description, created_at, updated_at, created_by, arquiteto_id, client_id, proposal_id, proposal_number, clients(name, code, cnpj, esn_id, gsn_id, unit_id, sales_team_esn:sales_team!clients_esn_id_fkey(id, name), sales_team_gsn:sales_team!clients_gsn_id_fkey(id, name), unit_info(id, name)), sales_team!projects_arquiteto_id_fkey(name), proposals!projects_proposal_id_fkey(id, status, number, esn_id, proposal_esn:sales_team!proposals_esn_id_fkey(id, name))")
           .order("created_at", { ascending: false })
           .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;

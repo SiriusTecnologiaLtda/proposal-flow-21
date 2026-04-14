@@ -33,6 +33,7 @@ type SummaryRow = {
   code: string;
   role: string;
   unit_id: string | null;
+  unitIds: Set<string>;
   linked_gsn_id: string | null;
   categoryTotals: Record<string, number>;
   grandTotal: number;

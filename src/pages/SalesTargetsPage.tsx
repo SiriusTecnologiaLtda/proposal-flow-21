@@ -146,7 +146,7 @@ export default function SalesTargetsPage() {
       const q = search.toLowerCase();
       result = result.filter(g => g.name.toLowerCase().includes(q) || g.code.toLowerCase().includes(q));
     }
-    if (filterUnitIds.length > 0) result = result.filter(g => g.unit_id && filterUnitIds.includes(g.unit_id));
+    if (filterUnitIds.length > 0) result = result.filter(g => filterUnitIds.some(uid => g.unitIds.has(uid)));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     if (filterSegmentIds.length > 0) {
       const memberSegments = new Map<string, Set<string>>();

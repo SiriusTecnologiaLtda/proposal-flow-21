@@ -1744,8 +1744,11 @@ export default function SmartImport() {
           if (!rowCategoryId) {
             const catAliasKey = getAliasKey(entity, "category_name");
             const catAliases = currentAliases[catAliasKey];
-            if (catAliases && catAliases[normalize(rawCatName)]) {
-              rowCategoryId = catAliases[normalize(rawCatName)];
+            if (catAliases) {
+              // Try both normalize (strips spaces/accents) and simple lowercase (alias store key format)
+              const nKey = normalize(rawCatName);
+              const lKey = rawCatName.toLowerCase();
+              rowCategoryId = catAliases[nKey] || catAliases[lKey] || null;
             }
           }
         }

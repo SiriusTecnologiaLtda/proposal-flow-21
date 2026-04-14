@@ -33,6 +33,7 @@ type SummaryRow = {
   code: string;
   role: string;
   unit_id: string | null;
+  unitIds: Set<string>;
   linked_gsn_id: string | null;
   categoryTotals: Record<string, number>;
   grandTotal: number;
@@ -117,12 +118,14 @@ export default function SalesTargetsPage() {
           code: esn?.code || "—",
           role: (t as any).role || "esn",
           unit_id: (t as any).unit_id || esn?.unit_id || null,
+          unitIds: new Set(),
           linked_gsn_id: esn?.linked_gsn_id || null,
           categoryTotals: {},
           grandTotal: 0,
         });
       }
       const row = map.get(key)!;
+      if ((t as any).unit_id) row.unitIds.add((t as any).unit_id);
       const catId = (t as any).category_id || "sem_categoria";
       row.categoryTotals[catId] = (row.categoryTotals[catId] || 0) + (t.amount || 0);
       row.grandTotal += (t.amount || 0);
@@ -143,7 +146,7 @@ export default function SalesTargetsPage() {
       const q = search.toLowerCase();
       result = result.filter(g => g.name.toLowerCase().includes(q) || g.code.toLowerCase().includes(q));
     }
-    if (filterUnitIds.length > 0) result = result.filter(g => g.unit_id && filterUnitIds.includes(g.unit_id));
+    if (filterUnitIds.length > 0) result = result.filter(g => filterUnitIds.some(uid => g.unitIds.has(uid)));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
     if (filterSegmentIds.length > 0) {
       const memberSegments = new Map<string, Set<string>>();

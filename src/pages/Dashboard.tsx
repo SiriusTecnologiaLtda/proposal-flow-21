@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  FileText, TrendingUp, TrendingDown, Target, Clock, Plus,
-  SlidersHorizontal, CalendarRange, Users, X, Check, Search, ChevronDown, ChevronUp, Tag,
-  BarChart3, Percent, UserCheck, Trophy, DollarSign, Building2, Repeat, User,
+  Plus,
+  SlidersHorizontal, CalendarRange, Users, X, Check, ChevronDown, Tag,
+  Building2, Repeat, User,
 } from "lucide-react";
 import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";

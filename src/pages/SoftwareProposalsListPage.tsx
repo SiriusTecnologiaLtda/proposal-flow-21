@@ -129,6 +129,11 @@ export default function SoftwareProposalsListPage() {
   const [unitSearch, setUnitSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+
+  // Subscribe to global background extraction state
+  useEffect(() => {
+    return subscribeExtracting((ids) => setExtractingIds(ids));
+  }, []);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);

@@ -285,25 +285,6 @@ export default function SalesTargetsPage() {
         </div>
       </div>
 
-      {/* ── KPI por Categoria ── */}
-      <div className={cn("grid gap-3", categoryKpiTotals.length <= 3 ? "grid-cols-1 sm:grid-cols-3" : categoryKpiTotals.length <= 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5")}>
-        {categoryKpiTotals.map((cat) => (
-          <Card key={cat.name} className="border-border/50 shadow-sm">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <Target className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium truncate">{cat.name}</p>
-                <p className="text-lg font-bold text-foreground tabular-nums leading-tight">{formatCurrency(cat.total)}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {categoryKpiTotals.length === 0 && (
-          <p className="text-sm text-muted-foreground col-span-full py-2">Nenhuma meta encontrada com os filtros atuais.</p>
-        )}
-      </div>
 
       {/* ── Filters ── */}
       <Card className="border-border/50 shadow-sm">

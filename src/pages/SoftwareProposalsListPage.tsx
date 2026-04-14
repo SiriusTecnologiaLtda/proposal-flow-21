@@ -1033,7 +1033,7 @@ export default function SoftwareProposalsListPage() {
                         size="sm"
                         variant="outline"
                         className="gap-1.5"
-                        onClick={() => extractMutation.mutate(p.id)}
+                        onClick={() => handleExtract(p.id)}
                       >
                         <Sparkles className="h-3.5 w-3.5" />
                         <span className="text-xs">Extrair</span>
@@ -1043,7 +1043,7 @@ export default function SoftwareProposalsListPage() {
                         size="sm"
                         variant="ghost"
                         className="gap-1.5 text-muted-foreground"
-                        onClick={() => extractMutation.mutate(p.id)}
+                        onClick={() => handleExtract(p.id)}
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         <span className="text-xs">Re-extrair</span>

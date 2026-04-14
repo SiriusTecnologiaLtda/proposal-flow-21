@@ -260,21 +260,7 @@ export default function SmartImport() {
     setSavedPresets(loadSavedFilterPresets(entity));
     setFilterRules([]);
 
-    // Auto-detect year from META YYYY - MM headers
-    if (entity === "sales_targets") {
-      const metaYearRegex = /^meta\s*(\d{4})\s*[-–_]\s*\d{1,2}$/i;
-      const detectedYears = new Set<string>();
-      for (const h of currentHeaders) {
-        const ym = (h || "").trim().match(metaYearRegex);
-        if (ym) detectedYears.add(ym[1]);
-      }
-      if (detectedYears.size === 1) {
-        const autoYear = Array.from(detectedYears)[0];
-        setTargetYear(autoYear);
-      } else if (detectedYears.size > 1) {
-        toast({ title: "Ano ambíguo", description: `Detectados múltiplos anos nos cabeçalhos META: ${Array.from(detectedYears).join(", ")}. Selecione o ano correto manualmente.`, variant: "destructive" });
-      }
-    }
+    // Year is ALWAYS set by the user via the UI selector — no auto-detection
 
     setStep("mapping");
   }, [headers, rawWorkbook, toast]);
@@ -914,6 +900,14 @@ export default function SmartImport() {
 
   // ── Run import (entry point) ──────────────────────────────────
   const runImport = useCallback(async () => {
+    // Block import if no year selected for sales_targets
+    if (detectedEntity === "sales_targets" && (!targetYear || !targetYear.trim())) {
+      toast({ title: "Selecione o ano para continuar", description: "O ano da meta é obrigatório. Escolha o ano no seletor antes de importar.", variant: "destructive" });
+      return;
+    }
+    if (detectedEntity === "sales_targets") {
+      addImportLog(detectedEntity, "info", `📅 Ano selecionado pelo usuário: ${targetYear}`, "validation");
+    }
     const validation = validateImportStructure(detectedEntity, mapping, headers, dbFields, allDataRows);
     setValidationResult(validation);
     if (!validation.valid) {

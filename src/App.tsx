@@ -9,6 +9,7 @@ import { canAccessRoute } from "@/lib/permissions";
 import AppLayout from "@/components/AppLayout";
 import UnauthorizedScreen from "@/components/UnauthorizedScreen";
 import Dashboard from "@/pages/Dashboard";
+import ServiceIndicatorsPage from "@/pages/ServiceIndicatorsPage";
 import ProposalsList from "@/pages/ProposalsList";
 import ProposalCreate from "@/pages/ProposalCreate";
 import ClientsList from "@/pages/ClientsList";
@@ -187,6 +188,7 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/indicadores-servicos" element={<ServiceIndicatorsPage />} />
         <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/propostas" element={<ProposalsList />} />
         <Route path="/propostas/nova" element={<ProposalCreate />} />

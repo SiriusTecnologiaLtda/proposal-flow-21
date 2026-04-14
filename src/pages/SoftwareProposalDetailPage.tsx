@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { startExtraction, subscribeExtracting } from "@/lib/backgroundExtraction";
 import {
   ArrowLeft, Save, CheckCircle2, Plus, Trash2, AlertTriangle,
   FileText, Download, Loader2, Eye, EyeOff, Pencil, RotateCcw, Sparkles,
@@ -663,29 +664,17 @@ export default function SoftwareProposalDetailPage() {
     onError: (err: any) => toast.error(err.message || "Erro ao excluir proposta"),
   });
 
-  // Reprocess (re-extract)
-  const reprocessMutation = useMutation({
-    mutationFn: async () => {
-      if (!id) throw new Error("ID não encontrado");
-      const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
-        body: { software_proposal_id: id },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["software-proposal", id] });
-      queryClient.invalidateQueries({ queryKey: ["software-proposal-items", id] });
-      queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.success(
-        `Re-extração concluída — ${data.items_extracted} itens, ${data.issues_created} pendências`,
-        { duration: 5000 }
-      );
-    },
-    onError: (err: any) => toast.error(err.message || "Erro na re-extração"),
-  });
+  // Reprocess (re-extract) — background
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  useEffect(() => {
+    return subscribeExtracting((ids) => setIsExtracting(id ? ids.has(id) : false));
+  }, [id]);
+
+  const handleReprocess = () => {
+    if (!id) return;
+    startExtraction(id, queryClient);
+  };
 
   // Download file via signed URL
   const downloadFile = async () => {
@@ -783,15 +772,15 @@ export default function SoftwareProposalDetailPage() {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() => reprocessMutation.mutate()}
-              disabled={reprocessMutation.isPending}
+              onClick={handleReprocess}
+              disabled={isExtracting}
             >
-              {reprocessMutation.isPending ? (
+              {isExtracting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <RotateCcw className="h-4 w-4" />
               )}
-              {reprocessMutation.isPending ? "Reprocessando…" : "Reprocessar"}
+              {isExtracting ? "Reprocessando…" : "Reprocessar"}
             </Button>
           )}
           {canValidate && (

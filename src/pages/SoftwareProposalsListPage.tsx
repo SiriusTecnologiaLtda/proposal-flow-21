@@ -5,6 +5,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { startExtraction, startBulkExtraction, subscribeExtracting } from "@/lib/backgroundExtraction";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useSalesTeam } from "@/hooks/useSupabaseData";
@@ -128,6 +129,11 @@ export default function SoftwareProposalsListPage() {
   const [unitSearch, setUnitSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+
+  // Subscribe to global background extraction state
+  useEffect(() => {
+    return subscribeExtracting((ids) => setExtractingIds(ids));
+  }, []);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
@@ -162,39 +168,9 @@ export default function SoftwareProposalsListPage() {
   // Fetch sales team
   const { data: salesTeam = [] } = useSalesTeam();
 
-  const extractMutation = useMutation({
-    mutationFn: async (proposalId: string) => {
-      setExtractingIds((prev) => new Set(prev).add(proposalId));
-      const { data, error } = await supabase.functions.invoke(
-        "extract-software-proposal",
-        { body: { software_proposal_id: proposalId } }
-      );
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data, proposalId) => {
-      setExtractingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(proposalId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.success(
-        `Extração concluída — ${data.items_extracted} itens extraídos, ${data.issues_created} pendências criadas`,
-        { duration: 5000 }
-      );
-    },
-    onError: (err: any, proposalId) => {
-      setExtractingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(proposalId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.error(err?.message || "Erro na extração");
-    },
-  });
+  const handleExtract = useCallback((proposalId: string) => {
+    startExtraction(proposalId, queryClient);
+  }, [queryClient]);
 
   const deleteMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -333,54 +309,12 @@ export default function SoftwareProposalsListPage() {
   // ─── Bulk extract ─────────────────────────────────────────────
   const [bulkExtracting, setBulkExtracting] = useState(false);
 
-  const handleBulkExtract = useCallback(async () => {
+  const handleBulkExtract = useCallback(() => {
     setBulkConfirmOpen(false);
     setBulkExtracting(true);
     const ids = Array.from(selectedIds);
-    let successCount = 0;
-    let errorCount = 0;
-    let creditError = false;
-
-    for (const id of ids) {
-      if (creditError) break; // Para imediatamente se sem créditos
-      try {
-        setExtractingIds((prev) => new Set(prev).add(id));
-        const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
-          body: { software_proposal_id: id },
-        });
-        if (error || data?.error) {
-          const errMsg = data?.error || error?.message || "";
-          if (errMsg.includes("Créditos") || errMsg.includes("créditos") || data?.fallback) {
-            creditError = true;
-            toast.error("Créditos de IA insuficientes. Extração em lote interrompida. Adicione créditos em Settings → Workspace → Usage.");
-          }
-          throw error || new Error(errMsg);
-        }
-        successCount++;
-      } catch {
-        errorCount++;
-      } finally {
-        setExtractingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
     setSelectedIds(new Set());
-    setBulkExtracting(false);
-
-    if (creditError) {
-      if (successCount > 0) {
-        toast.info(`${successCount} proposta(s) extraída(s) antes do erro de créditos. ${ids.length - successCount - errorCount} pendente(s) não processada(s).`);
-      }
-    } else if (errorCount === 0) {
-      toast.success(`Extração em lote concluída — ${successCount} propostas processadas`);
-    } else {
-      toast.warning(`Extração em lote: ${successCount} sucesso, ${errorCount} erro(s)`);
-    }
+    startBulkExtraction(ids, queryClient, () => setBulkExtracting(false));
   }, [selectedIds, queryClient]);
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {
@@ -1057,7 +991,7 @@ export default function SoftwareProposalsListPage() {
                         size="sm"
                         variant="outline"
                         className="gap-1.5"
-                        onClick={() => extractMutation.mutate(p.id)}
+                        onClick={() => handleExtract(p.id)}
                       >
                         <Sparkles className="h-3.5 w-3.5" />
                         <span className="text-xs">Extrair</span>
@@ -1067,7 +1001,7 @@ export default function SoftwareProposalsListPage() {
                         size="sm"
                         variant="ghost"
                         className="gap-1.5 text-muted-foreground"
-                        onClick={() => extractMutation.mutate(p.id)}
+                        onClick={() => handleExtract(p.id)}
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         <span className="text-xs">Re-extrair</span>

@@ -37,6 +37,7 @@ type SummaryRow = {
   linked_gsn_id: string | null;
   categoryTotals: Record<string, number>;
   grandTotal: number;
+  rowKey: string;
 };
 
 export default function SalesTargetsPage() {
@@ -121,7 +122,8 @@ export default function SalesTargetsPage() {
 
     const map = new Map<string, SummaryRow>();
     for (const t of filteredTargets) {
-      const key = t.esn_id;
+      const unitId = t.unit_id || "__sem_unidade__";
+      const key = `${unitId}::${t.esn_id}`;
       if (!map.has(key)) {
         const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
@@ -134,6 +136,7 @@ export default function SalesTargetsPage() {
           linked_gsn_id: esn?.linked_gsn_id || null,
           categoryTotals: {},
           grandTotal: 0,
+          rowKey: key,
         });
       }
       const row = map.get(key)!;
@@ -142,8 +145,15 @@ export default function SalesTargetsPage() {
       row.categoryTotals[catId] = (row.categoryTotals[catId] || 0) + (t.amount || 0);
       row.grandTotal += (t.amount || 0);
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [targets, esnMap, filterUnitIds, filterSegmentIds, filterCategoryIds]);
+    const unitNameMap = new Map(units.map((u: any) => [u.id, u.name || ""]));
+    return Array.from(map.values()).sort((a, b) => {
+      const uA = unitNameMap.get(a.unit_id || "") || "zzz";
+      const uB = unitNameMap.get(b.unit_id || "") || "zzz";
+      const uCmp = uA.localeCompare(uB);
+      if (uCmp !== 0) return uCmp;
+      return a.name.localeCompare(b.name);
+    });
+  }, [targets, esnMap, filterUnitIds, filterSegmentIds, filterCategoryIds, units]);
 
   const filtered = useMemo(() => {
     let result = summaryRows;
@@ -183,7 +193,7 @@ export default function SalesTargetsPage() {
   };
 
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
-  const getRowKey = (row: SummaryRow) => row.esn_id;
+  const getRowKey = (row: SummaryRow) => row.rowKey;
 
   /* ── Selection ── */
   const toggleSelect = (key: string) => {
@@ -206,9 +216,10 @@ export default function SalesTargetsPage() {
     setDeleting(true);
     try {
       const idsToDelete: string[] = [];
-      for (const esnId of selectedKeys) {
+      for (const rowKey of selectedKeys) {
+        const [unitId, esnId] = rowKey.split("::");
         for (const t of targets) {
-          if (t.esn_id === esnId) idsToDelete.push(t.id);
+          if (t.esn_id === esnId && (t.unit_id === unitId || (unitId === "__sem_unidade__" && !t.unit_id))) idsToDelete.push(t.id);
         }
       }
       let deletedCount = 0;
@@ -365,7 +376,10 @@ export default function SalesTargetsPage() {
                         <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Selecionar todos" className="mx-auto block" />
                       </th>
                     )}
-                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[160px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                      Unidade
+                    </th>
+                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[200px]" : "left-[160px]")}>
                       Time de Vendas
                     </th>
                     {sortedCategories.map((cat: any) => (
@@ -396,17 +410,18 @@ export default function SalesTargetsPage() {
                           style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
                           onClick={() => openEdit(row)}
                         >
+                          <span className="text-xs text-foreground truncate block max-w-[140px]">{unitName || "—"}</span>
+                        </td>
+                        <td
+                          className={cn("sticky z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors", isAdmin ? "left-[200px]" : "left-[160px]")}
+                          style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
+                          onClick={() => openEdit(row)}
+                        >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-semibold text-foreground leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
-                              {unitName && (
-                                <>
-                                  <span className="text-muted-foreground/30">•</span>
-                                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{unitName}</span>
-                                </>
-                              )}
                             </div>
                           </div>
                         </td>
@@ -432,7 +447,8 @@ export default function SalesTargetsPage() {
                 <tfoot>
                   <tr className="sticky bottom-0 z-20 bg-muted backdrop-blur-sm border-t-2 border-border">
                     {isAdmin && <td className="sticky left-0 z-30 bg-muted border-r border-border/60" />}
-                    <td className={cn("sticky z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                    <td className={cn("sticky z-30 bg-muted px-4 py-3 border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")} />
+                    <td className={cn("sticky z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60", isAdmin ? "left-[200px]" : "left-[160px]")}>
                       Total Geral
                     </td>
                     {sortedCategories.map((cat: any) => {

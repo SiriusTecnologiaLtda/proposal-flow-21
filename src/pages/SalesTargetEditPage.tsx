@@ -62,6 +62,8 @@ export default function SalesTargetEditPage() {
   // Grid state
   const [gridRows, setGridRows] = useState<GridRow[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastAddedKeyRef = useRef<string | null>(null);
 
   const { data: categories = [] } = useCategories();
   const { data: segments = [] } = useSegments();

@@ -146,9 +146,7 @@ function RoleSelector({
 export default function Dashboard() {
   const { user } = useAuth();
   const { role } = useUserRole();
-  const { data: proposals = [] } = useProposals();
   const { data: salesTeam = [] } = useSalesTeam();
-  const { data: clients = [] } = useClients();
 
   // Get current user's profile to find their sales_team_member_id
   const { data: myProfile } = useQuery({
@@ -212,72 +210,6 @@ export default function Dashboard() {
     },
   });
 
-  // Fetch commission projections
-  const { data: commissionProjections = [] } = useQuery({
-    queryKey: ["commission-projections-dashboard"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("commission_projections")
-        .select("*")
-        .neq("proposal_status", "cancelada");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Fetch validated software proposals for "realizado" of non-SCS categories
-  const { data: softwareProposals = [] } = useQuery({
-    queryKey: ["sw-proposals-dashboard", targetYear],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("software_proposals")
-        .select("id, status, total_value, proposal_date, esn_id, gsn_id, arquiteto_id, unit_id, client_id, validated_at, segment_id")
-        .eq("status", "validated");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Fetch SW proposal items for category-level filtering
-  const swProposalIds = useMemo(() => softwareProposals.map((sp: any) => sp.id), [softwareProposals]);
-  const { data: swProposalItems = [] } = useQuery({
-    queryKey: ["sw-proposal-items-dashboard", swProposalIds.length],
-    enabled: swProposalIds.length > 0,
-    queryFn: async () => {
-      // Fetch in batches if needed
-      const allItems: any[] = [];
-      for (let i = 0; i < swProposalIds.length; i += 50) {
-        const batch = swProposalIds.slice(i, i + 50);
-        const { data, error } = await supabase
-          .from("software_proposal_items")
-          .select("id, software_proposal_id, total_price, catalog_item_id, recurrence")
-          .in("software_proposal_id", batch);
-        if (error) throw error;
-        if (data) allItems.push(...data);
-      }
-      return allItems;
-    },
-  });
-
-  // Fetch catalog items for category mapping
-  const { data: catalogItems = [] } = useQuery({
-    queryKey: ["catalog-items-for-dashboard"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("software_catalog_items")
-        .select("id, category_id");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const catalogCategoryMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const item of catalogItems) {
-      if (item.category_id) map.set(item.id, item.category_id);
-    }
-    return map;
-  }, [catalogItems]);
 
   
 
@@ -433,37 +365,6 @@ export default function Dashboard() {
       setDateTo(to);
     }
   };
-
-  // ─── Filter proposals using combined filter (hierarchy ∩ role ∩ unit) ───
-  const filteredProposals = useMemo(() => {
-    return proposals.filter((p: any) => {
-      // Hierarchy scope check
-      if (isArquiteto && !isEffectiveAdmin) {
-        if (p.arquiteto_id !== mySalesTeamId) return false;
-      } else if (combinedMemberFilter !== null) {
-        const matchesScope = combinedMemberFilter.includes(p.esn_id) || combinedMemberFilter.includes(p.gsn_id);
-        if (!matchesScope) return false;
-      }
-
-      // Unit filter: also check via esn/gsn member unit
-      if (unitScopedMemberIds && !(isArquiteto && !isEffectiveAdmin)) {
-        const esnInUnit = p.esn_id && unitScopedMemberIds.includes(p.esn_id);
-        const gsnInUnit = p.gsn_id && unitScopedMemberIds.includes(p.gsn_id);
-        if (!esnInUnit && !gsnInUnit) return false;
-      }
-
-      // Date filter
-      const refDate = p.expected_close_date || "";
-      if (dateFrom && refDate && refDate < dateFrom) return false;
-      if (dateTo && refDate && refDate > dateTo) return false;
-
-      // Revenue filter: service proposals only visible for "all" or "scs"
-      if (selectedRevenueFilter !== "all" && selectedRevenueFilter !== "scs") return false;
-
-      return true;
-    });
-  }, [proposals, dateFrom, dateTo, combinedMemberFilter, unitScopedMemberIds, isArquiteto, isEffectiveAdmin, mySalesTeamId, selectedRevenueFilter]);
-
 
 
   const activeFilters =

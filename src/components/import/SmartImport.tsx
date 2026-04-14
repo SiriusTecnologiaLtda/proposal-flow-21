@@ -1471,7 +1471,7 @@ export default function SmartImport() {
   // ── SALES TARGETS import with mapped columns ──────────────────
   async function runSalesTargetsImportMapped(fieldToCol: Record<string, number>, ev: (row: any[], key: string) => any, currentAliases: AliasStore) {
     const entity: ImportEntity = "sales_targets";
-    const importRun = startImportRun(entity, file!.name, false);
+    const importRun = startImportRun(entity, file!.name, clearExistingTargets);
     const year = Number(targetYear);
     const errorDetails: { line: number; owner: string; month?: number; message: string }[] = [];
 

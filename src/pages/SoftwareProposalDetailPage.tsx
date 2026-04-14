@@ -772,15 +772,15 @@ export default function SoftwareProposalDetailPage() {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() => reprocessMutation.mutate()}
-              disabled={reprocessMutation.isPending}
+              onClick={handleReprocess}
+              disabled={isExtracting}
             >
-              {reprocessMutation.isPending ? (
+              {isExtracting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <RotateCcw className="h-4 w-4" />
               )}
-              {reprocessMutation.isPending ? "Reprocessando…" : "Reprocessar"}
+              {isExtracting ? "Reprocessando…" : "Reprocessar"}
             </Button>
           )}
           {canValidate && (

@@ -718,7 +718,7 @@ export default function SoftwareProposalDetailPage() {
       <div className="flex flex-col items-center justify-center py-24">
         <FileText className="h-12 w-12 text-muted-foreground/40 mb-4" />
         <h3 className="text-lg font-medium">Proposta não encontrada</h3>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/propostas-software")}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
           Voltar para a lista
         </Button>
       </div>
@@ -754,7 +754,7 @@ export default function SoftwareProposalDetailPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/propostas-software")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

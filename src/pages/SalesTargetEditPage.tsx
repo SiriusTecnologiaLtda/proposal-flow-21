@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ const ROLE_OPTIONS = [
 
 interface GridRow {
   key: string;
+  unitId: string;
   catId: string;
   segId: string;
   role: string;
@@ -61,6 +62,8 @@ export default function SalesTargetEditPage() {
   // Grid state
   const [gridRows, setGridRows] = useState<GridRow[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastAddedKeyRef = useRef<string | null>(null);
 
   const { data: categories = [] } = useCategories();
   const { data: segments = [] } = useSegments();
@@ -120,6 +123,7 @@ export default function SalesTargetEditPage() {
 
       const rows: GridRow[] = sortedCategories.map((c: any) => ({
         key: crypto.randomUUID(),
+        unitId: editUnitId || units[0]?.id || "",
         catId: c.id,
         segId: defaultSeg,
         role: defaultRole,
@@ -136,10 +140,11 @@ export default function SalesTargetEditPage() {
       // Group by category+segment+role
       const groupMap = new Map<string, GridRow>();
       for (const t of targets) {
-        const gKey = `${t.category_id}|${t.segment_id}|${t.role}`;
+        const gKey = `${t.category_id}|${t.segment_id}|${t.role}|${t.unit_id}`;
         if (!groupMap.has(gKey)) {
           groupMap.set(gKey, {
             key: crypto.randomUUID(),
+            unitId: t.unit_id || editUnitId || "",
             catId: t.category_id || "",
             segId: t.segment_id || defaultSeg,
             role: t.role || defaultRole,
@@ -159,6 +164,7 @@ export default function SalesTargetEditPage() {
       }
       const rows: GridRow[] = sortedCategories.map((c: any) => ({
         key: crypto.randomUUID(),
+        unitId: editUnitId || "",
         catId: c.id,
         segId: defaultSeg,
         role: defaultRole,
@@ -182,8 +188,11 @@ export default function SalesTargetEditPage() {
     const firstCat = sortedCategories[0];
     if (!firstCat) return;
     const defaultSeg = segments[0]?.id || "";
+    const newKey = crypto.randomUUID();
+    lastAddedKeyRef.current = newKey;
     setGridRows(prev => [...prev, {
-      key: crypto.randomUUID(),
+      key: newKey,
+      unitId: editUnitId || units[0]?.id || "",
       catId: firstCat.id,
       segId: defaultSeg,
       role: "esn",
@@ -209,16 +218,32 @@ export default function SalesTargetEditPage() {
   const getColTotal = (month: number) => gridRows.reduce((s, r) => s + (Number(r.months[month] || "0") || 0), 0);
   const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r), 0);
 
+  // Scroll to newly added row
+  useEffect(() => {
+    if (lastAddedKeyRef.current && scrollRef.current) {
+      const el = scrollRef.current.querySelector(`[data-row-key="${lastAddedKeyRef.current}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      lastAddedKeyRef.current = null;
+    }
+  }, [gridRows]);
+
   /* ── Save ── */
   async function handleSave() {
-    if (!editEsnId || !editUnitId) {
-      toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
+    if (!editEsnId) {
+      toast({ title: "Preencha o Membro", variant: "destructive" });
       return;
     }
-    // Validate all rows have segment
+    // Validate all rows have segment and unit
     const missingSegRow = gridRows.find(r => !r.segId);
     if (missingSegRow) {
       toast({ title: "Preencha o segmento de todas as linhas", variant: "destructive" });
+      return;
+    }
+    const missingUnitRow = gridRows.find(r => !r.unitId);
+    if (missingUnitRow) {
+      toast({ title: "Preencha a unidade de todas as linhas", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -240,7 +265,7 @@ export default function SalesTargetEditPage() {
           if (amount === 0) continue;
           rows.push({
             esn_id: editEsnId, year: Number(editYear), month: m, amount,
-            category_id: gr.catId, segment_id: gr.segId, role: gr.role, unit_id: editUnitId,
+            category_id: gr.catId, segment_id: gr.segId, role: gr.role, unit_id: gr.unitId,
           });
         }
       }
@@ -306,7 +331,7 @@ export default function SalesTargetEditPage() {
             <Button variant="ghost" size="sm" onClick={() => navigate(-1)} disabled={saving} className="text-primary-foreground hover:bg-white/10 border border-white/20">
               Cancelar
             </Button>
-            <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={handleSave} disabled={saving || !editEsnId || !editUnitId}>
+            <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={handleSave} disabled={saving || !editEsnId}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
             </Button>
@@ -353,25 +378,6 @@ export default function SalesTargetEditPage() {
               </div>
             )}
 
-            {/* Unidade - locked in edit, selectable in create */}
-            {isCreateMode ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-medium">Unidade</Label>
-                <Select value={editUnitId} onValueChange={setEditUnitId}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                  Unidade <Lock className="h-2.5 w-2.5" />
-                </Label>
-                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-medium text-foreground truncate">
-                  {unitName}
-                </div>
-              </div>
-            )}
 
             {/* Ano - locked in edit, selectable in create */}
             {isCreateMode ? (
@@ -422,11 +428,14 @@ export default function SalesTargetEditPage() {
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
             <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
           </div>
-          <div className="flex-1 min-h-0 overflow-auto">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-muted/80 backdrop-blur-sm">
                   <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[150px] border-b border-r border-border/60">
+                    Unidade
+                  </th>
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40 bg-muted">
                     Categoria
                   </th>
                   <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40 bg-muted">
@@ -448,19 +457,36 @@ export default function SalesTargetEditPage() {
               </thead>
               <tbody className="divide-y divide-border/30">
                 {[...gridRows].sort((a, b) => {
+                  const unitA = unitMap.get(a.unitId) || "";
+                  const unitB = unitMap.get(b.unitId) || "";
+                  const uCmp = unitA.localeCompare(unitB);
+                  if (uCmp !== 0) return uCmp;
                   const catA = sortedCategories.find((c: any) => c.id === a.catId)?.name || "";
                   const catB = sortedCategories.find((c: any) => c.id === b.catId)?.name || "";
-                  const cmp = catA.localeCompare(catB);
-                  if (cmp !== 0) return cmp;
+                  const cCmp = catA.localeCompare(catB);
+                  if (cCmp !== 0) return cCmp;
                   const segA = segMap.get(a.segId) || "";
                   const segB = segMap.get(b.segId) || "";
                   return segA.localeCompare(segB);
                 }).map((gr) => {
                   const rowTotal = getRowTotal(gr);
                   return (
-                    <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
-                      {/* Categoria */}
+                    <tr key={gr.key} data-row-key={gr.key} className="group hover:bg-accent/30 transition-colors">
+                      {/* Unidade */}
                       <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-2 py-2 border-r border-border/60">
+                        <Select value={gr.unitId} onValueChange={(v) => updateRow(gr.key, "unitId", v)}>
+                          <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      {/* Categoria */}
+                      <td className="px-2 py-2 border-r border-border/40">
                         <Select value={gr.catId} onValueChange={(v) => updateRow(gr.key, "catId", v)}>
                           <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
                             <SelectValue />
@@ -539,6 +565,7 @@ export default function SalesTargetEditPage() {
                   </td>
                   <td className="bg-muted border-r border-border/40" />
                   <td className="bg-muted border-r border-border/40" />
+                  <td className="bg-muted border-r border-border/40" />
                   {Array.from({ length: 12 }, (_, i) => {
                     const colTotal = getColTotal(i + 1);
                     return (
@@ -571,7 +598,7 @@ export default function SalesTargetEditPage() {
         <Button variant="outline" onClick={() => navigate(-1)} disabled={saving} className="h-10">
           Cancelar
         </Button>
-        <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-10">
+        <Button onClick={handleSave} disabled={saving || !editEsnId} className="h-10">
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
           {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
         </Button>

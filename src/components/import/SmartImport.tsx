@@ -349,13 +349,10 @@ export default function SmartImport() {
       // Remove empty alias groups
       if (Object.keys(aliasMap).length === 0) delete freshAliases[aliasGroupKey];
     }
-    // Additionally clear ALL entity aliases when "clear existing data" is checked
-    if (clearExistingTargets && detectedEntity === "sales_targets") {
-      for (const k of Object.keys(freshAliases).filter(k => k.startsWith("sales_targets:"))) {
-        purgedCount += Object.keys(freshAliases[k] || {}).length;
-        delete freshAliases[k];
-      }
-    }
+    // NOTE: "Clear existing data" flag controls DATABASE record deletion, not alias
+    // mappings. Aliases (e.g. "SERV REC" → SaaS) are reusable across imports and
+    // should NOT be purged here. The stale-ID cleanup above (lines 328-350) already
+    // removes aliases pointing to IDs that no longer exist in lookup lists.
     if (purgedCount > 0) {
       saveAliasStore(freshAliases);
       setAliasStore(freshAliases);

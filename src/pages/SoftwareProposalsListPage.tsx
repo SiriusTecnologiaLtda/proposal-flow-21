@@ -339,14 +339,23 @@ export default function SoftwareProposalsListPage() {
     const ids = Array.from(selectedIds);
     let successCount = 0;
     let errorCount = 0;
+    let creditError = false;
 
     for (const id of ids) {
+      if (creditError) break; // Para imediatamente se sem créditos
       try {
         setExtractingIds((prev) => new Set(prev).add(id));
         const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
           body: { software_proposal_id: id },
         });
-        if (error || data?.error) throw error || new Error(data?.error);
+        if (error || data?.error) {
+          const errMsg = data?.error || error?.message || "";
+          if (errMsg.includes("Créditos") || errMsg.includes("créditos") || data?.fallback) {
+            creditError = true;
+            toast.error("Créditos de IA insuficientes. Extração em lote interrompida. Adicione créditos em Settings → Workspace → Usage.");
+          }
+          throw error || new Error(errMsg);
+        }
         successCount++;
       } catch {
         errorCount++;
@@ -363,7 +372,11 @@ export default function SoftwareProposalsListPage() {
     setSelectedIds(new Set());
     setBulkExtracting(false);
 
-    if (errorCount === 0) {
+    if (creditError) {
+      if (successCount > 0) {
+        toast.info(`${successCount} proposta(s) extraída(s) antes do erro de créditos. ${ids.length - successCount - errorCount} pendente(s) não processada(s).`);
+      }
+    } else if (errorCount === 0) {
       toast.success(`Extração em lote concluída — ${successCount} propostas processadas`);
     } else {
       toast.warning(`Extração em lote: ${successCount} sucesso, ${errorCount} erro(s)`);

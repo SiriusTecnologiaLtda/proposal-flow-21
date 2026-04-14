@@ -1532,6 +1532,7 @@ export default function SmartImport() {
 
     // Clear existing targets for the year if requested — SCOPED to units found in the spreadsheet
     if (clearExistingTargets) {
+      addImportLog(entity, "info", `🔧 "Limpar Metas Existentes" ATIVADO — escopo: ano ${year}`, "system");
       const unitAliasKeyForClear = getAliasKey(entity, "unit_code");
       const spreadsheetUnitIds = new Set<string>();
       for (const row of dataRows) {

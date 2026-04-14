@@ -409,17 +409,18 @@ export default function SalesTargetsPage() {
                           style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
                           onClick={() => openEdit(row)}
                         >
+                          <span className="text-xs text-foreground truncate block max-w-[140px]">{unitName || "—"}</span>
+                        </td>
+                        <td
+                          className={cn("sticky z-10 px-4 py-2.5 border-r border-border/40 bg-background group-hover:bg-accent/40 transition-colors", isAdmin ? "left-[200px]" : "left-[160px]")}
+                          style={isSelected ? { backgroundColor: 'hsl(var(--primary) / 0.05)' } : undefined}
+                          onClick={() => openEdit(row)}
+                        >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-semibold text-foreground leading-tight">{row.name}</span>
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge className="text-[9px] px-1.5 py-0 h-4 font-medium bg-primary/10 text-primary border-primary/20">{ROLE_LABELS[row.role] || row.role.toUpperCase()}</Badge>
                               <span className="text-[10px] text-muted-foreground font-mono">{row.code}</span>
-                              {unitName && (
-                                <>
-                                  <span className="text-muted-foreground/30">•</span>
-                                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{unitName}</span>
-                                </>
-                              )}
                             </div>
                           </div>
                         </td>

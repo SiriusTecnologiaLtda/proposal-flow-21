@@ -122,7 +122,8 @@ export default function SalesTargetsPage() {
 
     const map = new Map<string, SummaryRow>();
     for (const t of filteredTargets) {
-      const key = t.esn_id;
+      const unitId = t.unit_id || "__sem_unidade__";
+      const key = `${unitId}::${t.esn_id}`;
       if (!map.has(key)) {
         const esn: any = esnMap.get(t.esn_id);
         map.set(key, {
@@ -135,6 +136,7 @@ export default function SalesTargetsPage() {
           linked_gsn_id: esn?.linked_gsn_id || null,
           categoryTotals: {},
           grandTotal: 0,
+          rowKey: key,
         });
       }
       const row = map.get(key)!;
@@ -143,8 +145,15 @@ export default function SalesTargetsPage() {
       row.categoryTotals[catId] = (row.categoryTotals[catId] || 0) + (t.amount || 0);
       row.grandTotal += (t.amount || 0);
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [targets, esnMap, filterUnitIds, filterSegmentIds, filterCategoryIds]);
+    const unitNameMap = new Map(units.map((u: any) => [u.id, u.name || ""]));
+    return Array.from(map.values()).sort((a, b) => {
+      const uA = unitNameMap.get(a.unit_id || "") || "zzz";
+      const uB = unitNameMap.get(b.unit_id || "") || "zzz";
+      const uCmp = uA.localeCompare(uB);
+      if (uCmp !== 0) return uCmp;
+      return a.name.localeCompare(b.name);
+    });
+  }, [targets, esnMap, filterUnitIds, filterSegmentIds, filterCategoryIds, units]);
 
   const filtered = useMemo(() => {
     let result = summaryRows;

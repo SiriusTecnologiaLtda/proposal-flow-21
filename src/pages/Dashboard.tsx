@@ -5,7 +5,7 @@ import {
   SlidersHorizontal, CalendarRange, Users, X, Check, ChevronDown, Tag,
   Building2, Repeat, User,
 } from "lucide-react";
-import { useProposals, useSalesTeam, useClients, useCategories } from "@/hooks/useSupabaseData";
+import { useSalesTeam, useCategories } from "@/hooks/useSupabaseData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";

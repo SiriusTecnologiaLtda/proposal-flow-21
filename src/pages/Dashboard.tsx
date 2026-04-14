@@ -19,10 +19,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { UnifiedRevenueTab } from "@/components/dashboard/UnifiedRevenueTab";
-import {
-  normalizeCategoryName as normCatName,
-  classifyRevenueItem,
-} from "@/lib/revenueClassification";
 
 // ─── Dashboard ────────────────────────────────────────────────
 

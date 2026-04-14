@@ -193,7 +193,7 @@ export default function SalesTargetsPage() {
   };
 
   const getUnitName = (id: string | null) => id ? units.find((u: any) => u.id === id)?.name : null;
-  const getRowKey = (row: SummaryRow) => row.esn_id;
+  const getRowKey = (row: SummaryRow) => row.rowKey;
 
   /* ── Selection ── */
   const toggleSelect = (key: string) => {

@@ -1769,8 +1769,10 @@ export default function SmartImport() {
           if (!rowSegmentId) {
             const segAliasKey = getAliasKey(entity, "segment_name");
             const segAliases = currentAliases[segAliasKey];
-            if (segAliases && segAliases[normalize(rawSegName)]) {
-              rowSegmentId = segAliases[normalize(rawSegName)];
+            if (segAliases) {
+              const nKey = normalize(rawSegName);
+              const lKey = rawSegName.toLowerCase();
+              rowSegmentId = segAliases[nKey] || segAliases[lKey] || null;
             }
           }
         }

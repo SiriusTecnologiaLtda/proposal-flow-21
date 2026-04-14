@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun, FolderKanban, FileSearch,
+  FileText, LayoutDashboard, Settings, Menu, X, ChevronLeft, LogOut, Package, User, Moon, Sun, FolderKanban, FileSearch, BarChart3, ChevronDown,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import FeatureRequestsPanel from "@/components/FeatureRequestsPanel";
@@ -17,7 +17,9 @@ import totvsLogo from "@/assets/totvs-logo.png";
 import XaiAssistant from "@/components/xai/XaiAssistant";
 
 const navItems = [
-  { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/", key: "dashboard", label: "Dashboard", icon: LayoutDashboard, children: [
+    { path: "/indicadores-servicos", key: "indicadores-servicos", label: "Indicadores de Serviços", icon: BarChart3 },
+  ]},
   { path: "/propostas", key: "propostas", label: "Minhas Oportunidades", icon: FileText },
   { path: "/projetos", key: "projetos", label: "Meus Projetos", icon: FolderKanban },
   { path: "/propostas-software", key: "propostas-software", label: "Importação de Propostas de Software", icon: FileSearch },

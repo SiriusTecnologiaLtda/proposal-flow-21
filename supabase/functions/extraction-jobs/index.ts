@@ -113,6 +113,18 @@ serve(async (req) => {
       let skipped = 0;
 
       for (const pid of proposal_ids) {
+        // P1: Validate user has access to this proposal before enqueuing
+        const { data: accessCheck, error: accessErr } = await userClient
+          .from("software_proposals")
+          .select("id")
+          .eq("id", pid)
+          .maybeSingle();
+
+        if (accessErr || !accessCheck) {
+          skipped++;
+          continue;
+        }
+
         // Check for existing active job
         const { data: existing } = await adminClient
           .from("extraction_jobs")

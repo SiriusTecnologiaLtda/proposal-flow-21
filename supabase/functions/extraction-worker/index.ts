@@ -62,16 +62,14 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Parse body early to check source
+    // Parse body early
     const body = await req.json().catch(() => ({}));
-    const isCronSource = body?.source === "cron";
 
-    // Accept: X-Worker-Secret, service role key, or cron invocation (pg_net with anon key)
-    // Cron invocation is safe because the worker is idempotent and only processes existing queued jobs
+    // Accept ONLY: X-Worker-Secret or service role key
+    // No cron/anon bypass — pg_net must send the worker secret header
     const isAuthorized =
       (workerSecret && providedSecret === workerSecret) ||
-      (authHeader === `Bearer ${serviceRoleKey}`) ||
-      isCronSource;
+      (authHeader === `Bearer ${serviceRoleKey}`);
 
     if (!isAuthorized) {
       console.error("Worker: unauthorized invocation");
@@ -110,46 +108,9 @@ serve(async (req) => {
 
     if (claimErr) {
       console.error("Claim error:", claimErr);
-      // Fallback: simple select + update without SKIP LOCKED
-      const { data: fallbackJobs } = await admin
-        .from("extraction_jobs")
-        .select("id")
-        .eq("status", "queued")
-        .lte("available_at", new Date().toISOString())
-        .gt("deadline_at", new Date().toISOString())
-        .order("priority", { ascending: true })
-        .order("available_at", { ascending: true })
-        .limit(10);
-
-      if (!fallbackJobs || fallbackJobs.length === 0) {
-        return json({ processed: 0, message: "No jobs available" });
-      }
-
-      // Mark as running
-      for (const j of fallbackJobs) {
-        await admin
-          .from("extraction_jobs")
-          .update({
-            status: "running",
-            started_at: new Date().toISOString(),
-            heartbeat_at: new Date().toISOString(),
-            first_attempt_at: new Date().toISOString(),
-          })
-          .eq("id", j.id)
-          .eq("status", "queued"); // optimistic lock
-      }
-
-      // Process
-      const results = await processJobs(
-        fallbackJobs.map((j: any) => j.id),
-        admin,
-        supabaseUrl,
-        serviceRoleKey,
-        startTime,
-        MAX_EXECUTION_MS
-      );
-
-      return json(results);
+      // Fail closed: if claim RPC is unavailable, do not degrade to unsafe fallback
+      console.error("claim_extraction_jobs RPC unavailable — failing closed");
+      return json({ processed: 0, message: "Claim RPC unavailable, skipping cycle", error: String(claimErr) }, 503);
     }
 
     if (!claimedIds || claimedIds.length === 0) {
@@ -274,15 +235,11 @@ async function processOneJob(
     return { success: false, errorCode: "CANCELLED" };
   }
 
-  // Update attempt counter and heartbeat
+  // Update heartbeat only — attempt already incremented by claim_extraction_jobs RPC
   await admin
     .from("extraction_jobs")
     .update({
-      status: "running",
-      attempt: (job.attempt || 0) + 1,
-      started_at: job.started_at || new Date().toISOString(),
       heartbeat_at: new Date().toISOString(),
-      first_attempt_at: job.first_attempt_at || new Date().toISOString(),
     })
     .eq("id", jobId);
 

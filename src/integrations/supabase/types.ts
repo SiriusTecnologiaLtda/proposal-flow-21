@@ -2143,6 +2143,10 @@ export type Database = {
           esn_id: string
           id: string
           month: number
+          original_category: string | null
+          original_member: string | null
+          original_segment: string | null
+          original_unit: string | null
           role: Database["public"]["Enums"]["sales_role"]
           segment_id: string
           unit_id: string
@@ -2156,6 +2160,10 @@ export type Database = {
           esn_id: string
           id?: string
           month: number
+          original_category?: string | null
+          original_member?: string | null
+          original_segment?: string | null
+          original_unit?: string | null
           role?: Database["public"]["Enums"]["sales_role"]
           segment_id: string
           unit_id: string
@@ -2169,6 +2177,10 @@ export type Database = {
           esn_id?: string
           id?: string
           month?: number
+          original_category?: string | null
+          original_member?: string | null
+          original_segment?: string | null
+          original_unit?: string | null
           role?: Database["public"]["Enums"]["sales_role"]
           segment_id?: string
           unit_id?: string

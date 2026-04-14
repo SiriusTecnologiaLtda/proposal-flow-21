@@ -575,6 +575,12 @@ export function findInList(
   // Exact name match
   const byName = list.find(u => u.name === s);
   if (byName) return byName.id;
+  // Prefix match on code (e.g. "tse104" matches "tse104 - totvs zmm")
+  const byCodePrefix = list.find(u => u.code.startsWith(s + " ") || u.code.startsWith(s + "-") || u.code.startsWith(s + "_"));
+  if (byCodePrefix) return byCodePrefix.id;
+  // Prefix match on name
+  const byNamePrefix = list.find(u => u.name.startsWith(s + " ") || u.name.startsWith(s + "-") || u.name.startsWith(s + "_"));
+  if (byNamePrefix) return byNamePrefix.id;
   // Padded code match (leading zeros)
   const sNum = s.replace(/^0+/, "");
   if (sNum) {
@@ -594,10 +600,6 @@ export function findInList(
       if (byCrmPadded && list.some(l => l.id === byCrmPadded.sales_team_id)) return byCrmPadded.sales_team_id;
     }
   }
-  // NOTE: Partial/substring matching was removed because it caused false
-  // positives (e.g. a member named "SANTOS" matching "FELIPHE NOGUEIRA SANTOS").
-  // The pre-scan would consider the value resolved while the execution
-  // (which uses exact Map.get()) would fail, generating FK errors silently.
   return null;
 }
 
@@ -615,6 +617,11 @@ export function findInListWithAlias(
   if (byCode) return byCode.id;
   const byName = list.find(u => u.name === s);
   if (byName) return byName.id;
+  // Priority 1b: prefix match on code/name (e.g. "tse104" matches "tse104 - totvs zmm")
+  const byCodePrefix = list.find(u => u.code.startsWith(s + " ") || u.code.startsWith(s + "-") || u.code.startsWith(s + "_"));
+  if (byCodePrefix) return byCodePrefix.id;
+  const byNamePrefix = list.find(u => u.name.startsWith(s + " ") || u.name.startsWith(s + "-") || u.name.startsWith(s + "_"));
+  if (byNamePrefix) return byNamePrefix.id;
   // Priority 2: session alias
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {

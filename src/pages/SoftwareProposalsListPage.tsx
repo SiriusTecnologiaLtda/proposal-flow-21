@@ -168,39 +168,9 @@ export default function SoftwareProposalsListPage() {
   // Fetch sales team
   const { data: salesTeam = [] } = useSalesTeam();
 
-  const extractMutation = useMutation({
-    mutationFn: async (proposalId: string) => {
-      setExtractingIds((prev) => new Set(prev).add(proposalId));
-      const { data, error } = await supabase.functions.invoke(
-        "extract-software-proposal",
-        { body: { software_proposal_id: proposalId } }
-      );
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data, proposalId) => {
-      setExtractingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(proposalId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.success(
-        `Extração concluída — ${data.items_extracted} itens extraídos, ${data.issues_created} pendências criadas`,
-        { duration: 5000 }
-      );
-    },
-    onError: (err: any, proposalId) => {
-      setExtractingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(proposalId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.error(err?.message || "Erro na extração");
-    },
-  });
+  const handleExtract = useCallback((proposalId: string) => {
+    startExtraction(proposalId, queryClient);
+  }, [queryClient]);
 
   const deleteMutation = useMutation({
     mutationFn: async (proposalId: string) => {

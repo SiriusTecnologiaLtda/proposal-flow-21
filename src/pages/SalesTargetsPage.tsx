@@ -239,13 +239,26 @@ export default function SalesTargetsPage() {
   }
 
   /* ── Navigation helpers ── */
+  function buildFilterParams() {
+    const params = new URLSearchParams();
+    if (filterUnitIds.length > 0) params.set("f_units", filterUnitIds.join(","));
+    if (filterGsnIds.length > 0) params.set("f_gsns", filterGsnIds.join(","));
+    if (filterCategoryIds.length > 0) params.set("f_cats", filterCategoryIds.join(","));
+    if (filterSegmentIds.length > 0) params.set("f_segs", filterSegmentIds.join(","));
+    if (filterRoles.length > 0) params.set("f_roles", filterRoles.join(","));
+    if (search.trim()) params.set("f_search", search.trim());
+    return params.toString();
+  }
+
   function openEdit(row: SummaryRow) {
     if (!isAdmin) return;
-    navigate(`/cadastros/metas/editar?esn_id=${row.esn_id}&ano=${yearFilter}`);
+    const fp = buildFilterParams();
+    navigate(`/cadastros/metas/editar?esn_id=${row.esn_id}&ano=${yearFilter}&unit_id=${row.unit_id || ""}${fp ? `&${fp}` : ""}`);
   }
 
   function openCreate() {
-    navigate(`/cadastros/metas/editar?modo=novo&ano=${yearFilter}`);
+    const fp = buildFilterParams();
+    navigate(`/cadastros/metas/editar?modo=novo&ano=${yearFilter}${fp ? `&${fp}` : ""}`);
   }
 
   return (

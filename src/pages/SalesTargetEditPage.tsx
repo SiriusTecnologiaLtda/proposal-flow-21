@@ -9,18 +9,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Loader2, Target, Pencil, Save, Users, Calendar, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Target, Pencil, Save, Calendar, Trash2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnits, useSalesTeam, useCategories, useSegments } from "@/hooks/useSupabaseData";
 
 const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 const ROLE_OPTIONS = [
-  { value: "esn", label: "Executivo de Vendas (ESN)" },
-  { value: "gsn", label: "Gerente de Vendas (GSN)" },
-  { value: "dsn", label: "Diretor de Vendas (DSN)" },
-  { value: "arquiteto", label: "Engenheiro de Valor (EV)" },
+  { value: "esn", label: "ESN" },
+  { value: "gsn", label: "GSN" },
+  { value: "dsn", label: "DSN" },
+  { value: "arquiteto", label: "EV" },
 ];
+
+interface GridRow {
+  key: string;
+  catId: string;
+  segId: string;
+  role: string;
+  months: Record<number, string>;
+}
 
 export default function SalesTargetEditPage() {
   const navigate = useNavigate();
@@ -31,20 +39,27 @@ export default function SalesTargetEditPage() {
 
   const isCreateMode = searchParams.get("modo") === "novo";
   const editEsnIdParam = searchParams.get("esn_id") || "";
+  const editUnitIdParam = searchParams.get("unit_id") || "";
   const yearParam = searchParams.get("ano") || String(currentYear);
+
+  // Inherited filters from list page (display only)
+  const fUnits = searchParams.get("f_units")?.split(",").filter(Boolean) || [];
+  const fGsns = searchParams.get("f_gsns")?.split(",").filter(Boolean) || [];
+  const fCats = searchParams.get("f_cats")?.split(",").filter(Boolean) || [];
+  const fSegs = searchParams.get("f_segs")?.split(",").filter(Boolean) || [];
+  const fRoles = searchParams.get("f_roles")?.split(",").filter(Boolean) || [];
+  const fSearch = searchParams.get("f_search") || "";
+  const hasInheritedFilters = fUnits.length + fGsns.length + fCats.length + fSegs.length + fRoles.length > 0 || fSearch.length > 0;
 
   const [saving, setSaving] = useState(false);
 
-  // Context fields
+  // Locked context (read-only in edit mode)
   const [editEsnId, setEditEsnId] = useState(editEsnIdParam);
-  const [editUnitId, setEditUnitId] = useState("");
-  const [editRole, setEditRole] = useState("esn");
+  const [editUnitId, setEditUnitId] = useState(editUnitIdParam);
   const [editYear, setEditYear] = useState(yearParam);
 
   // Grid state
-  const [editSegId, setEditSegId] = useState("");
-  const [gridRows, setGridRows] = useState<{ key: string; catId: string }[]>([]);
-  const [gridValues, setGridValues] = useState<Record<string, Record<number, string>>>({});
+  const [gridRows, setGridRows] = useState<GridRow[]>([]);
   const [initialized, setInitialized] = useState(false);
 
   const { data: categories = [] } = useCategories();
@@ -81,87 +96,75 @@ export default function SalesTargetEditPage() {
   const esnMap = useMemo(() => new Map(fullSalesTeam.map((e: any) => [e.id, e])), [fullSalesTeam]);
   const allEsns = useMemo(() => fullSalesTeam.sort((a: any, b: any) => a.name.localeCompare(b.name)), [fullSalesTeam]);
   const sortedCategories = useMemo(() => [...categories].sort((a: any, b: any) => a.name.localeCompare(b.name)), [categories]);
+  const unitMap = useMemo(() => new Map(units.map((u: any) => [u.id, u.name])), [units]);
+  const segMap = useMemo(() => new Map(segments.map((s: any) => [s.id, s.name])), [segments]);
 
   const years = useMemo(() => {
     const y = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2]);
     return Array.from(y).sort();
   }, [currentYear]);
 
-  // Initialize grid from targets or blank for create
+  // Initialize grid
   useEffect(() => {
     if (initialized) return;
     if (isLoading) return;
     if (!categories.length || !segments.length || !fullSalesTeam.length) return;
 
+    const defaultSeg = segments[0]?.id || "";
+    const defaultRole = "esn";
+
     if (isCreateMode) {
       const firstEsn = allEsns[0];
       if (!editEsnId && firstEsn) setEditEsnId(firstEsn.id);
       if (!editUnitId && firstEsn?.unit_id) setEditUnitId(firstEsn.unit_id);
-      if (!editSegId && segments[0]) setEditSegId(segments[0].id);
 
-      const rows = sortedCategories.map((c: any) => ({
-        key: c.id,
+      const rows: GridRow[] = sortedCategories.map((c: any) => ({
+        key: crypto.randomUUID(),
         catId: c.id,
+        segId: defaultSeg,
+        role: defaultRole,
+        months: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, "0"])),
       }));
-      const values: Record<string, Record<number, string>> = {};
-      for (const r of rows) {
-        values[r.key] = {};
-        for (let m = 1; m <= 12; m++) values[r.key][m] = "0";
-      }
       setGridRows(rows);
-      setGridValues(values);
     } else if (targets.length > 0) {
       const esn = esnMap.get(editEsnIdParam);
       if (esn) {
         setEditEsnId(esn.id);
-        setEditUnitId(esn.unit_id || "");
-        setEditRole(targets[0]?.role || "esn");
+        if (!editUnitId) setEditUnitId(esn.unit_id || "");
       }
-      // Use segment from first target
-      if (!editSegId && targets[0]?.segment_id) setEditSegId(targets[0].segment_id);
 
-      const rowMap = new Map<string, { catId: string }>();
-      const values: Record<string, Record<number, string>> = {};
-
+      // Group by category+segment+role
+      const groupMap = new Map<string, GridRow>();
       for (const t of targets) {
-        const catId = t.category_id || "";
-        if (!catId) continue;
-        const key = catId;
-        if (!rowMap.has(key)) rowMap.set(key, { catId });
-        if (!values[key]) values[key] = {};
-        const current = Number(values[key][t.month] || "0");
-        values[key][t.month] = String(current + (t.amount || 0));
-      }
-
-      const rows = Array.from(rowMap.entries()).map(([key, r]) => ({ key, ...r }));
-      for (const r of rows) {
-        if (!values[r.key]) values[r.key] = {};
-        for (let m = 1; m <= 12; m++) {
-          if (!values[r.key][m]) values[r.key][m] = "0";
+        const gKey = `${t.category_id}|${t.segment_id}|${t.role}`;
+        if (!groupMap.has(gKey)) {
+          groupMap.set(gKey, {
+            key: crypto.randomUUID(),
+            catId: t.category_id || "",
+            segId: t.segment_id || defaultSeg,
+            role: t.role || defaultRole,
+            months: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, "0"])),
+          });
         }
+        const row = groupMap.get(gKey)!;
+        const current = Number(row.months[t.month] || "0");
+        row.months[t.month] = String(current + (t.amount || 0));
       }
-
-      setGridRows(rows);
-      setGridValues(values);
+      setGridRows(Array.from(groupMap.values()));
     } else if (!isCreateMode && editEsnIdParam) {
       const esn = esnMap.get(editEsnIdParam);
       if (esn) {
         setEditEsnId(esn.id);
-        setEditUnitId(esn.unit_id || "");
+        if (!editUnitId) setEditUnitId(esn.unit_id || "");
       }
-      if (!editSegId && segments[0]) setEditSegId(segments[0].id);
-
-      const rows = sortedCategories.map((c: any) => ({
-        key: c.id,
+      const rows: GridRow[] = sortedCategories.map((c: any) => ({
+        key: crypto.randomUUID(),
         catId: c.id,
+        segId: defaultSeg,
+        role: defaultRole,
+        months: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, "0"])),
       }));
-      const values: Record<string, Record<number, string>> = {};
-      for (const r of rows) {
-        values[r.key] = {};
-        for (let m = 1; m <= 12; m++) values[r.key][m] = "0";
-      }
       setGridRows(rows);
-      setGridValues(values);
     }
 
     setInitialized(true);
@@ -178,58 +181,33 @@ export default function SalesTargetEditPage() {
   function addGridRow() {
     const firstCat = sortedCategories[0];
     if (!firstCat) return;
-    let key = firstCat.id;
-    let counter = 0;
-    while (gridRows.some(r => r.key === key)) {
-      counter++;
-      key = `${firstCat.id}__${counter}`;
-    }
-    setGridRows(prev => [...prev, { key, catId: firstCat.id }]);
-    setGridValues(prev => {
-      const row: Record<number, string> = {};
-      for (let m = 1; m <= 12; m++) row[m] = "0";
-      return { ...prev, [key]: row };
-    });
+    const defaultSeg = segments[0]?.id || "";
+    setGridRows(prev => [...prev, {
+      key: crypto.randomUUID(),
+      catId: firstCat.id,
+      segId: defaultSeg,
+      role: "esn",
+      months: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, "0"])),
+    }]);
   }
 
-  function updateGridRowField(rowKey: string, field: "catId", newValue: string) {
-    setGridRows(prev => {
-      const idx = prev.findIndex(r => r.key === rowKey);
-      if (idx === -1) return prev;
-      const old = prev[idx];
-      const updated = { ...old, [field]: newValue };
-      const newKey = updated.catId;
-      const result = [...prev];
-      result[idx] = { ...updated, key: newKey };
-      setGridValues(gv => {
-        const vals = { ...gv };
-        if (newKey !== rowKey) {
-          vals[newKey] = vals[rowKey] || {};
-          delete vals[rowKey];
-        }
-        return vals;
-      });
-      return result;
-    });
+  function updateRow(key: string, field: keyof GridRow, value: string) {
+    setGridRows(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r));
   }
 
-  function removeGridRow(rowKey: string) {
-    setGridRows(prev => prev.filter(r => r.key !== rowKey));
-    setGridValues(prev => {
-      const updated = { ...prev };
-      delete updated[rowKey];
-      return updated;
-    });
+  function updateMonth(key: string, month: number, value: string) {
+    setGridRows(prev => prev.map(r =>
+      r.key === key ? { ...r, months: { ...r.months, [month]: value } } : r
+    ));
   }
 
-  const getRowTotal = (key: string) => {
-    const vals = gridValues[key] || {};
-    return Object.values(vals).reduce((s, v) => s + (Number(v) || 0), 0);
-  };
-  const getColTotal = (month: number) => {
-    return gridRows.reduce((s, r) => s + (Number(gridValues[r.key]?.[month] || "0") || 0), 0);
-  };
-  const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r.key), 0);
+  function removeGridRow(key: string) {
+    setGridRows(prev => prev.filter(r => r.key !== key));
+  }
+
+  const getRowTotal = (row: GridRow) => Object.values(row.months).reduce((s, v) => s + (Number(v) || 0), 0);
+  const getColTotal = (month: number) => gridRows.reduce((s, r) => s + (Number(r.months[month] || "0") || 0), 0);
+  const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r), 0);
 
   /* ── Save ── */
   async function handleSave() {
@@ -237,17 +215,18 @@ export default function SalesTargetEditPage() {
       toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
       return;
     }
-    if (!editSegId) {
-      toast({ title: "Preencha o Segmento", variant: "destructive" });
+    // Validate all rows have segment
+    const missingSegRow = gridRows.find(r => !r.segId);
+    if (missingSegRow) {
+      toast({ title: "Preencha o segmento de todas as linhas", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
       if (!isCreateMode) {
-        // Delete existing for this member+year
-        const existingTargetIds: string[] = targets.map((t: any) => t.id);
-        for (let i = 0; i < existingTargetIds.length; i += 100) {
-          const batch = existingTargetIds.slice(i, i + 100);
+        const existingIds: string[] = targets.map((t: any) => t.id);
+        for (let i = 0; i < existingIds.length; i += 100) {
+          const batch = existingIds.slice(i, i + 100);
           const { error } = await supabase.from("sales_targets").delete().in("id", batch);
           if (error) throw error;
         }
@@ -256,12 +235,12 @@ export default function SalesTargetEditPage() {
       const rows: any[] = [];
       for (const gr of gridRows) {
         for (let m = 1; m <= 12; m++) {
-          const val = Number(gridValues[gr.key]?.[m] || "0");
+          const val = Number(gr.months[m] || "0");
           const amount = Math.round(val * 100) / 100;
           if (amount === 0) continue;
           rows.push({
             esn_id: editEsnId, year: Number(editYear), month: m, amount,
-            category_id: gr.catId, segment_id: editSegId, role: editRole, unit_id: editUnitId,
+            category_id: gr.catId, segment_id: gr.segId, role: gr.role, unit_id: editUnitId,
           });
         }
       }
@@ -279,7 +258,7 @@ export default function SalesTargetEditPage() {
 
       await qc.invalidateQueries({ queryKey: ["sales-targets"] });
       toast({ title: isCreateMode ? "Metas adicionadas com sucesso!" : "Metas atualizadas!" });
-      navigate("/cadastros/metas");
+      navigate(-1);
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     } finally {
@@ -289,6 +268,7 @@ export default function SalesTargetEditPage() {
 
   const memberName = esnMap.get(editEsnId)?.name || "—";
   const memberCode = esnMap.get(editEsnId)?.code || "—";
+  const unitName = unitMap.get(editUnitId) || "—";
 
   if (isLoading || !initialized) {
     return (
@@ -305,7 +285,7 @@ export default function SalesTargetEditPage() {
       <div className="rounded-lg bg-gradient-to-r from-primary/90 to-primary p-5 shadow-md">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/cadastros/metas")} className="text-primary-foreground hover:bg-white/10 h-9 w-9">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/10 h-9 w-9">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-3">
@@ -317,13 +297,13 @@ export default function SalesTargetEditPage() {
                   {isCreateMode ? "Adicionar Metas" : "Editar Metas"}
                 </h1>
                 <p className="text-xs text-primary-foreground/70 mt-0.5">
-                  {isCreateMode ? "Preencha o contexto e lance os valores por categoria" : `${memberName} (${memberCode}) — ${editYear}`}
+                  {isCreateMode ? "Preencha os dados e lance os valores por categoria" : `${memberName} (${memberCode}) — ${editYear}`}
                 </p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/cadastros/metas")} disabled={saving} className="text-primary-foreground hover:bg-white/10 border border-white/20">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} disabled={saving} className="text-primary-foreground hover:bg-white/10 border border-white/20">
               Cancelar
             </Button>
             <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={handleSave} disabled={saving || !editEsnId || !editUnitId}>
@@ -334,14 +314,18 @@ export default function SalesTargetEditPage() {
         </div>
       </div>
 
-      {/* ── Context Fields ── */}
+      {/* ── Locked Context + Inherited Filters ── */}
       <Card className="border-border/50 shadow-sm">
         <CardContent className="p-5">
           <div className="flex items-center gap-2 mb-3">
-            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contexto</span>
+            {hasInheritedFilters && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-2">Filtros herdados</Badge>
+            )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+            {/* Membro - locked in edit, selectable in create */}
             {isCreateMode ? (
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
                 <Label className="text-xs text-muted-foreground font-medium">Membro</Label>
@@ -359,49 +343,73 @@ export default function SalesTargetEditPage() {
                 </Select>
               </div>
             ) : (
-              <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label className="text-xs text-muted-foreground font-medium">Membro</Label>
-                <p className="text-sm font-medium text-foreground truncate leading-9">
-                  {memberName} <span className="text-[10px] text-muted-foreground font-mono">({memberCode})</span>
-                </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                  Membro <Lock className="h-2.5 w-2.5" />
+                </Label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-medium text-foreground truncate">
+                  {memberName} <span className="text-[10px] text-muted-foreground font-mono ml-1">({memberCode})</span>
+                </div>
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">Unidade</Label>
-              <Select value={editUnitId} onValueChange={setEditUnitId}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">Ano</Label>
-              {isCreateMode ? (
+
+            {/* Unidade - locked in edit, selectable in create */}
+            {isCreateMode ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground font-medium">Unidade</Label>
+                <Select value={editUnitId} onValueChange={setEditUnitId}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                  Unidade <Lock className="h-2.5 w-2.5" />
+                </Label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-medium text-foreground truncate">
+                  {unitName}
+                </div>
+              </div>
+            )}
+
+            {/* Ano - locked in edit, selectable in create */}
+            {isCreateMode ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground font-medium">Ano</Label>
                 <Select value={editYear} onValueChange={setEditYear}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
                 </Select>
-              ) : (
-                <p className="text-sm font-medium text-foreground leading-9">{editYear}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">Nível</Label>
-              <Select value={editRole} onValueChange={setEditRole}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>{ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground font-medium">Segmento</Label>
-              <Select value={editSegId} onValueChange={setEditSegId}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {segments.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                  Ano <Lock className="h-2.5 w-2.5" />
+                </Label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-medium text-foreground tabular-nums">
+                  {editYear}
+                </div>
+              </div>
+            )}
+
+            {/* Inherited filters display */}
+            {hasInheritedFilters && (
+              <div className="col-span-2 sm:col-span-3 flex flex-wrap items-end gap-1.5 pb-0.5">
+                {fSearch && <Badge variant="outline" className="text-[10px] h-5">Busca: {fSearch}</Badge>}
+                {fUnits.map(id => <Badge key={id} variant="outline" className="text-[10px] h-5">Unid: {unitMap.get(id) || id.slice(0, 6)}</Badge>)}
+                {fGsns.map(id => {
+                  const g = esnMap.get(id);
+                  return <Badge key={id} variant="outline" className="text-[10px] h-5">GSN: {g?.name || id.slice(0, 6)}</Badge>;
+                })}
+                {fCats.map(id => {
+                  const c = categories.find((c: any) => c.id === id);
+                  return <Badge key={id} variant="outline" className="text-[10px] h-5">Cat: {c?.name || id.slice(0, 6)}</Badge>;
+                })}
+                {fSegs.map(id => <Badge key={id} variant="outline" className="text-[10px] h-5">Seg: {segMap.get(id) || id.slice(0, 6)}</Badge>)}
+                {fRoles.map(r => <Badge key={r} variant="outline" className="text-[10px] h-5">Nível: {r.toUpperCase()}</Badge>)}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -418,8 +426,14 @@ export default function SalesTargetEditPage() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-muted/80 backdrop-blur-sm">
-                  <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[160px] border-b border-r border-border/60">
+                  <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[150px] border-b border-r border-border/60">
                     Categoria
+                  </th>
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40">
+                    Segmento
+                  </th>
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/40">
+                    Nível
                   </th>
                   {MONTH_NAMES.map((m) => (
                     <th key={m} className="text-center px-1 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/30">
@@ -434,11 +448,12 @@ export default function SalesTargetEditPage() {
               </thead>
               <tbody className="divide-y divide-border/30">
                 {gridRows.map((gr) => {
-                  const rowTotal = getRowTotal(gr.key);
+                  const rowTotal = getRowTotal(gr);
                   return (
                     <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
+                      {/* Categoria */}
                       <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-2 py-2 border-r border-border/60">
-                        <Select value={gr.catId} onValueChange={(newId) => updateGridRowField(gr.key, "catId", newId)}>
+                        <Select value={gr.catId} onValueChange={(v) => updateRow(gr.key, "catId", v)}>
                           <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
                             <SelectValue />
                           </SelectTrigger>
@@ -449,29 +464,55 @@ export default function SalesTargetEditPage() {
                           </SelectContent>
                         </Select>
                       </td>
+                      {/* Segmento */}
+                      <td className="px-2 py-2 border-r border-border/40">
+                        <Select value={gr.segId} onValueChange={(v) => updateRow(gr.key, "segId", v)}>
+                          <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
+                            <SelectValue placeholder="Seg." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {segments.map((s: any) => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      {/* Nível */}
+                      <td className="px-2 py-2 border-r border-border/40">
+                        <Select value={gr.role} onValueChange={(v) => updateRow(gr.key, "role", v)}>
+                          <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_OPTIONS.map(r => (
+                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      {/* Months */}
                       {Array.from({ length: 12 }, (_, i) => {
                         const m = i + 1;
-                        const val = gridValues[gr.key]?.[m] ?? "0";
+                        const val = gr.months[m] ?? "0";
                         return (
                           <td key={m} className="px-0.5 py-1.5 border-r border-border/20">
                             <Input
                               type="number"
                               value={val}
-                              onChange={e => setGridValues(prev => ({
-                                ...prev,
-                                [gr.key]: { ...prev[gr.key], [m]: e.target.value }
-                              }))}
+                              onChange={e => updateMonth(gr.key, m, e.target.value)}
                               className="h-8 text-xs tabular-nums text-right font-medium px-2 border-transparent bg-transparent hover:bg-muted/40 focus:bg-background focus:border-primary/40 transition-colors rounded-sm"
                               onFocus={e => e.target.select()}
                             />
                           </td>
                         );
                       })}
+                      {/* Total */}
                       <td className="text-center px-3 py-2 bg-muted/20 border-l border-border/60">
                         <span className="text-xs font-bold tabular-nums text-foreground">
                           {rowTotal.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                       </td>
+                      {/* Remove */}
                       <td className="text-center px-1 py-2 border-l border-border/30">
                         {gridRows.length > 1 && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-destructive" onClick={() => removeGridRow(gr.key)}>
@@ -488,6 +529,8 @@ export default function SalesTargetEditPage() {
                   <td className="sticky left-0 z-30 bg-muted px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
                     Total Geral
                   </td>
+                  <td className="border-r border-border/40" />
+                  <td className="border-r border-border/40" />
                   {Array.from({ length: 12 }, (_, i) => {
                     const colTotal = getColTotal(i + 1);
                     return (
@@ -517,7 +560,7 @@ export default function SalesTargetEditPage() {
 
       {/* ── Footer Actions ── */}
       <div className="flex items-center justify-end gap-3 pb-6">
-        <Button variant="outline" onClick={() => navigate("/cadastros/metas")} disabled={saving} className="h-10">
+        <Button variant="outline" onClick={() => navigate(-1)} disabled={saving} className="h-10">
           Cancelar
         </Button>
         <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-10">

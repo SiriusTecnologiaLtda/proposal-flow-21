@@ -24,22 +24,7 @@ import {
   classifyRevenueItem,
 } from "@/lib/revenueClassification";
 
-function computeNetValue(proposal: any): number | null {
-  const serviceItems = proposal.proposal_service_items;
-  if (!serviceItems || serviceItems.length === 0) return null;
-  return serviceItems.reduce((sum: number, item: any) =>
-    sum + (Number(item.calculated_hours) * Number(item.hourly_rate)), 0);
-}
-
-const statusMap: Record<string, { label: string; className: string }> = {
-  pendente: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  proposta_gerada: { label: "Pendente", className: "bg-muted text-muted-foreground" },
-  em_analise_ev: { label: "Em Revisão", className: "bg-warning/15 text-warning" },
-  analise_ev_concluida: { label: "Revisado", className: "bg-success/15 text-success" },
-  em_assinatura: { label: "Em Assinatura", className: "bg-warning/15 text-warning" },
-  ganha: { label: "Ganha", className: "bg-success/15 text-success" },
-  cancelada: { label: "Cancelada", className: "bg-destructive/15 text-destructive" },
-};
+// ─── Dashboard ────────────────────────────────────────────────
 
 const PERIOD_PRESETS = [
   { label: "Este mês", value: "this_month" },

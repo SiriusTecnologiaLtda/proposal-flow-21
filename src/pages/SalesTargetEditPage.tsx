@@ -24,6 +24,7 @@ const ROLE_OPTIONS = [
 
 interface GridRow {
   key: string;
+  unitId: string;
   catId: string;
   segId: string;
   role: string;

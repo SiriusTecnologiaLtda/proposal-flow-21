@@ -164,6 +164,7 @@ export default function SalesTargetEditPage() {
       }
       const rows: GridRow[] = sortedCategories.map((c: any) => ({
         key: crypto.randomUUID(),
+        unitId: editUnitId || "",
         catId: c.id,
         segId: defaultSeg,
         role: defaultRole,

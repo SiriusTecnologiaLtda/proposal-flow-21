@@ -696,3 +696,17 @@ export function formatDuration(ms: number): string {
   if (s < 60) return `${s}s`;
   return `${Math.floor(s / 60)}min ${s % 60}s`;
 }
+
+// ─── detectYearFromHeaders ──────────────────────────────────────
+/** Detects the year from META YYYY - MM header patterns. Returns null if ambiguous or absent. */
+export function detectYearFromHeaders(headers: string[]): { year: number } | { ambiguous: number[] } | null {
+  const metaYearRegex = /^meta\s*(\d{4})\s*[-–_]\s*\d{1,2}$/i;
+  const years = new Set<number>();
+  for (const h of headers) {
+    const m = (h || "").trim().match(metaYearRegex);
+    if (m) years.add(parseInt(m[1], 10));
+  }
+  if (years.size === 0) return null;
+  if (years.size === 1) return { year: Array.from(years)[0] };
+  return { ambiguous: Array.from(years).sort() };
+}

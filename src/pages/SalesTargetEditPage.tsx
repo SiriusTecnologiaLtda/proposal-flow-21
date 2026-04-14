@@ -188,8 +188,11 @@ export default function SalesTargetEditPage() {
     const firstCat = sortedCategories[0];
     if (!firstCat) return;
     const defaultSeg = segments[0]?.id || "";
+    const newKey = crypto.randomUUID();
+    lastAddedKeyRef.current = newKey;
     setGridRows(prev => [...prev, {
-      key: crypto.randomUUID(),
+      key: newKey,
+      unitId: editUnitId || units[0]?.id || "",
       catId: firstCat.id,
       segId: defaultSeg,
       role: "esn",

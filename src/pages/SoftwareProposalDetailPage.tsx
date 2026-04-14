@@ -664,16 +664,13 @@ export default function SoftwareProposalDetailPage() {
     onError: (err: any) => toast.error(err.message || "Erro ao excluir proposta"),
   });
 
-  // Reprocess (re-extract) — background
-  const [isExtracting, setIsExtracting] = useState(false);
-
-  useEffect(() => {
-    return subscribeExtracting((ids) => setIsExtracting(id ? ids.has(id) : false));
-  }, [id]);
+  // Reprocess (re-extract) — background via job queue
+  const { extractingIds: globalExtractingIds, enqueueExtraction } = useExtractionJobs();
+  const isExtracting = id ? globalExtractingIds.has(id) : false;
 
   const handleReprocess = () => {
     if (!id) return;
-    startExtraction(id, queryClient);
+    enqueueExtraction(id);
   };
 
   // Download file via signed URL

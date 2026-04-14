@@ -128,12 +128,7 @@ export default function SoftwareProposalsListPage() {
 
   const [unitSearch, setUnitSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
-  const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
-
-  // Subscribe to global background extraction state
-  useEffect(() => {
-    return subscribeExtracting((ids) => setExtractingIds(ids));
-  }, []);
+  const { extractingIds, enqueueExtraction, enqueueBulkExtraction, cancelBatch, activeBatchId } = useExtractionJobs();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
@@ -169,8 +164,8 @@ export default function SoftwareProposalsListPage() {
   const { data: salesTeam = [] } = useSalesTeam();
 
   const handleExtract = useCallback((proposalId: string) => {
-    startExtraction(proposalId, queryClient);
-  }, [queryClient]);
+    enqueueExtraction(proposalId);
+  }, [enqueueExtraction]);
 
   const deleteMutation = useMutation({
     mutationFn: async (proposalId: string) => {
@@ -314,8 +309,8 @@ export default function SoftwareProposalsListPage() {
     setBulkExtracting(true);
     const ids = Array.from(selectedIds);
     setSelectedIds(new Set());
-    startBulkExtraction(ids, queryClient, () => setBulkExtracting(false));
-  }, [selectedIds, queryClient]);
+    enqueueBulkExtraction(ids).finally(() => setBulkExtracting(false));
+  }, [selectedIds, enqueueBulkExtraction]);
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation();

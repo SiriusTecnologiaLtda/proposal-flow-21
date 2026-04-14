@@ -428,11 +428,14 @@ export default function SalesTargetEditPage() {
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
             <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
           </div>
-          <div className="flex-1 min-h-0 overflow-auto">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-muted/80 backdrop-blur-sm">
                   <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[150px] border-b border-r border-border/60">
+                    Unidade
+                  </th>
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40 bg-muted">
                     Categoria
                   </th>
                   <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40 bg-muted">
@@ -454,19 +457,36 @@ export default function SalesTargetEditPage() {
               </thead>
               <tbody className="divide-y divide-border/30">
                 {[...gridRows].sort((a, b) => {
+                  const unitA = unitMap.get(a.unitId) || "";
+                  const unitB = unitMap.get(b.unitId) || "";
+                  const uCmp = unitA.localeCompare(unitB);
+                  if (uCmp !== 0) return uCmp;
                   const catA = sortedCategories.find((c: any) => c.id === a.catId)?.name || "";
                   const catB = sortedCategories.find((c: any) => c.id === b.catId)?.name || "";
-                  const cmp = catA.localeCompare(catB);
-                  if (cmp !== 0) return cmp;
+                  const cCmp = catA.localeCompare(catB);
+                  if (cCmp !== 0) return cCmp;
                   const segA = segMap.get(a.segId) || "";
                   const segB = segMap.get(b.segId) || "";
                   return segA.localeCompare(segB);
                 }).map((gr) => {
                   const rowTotal = getRowTotal(gr);
                   return (
-                    <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">
-                      {/* Categoria */}
+                    <tr key={gr.key} data-row-key={gr.key} className="group hover:bg-accent/30 transition-colors">
+                      {/* Unidade */}
                       <td className="sticky left-0 z-10 bg-background group-hover:bg-accent/30 transition-colors px-2 py-2 border-r border-border/60">
+                        <Select value={gr.unitId} onValueChange={(v) => updateRow(gr.key, "unitId", v)}>
+                          <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      {/* Categoria */}
+                      <td className="px-2 py-2 border-r border-border/40">
                         <Select value={gr.catId} onValueChange={(v) => updateRow(gr.key, "catId", v)}>
                           <SelectTrigger className="h-8 text-xs border-transparent bg-transparent hover:bg-muted/40 px-2">
                             <SelectValue />

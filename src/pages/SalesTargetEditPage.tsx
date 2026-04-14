@@ -331,7 +331,7 @@ export default function SalesTargetEditPage() {
             <Button variant="ghost" size="sm" onClick={() => navigate(-1)} disabled={saving} className="text-primary-foreground hover:bg-white/10 border border-white/20">
               Cancelar
             </Button>
-            <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={handleSave} disabled={saving || !editEsnId || !editUnitId}>
+            <Button size="sm" variant="secondary" className="bg-white/15 text-primary-foreground border-white/20 hover:bg-white/25" onClick={handleSave} disabled={saving || !editEsnId}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
             </Button>
@@ -598,7 +598,7 @@ export default function SalesTargetEditPage() {
         <Button variant="outline" onClick={() => navigate(-1)} disabled={saving} className="h-10">
           Cancelar
         </Button>
-        <Button onClick={handleSave} disabled={saving || !editEsnId || !editUnitId} className="h-10">
+        <Button onClick={handleSave} disabled={saving || !editEsnId} className="h-10">
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
           {isCreateMode ? "Adicionar Metas" : "Salvar Metas"}
         </Button>

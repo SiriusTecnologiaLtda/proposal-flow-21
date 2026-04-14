@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import PdfPreviewDialog from "@/components/software-proposal/PdfPreviewDialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useSalesTeam } from "@/hooks/useSupabaseData";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   FileSearch,
   Upload,
@@ -97,24 +98,57 @@ const ORIGIN_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
+// ─── Helpers to sync filters with URL search params ─────────────
+function parseList(params: URLSearchParams, key: string): string[] {
+  const v = params.get(key);
+  return v ? v.split(",").filter(Boolean) : [];
+}
+
+function setList(params: URLSearchParams, key: string, values: string[]) {
+  if (values.length === 0) params.delete(key);
+  else params.set(key, values.join(","));
+}
+
 export default function SoftwareProposalsListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [originFilter, setOriginFilter] = useState<string[]>([]);
-  const [unitFilter, setUnitFilter] = useState<string[]>([]);
-  const [memberFilter, setMemberFilter] = useState<string[]>([]);
+
+  // ─── Initialise state from URL params ─────────────────────────
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [statusFilter, setStatusFilter] = useState<string[]>(() => parseList(searchParams, "status"));
+  const [originFilter, setOriginFilter] = useState<string[]>(() => parseList(searchParams, "origin"));
+  const [unitFilter, setUnitFilter] = useState<string[]>(() => parseList(searchParams, "unit"));
+  const [memberFilter, setMemberFilter] = useState<string[]>(() => parseList(searchParams, "member"));
+  const [periodFilter, setPeriodFilter] = useState<string>(searchParams.get("period") || "este_ano");
+  const [customStart, setCustomStart] = useState(searchParams.get("cs") || "");
+  const [customEnd, setCustomEnd] = useState(searchParams.get("ce") || "");
+
   const [unitSearch, setUnitSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
-  const [periodFilter, setPeriodFilter] = useState<string>("este_ano");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pdfPreviewId, setPdfPreviewId] = useState<string | null>(null);
+
+  // ─── Selection state ──────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+
+  // ─── Sync state → URL params ──────────────────────────────────
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (searchTerm) p.set("q", searchTerm);
+    setList(p, "status", statusFilter);
+    setList(p, "origin", originFilter);
+    setList(p, "unit", unitFilter);
+    setList(p, "member", memberFilter);
+    if (periodFilter && periodFilter !== "este_ano") p.set("period", periodFilter);
+    if (customStart) p.set("cs", customStart);
+    if (customEnd) p.set("ce", customEnd);
+    setSearchParams(p, { replace: true });
+  }, [searchTerm, statusFilter, originFilter, unitFilter, memberFilter, periodFilter, customStart, customEnd, setSearchParams]);
 
   // Fetch units
   const { data: units = [] } = useQuery({
@@ -127,6 +161,7 @@ export default function SoftwareProposalsListPage() {
 
   // Fetch sales team
   const { data: salesTeam = [] } = useSalesTeam();
+
   const extractMutation = useMutation({
     mutationFn: async (proposalId: string) => {
       setExtractingIds((prev) => new Set(prev).add(proposalId));
@@ -179,7 +214,7 @@ export default function SoftwareProposalsListPage() {
   });
 
   // Auto-recover proposals stuck in "extracting" for > 10 minutes
-  const STALE_EXTRACTION_MS = 10 * 60 * 1000; // 10 minutes
+  const STALE_EXTRACTION_MS = 10 * 60 * 1000;
 
   const { data: allProposals, isLoading } = useQuery({
     queryKey: ["software-proposals", searchTerm],
@@ -202,7 +237,6 @@ export default function SoftwareProposalsListPage() {
       const now = Date.now();
       const rows = data || [];
 
-      // Detect and auto-recover stale "extracting" proposals
       const staleIds = rows
         .filter((p: any) => p.status === "extracting" && now - new Date(p.updated_at).getTime() > STALE_EXTRACTION_MS)
         .map((p: any) => p.id);
@@ -216,7 +250,6 @@ export default function SoftwareProposalsListPage() {
       }
 
       return rows.map((p: any) => {
-        // If we just recovered this one, reflect it in the UI immediately
         const status = staleIds.includes(p.id) ? "error" : p.status;
         const items = p.software_proposal_items || [];
         const totalCapex = items
@@ -270,6 +303,72 @@ export default function SoftwareProposalsListPage() {
 
   const visibleProposals = useMemo(() => proposals.slice(0, visibleCount), [proposals, visibleCount]);
   const hasMore = visibleCount < proposals.length;
+
+  // ─── Selection helpers ────────────────────────────────────────
+  const visibleIds = useMemo(() => new Set(visibleProposals.map((p: any) => p.id)), [visibleProposals]);
+  const allVisibleSelected = visibleProposals.length > 0 && visibleProposals.every((p: any) => selectedIds.has(p.id));
+  const someVisibleSelected = visibleProposals.some((p: any) => selectedIds.has(p.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleProposals.forEach((p: any) => next.delete(p.id));
+      } else {
+        visibleProposals.forEach((p: any) => next.add(p.id));
+      }
+      return next;
+    });
+  }, [allVisibleSelected, visibleProposals]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // ─── Bulk extract ─────────────────────────────────────────────
+  const [bulkExtracting, setBulkExtracting] = useState(false);
+
+  const handleBulkExtract = useCallback(async () => {
+    setBulkConfirmOpen(false);
+    setBulkExtracting(true);
+    const ids = Array.from(selectedIds);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const id of ids) {
+      try {
+        setExtractingIds((prev) => new Set(prev).add(id));
+        const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
+          body: { software_proposal_id: id },
+        });
+        if (error || data?.error) throw error || new Error(data?.error);
+        successCount++;
+      } catch {
+        errorCount++;
+      } finally {
+        setExtractingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
+    setSelectedIds(new Set());
+    setBulkExtracting(false);
+
+    if (errorCount === 0) {
+      toast.success(`Extração em lote concluída — ${successCount} propostas processadas`);
+    } else {
+      toast.warning(`Extração em lote: ${successCount} sucesso, ${errorCount} erro(s)`);
+    }
+  }, [selectedIds, queryClient]);
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation();
@@ -333,14 +432,19 @@ export default function SoftwareProposalsListPage() {
             <BookOpen className="h-4 w-4" />
             Catálogo
           </Button>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => navigate("/propostas-software/regras")}
-          >
-            <Sparkles className="h-4 w-4" />
-            Regras
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled
+              >
+                <Sparkles className="h-4 w-4" />
+                Regras
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Funcionalidade temporariamente desativada</TooltipContent>
+          </Tooltip>
           <Button
             variant="outline"
             className="gap-2"
@@ -382,7 +486,6 @@ export default function SoftwareProposalsListPage() {
               {activeFilterCount}
             </span>
           )}
-          {/* Active filter summary chips (visible when collapsed) */}
           {!filtersOpen && activeFilterCount > 0 && (
             <div className="hidden sm:flex items-center gap-1.5 overflow-hidden">
               {unitFilter.length > 0 && (
@@ -474,9 +577,9 @@ export default function SoftwareProposalsListPage() {
               </div>
             </div>
 
-            {/* Row 2: Status + Origin + Unit + Member in a compact grid */}
+            {/* Row 2: Status + Origin + Unit + Member */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Status — Popover dropdown */}
+              {/* Status */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
@@ -543,7 +646,7 @@ export default function SoftwareProposalsListPage() {
                 </Popover>
               </div>
 
-              {/* Origin — Popover dropdown */}
+              {/* Origin */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <FileSearch className="h-3.5 w-3.5" />
@@ -610,7 +713,7 @@ export default function SoftwareProposalsListPage() {
                 </Popover>
               </div>
 
-              {/* Unit — Popover dropdown */}
+              {/* Unit */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Building2 className="h-3.5 w-3.5" />
@@ -690,7 +793,7 @@ export default function SoftwareProposalsListPage() {
                 </Popover>
               </div>
 
-              {/* Member — Popover dropdown */}
+              {/* Member */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
@@ -777,10 +880,63 @@ export default function SoftwareProposalsListPage() {
         )}
       </div>
 
-      {/* List — Grid-based like ProjectsPage */}
+      {/* Selection bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-medium text-foreground">
+            {selectedIds.size} {selectedIds.size === 1 ? "selecionado" : "selecionados"}
+          </span>
+          <div className="flex-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="mr-1 h-3.5 w-3.5" />
+            Limpar seleção
+          </Button>
+          <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" className="gap-1.5" disabled={bulkExtracting}>
+                {bulkExtracting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                Extrair selecionados
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Extração em lote</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Deseja iniciar a extração de <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? "proposta" : "propostas"} selecionada(s)?
+                  O processo será executado sequencialmente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkExtract}>
+                  Confirmar extração
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
+      {/* List */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Grid Header */}
-        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[1fr_40px_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:gap-3 md:items-center">
+        <div className="hidden border-b border-border bg-muted/50 px-4 py-2.5 md:grid md:grid-cols-[32px_1fr_40px_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:gap-3 md:items-center">
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={allVisibleSelected}
+              onCheckedChange={toggleSelectAll}
+              aria-label="Selecionar todos"
+            />
+          </div>
           <span className="text-xs font-medium text-muted-foreground">Unidade</span>
           <span className="text-xs font-medium text-muted-foreground text-center">PDF</span>
           <span className="text-xs font-medium text-muted-foreground">Nº Proposta</span>
@@ -815,115 +971,129 @@ export default function SoftwareProposalsListPage() {
               </p>
             </div>
           ) : (
-            visibleProposals.map((p: any) => (
-              <div
-                key={p.id}
-                className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/50 cursor-pointer md:grid md:grid-cols-[1fr_40px_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:items-center md:gap-3"
-                onClick={() => navigate(`/propostas-software/${p.id}`)}
-              >
-                {/* Unidade */}
-                <p className="text-sm text-muted-foreground truncate min-w-0">{units.find((u: any) => u.id === p.unit_id)?.name || "—"}</p>
-                {/* PDF */}
-                <div className="flex items-center justify-center">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    title="Abrir PDF"
-                    onClick={(e) => openPdf(e, p.id)}
-                  >
-                    <FileText className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-                {/* Nº Proposta */}
-                <p className="text-sm font-mono text-muted-foreground truncate">{(p as any).proposal_number || "—"}</p>
-                {/* Cliente */}
-                <p className="text-sm text-muted-foreground truncate min-w-0">{p.client_name || "—"}</p>
-                {/* Origem */}
-                <div>
-                  <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {ORIGIN_LABELS[p.origin] || p.origin}
-                  </span>
-                </div>
-                {/* Capex */}
-                <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalCapex)}</p>
-                {/* Opex */}
-                <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalOpex)}</p>
-                {/* Produção Total */}
-                <p className="text-sm font-mono font-semibold text-foreground text-right whitespace-nowrap">{formatCurrency(p._producaoTotal)}</p>
-                {/* Status */}
-                <div>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
-                      STATUS_BADGE_VARIANT[p.status] || "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {STATUS_LABELS[p.status] || p.status}
-                  </span>
-                </div>
-                {/* Data Import */}
-                <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</p>
-                {/* Ações */}
-                <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  {extractingIds.has(p.id) || p.status === "extracting" ? (
-                    <Button size="sm" variant="ghost" disabled className="gap-1.5">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span className="text-xs">Extraindo…</span>
-                    </Button>
-                  ) : p.status === "pending_extraction" || p.status === "error" ? (
+            visibleProposals.map((p: any) => {
+              const isSelected = selectedIds.has(p.id);
+              return (
+                <div
+                  key={p.id}
+                  className={cn(
+                    "flex flex-col gap-2 px-4 py-3 transition-colors cursor-pointer md:grid md:grid-cols-[32px_1fr_40px_1fr_1fr_auto_1fr_1fr_1fr_auto_auto_auto] md:items-center md:gap-3",
+                    isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-accent/50"
+                  )}
+                  onClick={() => navigate(`/propostas-software/${p.id}`)}
+                >
+                  {/* Checkbox */}
+                  <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(p.id)}
+                      aria-label={`Selecionar ${p.file_name}`}
+                    />
+                  </div>
+                  {/* Unidade */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{units.find((u: any) => u.id === p.unit_id)?.name || "—"}</p>
+                  {/* PDF */}
+                  <div className="flex items-center justify-center">
                     <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => extractMutation.mutate(p.id)}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span className="text-xs">Extrair</span>
-                    </Button>
-                  ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
-                    <Button
-                      size="sm"
+                      size="icon"
                       variant="ghost"
-                      className="gap-1.5 text-muted-foreground"
-                      onClick={() => extractMutation.mutate(p.id)}
+                      className="h-7 w-7"
+                      title="Abrir PDF"
+                      onClick={(e) => openPdf(e, p.id)}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span className="text-xs">Re-extrair</span>
+                      <FileText className="h-4 w-4 text-destructive" />
                     </Button>
-                  ) : null}
-
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+                  </div>
+                  {/* Nº Proposta */}
+                  <p className="text-sm font-mono text-muted-foreground truncate">{(p as any).proposal_number || "—"}</p>
+                  {/* Cliente */}
+                  <p className="text-sm text-muted-foreground truncate min-w-0">{p.client_name || "—"}</p>
+                  {/* Origem */}
+                  <div>
+                    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {ORIGIN_LABELS[p.origin] || p.origin}
+                    </span>
+                  </div>
+                  {/* Capex */}
+                  <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalCapex)}</p>
+                  {/* Opex */}
+                  <p className="text-sm font-mono text-foreground text-right whitespace-nowrap">{formatCurrency(p._totalOpex)}</p>
+                  {/* Produção Total */}
+                  <p className="text-sm font-mono font-semibold text-foreground text-right whitespace-nowrap">{formatCurrency(p._producaoTotal)}</p>
+                  {/* Status */}
+                  <div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+                        STATUS_BADGE_VARIANT[p.status] || "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {STATUS_LABELS[p.status] || p.status}
+                    </span>
+                  </div>
+                  {/* Data Import */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(p.created_at)}</p>
+                  {/* Ações */}
+                  <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {extractingIds.has(p.id) || p.status === "extracting" ? (
+                      <Button size="sm" variant="ghost" disabled className="gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span className="text-xs">Extraindo…</span>
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir proposta</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja excluir "{p.file_name}"? Esta ação não pode ser desfeita e removerá todos os itens e pendências associados.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => deleteMutation.mutate(p.id)}
+                    ) : p.status === "pending_extraction" || p.status === "error" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => extractMutation.mutate(p.id)}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span className="text-xs">Extrair</span>
+                      </Button>
+                    ) : ["extracted", "in_review", "validated"].includes(p.status) ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1.5 text-muted-foreground"
+                        onClick={() => extractMutation.mutate(p.id)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span className="text-xs">Re-extrair</span>
+                      </Button>
+                    ) : null}
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          disabled={deleteMutation.isPending}
                         >
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir proposta</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir "{p.file_name}"? Esta ação não pode ser desfeita e removerá todos os itens e pendências associados.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => deleteMutation.mutate(p.id)}
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

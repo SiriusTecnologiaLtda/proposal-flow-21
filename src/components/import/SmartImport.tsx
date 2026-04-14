@@ -260,6 +260,22 @@ export default function SmartImport() {
     setSavedPresets(loadSavedFilterPresets(entity));
     setFilterRules([]);
 
+    // Auto-detect year from META YYYY - MM headers
+    if (entity === "sales_targets") {
+      const metaYearRegex = /^meta\s*(\d{4})\s*[-–_]\s*\d{1,2}$/i;
+      const detectedYears = new Set<string>();
+      for (const h of currentHeaders) {
+        const ym = (h || "").trim().match(metaYearRegex);
+        if (ym) detectedYears.add(ym[1]);
+      }
+      if (detectedYears.size === 1) {
+        const autoYear = Array.from(detectedYears)[0];
+        setTargetYear(autoYear);
+      } else if (detectedYears.size > 1) {
+        toast({ title: "Ano ambíguo", description: `Detectados múltiplos anos nos cabeçalhos META: ${Array.from(detectedYears).join(", ")}. Selecione o ano correto manualmente.`, variant: "destructive" });
+      }
+    }
+
     setStep("mapping");
   }, [headers, rawWorkbook, toast]);
 

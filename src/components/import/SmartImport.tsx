@@ -1819,6 +1819,12 @@ export default function SmartImport() {
         continue;
       }
 
+      // Build original value labels for audit/traceability
+      const rawCatLabel = hasCategoryCol ? ((ev(row, "category_name") || ev(row, "category_code") || "").toString().trim() || null) : null;
+      const rawSegLabel = hasSegmentCol ? ((ev(row, "segment_name") || ev(row, "segment_code") || "").toString().trim() || null) : null;
+      const rawUnitLabel = hasUnitCol ? (unitCandidates[0] || null) : null;
+      const rawMemberLabel = (ev(row, "esn_code") || ev(row, "esn_name") || "").toString().trim() || null;
+
       // Insert each row/month directly without logical key dedup
       for (let m = 1; m <= 12; m++) {
         const val = ev(row, `month_${m}`);
@@ -1833,6 +1839,10 @@ export default function SmartImport() {
           category_id: rowCategoryId,
           segment_id: rowSegmentId,
           unit_id: rowUnitId,
+          original_category: rawCatLabel,
+          original_segment: rawSegLabel,
+          original_unit: rawUnitLabel,
+          original_member: rawMemberLabel,
           _line: lineNum,
           _owner: String(esnLabel),
           _month: m,

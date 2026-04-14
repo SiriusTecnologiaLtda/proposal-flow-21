@@ -617,6 +617,11 @@ export function findInListWithAlias(
   if (byCode) return byCode.id;
   const byName = list.find(u => u.name === s);
   if (byName) return byName.id;
+  // Priority 1b: prefix match on code/name (e.g. "tse104" matches "tse104 - totvs zmm")
+  const byCodePrefix = list.find(u => u.code.startsWith(s + " ") || u.code.startsWith(s + "-") || u.code.startsWith(s + "_"));
+  if (byCodePrefix) return byCodePrefix.id;
+  const byNamePrefix = list.find(u => u.name.startsWith(s + " ") || u.name.startsWith(s + "-") || u.name.startsWith(s + "_"));
+  if (byNamePrefix) return byNamePrefix.id;
   // Priority 2: session alias
   const aliasMap = aliases[aliasKey];
   if (aliasMap) {

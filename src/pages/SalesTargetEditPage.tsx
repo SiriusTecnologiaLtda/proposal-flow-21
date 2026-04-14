@@ -378,25 +378,6 @@ export default function SalesTargetEditPage() {
               </div>
             )}
 
-            {/* Unidade - locked in edit, selectable in create */}
-            {isCreateMode ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-medium">Unidade</Label>
-                <Select value={editUnitId} onValueChange={setEditUnitId}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                  Unidade <Lock className="h-2.5 w-2.5" />
-                </Label>
-                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-medium text-foreground truncate">
-                  {unitName}
-                </div>
-              </div>
-            )}
 
             {/* Ano - locked in edit, selectable in create */}
             {isCreateMode ? (

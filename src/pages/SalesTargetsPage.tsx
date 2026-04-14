@@ -118,12 +118,14 @@ export default function SalesTargetsPage() {
           code: esn?.code || "—",
           role: (t as any).role || "esn",
           unit_id: (t as any).unit_id || esn?.unit_id || null,
+          unitIds: new Set(),
           linked_gsn_id: esn?.linked_gsn_id || null,
           categoryTotals: {},
           grandTotal: 0,
         });
       }
       const row = map.get(key)!;
+      if ((t as any).unit_id) row.unitIds.add((t as any).unit_id);
       const catId = (t as any).category_id || "sem_categoria";
       row.categoryTotals[catId] = (row.categoryTotals[catId] || 0) + (t.amount || 0);
       row.grandTotal += (t.amount || 0);

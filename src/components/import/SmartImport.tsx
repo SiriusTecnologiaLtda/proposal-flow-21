@@ -1576,6 +1576,8 @@ export default function SmartImport() {
           addImportLog(entity, "ok", `✅ ${deletedCount} meta(s) existente(s) removida(s) do ano ${year} (escopo: ${unitNames.join(", ")}).`);
         }
       }
+    } else {
+      addImportLog(entity, "info", `ℹ️ "Limpar Metas Existentes" DESATIVADO — dados serão acumulados ao existente.`, "system");
     }
 
     if (dataRows.length === 0) {

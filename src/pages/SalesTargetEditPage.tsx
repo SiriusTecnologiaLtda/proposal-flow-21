@@ -140,10 +140,11 @@ export default function SalesTargetEditPage() {
       // Group by category+segment+role
       const groupMap = new Map<string, GridRow>();
       for (const t of targets) {
-        const gKey = `${t.category_id}|${t.segment_id}|${t.role}`;
+        const gKey = `${t.category_id}|${t.segment_id}|${t.role}|${t.unit_id}`;
         if (!groupMap.has(gKey)) {
           groupMap.set(gKey, {
             key: crypto.randomUUID(),
+            unitId: t.unit_id || editUnitId || "",
             catId: t.category_id || "",
             segId: t.segment_id || defaultSeg,
             role: t.role || defaultRole,

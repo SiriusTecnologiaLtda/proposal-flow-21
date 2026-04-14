@@ -178,6 +178,9 @@ export default function SoftwareProposalsListPage() {
     },
   });
 
+  // Auto-recover proposals stuck in "extracting" for > 10 minutes
+  const STALE_EXTRACTION_MS = 10 * 60 * 1000; // 10 minutes
+
   const { data: allProposals, isLoading } = useQuery({
     queryKey: ["software-proposals", searchTerm],
     enabled: !!user,
@@ -196,7 +199,25 @@ export default function SoftwareProposalsListPage() {
       const { data, error } = await query;
       if (error) throw error;
 
-      return (data || []).map((p: any) => {
+      const now = Date.now();
+      const rows = data || [];
+
+      // Detect and auto-recover stale "extracting" proposals
+      const staleIds = rows
+        .filter((p: any) => p.status === "extracting" && now - new Date(p.updated_at).getTime() > STALE_EXTRACTION_MS)
+        .map((p: any) => p.id);
+
+      if (staleIds.length > 0) {
+        console.warn(`[SoftwareProposals] Auto-recovering ${staleIds.length} stale extracting proposals:`, staleIds);
+        await supabase
+          .from("software_proposals")
+          .update({ status: "error", notes: "Auto-recuperado: extração excedeu o tempo limite." })
+          .in("id", staleIds);
+      }
+
+      return rows.map((p: any) => {
+        // If we just recovered this one, reflect it in the UI immediately
+        const status = staleIds.includes(p.id) ? "error" : p.status;
         const items = p.software_proposal_items || [];
         const totalCapex = items
           .filter((i: any) => i.cost_classification === "capex")
@@ -205,7 +226,7 @@ export default function SoftwareProposalsListPage() {
           .filter((i: any) => i.cost_classification === "opex")
           .reduce((sum: number, i: any) => sum + (i.total_price || 0), 0);
         const producaoTotal = Math.round(((totalCapex / 21.82) + totalOpex) * 100) / 100;
-        return { ...p, _totalCapex: totalCapex, _totalOpex: totalOpex, _producaoTotal: producaoTotal };
+        return { ...p, status, _totalCapex: totalCapex, _totalOpex: totalOpex, _producaoTotal: producaoTotal };
       });
     },
   });

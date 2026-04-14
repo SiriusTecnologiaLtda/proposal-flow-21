@@ -1387,6 +1387,37 @@ Return ONLY valid JSON with this exact structure:
     });
   } catch (e) {
     console.error("extract-software-proposal error:", e);
+
+    // CRITICAL: Always reset status to "error" if an unhandled exception occurs
+    // This prevents proposals from being stuck in "extracting" forever
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const recoveryClient = createClient(supabaseUrl, serviceRoleKey);
+
+      // Extract proposal ID from request body if possible
+      let proposalId: string | null = null;
+      try {
+        const clonedBody = await req.clone().json();
+        proposalId = clonedBody?.software_proposal_id;
+      } catch { /* body may have been consumed */ }
+
+      if (proposalId) {
+        await recoveryClient
+          .from("software_proposals")
+          .update({
+            status: "error",
+            notes: `Erro na extração: ${e instanceof Error ? e.message : "Erro interno desconhecido"}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", proposalId)
+          .eq("status", "extracting"); // Only update if still extracting
+        console.log(`[extract-software-proposal] Recovery: marked proposal ${proposalId} as error`);
+      }
+    } catch (recoveryErr) {
+      console.error("[extract-software-proposal] Recovery failed:", recoveryErr);
+    }
+
     return jsonResponse(
       { error: e instanceof Error ? e.message : "Erro interno" },
       500

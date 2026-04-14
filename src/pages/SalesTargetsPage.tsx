@@ -221,7 +221,6 @@ export default function SalesTargetsPage() {
         for (const t of targets) {
           if (t.esn_id === esnId && (t.unit_id === unitId || (unitId === "__sem_unidade__" && !t.unit_id))) idsToDelete.push(t.id);
         }
-        }
       }
       let deletedCount = 0;
       for (let i = 0; i < idsToDelete.length; i += 100) {

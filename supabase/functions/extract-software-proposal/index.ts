@@ -309,12 +309,12 @@ Return ONLY valid JSON with this exact structure:
         .eq("id", software_proposal_id);
 
       if (aiResponse.status === 429) {
-        return jsonResponse({ error: "Limite de requisições IA excedido. Tente novamente em alguns segundos." }, 429);
+        return jsonResponse({ error: "Limite de requisições IA excedido. Tente novamente em alguns segundos.", fallback: true }, 200);
       }
       if (aiResponse.status === 402) {
-        return jsonResponse({ error: "Créditos de IA insuficientes." }, 402);
+        return jsonResponse({ error: "Créditos de IA insuficientes. Adicione créditos em Configurações > Workspace > Uso.", fallback: true }, 200);
       }
-      return jsonResponse({ error: "Erro no serviço de extração IA" }, 500);
+      return jsonResponse({ error: "Erro no serviço de extração IA", fallback: true }, 200);
     }
 
     const aiResult = await aiResponse.json();

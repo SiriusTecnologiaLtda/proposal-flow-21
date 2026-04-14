@@ -3595,6 +3595,12 @@ export type Database = {
         Args: { _proposal_id: string; _user_id: string }
         Returns: boolean
       }
+      claim_extraction_jobs: {
+        Args: { max_jobs?: number }
+        Returns: {
+          id: string
+        }[]
+      }
       get_member_units_v2: { Args: { _member_id: string }; Returns: string[] }
       get_profile_display_names: {
         Args: { _user_ids: string[] }

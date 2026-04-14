@@ -309,54 +309,12 @@ export default function SoftwareProposalsListPage() {
   // ─── Bulk extract ─────────────────────────────────────────────
   const [bulkExtracting, setBulkExtracting] = useState(false);
 
-  const handleBulkExtract = useCallback(async () => {
+  const handleBulkExtract = useCallback(() => {
     setBulkConfirmOpen(false);
     setBulkExtracting(true);
     const ids = Array.from(selectedIds);
-    let successCount = 0;
-    let errorCount = 0;
-    let creditError = false;
-
-    for (const id of ids) {
-      if (creditError) break; // Para imediatamente se sem créditos
-      try {
-        setExtractingIds((prev) => new Set(prev).add(id));
-        const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
-          body: { software_proposal_id: id },
-        });
-        if (error || data?.error) {
-          const errMsg = data?.error || error?.message || "";
-          if (errMsg.includes("Créditos") || errMsg.includes("créditos") || data?.fallback) {
-            creditError = true;
-            toast.error("Créditos de IA insuficientes. Extração em lote interrompida. Adicione créditos em Settings → Workspace → Usage.");
-          }
-          throw error || new Error(errMsg);
-        }
-        successCount++;
-      } catch {
-        errorCount++;
-      } finally {
-        setExtractingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
     setSelectedIds(new Set());
-    setBulkExtracting(false);
-
-    if (creditError) {
-      if (successCount > 0) {
-        toast.info(`${successCount} proposta(s) extraída(s) antes do erro de créditos. ${ids.length - successCount - errorCount} pendente(s) não processada(s).`);
-      }
-    } else if (errorCount === 0) {
-      toast.success(`Extração em lote concluída — ${successCount} propostas processadas`);
-    } else {
-      toast.warning(`Extração em lote: ${successCount} sucesso, ${errorCount} erro(s)`);
-    }
+    startBulkExtraction(ids, queryClient, () => setBulkExtracting(false));
   }, [selectedIds, queryClient]);
 
   const openPdf = (e: React.MouseEvent, proposalId: string) => {

@@ -598,16 +598,30 @@ Return ONLY valid JSON with this exact structure:
       const removeAccents = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const norm = (s: string) => removeAccents(s.trim().toLowerCase());
 
-      // Parse embedded code from patterns like "TOTVS ESPIRITO SANTO (TSE341)"
-      const codeMatch = rawUnitName.match(/\(([A-Z]{2,5}\d{2,5})\)/i);
-      const embeddedCode = codeMatch ? codeMatch[1].trim() : null;
-      // Text part without the code in parentheses
-      const textPart = rawUnitName.replace(/\s*\([A-Z]{2,5}\d{2,5}\)\s*/i, "").trim();
+      // Parse embedded code from multiple formats:
+      // "TOTVS ESPIRITO SANTO (TSE341)" → parentheses
+      // "TSE102-TOTVS CENTRO OESTE DE MINAS" → code-dash-name
+      // "TSE102 - TOTVS COM" → code-space-dash-name
+      let embeddedCode: string | null = null;
+      let textPart = rawUnitName;
+
+      const parenMatch = rawUnitName.match(/\(([A-Z]{2,5}\d{2,5})\)/i);
+      if (parenMatch) {
+        embeddedCode = parenMatch[1].trim();
+        textPart = rawUnitName.replace(/\s*\([A-Z]{2,5}\d{2,5}\)\s*/i, "").trim();
+      } else {
+        // Try "CODE-Name" or "CODE - Name" format (e.g. "TSE102-TOTVS CENTRO OESTE DE MINAS")
+        const dashMatch = rawUnitName.match(/^([A-Z]{2,5}\d{2,5})\s*[-–]\s*(.+)/i);
+        if (dashMatch) {
+          embeddedCode = dashMatch[1].trim();
+          textPart = dashMatch[2].trim();
+        }
+      }
 
       const normalizedText = norm(textPart);
       const normalizedFull = norm(rawUnitName);
 
-      // Build OR filter with multiple search terms
+      // Build OR filter with multiple search terms for broad candidate retrieval
       const searchTerms: string[] = [];
       const addTerm = (t: string) => {
         searchTerms.push(`name.ilike.%${t}%`);
@@ -619,36 +633,67 @@ Return ONLY valid JSON with this exact structure:
       if (embeddedCode) {
         addTerm(embeddedCode);
       }
+      // Also add individual significant words for broader matching
+      const significantWords = textPart.split(/[\s\-_]+/).filter(w => w.length >= 3 && !["de", "da", "do", "das", "dos"].includes(w.toLowerCase()));
+      for (const word of significantWords.slice(0, 4)) {
+        addTerm(word);
+      }
 
       const { data: unitMatches } = await adminClient
         .from("unit_info")
         .select("id, name, code, city, descricao_complementar")
         .or(searchTerms.join(","))
-        .limit(10);
+        .limit(20);
 
       if (unitMatches && unitMatches.length > 0) {
-        // Priority 1: exact code match (most reliable, e.g. TSE341)
+        // Priority 1: exact code match in the code column (e.g. "TSE102" found in "TSE102 - TOTVS COM")
         const exactCode = embeddedCode
-          ? unitMatches.find((u) => u.code && norm(u.code) === norm(embeddedCode))
+          ? unitMatches.find((u) => u.code && norm(u.code).startsWith(norm(embeddedCode)))
           : null;
         // Priority 2: exact name match (accent-insensitive)
         const exactName = !exactCode && unitMatches.find(
           (u) => norm(u.name) === normalizedText || norm(u.name) === normalizedFull
         );
-        // Priority 3: exact descricao_complementar match (accent-insensitive)
+        // Priority 3: descricao_complementar contains the extracted text or vice-versa
         const descMatch = !exactCode && !exactName && unitMatches.find(
-          (u) => u.descricao_complementar && (norm(u.descricao_complementar) === normalizedText || norm(u.descricao_complementar) === normalizedFull)
+          (u) => u.descricao_complementar && (
+            norm(u.descricao_complementar) === normalizedText ||
+            norm(u.descricao_complementar) === normalizedFull ||
+            norm(u.descricao_complementar).includes(normalizedText) ||
+            normalizedText.includes(norm(u.descricao_complementar))
+          )
         );
-        // Priority 4: code contains match (partial)
+        // Priority 4: code contains match (partial code in code column)
         const codePartial = !exactCode && !exactName && !descMatch && embeddedCode
           ? unitMatches.find((u) => u.code && u.code.toLowerCase().includes(embeddedCode.toLowerCase()))
           : null;
+        // Priority 5: token overlap scoring — match by how many significant words appear in name+descricao
+        let tokenBest: typeof unitMatches[0] | null = null;
+        if (!exactCode && !exactName && !descMatch && !codePartial && significantWords.length >= 2) {
+          let bestScore = 0;
+          for (const u of unitMatches) {
+            const haystack = norm(`${u.name} ${u.descricao_complementar || ""} ${u.city || ""}`);
+            let score = 0;
+            for (const w of significantWords) {
+              if (haystack.includes(norm(w))) score++;
+            }
+            // Bonus for code match
+            if (embeddedCode && u.code && norm(u.code).includes(norm(embeddedCode))) score += 3;
+            if (score > bestScore) {
+              bestScore = score;
+              tokenBest = u;
+            }
+          }
+          // Only accept if at least 2 tokens matched or code matched
+          if (bestScore < 2) tokenBest = null;
+        }
 
-        const bestMatch = exactCode || exactName || descMatch || codePartial;
+        const bestMatch = exactCode || exactName || descMatch || codePartial || tokenBest;
 
         if (bestMatch) {
           matchedUnitId = bestMatch.id;
           matchedUnitName = bestMatch.name;
+          console.log(`[UNIT MATCH] "${rawUnitName}" → ${bestMatch.name} (id: ${bestMatch.id})`);
         } else if (unitMatches.length === 1) {
           matchedUnitId = unitMatches[0].id;
           matchedUnitName = unitMatches[0].name;

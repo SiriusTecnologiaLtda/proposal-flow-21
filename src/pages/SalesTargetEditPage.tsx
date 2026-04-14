@@ -235,10 +235,15 @@ export default function SalesTargetEditPage() {
       toast({ title: "Preencha o Membro", variant: "destructive" });
       return;
     }
-    // Validate all rows have segment
+    // Validate all rows have segment and unit
     const missingSegRow = gridRows.find(r => !r.segId);
     if (missingSegRow) {
       toast({ title: "Preencha o segmento de todas as linhas", variant: "destructive" });
+      return;
+    }
+    const missingUnitRow = gridRows.find(r => !r.unitId);
+    if (missingUnitRow) {
+      toast({ title: "Preencha a unidade de todas as linhas", variant: "destructive" });
       return;
     }
     setSaving(true);

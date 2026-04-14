@@ -565,6 +565,7 @@ export default function SalesTargetEditPage() {
                   </td>
                   <td className="bg-muted border-r border-border/40" />
                   <td className="bg-muted border-r border-border/40" />
+                  <td className="bg-muted border-r border-border/40" />
                   {Array.from({ length: 12 }, (_, i) => {
                     const colTotal = getColTotal(i + 1);
                     return (

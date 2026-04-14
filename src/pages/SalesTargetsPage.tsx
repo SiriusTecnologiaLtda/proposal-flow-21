@@ -37,6 +37,7 @@ type SummaryRow = {
   linked_gsn_id: string | null;
   categoryTotals: Record<string, number>;
   grandTotal: number;
+  rowKey: string;
 };
 
 export default function SalesTargetsPage() {

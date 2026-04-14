@@ -85,14 +85,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <nav className="flex-1 space-y-1 p-2">
           {filteredNavItems.map((item) => {
             const isActive = item.path === "/" ? location.pathname === "/" : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            const isParentActive = isActive || (item.children?.some((c: any) => location.pathname === c.path || location.pathname.startsWith(c.path + "/")));
             return (
-              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"} ${collapsed ? "justify-center px-2" : ""}`}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
+              <div key={item.path}>
+                <Link to={item.path} onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isParentActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"} ${collapsed ? "justify-center px-2" : ""}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+                {!collapsed && item.children && item.children.map((child: any) => {
+                  const childActive = location.pathname === child.path || location.pathname.startsWith(child.path + "/");
+                  return (
+                    <Link key={child.path} to={child.path} onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 rounded-md px-3 py-1.5 pl-9 text-xs font-medium transition-colors ${childActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                    >
+                      <child.icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{child.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

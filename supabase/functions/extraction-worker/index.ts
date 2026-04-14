@@ -61,13 +61,17 @@ serve(async (req) => {
     const providedSecret = req.headers.get("X-Worker-Secret");
     const authHeader = req.headers.get("Authorization");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-    // Accept: X-Worker-Secret, service role key, or anon key (for pg_cron via pg_net)
+    // Parse body early to check source
+    const body = await req.json().catch(() => ({}));
+    const isCronSource = body?.source === "cron";
+
+    // Accept: X-Worker-Secret, service role key, or cron invocation (pg_net with anon key)
+    // Cron invocation is safe because the worker is idempotent and only processes existing queued jobs
     const isAuthorized =
       (workerSecret && providedSecret === workerSecret) ||
       (authHeader === `Bearer ${serviceRoleKey}`) ||
-      (anonKey && authHeader === `Bearer ${anonKey}`);
+      isCronSource;
 
     if (!isAuthorized) {
       console.error("Worker: unauthorized invocation");

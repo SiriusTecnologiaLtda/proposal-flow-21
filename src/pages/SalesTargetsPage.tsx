@@ -216,9 +216,11 @@ export default function SalesTargetsPage() {
     setDeleting(true);
     try {
       const idsToDelete: string[] = [];
-      for (const esnId of selectedKeys) {
+      for (const rowKey of selectedKeys) {
+        const [unitId, esnId] = rowKey.split("::");
         for (const t of targets) {
-          if (t.esn_id === esnId) idsToDelete.push(t.id);
+          if (t.esn_id === esnId && (t.unit_id === unitId || (unitId === "__sem_unidade__" && !t.unit_id))) idsToDelete.push(t.id);
+        }
         }
       }
       let deletedCount = 0;

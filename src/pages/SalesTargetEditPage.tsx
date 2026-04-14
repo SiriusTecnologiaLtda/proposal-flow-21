@@ -218,10 +218,21 @@ export default function SalesTargetEditPage() {
   const getColTotal = (month: number) => gridRows.reduce((s, r) => s + (Number(r.months[month] || "0") || 0), 0);
   const getGridGrandTotal = () => gridRows.reduce((s, r) => s + getRowTotal(r), 0);
 
+  // Scroll to newly added row
+  useEffect(() => {
+    if (lastAddedKeyRef.current && scrollRef.current) {
+      const el = scrollRef.current.querySelector(`[data-row-key="${lastAddedKeyRef.current}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      lastAddedKeyRef.current = null;
+    }
+  }, [gridRows]);
+
   /* ── Save ── */
   async function handleSave() {
-    if (!editEsnId || !editUnitId) {
-      toast({ title: "Preencha Membro e Unidade", variant: "destructive" });
+    if (!editEsnId) {
+      toast({ title: "Preencha o Membro", variant: "destructive" });
       return;
     }
     // Validate all rows have segment

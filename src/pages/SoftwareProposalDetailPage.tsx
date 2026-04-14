@@ -664,29 +664,17 @@ export default function SoftwareProposalDetailPage() {
     onError: (err: any) => toast.error(err.message || "Erro ao excluir proposta"),
   });
 
-  // Reprocess (re-extract)
-  const reprocessMutation = useMutation({
-    mutationFn: async () => {
-      if (!id) throw new Error("ID não encontrado");
-      const { data, error } = await supabase.functions.invoke("extract-software-proposal", {
-        body: { software_proposal_id: id },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["software-proposal", id] });
-      queryClient.invalidateQueries({ queryKey: ["software-proposal-items", id] });
-      queryClient.invalidateQueries({ queryKey: ["extraction-issues", id] });
-      queryClient.invalidateQueries({ queryKey: ["software-proposals"] });
-      toast.success(
-        `Re-extração concluída — ${data.items_extracted} itens, ${data.issues_created} pendências`,
-        { duration: 5000 }
-      );
-    },
-    onError: (err: any) => toast.error(err.message || "Erro na re-extração"),
-  });
+  // Reprocess (re-extract) — background
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  useEffect(() => {
+    return subscribeExtracting((ids) => setIsExtracting(id ? ids.has(id) : false));
+  }, [id]);
+
+  const handleReprocess = () => {
+    if (!id) return;
+    startExtraction(id, queryClient);
+  };
 
   // Download file via signed URL
   const downloadFile = async () => {

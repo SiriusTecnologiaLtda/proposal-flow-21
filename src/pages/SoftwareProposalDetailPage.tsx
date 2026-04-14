@@ -883,7 +883,7 @@ export default function SoftwareProposalDetailPage() {
           </div>
 
           {/* Section: Vínculos Cadastrais */}
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-visible">
             <div className="border-b border-border bg-muted/50 px-4 py-2.5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vínculos Cadastrais</h3>
             </div>
@@ -917,7 +917,7 @@ export default function SoftwareProposalDetailPage() {
           </div>
 
           {/* Section: Time Comercial */}
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-visible">
             <div className="border-b border-border bg-muted/50 px-4 py-2.5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time Comercial</h3>
             </div>

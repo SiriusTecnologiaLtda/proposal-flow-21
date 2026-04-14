@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.email-inbox-sync]
 verify_jwt = false
+
+[functions.extraction-jobs]
+verify_jwt = false
+
+[functions.extraction-worker]
+verify_jwt = false

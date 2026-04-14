@@ -781,6 +781,19 @@ export default function ProposalsList() {
       if (res.ok && data.success) {
         if (capturedType === "notificar_esn") {
           await supabase.from("proposals").update({ status: "analise_ev_concluida" } as any).eq("id", capturedProposal.id);
+          // Sync linked projects to concluido to keep statuses consistent
+          const { data: linkedProjects } = await supabase
+            .from("projects")
+            .select("id, status")
+            .eq("proposal_id", capturedProposal.id);
+          if (linkedProjects) {
+            for (const proj of linkedProjects) {
+              if (proj.status === "em_revisao" || proj.status === "pendente") {
+                await supabase.from("projects").update({ status: "concluido" }).eq("id", proj.id);
+              }
+            }
+          }
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
         }
         queryClient.invalidateQueries({ queryKey: ["proposals"] });
         queryClient.invalidateQueries({ queryKey: ["proposal", capturedProposal.id] });

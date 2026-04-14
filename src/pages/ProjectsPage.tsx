@@ -561,7 +561,19 @@ export default function ProjectsPage() {
                           </DropdownMenuItem>
                         )}
                         {effectiveStatus === "em_revisao" && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(project.id, "pendente")}>
+                          <DropdownMenuItem onClick={async () => {
+                            try {
+                              await updateStatus.mutateAsync({ id: project.id, status: "pendente" });
+                              // Sync proposal back to em_analise_ev (still under EV review, just not actively being worked)
+                              if (project.proposal_id) {
+                                await supabase.from("proposals").update({ status: "em_analise_ev", ev_requested: true } as any).eq("id", project.proposal_id);
+                                queryClient.invalidateQueries({ queryKey: ["proposals"] });
+                              }
+                              toast({ title: "Status alterado para Pendente" });
+                            } catch (err: any) {
+                              toast({ title: "Erro", description: err.message, variant: "destructive" });
+                            }
+                          }}>
                             <PenLine className="mr-2 h-4 w-4" />Voltar para Pendente
                           </DropdownMenuItem>
                         )}

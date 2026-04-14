@@ -107,8 +107,20 @@ export default function SalesTargetsPage() {
   const sortedCategories = useMemo(() => [...categories].sort((a: any, b: any) => a.name.localeCompare(b.name)), [categories]);
 
   const summaryRows: SummaryRow[] = useMemo(() => {
+    // Pre-filter targets by unit/segment/category so totals reflect active filters
+    let filteredTargets = targets as any[];
+    if (filterUnitIds.length > 0) {
+      filteredTargets = filteredTargets.filter(t => t.unit_id && filterUnitIds.includes(t.unit_id));
+    }
+    if (filterSegmentIds.length > 0) {
+      filteredTargets = filteredTargets.filter(t => t.segment_id && filterSegmentIds.includes(t.segment_id));
+    }
+    if (filterCategoryIds.length > 0) {
+      filteredTargets = filteredTargets.filter(t => t.category_id && filterCategoryIds.includes(t.category_id));
+    }
+
     const map = new Map<string, SummaryRow>();
-    for (const t of targets) {
+    for (const t of filteredTargets) {
       const key = t.esn_id;
       if (!map.has(key)) {
         const esn: any = esnMap.get(t.esn_id);
@@ -116,8 +128,8 @@ export default function SalesTargetsPage() {
           esn_id: t.esn_id,
           name: esn?.name || "—",
           code: esn?.code || "—",
-          role: (t as any).role || "esn",
-          unit_id: (t as any).unit_id || esn?.unit_id || null,
+          role: t.role || "esn",
+          unit_id: t.unit_id || esn?.unit_id || null,
           unitIds: new Set(),
           linked_gsn_id: esn?.linked_gsn_id || null,
           categoryTotals: {},
@@ -125,19 +137,17 @@ export default function SalesTargetsPage() {
         });
       }
       const row = map.get(key)!;
-      if ((t as any).unit_id) row.unitIds.add((t as any).unit_id);
-      const catId = (t as any).category_id || "sem_categoria";
+      if (t.unit_id) row.unitIds.add(t.unit_id);
+      const catId = t.category_id || "sem_categoria";
       row.categoryTotals[catId] = (row.categoryTotals[catId] || 0) + (t.amount || 0);
       row.grandTotal += (t.amount || 0);
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [targets, esnMap]);
+  }, [targets, esnMap, filterUnitIds, filterSegmentIds, filterCategoryIds]);
 
   const filtered = useMemo(() => {
     let result = summaryRows;
     // ── New scope filter (flag-controlled) ──
-    // When useNewScopeSalesTargets = true, restrict to visible members
-    // When false, no scope filtering (legacy behavior = admin sees all)
     if (FEATURE_FLAGS.useNewScopeSalesTargets && newScope.visibleIds) {
       const allowed = new Set(newScope.visibleIds);
       result = result.filter(g => allowed.has(g.esn_id));
@@ -146,28 +156,10 @@ export default function SalesTargetsPage() {
       const q = search.toLowerCase();
       result = result.filter(g => g.name.toLowerCase().includes(q) || g.code.toLowerCase().includes(q));
     }
-    if (filterUnitIds.length > 0) result = result.filter(g => filterUnitIds.some(uid => g.unitIds.has(uid)));
     if (filterGsnIds.length > 0) result = result.filter(g => g.linked_gsn_id && filterGsnIds.includes(g.linked_gsn_id));
-    if (filterSegmentIds.length > 0) {
-      const memberSegments = new Map<string, Set<string>>();
-      for (const t of targets) {
-        const segId = (t as any).segment_id;
-        if (segId) {
-          if (!memberSegments.has(t.esn_id)) memberSegments.set(t.esn_id, new Set());
-          memberSegments.get(t.esn_id)!.add(segId);
-        }
-      }
-      result = result.filter(g => {
-        const segs = memberSegments.get(g.esn_id);
-        return segs && filterSegmentIds.some(sid => segs.has(sid));
-      });
-    }
     if (filterRoles.length > 0) result = result.filter(g => filterRoles.includes(g.role));
-    if (filterCategoryIds.length > 0) {
-      result = result.filter(g => filterCategoryIds.some(cid => (g.categoryTotals[cid] || 0) > 0));
-    }
     return result;
-  }, [summaryRows, search, filterUnitIds, filterGsnIds, filterCategoryIds, filterSegmentIds, filterRoles, targets, newScope.visibleIds]);
+  }, [summaryRows, search, filterGsnIds, filterRoles, newScope.visibleIds]);
 
   const activeFilterCount = (filterUnitIds.length > 0 ? 1 : 0) + (filterGsnIds.length > 0 ? 1 : 0) + (filterCategoryIds.length > 0 ? 1 : 0) + (filterSegmentIds.length > 0 ? 1 : 0) + (filterRoles.length > 0 ? 1 : 0);
 

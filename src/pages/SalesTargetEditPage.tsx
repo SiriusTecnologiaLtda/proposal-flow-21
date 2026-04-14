@@ -415,35 +415,35 @@ export default function SalesTargetEditPage() {
       </Card>
 
       {/* ── Spreadsheet Grid ── */}
-      <Card className="border-border/50 shadow-sm overflow-hidden">
-        <CardContent className="p-0">
-          <div className="sticky top-0 z-30 flex items-center gap-2 px-5 py-3 border-b border-border/60 bg-muted/20 backdrop-blur-sm">
+      <Card className="border-border/50 shadow-sm overflow-hidden flex flex-col" style={{ height: "calc(100vh - 340px)", minHeight: "400px" }}>
+        <CardContent className="p-0 flex flex-col flex-1 min-h-0">
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-border/60 bg-muted/20 shrink-0">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
             <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-[41px] z-20">
+              <thead className="sticky top-0 z-20">
                 <tr className="bg-muted/80 backdrop-blur-sm">
                   <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[150px] border-b border-r border-border/60">
                     Categoria
                   </th>
-                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40">
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[120px] border-b border-r border-border/40 bg-muted">
                     Segmento
                   </th>
-                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/40">
+                  <th className="text-left px-2 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/40 bg-muted">
                     Nível
                   </th>
                   {MONTH_NAMES.map((m) => (
-                    <th key={m} className="text-center px-1 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/30">
+                    <th key={m} className="text-center px-1 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[80px] border-b border-r border-border/30 bg-muted">
                       {m}
                     </th>
                   ))}
                   <th className="text-center px-3 py-3 font-semibold text-muted-foreground text-[10px] uppercase tracking-wider min-w-[110px] bg-muted border-b border-l border-border/60">
                     Total
                   </th>
-                  <th className="w-[44px] border-b border-l border-border/30" />
+                  <th className="w-[44px] border-b border-l border-border/30 bg-muted" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -532,17 +532,17 @@ export default function SalesTargetEditPage() {
                   );
                 })}
               </tbody>
-              <tfoot>
-                <tr className="sticky bottom-0 z-20 bg-muted/80 backdrop-blur-sm border-t-2 border-border">
+              <tfoot className="sticky bottom-0 z-20">
+                <tr className="bg-muted/95 backdrop-blur-sm border-t-2 border-border">
                   <td className="sticky left-0 z-30 bg-muted px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground border-r border-border/60">
                     Total Geral
                   </td>
-                  <td className="border-r border-border/40" />
-                  <td className="border-r border-border/40" />
+                  <td className="bg-muted border-r border-border/40" />
+                  <td className="bg-muted border-r border-border/40" />
                   {Array.from({ length: 12 }, (_, i) => {
                     const colTotal = getColTotal(i + 1);
                     return (
-                      <td key={i} className="text-center px-1 py-3 text-xs font-bold tabular-nums text-foreground border-r border-border/20">
+                      <td key={i} className="text-center px-1 py-3 text-xs font-bold tabular-nums text-foreground border-r border-border/20 bg-muted">
                         {colTotal > 0 ? formatCompact(colTotal) : "—"}
                       </td>
                     );
@@ -552,13 +552,13 @@ export default function SalesTargetEditPage() {
                       {formatCurrency(getGridGrandTotal())}
                     </span>
                   </td>
-                  <td className="border-l border-border/30" />
+                  <td className="bg-muted border-l border-border/30" />
                 </tr>
               </tfoot>
             </table>
           </div>
           {/* Add row button */}
-          <div className="px-5 py-3 border-t border-border/40">
+          <div className="px-5 py-3 border-t border-border/40 shrink-0">
             <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground gap-1.5" onClick={addGridRow}>
               <Plus className="h-3.5 w-3.5" /> Adicionar Linha
             </Button>

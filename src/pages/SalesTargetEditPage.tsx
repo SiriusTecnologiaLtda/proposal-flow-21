@@ -447,7 +447,15 @@ export default function SalesTargetEditPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {gridRows.map((gr) => {
+                {[...gridRows].sort((a, b) => {
+                  const catA = sortedCategories.find((c: any) => c.id === a.catId)?.name || "";
+                  const catB = sortedCategories.find((c: any) => c.id === b.catId)?.name || "";
+                  const cmp = catA.localeCompare(catB);
+                  if (cmp !== 0) return cmp;
+                  const segA = segMap.get(a.segId) || "";
+                  const segB = segMap.get(b.segId) || "";
+                  return segA.localeCompare(segB);
+                }).map((gr) => {
                   const rowTotal = getRowTotal(gr);
                   return (
                     <tr key={gr.key} className="group hover:bg-accent/30 transition-colors">

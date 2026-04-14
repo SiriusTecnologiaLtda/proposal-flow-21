@@ -446,7 +446,8 @@ export default function SalesTargetsPage() {
                 <tfoot>
                   <tr className="sticky bottom-0 z-20 bg-muted backdrop-blur-sm border-t-2 border-border">
                     {isAdmin && <td className="sticky left-0 z-30 bg-muted border-r border-border/60" />}
-                    <td className={cn("sticky z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                    <td className={cn("sticky z-30 bg-muted px-4 py-3 border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")} />
+                    <td className={cn("sticky z-30 bg-muted px-4 py-3 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-r border-border/60", isAdmin ? "left-[200px]" : "left-[160px]")}>
                       Total Geral
                     </td>
                     {sortedCategories.map((cat: any) => {

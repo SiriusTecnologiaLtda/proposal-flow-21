@@ -417,14 +417,14 @@ export default function SalesTargetEditPage() {
       {/* ── Spreadsheet Grid ── */}
       <Card className="border-border/50 shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-border/60 bg-muted/20">
+          <div className="sticky top-0 z-30 flex items-center gap-2 px-5 py-3 border-b border-border/60 bg-muted/20 backdrop-blur-sm">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Grade de Lançamento</span>
             <span className="text-[10px] text-muted-foreground ml-auto">Valores em R$</span>
           </div>
-          <div className="overflow-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 z-20">
+              <thead className="sticky top-[41px] z-20">
                 <tr className="bg-muted/80 backdrop-blur-sm">
                   <th className="sticky left-0 z-30 bg-muted text-left px-3 py-3 font-medium text-muted-foreground text-[10px] uppercase tracking-wider min-w-[150px] border-b border-r border-border/60">
                     Categoria

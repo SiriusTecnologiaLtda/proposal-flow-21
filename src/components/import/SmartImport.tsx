@@ -1956,8 +1956,9 @@ export default function SmartImport() {
         `L${e.line} ${e.owner}${e.month ? ` mês ${e.month}` : ""}: ${e.message}`
       );
       await supabase.from("import_logs").update({
-        status: finalStatus, total_rows: totalWork, imported, updated, errors, skipped,
+        status: finalStatus, total_rows: dataRows.length, imported, updated, errors, skipped,
         finished_at: new Date().toISOString(), duration_ms: dur,
+        cleared_before: clearExistingTargets,
         summary: `${dataRows.length} linhas → ${imported} inseridos, ${updated} atualizados, ${errors} erros, ${skipped} ignorados`,
         error_details: truncatedErrors,
       } as any).eq("id", dbLogId);

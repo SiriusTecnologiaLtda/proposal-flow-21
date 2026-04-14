@@ -73,9 +73,9 @@ curl -s -X POST "<SUPABASE_URL>/functions/v1/extraction-worker" \
 Se os jobs estiverem inativos ou ausentes, recriar manualmente:
 
 ```sql
--- Remover agendamentos existentes (seguro)
-SELECT cron.unschedule('extraction-worker-poll');
-SELECT cron.unschedule('extraction-health-check');
+-- Remover agendamentos existentes (seguro, não falha se inexistente)
+DO $$ BEGIN PERFORM cron.unschedule('extraction-worker-poll'); EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'extraction-worker-poll não encontrado, ignorando'; END; $$;
+DO $$ BEGIN PERFORM cron.unschedule('extraction-health-check'); EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'extraction-health-check não encontrado, ignorando'; END; $$;
 
 -- Recriar com secret real (substituir placeholders)
 SELECT cron.schedule(
@@ -104,6 +104,8 @@ SELECT cron.schedule(
 ```
 
 **⚠️ Este SQL deve ser executado apenas no ambiente, nunca commitado no repositório.**
+
+**⚠️ Após executar, limpe imediatamente o histórico da query tool / SQL Editor para não reter o secret em texto puro.**
 
 ---
 

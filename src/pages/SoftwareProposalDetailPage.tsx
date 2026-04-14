@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { startExtraction, subscribeExtracting } from "@/lib/backgroundExtraction";
+import { useExtractionJobs } from "@/hooks/useExtractionJobs";
 import {
   ArrowLeft, Save, CheckCircle2, Plus, Trash2, AlertTriangle,
   FileText, Download, Loader2, Eye, EyeOff, Pencil, RotateCcw, Sparkles,

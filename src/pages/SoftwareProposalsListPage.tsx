@@ -5,7 +5,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { startExtraction, startBulkExtraction, subscribeExtracting } from "@/lib/backgroundExtraction";
+import { useExtractionJobs } from "@/hooks/useExtractionJobs";
 import { startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useSalesTeam } from "@/hooks/useSupabaseData";

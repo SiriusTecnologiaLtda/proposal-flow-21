@@ -61,11 +61,13 @@ serve(async (req) => {
     const providedSecret = req.headers.get("X-Worker-Secret");
     const authHeader = req.headers.get("Authorization");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-    // Accept either X-Worker-Secret header OR service role key in Authorization
+    // Accept: X-Worker-Secret, service role key, or anon key (for pg_cron via pg_net)
     const isAuthorized =
       (workerSecret && providedSecret === workerSecret) ||
-      (authHeader === `Bearer ${serviceRoleKey}`);
+      (authHeader === `Bearer ${serviceRoleKey}`) ||
+      (anonKey && authHeader === `Bearer ${anonKey}`);
 
     if (!isAuthorized) {
       console.error("Worker: unauthorized invocation");

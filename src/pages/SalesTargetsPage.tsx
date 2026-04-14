@@ -375,7 +375,10 @@ export default function SalesTargetsPage() {
                         <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Selecionar todos" className="mx-auto block" />
                       </th>
                     )}
-                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[160px] border-b border-r border-border/60", isAdmin ? "left-[40px]" : "left-0")}>
+                      Unidade
+                    </th>
+                    <th className={cn("sticky z-30 bg-muted backdrop-blur-sm text-left px-4 py-3 font-medium text-muted-foreground text-[11px] uppercase tracking-wider min-w-[240px] border-b border-r border-border/60", isAdmin ? "left-[200px]" : "left-[160px]")}>
                       Time de Vendas
                     </th>
                     {sortedCategories.map((cat: any) => (

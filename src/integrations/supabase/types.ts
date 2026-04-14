@@ -658,6 +658,92 @@ export type Database = {
           },
         ]
       }
+      extraction_jobs: {
+        Row: {
+          attempt: number
+          available_at: string
+          batch_id: string | null
+          cancel_reason: string | null
+          cancel_requested_at: string | null
+          created_at: string
+          deadline_at: string
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          first_attempt_at: string | null
+          heartbeat_at: string | null
+          id: string
+          issues_created: number | null
+          items_extracted: number | null
+          max_attempts: number
+          priority: number
+          proposal_id: string
+          requested_by: string
+          retryable: boolean | null
+          source: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt?: number
+          available_at?: string
+          batch_id?: string | null
+          cancel_reason?: string | null
+          cancel_requested_at?: string | null
+          created_at?: string
+          deadline_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          first_attempt_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          issues_created?: number | null
+          items_extracted?: number | null
+          max_attempts?: number
+          priority?: number
+          proposal_id: string
+          requested_by: string
+          retryable?: boolean | null
+          source?: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempt?: number
+          available_at?: string
+          batch_id?: string | null
+          cancel_reason?: string | null
+          cancel_requested_at?: string | null
+          created_at?: string
+          deadline_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          first_attempt_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          issues_created?: number | null
+          items_extracted?: number | null
+          max_attempts?: number
+          priority?: number
+          proposal_id?: string
+          requested_by?: string
+          retryable?: boolean | null
+          source?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_jobs_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "software_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extraction_rule_applications: {
         Row: {
           applied_value: string
@@ -3508,6 +3594,12 @@ export type Database = {
       can_view_proposal_v2: {
         Args: { _proposal_id: string; _user_id: string }
         Returns: boolean
+      }
+      claim_extraction_jobs: {
+        Args: { max_jobs?: number }
+        Returns: {
+          id: string
+        }[]
       }
       get_member_units_v2: { Args: { _member_id: string }; Returns: string[] }
       get_profile_display_names: {
